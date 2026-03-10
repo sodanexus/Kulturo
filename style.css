@@ -2060,3 +2060,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   padding: 1.25rem;
   margin-bottom: .5rem;
 }
+
+/* ── Rating tooltip label ────────────────────────────────────── */
+.rating-tooltip-label {
+  font-size: .78rem;
+  font-weight: 400;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .15s;
+  font-style: italic;
+}
