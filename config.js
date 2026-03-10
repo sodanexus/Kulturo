@@ -29,6 +29,11 @@ const CONFIG = {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
 
+  groq: {
+  apiKey: "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",
+  model:  "llama3-8b-8192",
+},
+
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
@@ -38,4 +43,5 @@ const CONFIG = {
     demoMode: false, // true = données de démo si Supabase non configuré
   },
 };
-console.log("demoMode =", CONFIG.app.demoMode)
+
+
