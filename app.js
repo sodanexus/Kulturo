@@ -40,7 +40,12 @@ const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
 const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
 // ── Init ──────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", async () => {
+async function init() {
+  if (typeof CONFIG === "undefined") {
+    console.error("CONFIG non défini — vérifiez que config.js est chargé.");
+    document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem"><b>Erreur : config.js introuvable</b><p style="font-size:.85rem;color:#a0a0b0">Vérifiez que config.js est présent dans votre dépôt GitHub.</p></div>';
+    return;
+  }
   initSupabase();
   applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
@@ -59,7 +64,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   bindGlobalEvents();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 // ── Thème ─────────────────────────────────────────────────────
 function applyTheme(t) {
