@@ -17,11 +17,11 @@ const CONFIG = {
     imageBase: "https://image.tmdb.org/t/p/w500",
   },
 
-  // ── RAWG (jeux vidéo) — https://rawg.io/apidocs
-  rawg: {
-    apiKey: "e7838c22d97941a98ccc986a0f3fdd46",
-    baseUrl: "https://api.rawg.io/api",
-  },
+// ── IGDB/Twitch (jeux vidéo) — https://dev.twitch.tv/console
+igdb: {
+  clientId:     "kg3t3t0fm5ufgc8pe4op8q38zewxlw",
+  clientSecret: "zdh8tg73y428kydfkfmz4ijxqvzm2j",
+},
 
   // ── Open Library (livres) — pas de clé requise
   openLibrary: {
