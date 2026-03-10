@@ -1331,8 +1331,11 @@ async function openDetailPanel(id) {
             infoEl.insertBefore(div, notesEl || null);
           }
         }
-        // Sauvegarde en local pour ne pas refaire l'appel
+        // Sauvegarde en base et en local
         e.description = match.description;
+        if (!State.demoMode) {
+          Media.update(e.id, { description: match.description }).catch(() => {});
+        }
       }
     } catch {}
   }
