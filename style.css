@@ -773,3 +773,97 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   #cards-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: .75rem; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Toggle switch ────────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: .5rem 0;
+}
+.toggle-label {
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-track {
+  width: 40px;
+  height: 22px;
+  background: var(--bg-4);
+  border: 1px solid var(--border-2);
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  transition: background var(--transition), border-color var(--transition);
+  cursor: pointer;
+}
+.toggle-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--text-3);
+  border-radius: 50%;
+  transition: transform var(--transition), background var(--transition);
+}
+.toggle-switch input:checked ~ .toggle-track {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+.toggle-switch input:checked ~ .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+/* ── Details / advanced section ──────────────────────────── */
+.advanced-details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.advanced-summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem .9rem;
+  cursor: pointer;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+  user-select: none;
+  list-style: none;
+  transition: background var(--transition);
+}
+.advanced-summary::-webkit-details-marker { display: none; }
+.advanced-summary::before {
+  content: "›";
+  font-size: 1rem;
+  color: var(--text-3);
+  transition: transform var(--transition);
+  display: inline-block;
+}
+details[open] .advanced-summary::before { transform: rotate(90deg); }
+.advanced-summary:hover { background: var(--bg-3); }
+.advanced-hint {
+  font-weight: 400;
+  color: var(--text-3);
+  font-size: .75rem;
+}
+.advanced-body {
+  padding: .75rem .9rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
