@@ -1269,6 +1269,8 @@ window.UI = {
   navTo,
   setStatusChip,
   setSort,
+  setProfileYear,
+  toggleView,
   setDiscoverType,
   refreshDiscover: () => { DiscoverState.results = []; renderDiscover(); },
   ignoreDiscover,
