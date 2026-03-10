@@ -2,10 +2,6 @@
 
 > Journal culturel personnel — suivez vos jeux, films et livres.
 
-# Kulturo
-
-Journal culturel personnel — suivez vos jeux, films et livres en un seul endroit.
-
 ## Stack
 
 - **Frontend** — HTML / CSS / JavaScript vanilla (SPA)
