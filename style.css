@@ -110,10 +110,11 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 /* ── Topbar ───────────────────────────────────────────────── */
 #topbar {
   grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
   align-items: center;
   gap: 1rem;
-  padding: .75rem 1.5rem;
+  padding: .75rem 1.5rem .75rem 0;
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -127,10 +128,13 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   color: var(--accent);
   letter-spacing: -.02em;
   white-space: nowrap;
+  padding-left: 1.5rem;
+  width: 220px;
+  box-sizing: border-box;
 }
 .topbar-search-wrap {
   flex: 1;
-  max-width: 420px;
+  max-width: 480px;
   position: relative;
 }
 .topbar-search-wrap input {
@@ -147,10 +151,10 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   pointer-events: none;
 }
 .topbar-right {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: .5rem;
+  padding-right: 1.5rem;
 }
 .btn-icon {
   width: 36px;
