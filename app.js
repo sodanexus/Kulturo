@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, isConfigured, Auth, Media, computeStats } from "./supabase.js";
+import { initSupabase, isConfigured, Auth, Media, computeStats, getClient } from "./supabase.js";
 import { searchMedia, apiAvailability }                            from "./api.js";
 
 // ── État global ──────────────────────────────────────────────
@@ -48,6 +48,8 @@ async function init() {
   }
   try {
     initSupabase();
+    // Expose le client Supabase pour les fonctions profile/activity
+    window._supabase = getClient?.() || null;
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
     if (!isConfigured() || CONFIG.app.demoMode) {
@@ -183,6 +185,10 @@ function renderApp() {
       <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
         ✦ Découverte
       </button>
+      <span class="nav-section-label">Compte</span>
+      <button class="nav-item" data-nav="profile" onclick="UI.navTo('profile')">
+        👤 Mon profil
+      </button>
     </nav>
 
     <!-- Main -->
@@ -238,6 +244,19 @@ function renderApp() {
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
         <div id="discover-grid" class="discover-grid"></div>
       </section>
+
+      <!-- Page Profil utilisateur -->
+      <section id="page-profile" class="page">
+        <div class="page-header"><h2>Mon profil</h2></div>
+        <div id="profile-content"></div>
+      </section>
+
+      <!-- Page Activité partagée -->
+      <section id="page-activity" class="page">
+        <div class="page-header"><h2>🎭 Activité</h2></div>
+        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Ce que tout le monde a ajouté ou terminé récemment.</p>
+        <div id="activity-feed"></div>
+      </section>
     </main>
 
     <!-- Toast container -->
@@ -257,11 +276,11 @@ function renderApp() {
       <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" title="Ajouter">
         ${iconPlus()}
       </button>
-      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" title="Profil">
-        ${iconChart()}
+      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" title="Activité">
+        ${iconActivity()}
       </button>
-      <button class="bottom-nav-item" data-nav="discover" onclick="UI.navTo('discover')" title="Découverte">
-        ${iconCompass()}
+      <button class="bottom-nav-item" data-nav="profile" onclick="UI.navTo('profile')" title="Profil">
+        ${iconUser()}
       </button>
     </nav>
   `;
@@ -359,13 +378,17 @@ function navTo(key) {
     State.filters.favorite = true;
     showPage("library");
     renderCards();
+  } else if (key === "activity") {
+    showPage("activity");
+  } else if (key === "profile") {
+    showPage("profile");
   } else {
     showPage("library");
     renderCards();
   }
 }
 
-const PAGE_ORDER = ["library","dashboard","discover"];
+const PAGE_ORDER = ["library","dashboard","discover","activity","profile"];
 let _currentPage = "library";
 function showPage(name) {
   const oldPage = document.getElementById(`page-${_currentPage}`);
@@ -391,6 +414,8 @@ function showPage(name) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "discover")  renderDiscover();
+  if (name === "activity")  renderActivity();
+  if (name === "profile")   renderProfilePage();
 }
 
 // ── Filter bar ────────────────────────────────────────────────
@@ -1624,6 +1649,182 @@ function toggleView() {
   localStorage.setItem("kulturo-view", isList ? "list" : "grid");
 }
 
+const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+// ── Profil utilisateur ────────────────────────────────────────
+async function renderProfilePage() {
+  const container = document.getElementById("profile-content");
+  if (!container) return;
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:3rem"><div class="spinner"></div></div>`;
+
+  let username = "";
+  if (!State.demoMode) {
+    try {
+      const { data } = await window._supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", State.user.id)
+        .single();
+      username = data?.username || "";
+    } catch {}
+  }
+
+  const myEntries = State.entries;
+  const finished  = myEntries.filter(e => e.status === "finished").length;
+  const favs      = myEntries.filter(e => e.is_favorite).length;
+
+  container.innerHTML = `
+    <div class="profile-section">
+      <h3 class="profile-section-title">👤 Mon identité</h3>
+      <div class="profile-username-card">
+        <div class="form-group" style="max-width:320px">
+          <label>Pseudonyme affiché dans le fil d'activité</label>
+          <div style="display:flex;gap:.5rem">
+            <input type="text" id="input-username" value="${esc(username)}" placeholder="Ton pseudo…" maxlength="30" />
+            <button class="btn btn-primary" onclick="UI.saveUsername()">Enregistrer</button>
+          </div>
+          <p style="font-size:.75rem;color:var(--text-3);margin-top:.4rem">Visible par les autres utilisateurs dans le fil d'activité.</p>
+        </div>
+      </div>
+    </div>
+    <div class="profile-section">
+      <h3 class="profile-section-title">📊 Mes stats rapides</h3>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-value">${myEntries.length}</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-value">${finished}</div><div class="stat-label">Terminés</div></div>
+        <div class="stat-card"><div class="stat-value">${favs}</div><div class="stat-label">Coups de cœur</div></div>
+      </div>
+    </div>
+    ${!State.demoMode ? `
+    <div class="profile-section">
+      <h3 class="profile-section-title">⚙️ Compte</h3>
+      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:.75rem">Connecté en tant que <strong>${esc(State.user?.email||"")}</strong></p>
+      <button class="btn btn-danger btn-sm" onclick="UI.signOut()">Se déconnecter</button>
+    </div>` : ""}`;
+}
+
+async function saveUsername() {
+  const val = document.getElementById("input-username")?.value?.trim();
+  if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
+  if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
+  try {
+    await window._supabase.from("profiles").upsert({ id: State.user.id, username: val });
+    State.username = val;
+    toast("Pseudo enregistré ✓", "success");
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+// ── Fil d'activité partagé ────────────────────────────────────
+async function renderActivity() {
+  const container = document.getElementById("activity-feed");
+  if (!container) return;
+
+  if (State.demoMode) {
+    container.innerHTML = renderActivityFeed(
+      DEMO_DATA.map(e => ({ ...e, username: "DémoUser" }))
+    );
+    return;
+  }
+
+  container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
+
+  try {
+    // Récupère toutes les entrées (RLS maintenant SELECT ALL)
+    const { data: allEntries, error } = await window._supabase
+      .from("media_entries")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    // Récupère tous les profils pour avoir les usernames
+    const { data: profiles } = await window._supabase
+      .from("profiles")
+      .select("id, username");
+
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.id] = p.username; });
+
+    const enriched = (allEntries || []).map(e => ({
+      ...e,
+      username: profileMap[e.user_id] || "Utilisateur",
+      isMe: e.user_id === State.user?.id,
+    }));
+
+    container.innerHTML = renderActivityFeed(enriched);
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur de chargement</h3><p>${esc(e.message)}</p></div>`;
+  }
+}
+
+function renderActivityFeed(entries) {
+  if (!entries.length) {
+    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>Ajoutez des médias pour voir l'activité ici.</p></div>`;
+  }
+
+  // Groupe par date
+  const groups = {};
+  entries.forEach(e => {
+    const d = new Date(e.created_at);
+    const today    = new Date();
+    const yesterday= new Date(); yesterday.setDate(today.getDate() - 1);
+    let label;
+    if (d.toDateString() === today.toDateString())     label = "Aujourd'hui";
+    else if (d.toDateString() === yesterday.toDateString()) label = "Hier";
+    else label = d.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(e);
+  });
+
+  return Object.entries(groups).map(([date, items]) => `
+    <div class="activity-date-group">
+      <div class="activity-date-label">${date}</div>
+      ${items.map(e => activityRowHTML(e)).join("")}
+    </div>
+  `).join("");
+}
+
+function activityRowHTML(e) {
+  const icon   = TYPE_ICONS[e.media_type] || "🎭";
+  const type   = { game:"Jeu", movie:"Film", book:"Livre" }[e.media_type] || e.media_type;
+  const status = { wishlist:"a ajouté en wishlist", playing:"a commencé", finished:"a terminé", paused:"a mis en pause", dropped:"a abandonné" }[e.status] || "a ajouté";
+
+  const starsCount = e.rating ? Math.round(e.rating / 2) : 0;
+  const starsHTML  = e.rating
+    ? `<span class="activity-stars">${"★".repeat(starsCount)}${"☆".repeat(5 - starsCount)} <span class="activity-rating">${e.rating}/10</span></span>`
+    : "";
+
+  const coverHTML = e.cover_url
+    ? `<img src="${esc(e.cover_url)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
+
+  const meLabel = e.isMe ? `<span class="activity-me-badge">moi</span>` : "";
+
+  return `
+    <div class="activity-row">
+      ${coverHTML}
+      <div class="activity-info">
+        <div class="activity-line">
+          <span class="activity-username">${esc(e.username)}${meLabel}</span>
+          <span class="activity-verb">${status}</span>
+        </div>
+        <div class="activity-title">${icon} ${esc(e.title)}</div>
+        <div class="activity-meta">
+          <span class="badge badge-${e.media_type}" style="font-size:.7rem">${type}</span>
+          ${starsHTML}
+          ${e.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
+        </div>
+      </div>
+      <div class="activity-time">${new Date(e.created_at).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })}</div>
+    </div>`;
+}
+
+
+
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   quickAdd,
@@ -1648,6 +1849,7 @@ window.UI = {
   clearDiscoverMemory,
   addToWishlist,
   toggleTheme,
+  saveUsername,
   onTypeChange:    () => { const t = document.getElementById("f-type")?.value; updateApiAvailLabel(t); },
   switchAuthTab:   (tab) => {
     document.querySelectorAll(".auth-tab").forEach(b => b.classList.toggle("active", b.id === `tab-${tab}`));
