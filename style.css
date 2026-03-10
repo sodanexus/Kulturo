@@ -1846,3 +1846,62 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   from { opacity: .6; transform: translateX(-20px); }
   to   { opacity: 1;  transform: translateX(0); }
 }
+
+/* ── Bottom nav plus grande ───────────────────────────────── */
+@media (max-width: 680px) {
+  #bottom-nav {
+    height: 68px;
+  }
+  .bottom-nav-item {
+    height: 52px;
+  }
+  .bottom-nav-item svg {
+    width: 26px;
+    height: 26px;
+  }
+  .bottom-nav-add {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+  }
+  .bottom-nav-add svg {
+    width: 22px;
+    height: 22px;
+  }
+  #app { padding-bottom: 68px; }
+  #toast-container { bottom: 80px !important; }
+
+  /* Onglets catégories fixes sous le titre */
+  .swipe-indicator { display: none; }
+  .category-tabs {
+    display: flex;
+    gap: .4rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .category-tabs::-webkit-scrollbar { display: none; }
+  .category-tab {
+    flex-shrink: 0;
+    padding: .4rem .85rem;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text-2);
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s var(--ease-spring);
+  }
+  .category-tab.active {
+    background: var(--accent);
+    color: #0d0d0f;
+    border-color: var(--accent);
+  }
+  .category-tab:active { transform: scale(.93); }
+}
+
+@media (min-width: 681px) {
+  .category-tabs { display: none; }
+}
