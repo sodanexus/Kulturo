@@ -35,6 +35,6 @@ const CONFIG = {
     version: "1.0.0",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
-    demoMode: true, // true = données de démo si Supabase non configuré
+    demoMode: false, // true = données de démo si Supabase non configuré
   },
 };
