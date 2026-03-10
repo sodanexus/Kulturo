@@ -44,44 +44,28 @@ export const TMDb = {
   },
 };
 
-// ── Jeux — IGDB (via Twitch) ─────────────────────────────────
-// IGDB nécessite un token OAuth Twitch. On le récupère côté client
-// via le endpoint proxy Twitch (client_credentials).
-// Le token est mis en cache le temps de sa validité (~60 jours).
-let _igdbToken = null;
-let _igdbTokenExpiry = 0;
-
-async function getIGDBToken() {
-  if (_igdbToken && Date.now() < _igdbTokenExpiry) return _igdbToken;
-  const res = await fetch(
-    `https://id.twitch.tv/oauth2/token?client_id=${CONFIG.igdb.clientId}&client_secret=${CONFIG.igdb.clientSecret}&grant_type=client_credentials`,
-    { method: "POST" }
-  );
-  if (!res.ok) throw new Error("IGDB token failed");
-  const data = await res.json();
-  _igdbToken = data.access_token;
-  _igdbTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-  return _igdbToken;
-}
-
+// ── Jeux — IGDB (via Supabase Edge Function proxy) ───────────
+// L'API IGDB bloque les appels directs navigateur (CORS).
+// On passe par une Edge Function Supabase qui fait le proxy.
 export const IGDB = {
   available() {
-    return CONFIG?.igdb?.clientId && !CONFIG.igdb.clientId.includes("VOTRE_");
+    return CONFIG?.supabase?.url && CONFIG?.igdb?.clientId && !CONFIG.igdb.clientId.includes("VOTRE_");
   },
 
   async search(query) {
     if (!this.available()) return [];
-    const token = await getIGDBToken();
-    const body = `search "${query}"; fields name,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,platforms.name; limit 6;`;
-    const data = await apiFetch("https://api.igdb.com/v4/games", {
+    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
+    const res = await fetch(proxyUrl, {
       method: "POST",
       headers: {
-        "Client-ID": CONFIG.igdb.clientId,
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "text/plain",
+        "Content-Type":  "application/json",
+        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
       },
-      body,
+      body: JSON.stringify({ query }),
     });
+    if (!res.ok) throw new Error(`IGDB proxy HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
     return (data || []).map(g => ({
       external_id:  String(g.id),
       title:        g.name,
