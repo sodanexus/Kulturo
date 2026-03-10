@@ -207,7 +207,8 @@ function renderApp() {
 // ── Chargement depuis Supabase ───────────────────────────────
 async function loadEntries() {
   try {
-    State.entries = await Media.getAll(State.filters);
+    // Charge tout, le filtrage se fait localement dans filterEntries()
+    State.entries = await Media.getAll({});
     renderCards();
     updateBadges();
   } catch (e) {
