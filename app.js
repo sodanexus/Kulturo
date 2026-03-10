@@ -176,6 +176,9 @@ function renderApp() {
       <button class="nav-item" data-filter-fav onclick="UI.setFavFilter()">
         ♥ Coups de cœur <span class="nav-badge" id="badge-fav">—</span>
       </button>
+      <button class="nav-item" data-page="discover" onclick="showPage('discover')">
+        ✦ Découverte
+      </button>
     </nav>
 
     <!-- Main -->
@@ -204,6 +207,22 @@ function renderApp() {
         <div class="page-header"><h2>Statistiques</h2></div>
         <div id="dashboard-content"></div>
       </section>
+
+      <!-- Page Découverte -->
+      <section id="page-discover" class="page">
+        <div class="page-header">
+          <h2>Découverte</h2>
+          <div class="page-actions">
+            <button class="btn btn-secondary" id="discover-filter-all"   onclick="UI.setDiscoverType('all')"  >Tout</button>
+            <button class="btn btn-secondary" id="discover-filter-game"  onclick="UI.setDiscoverType('game')" >🎮 Jeux</button>
+            <button class="btn btn-secondary" id="discover-filter-movie" onclick="UI.setDiscoverType('movie')">🎬 Films</button>
+            <button class="btn btn-secondary" id="discover-filter-book"  onclick="UI.setDiscoverType('book')" >📚 Livres</button>
+            <button class="btn btn-primary"   onclick="UI.refreshDiscover()">↻ Actualiser</button>
+          </div>
+        </div>
+        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
+        <div id="discover-grid" class="discover-grid"></div>
+      </section>
     </main>
 
     <!-- Toast container -->
@@ -222,6 +241,7 @@ function renderApp() {
 // ── Chargement depuis Supabase ───────────────────────────────
 async function loadEntries() {
   try {
+    // Charge tout, le filtrage se fait localement dans filterEntries()
     State.entries = await Media.getAll({});
     renderCards();
     updateBadges();
@@ -239,6 +259,7 @@ function showPage(name) {
   const navBtn = document.querySelector(`.nav-item[data-page="${name}"]`);
   if (navBtn) navBtn.classList.add("active");
   if (name === "dashboard") renderDashboard();
+  if (name === "discover")  renderDiscover();
 }
 
 // ── Filter bar ────────────────────────────────────────────────
@@ -703,6 +724,219 @@ const iconSun     = () => `<svg width="16" height="16" fill="none" stroke="curre
 const iconMoon    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
 
+
+// ── Découverte ────────────────────────────────────────────────
+const DiscoverState = { type: "all", results: [], loading: false };
+
+// Demande à Groq de suggérer des titres précis basés sur la bibliothèque
+async function getGroqSuggestions(liked, types, existingTitles) {
+  if (!CONFIG?.groq?.apiKey || CONFIG.groq.apiKey.includes("VOTRE_")) return null;
+
+  const summary = liked.slice(0, 20).map(e =>
+    `- ${e.title} (${e.media_type}${e.genre ? ", " + e.genre : ""}${e.rating ? ", note " + e.rating + "/10" : ""}${e.is_favorite ? ", coup de cœur" : ""})`
+  ).join("\n");
+
+  const typeFilter = types.length === 3
+    ? "jeux vidéo, films/séries ET livres"
+    : types.map(t => ({ game:"jeux vidéo", movie:"films/séries", book:"livres" }[t])).join(" et ");
+
+  const prompt = `Tu es un expert en recommandations culturelles. Voici la bibliothèque d'un utilisateur (ses coups de cœur et meilleures notes) :
+
+${summary}
+
+Suggère exactement 12 titres de ${typeFilter} que cet utilisateur devrait découvrir, qu'il n'a pas encore dans sa liste.
+Ces titres doivent correspondre précisément à ses goûts.
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte autour, sans markdown, sans backticks :
+{"suggestions":[{"title":"...","type":"game|movie|book","reason":"..."}]}
+
+Types valides : "game", "movie", "book". Maximum 12 suggestions.`;
+
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.groq.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: CONFIG.groq.model || "llama3-8b-8192",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return parsed.suggestions || null;
+  } catch (err) {
+    console.warn("[Groq] Erreur suggestions :", err);
+    return null;
+  }
+}
+
+async function renderDiscover() {
+  const grid = document.getElementById("discover-grid");
+  if (!grid) return;
+  if (DiscoverState.loading) return;
+  DiscoverState.loading = true;
+
+  grid.innerHTML = `<div class="discover-loading"><div class="spinner"></div><span>Analyse de vos goûts avec l'IA…</span></div>`;
+
+  const liked = State.entries.filter(e => e.is_favorite || (e.rating && e.rating >= 7));
+  if (!liked.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><h3>Pas encore assez de données</h3><p>Notez des médias (7+) ou marquez des coups de cœur pour recevoir des recommandations.</p></div>`;
+    DiscoverState.loading = false;
+    return;
+  }
+
+  const existingTitles = new Set(State.entries.map(e => e.title.toLowerCase()));
+  const types = DiscoverState.type === "all" ? ["game","movie","book"] : [DiscoverState.type];
+
+  // Étape 1 : Groq suggère des titres précis
+  const suggestions = await getGroqSuggestions(liked, types, existingTitles);
+
+  let allResults = [];
+
+  if (suggestions && suggestions.length) {
+    // Étape 2 : Pour chaque suggestion, on cherche la fiche via l'API
+    grid.innerHTML = `<div class="discover-loading"><div class="spinner"></div><span>Récupération des fiches (${suggestions.length} titres)…</span></div>`;
+
+    await Promise.allSettled(suggestions.map(async (s) => {
+      const type = types.includes(s.type) ? s.type : types[0];
+      if (existingTitles.has(s.title.toLowerCase())) return;
+      try {
+        const items = await searchMedia(s.title, type);
+        if (items.length) {
+          // Prend le premier résultat, le plus pertinent
+          allResults.push({ ...items[0], media_type: type, groq_reason: s.reason });
+        } else {
+          // Aucune fiche API trouvée — on crée une entrée minimale
+          allResults.push({
+            title: s.title, media_type: type, cover_url: null,
+            description: s.reason, source_api: "manual", groq_reason: s.reason,
+          });
+        }
+      } catch {}
+    }));
+  } else {
+    // Fallback : recherche par genres/auteurs si Groq indisponible
+    const genreCount = {};
+    liked.forEach(e => {
+      if (e.genre) e.genre.split(/[,/]/).forEach(g => {
+        const k = g.trim(); if (k) genreCount[k] = (genreCount[k] || 0) + 1;
+      });
+    });
+    const topGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+    const topTitles = liked.slice(0,3).map(e => e.title);
+    const terms = [...topTitles, ...topGenres].slice(0,4);
+
+    await Promise.allSettled(types.flatMap(type =>
+      terms.slice(0,2).map(async term => {
+        try {
+          const items = await searchMedia(term, type);
+          items.forEach(it => {
+            if (!existingTitles.has(it.title.toLowerCase()))
+              allResults.push({ ...it, media_type: type });
+          });
+        } catch {}
+      })
+    ));
+  }
+
+  // Dédupliquer
+  const seen = new Set();
+  const unique = allResults.filter(it => {
+    const k = it.title.toLowerCase();
+    if (seen.has(k) || existingTitles.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  DiscoverState.results = unique;
+  DiscoverState.loading = false;
+
+  if (!unique.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><h3>Aucun résultat</h3><p>Vérifiez vos clés API dans config.js.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = unique.map((it, idx) => discoverCardHTML(it, idx)).join("");
+}
+
+function discoverCardHTML(it, idx) {
+  const typeLabel = { game:"Jeu", movie:"Film", book:"Livre" };
+  const typeIcon  = { game:"🎮", movie:"🎬", book:"📚" };
+  const cover = it.cover_url
+    ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="card-cover-placeholder">${typeIcon[it.media_type]||"🎭"}</div>`;
+  return `
+    <article class="media-card discover-card">
+      ${cover}
+      <div class="card-body">
+        <div class="card-title">${esc(it.title)}</div>
+        <div class="card-meta">
+          <span class="badge badge-${it.media_type}">${typeIcon[it.media_type]} ${typeLabel[it.media_type]}</span>
+          ${it.release_year ? `<span style="font-size:.72rem;color:var(--text-3)">${it.release_year}</span>` : ""}
+        </div>
+        ${it.author ? `<div style="font-size:.75rem;color:var(--text-3);margin-top:.2rem">${esc(it.author)}</div>` : ""}
+        ${it.groq_reason ? `<div class="discover-reason">✦ ${esc(it.groq_reason)}</div>` : it.description ? `<div style="font-size:.75rem;color:var(--text-2);margin-top:.35rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(it.description)}</div>` : ""}
+        <button class="btn btn-secondary btn-sm" style="margin-top:.75rem;width:100%" onclick="UI.addToWishlist(${idx})">
+          + Wishlist
+        </button>
+      </div>
+    </article>`;
+}
+
+async function addToWishlist(idx) {
+  const it = DiscoverState.results[idx];
+  if (!it) return;
+  const payload = {
+    title:       it.title,
+    media_type:  it.media_type,
+    status:      "wishlist",
+    cover_url:   it.cover_url || null,
+    genre:       it.genre     || null,
+    author:      it.author    || null,
+    external_id: it.external_id || null,
+    source_api:  it.source_api  || "manual",
+    is_favorite: false,
+    rating:      null,
+    notes:       null,
+    platform:    it.platform  || null,
+  };
+  try {
+    if (State.demoMode) {
+      State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
+    } else {
+      const created = await Media.create(payload);
+      State.entries.unshift(created);
+    }
+    updateBadges();
+    // Retire la carte du résultat
+    DiscoverState.results.splice(idx, 1);
+    const grid = document.getElementById("discover-grid");
+    if (grid) grid.innerHTML = DiscoverState.results.map((r,i) => discoverCardHTML(r,i)).join("");
+    toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+function setDiscoverType(type) {
+  DiscoverState.type = type;
+  // Highlight boutons
+  ["all","game","movie","book"].forEach(t => {
+    const btn = document.getElementById(`discover-filter-${t}`);
+    if (btn) btn.classList.toggle("btn-primary", t === type);
+    if (btn) btn.classList.toggle("btn-secondary", t !== type);
+  });
+  renderDiscover();
+}
+
 // ── Interface publique (appelée depuis le HTML inline) ────────
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
@@ -718,6 +952,9 @@ window.UI = {
   setStatusFilter,
   setFavFilter,
   setSort,
+  setDiscoverType,
+  refreshDiscover: () => { DiscoverState.results = []; renderDiscover(); },
+  addToWishlist,
   toggleTheme,
   onTypeChange:    () => { const t = document.getElementById("f-type")?.value; updateApiAvailLabel(t); },
   switchAuthTab:   (tab) => {
