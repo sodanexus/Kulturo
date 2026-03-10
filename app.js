@@ -1245,6 +1245,16 @@ function clearDiscoverMemory() {
 }
 
 // ── Interface publique (appelée depuis le HTML inline) ────────
+// ── Vue grille / liste ────────────────────────────────────────
+function toggleView() {
+  const grid = document.getElementById("cards-grid");
+  const btn  = document.getElementById("btn-view-toggle");
+  if (!grid) return;
+  const isList = grid.classList.toggle("list-view");
+  if (btn) btn.textContent = isList ? "⊟" : "⊞";
+  localStorage.setItem("kulturo-view", isList ? "list" : "grid");
+}
+
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   openEditModal:   (id) => { openDetailPanel(id); },
