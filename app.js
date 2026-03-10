@@ -621,8 +621,8 @@ async function saveEntry() {
       }
     }
     closeModal();
-    renderCards();
-    updateBadges();
+    if (!State.demoMode) await loadEntries();
+    else { renderCards(); updateBadges(); }
     toast(State.editingId ? "Mis à jour ✓" : "Ajouté ✓", "success");
   } catch (e) {
     toast("Erreur : " + e.message, "error");
@@ -635,8 +635,8 @@ async function deleteEntry(id) {
     if (!State.demoMode) await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     closeModal();
-    renderCards();
-    updateBadges();
+    if (!State.demoMode) await loadEntries();
+    else { renderCards(); updateBadges(); }
     toast("Supprimé", "info");
   } catch (e) {
     toast("Erreur : " + e.message, "error");
@@ -650,8 +650,8 @@ async function toggleFav(id) {
   try {
     if (!State.demoMode) await Media.toggleFavorite(id, entry.is_favorite);
     entry.is_favorite = next;
-    renderCards();
-    updateBadges();
+    if (!State.demoMode) await loadEntries();
+    else { renderCards(); updateBadges(); }
   } catch (e) {
     toast("Erreur : " + e.message, "error");
   }
