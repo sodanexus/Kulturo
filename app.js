@@ -41,6 +41,7 @@ const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Termin
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
+  try {
   if (typeof CONFIG === "undefined") {
     console.error("CONFIG non défini — vérifiez que config.js est chargé.");
     document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem"><b>Erreur : config.js introuvable</b><p style="font-size:.85rem;color:#a0a0b0">Vérifiez que config.js est présent dans votre dépôt GitHub.</p></div>';
@@ -1039,6 +1040,7 @@ Types valides : "game", "movie", "book". Maximum 12 suggestions.`;
 async function renderDiscover() {
   const grid = document.getElementById("discover-grid");
   if (!grid) return;
+  try {
   if (DiscoverState.loading) return;
   DiscoverState.loading = true;
 
