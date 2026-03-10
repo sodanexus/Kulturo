@@ -150,33 +150,33 @@ function renderApp() {
     <!-- Sidebar -->
     <nav id="sidebar">
       <span class="nav-section-label">Navigation</span>
-      <button class="nav-item active" data-page="library" onclick="showPage('library')">
+      <button class="nav-item active" data-nav="library" onclick="UI.navTo('library')">
         ${iconGrid()} Bibliothèque <span class="nav-badge" id="badge-all">—</span>
       </button>
-      <button class="nav-item" data-page="dashboard" onclick="showPage('dashboard')">
+      <button class="nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
         ${iconChart()} Statistiques
       </button>
       <span class="nav-section-label">Catégories</span>
-      <button class="nav-item" data-filter-type="game" onclick="UI.setTypeFilter('game')">
+      <button class="nav-item" data-nav="type-game" onclick="UI.navTo('type-game')">
         🎮 Jeux <span class="nav-badge" id="badge-game">—</span>
       </button>
-      <button class="nav-item" data-filter-type="movie" onclick="UI.setTypeFilter('movie')">
+      <button class="nav-item" data-nav="type-movie" onclick="UI.navTo('type-movie')">
         🎬 Films <span class="nav-badge" id="badge-movie">—</span>
       </button>
-      <button class="nav-item" data-filter-type="book" onclick="UI.setTypeFilter('book')">
+      <button class="nav-item" data-nav="type-book" onclick="UI.navTo('type-book')">
         📚 Livres <span class="nav-badge" id="badge-book">—</span>
       </button>
       <span class="nav-section-label">Accès rapide</span>
-      <button class="nav-item" data-filter-status="playing" onclick="UI.setStatusFilter('playing')">
+      <button class="nav-item" data-nav="status-playing" onclick="UI.navTo('status-playing')">
         ▶ En cours <span class="nav-badge" id="badge-playing">—</span>
       </button>
-      <button class="nav-item" data-filter-status="wishlist" onclick="UI.setStatusFilter('wishlist')">
+      <button class="nav-item" data-nav="status-wishlist" onclick="UI.navTo('status-wishlist')">
         🔖 Wishlist <span class="nav-badge" id="badge-wishlist">—</span>
       </button>
-      <button class="nav-item" data-filter-fav onclick="UI.setFavFilter()">
+      <button class="nav-item" data-nav="fav" onclick="UI.navTo('fav')">
         ♥ Coups de cœur <span class="nav-badge" id="badge-fav">—</span>
       </button>
-      <button class="nav-item" data-page="discover" onclick="showPage('discover')">
+      <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
         ✦ Découverte
       </button>
     </nav>
@@ -233,9 +233,17 @@ function renderApp() {
   `;
 
   applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
+  // Restaure le tri mémorisé
+  const savedSort = localStorage.getItem("kulturo-sort");
+  if (savedSort) State.filters.sort = savedSort;
+  const sortEl = document.getElementById("sort-select");
+  if (sortEl && savedSort) sortEl.value = savedSort;
   buildFilterBar();
   renderCards();
   updateBadges();
+  // Restaure la nav active
+  const savedNav = localStorage.getItem("kulturo-nav") || "library";
+  navTo(savedNav);
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
@@ -250,21 +258,49 @@ async function loadEntries() {
   }
 }
 
-// ── Navigation ────────────────────────────────────────────────
+// ── Navigation unifiée ───────────────────────────────────────
+function navTo(key) {
+  // Reset tous les filtres
+  State.filters.type     = "all";
+  State.filters.status   = "all";
+  State.filters.favorite = false;
+
+  // Désactive tous les nav-items
+  document.querySelectorAll(".nav-item[data-nav]").forEach(b => b.classList.remove("active"));
+  const btn = document.querySelector(`.nav-item[data-nav="${key}"]`);
+  if (btn) btn.classList.add("active");
+
+  // Sauvegarde la nav active
+  localStorage.setItem("kulturo-nav", key);
+
+  if (key === "dashboard") {
+    showPage("dashboard");
+  } else if (key === "discover") {
+    showPage("discover");
+  } else if (key.startsWith("type-")) {
+    State.filters.type = key.replace("type-", "");
+    showPage("library");
+    renderCards();
+  } else if (key.startsWith("status-")) {
+    State.filters.status = key.replace("status-", "");
+    showPage("library");
+    renderCards();
+  } else if (key === "fav") {
+    State.filters.favorite = true;
+    showPage("library");
+    renderCards();
+  } else {
+    showPage("library");
+    renderCards();
+  }
+}
+
 function showPage(name) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-  // Désactive tous les nav-items (pages ET filtres catégorie)
-  document.querySelectorAll(".nav-item[data-page], .nav-item[data-filter-type]").forEach(b => b.classList.remove("active"));
   const page = document.getElementById(`page-${name}`);
   if (page) page.classList.add("active");
-  const navBtn = document.querySelector(`.nav-item[data-page="${name}"]`);
-  if (navBtn) navBtn.classList.add("active");
   if (name === "dashboard") renderDashboard();
   if (name === "discover")  renderDiscover();
-  // Si on quitte la découverte, on remet le filtre type à "all"
-  if (name !== "discover") {
-    State.filters.type = "all";
-  }
 }
 
 // ── Filter bar ────────────────────────────────────────────────
@@ -275,7 +311,7 @@ function buildFilterBar() {
   const chips = statuses.map(s => {
     const label = s === "all" ? "Tous" : STATUS_LABELS[s];
     return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}"
-                    onclick="UI.setStatusFilter('${s}')">${label}</button>`;
+                    onclick="UI.setStatusChip('${s}')">${label}</button>`;
   }).join("");
   // Réinjecte les chips avant le select
   const select = bar.querySelector("select");
@@ -667,29 +703,18 @@ function closeModalOnBg(e) {
 }
 
 
-// ── Filtres ───────────────────────────────────────────────────
-function setTypeFilter(type) {
-  State.filters.type = type;
-  showPage("library");
-  document.querySelectorAll(".nav-item[data-filter-type]").forEach(b =>
-    b.classList.toggle("active", b.dataset.filterType === type));
-  renderCards();
-}
-function setStatusFilter(status) {
+// ── Filtres chip (status bar) ─────────────────────────────────
+function setStatusChip(status) {
   State.filters.status = status;
-  showPage("library");
   document.querySelectorAll(".filter-chip").forEach(c =>
     c.classList.toggle("active", c.textContent.trim() === (status==="all"?"Tous":STATUS_LABELS[status])));
   renderCards();
 }
-function setFavFilter() {
-  State.filters.favorite = !State.filters.favorite;
-  showPage("library");
-  const btn = document.querySelector(".nav-item[data-filter-fav]");
-  if (btn) btn.classList.toggle("active", State.filters.favorite);
+function setSort(val) {
+  State.filters.sort = val;
+  localStorage.setItem("kulturo-sort", val);
   renderCards();
 }
-function setSort(val) { State.filters.sort = val; renderCards(); }
 
 // ── Global search ─────────────────────────────────────────────
 function bindGlobalEvents() {
@@ -944,20 +969,78 @@ function setDiscoverType(type) {
   renderDiscover();
 }
 
+
+// ── Fiche détaillée ───────────────────────────────────────────
+function openDetailPanel(id) {
+  const e = State.entries.find(x => x.id === id);
+  if (!e) return;
+
+  const TYPE_ICONS  = { game:"🎮", movie:"🎬", book:"📚" };
+  const TYPE_LABELS = { game:"Jeu", movie:"Film", book:"Livre" };
+  const STATUS_LABELS_L = { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
+
+  const stars = e.rating
+    ? Array.from({length:10}, (_,i) => `<span style="color:${i<e.rating?"var(--accent)":"var(--border-2)"}">★</span>`).join("")
+    : "<span style='color:var(--text-3);font-size:.85rem'>Non noté</span>";
+
+  const cover = e.cover_url
+    ? `<img src="${esc(e.cover_url)}" alt="${esc(e.title)}" style="width:100%;border-radius:var(--radius);object-fit:cover;max-height:320px" onerror="this.style.display='none'">`
+    : `<div style="width:100%;height:180px;background:var(--bg-3);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:4rem">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
+
+  const metaRow = (label, value) => value
+    ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(value)}</span></div>`
+    : "";
+
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `
+    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+      <div class="modal detail-modal" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${TYPE_LABELS[e.media_type]}</span>
+            <span class="badge badge-${e.status}">${STATUS_LABELS_L[e.status]}</span>
+            ${e.is_favorite ? `<span style="color:var(--accent);font-size:1rem">♥</span>` : ""}
+          </div>
+          <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-cover">${cover}</div>
+          <div class="detail-info">
+            <h2 class="detail-title">${esc(e.title)}</h2>
+            <div class="detail-stars">${stars}</div>
+            <div class="detail-meta">
+              ${metaRow("Genre", e.genre)}
+              ${metaRow("Auteur", e.author)}
+              ${metaRow("Plateforme", e.platform)}
+              ${metaRow("Année", e.release_year)}
+              ${metaRow("Ajouté le", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null)}
+            </div>
+            ${e.notes ? `<div class="detail-notes"><div class="detail-notes-label">Notes personnelles</div><p>${esc(e.notes)}</p></div>` : ""}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger btn-sm" onclick="UI.deleteEntry('${e.id}')">Supprimer</button>
+          <button class="btn btn-secondary" onclick="UI.closeModal()">Fermer</button>
+          <button class="btn btn-primary" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── Interface publique (appelée depuis le HTML inline) ────────
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
-  openEditModal:   (id) => { const e = State.entries.find(x => x.id === id); _currentRating = e?.rating||0; window._apiSelected = null; openModal(e); },
+  openEditModal:   (id) => { openDetailPanel(id); },
   closeModal,
+  openEditFromDetail: (id) => { const e = State.entries.find(x => x.id === id); _currentRating = e?.rating||0; window._apiSelected = null; closeModal(); openModal(e); },
   closeModalOnBg,
   saveEntry,
   deleteEntry,
   toggleFav,
   fillFromApi,
   setRating,
-  setTypeFilter,
-  setStatusFilter,
-  setFavFilter,
+  navTo,
+  setStatusChip,
   setSort,
   setDiscoverType,
   refreshDiscover: () => { DiscoverState.results = []; renderDiscover(); },
