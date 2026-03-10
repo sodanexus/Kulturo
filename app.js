@@ -1478,24 +1478,23 @@ function animateCounter(el, target, duration = 600) {
 
 
 // ── Recherche rapide + ajout depuis topbar ────────────────────
-function updateQuickAdd(query) {
+let _quickAddTimer = null;
+
+async function updateQuickAdd(query) {
   const qa = document.getElementById("search-quick-add");
   if (!qa) return;
   if (!query || query.length < 2) { qa.style.display = "none"; return; }
 
-  // Filtre les entrées existantes
-  const matches = State.entries.filter(e =>
+  // Résultats locaux immédiats
+  const localMatches = State.entries.filter(e =>
     e.title.toLowerCase().includes(query.toLowerCase())
-  ).slice(0, 4);
+  ).slice(0, 3);
 
-  // Bouton "Ajouter" si aucune correspondance exacte
-  const exactMatch = State.entries.some(e =>
-    e.title.toLowerCase() === query.toLowerCase()
-  );
-
+  // Affiche d'abord les résultats locaux + spinner API
   let html = "";
-  if (matches.length) {
-    html += matches.map(e => `
+  if (localMatches.length) {
+    html += `<div class="quick-section-label">Dans ma bibliothèque</div>`;
+    html += localMatches.map(e => `
       <div class="quick-result" onclick="UI.openEditModal('${e.id}')">
         ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[e.media_type]||"🎭"}</div>`}
         <div class="quick-info">
@@ -1504,14 +1503,55 @@ function updateQuickAdd(query) {
         </div>
       </div>`).join("");
   }
-  if (!exactMatch) {
-    html += `<div class="quick-add-btn" onclick="UI.quickAdd('${esc(query).replace(/'/g,"\\'")}')">
-      ${iconPlus()} Ajouter "<strong>${esc(query)}</strong>"
-    </div>`;
-  }
-
+  html += `<div class="quick-section-label">Ajouter depuis les APIs <span id="quick-api-spinner" class="quick-spinner"></span></div>
+           <div id="quick-api-results"></div>`;
   qa.innerHTML = html;
-  qa.style.display = html ? "block" : "none";
+  qa.style.display = "block";
+
+  // Debounce API calls
+  clearTimeout(_quickAddTimer);
+  _quickAddTimer = setTimeout(async () => {
+    const existingTitles = new Set(State.entries.map(e => e.title.toLowerCase()));
+    try {
+      const [games, movies, books] = await Promise.allSettled([
+        searchMedia(query, "game"),
+        searchMedia(query, "movie"),
+        searchMedia(query, "book"),
+      ]);
+
+      const allResults = [
+        ...(games.value || []).slice(0, 2).map(r => ({ ...r, media_type: "game" })),
+        ...(movies.value || []).slice(0, 2).map(r => ({ ...r, media_type: "movie" })),
+        ...(books.value || []).slice(0, 2).map(r => ({ ...r, media_type: "book" })),
+      ].filter(r => !existingTitles.has(r.title.toLowerCase()));
+
+      const apiResultsEl = document.getElementById("quick-api-results");
+      const spinnerEl = document.getElementById("quick-api-spinner");
+      if (spinnerEl) spinnerEl.remove();
+      if (!apiResultsEl) return;
+
+      if (!allResults.length) {
+        apiResultsEl.innerHTML = `<div style="padding:.5rem .85rem;font-size:.78rem;color:var(--text-3)">Aucun résultat</div>`;
+        return;
+      }
+
+      apiResultsEl.innerHTML = allResults.map((r, i) => `
+        <div class="quick-result quick-result-api" onclick="UI.quickAddFromResult(${i})">
+          ${r.cover_url ? `<img src="${esc(r.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[r.media_type]||"🎭"}</div>`}
+          <div class="quick-info">
+            <div class="quick-title">${esc(r.title)}</div>
+            <div class="quick-sub">${TYPE_LABELS[r.media_type]}${r.release_year ? " · " + r.release_year : ""}${r.author ? " · " + esc(r.author) : ""}</div>
+          </div>
+          <div class="quick-add-icon">${iconPlus()}</div>
+        </div>`).join("");
+
+      // Store results for onclick access
+      window._quickApiResults = allResults;
+    } catch {
+      const spinnerEl = document.getElementById("quick-api-spinner");
+      if (spinnerEl) spinnerEl.remove();
+    }
+  }, 400);
 }
 
 function quickAdd(title) {
@@ -1519,12 +1559,21 @@ function quickAdd(title) {
   if (qa) qa.style.display = "none";
   const searchEl = document.getElementById("global-search");
   if (searchEl) searchEl.value = "";
-  State.filters.search = "";
-  renderCards();
-  // Ouvre la modal pré-remplie avec le titre
   _currentRating = 0;
   window._apiSelected = null;
   openModal(null, title);
+}
+
+function quickAddFromResult(idx) {
+  const result = window._quickApiResults?.[idx];
+  if (!result) return;
+  const qa = document.getElementById("search-quick-add");
+  if (qa) qa.style.display = "none";
+  const searchEl = document.getElementById("global-search");
+  if (searchEl) searchEl.value = "";
+  _currentRating = 0;
+  window._apiSelected = result;
+  openModal(null, result.title);
 }
 
 
@@ -1548,6 +1597,7 @@ function toggleView() {
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   quickAdd,
+  quickAddFromResult,
   openEditModal:   (id) => { openDetailPanel(id); },
   closeModal,
   openEditFromDetail: (id) => { const e = State.entries.find(x => x.id === id); _currentRating = e?.rating||0; window._apiSelected = null; closeModal(); openModal(e); },
