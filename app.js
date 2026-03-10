@@ -140,7 +140,7 @@ function renderApp() {
       <div class="topbar-logo">Kulturo</div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher…" autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher ou ajouter…" autocomplete="off" />
         <div id="search-quick-add" class="search-quick-add" style="display:none"></div>
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
@@ -199,7 +199,6 @@ function renderApp() {
           <h2>Bibliothèque</h2>
           <div class="page-actions">
             <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Changer la vue" onclick="UI.toggleView()">⊞</button>
-            <button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>
           </div>
         </div>
         <div class="filter-bar" id="filter-bar">
@@ -569,6 +568,32 @@ function renderDashboard() {
   const TIME_EST = { game: 20, movie: 2, book: 8 };
   const finishedAll = all.filter(e => e.status === "finished");
   const totalHours = finishedAll.reduce((acc, e) => acc + (TIME_EST[e.media_type] || 5), 0);
+
+  // Journal — médias terminés (tous temps)
+  const finished = [...all]
+    .filter(e => e.status === "finished")
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const journalHTML = finished.length ? finished.map(e => {
+    const date = e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" }) : "";
+    const icon = TYPE_ICONS[e.media_type] || "🎭";
+    const stars = e.rating ? "★".repeat(Math.round(e.rating/2)) + "☆".repeat(5 - Math.round(e.rating/2)) : "";
+    return `
+      <div class="journal-row" onclick="UI.openEditModal('${e.id}')">
+        ${e.cover_url
+          ? `<img src="${esc(e.cover_url)}" class="journal-cover" alt="" loading="lazy">`
+          : `<div class="journal-cover journal-cover-ph">${icon}</div>`}
+        <div class="journal-info">
+          <div class="journal-title">${esc(e.title)}</div>
+          <div class="journal-meta">
+            <span class="badge badge-${e.media_type}">${icon} ${TYPE_LABELS[e.media_type]}</span>
+            ${e.rating ? `<span class="journal-stars">${stars} <span style="font-size:.75rem">${e.rating}/10</span></span>` : ""}
+          </div>
+          ${e.notes ? `<div class="journal-notes">${esc(e.notes)}</div>` : ""}
+        </div>
+        <div class="journal-date">${date}</div>
+      </div>`;
+  }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
 
   container.innerHTML = `
     <!-- Résumé annuel -->
