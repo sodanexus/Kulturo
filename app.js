@@ -400,41 +400,43 @@ function openModal(entry = null) {
               <div class="rating-stars" id="rating-stars"></div>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Date de début</label>
-              <input type="date" id="f-date-start" value="${entry?.date_started||""}" />
+          <!-- Infos avancées (repliées) -->
+          <details class="advanced-details" ${entry?.genre||entry?.author||entry?.platform||entry?.cover_url ? "open" : ""}>
+            <summary class="advanced-summary">Infos supplémentaires <span class="advanced-hint">genre, auteur, image…</span></summary>
+            <div class="advanced-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Genre</label>
+                  <input type="text" id="f-genre" value="${esc(entry?.genre||"")}" placeholder="Ex: RPG, Thriller…" />
+                </div>
+                <div class="form-group">
+                  <label>Auteur / Réalisateur</label>
+                  <input type="text" id="f-author" value="${esc(entry?.author||"")}" placeholder="Nom" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Plateforme</label>
+                <input type="text" id="f-platform" value="${esc(entry?.platform||"")}" placeholder="PS5, PC, Switch…" />
+              </div>
+              <div class="form-group">
+                <label>Image de couverture (URL)</label>
+                <input type="url" id="f-cover" value="${esc(entry?.cover_url||"")}" placeholder="https://…" />
+              </div>
             </div>
-            <div class="form-group">
-              <label>Date de fin</label>
-              <input type="date" id="f-date-end" value="${entry?.date_finished||""}" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Genre</label>
-              <input type="text" id="f-genre" value="${esc(entry?.genre||"")}" placeholder="Ex: RPG, Thriller…" />
-            </div>
-            <div class="form-group">
-              <label id="f-author-label">Auteur / Réalisateur</label>
-              <input type="text" id="f-author" value="${esc(entry?.author||"")}" placeholder="Nom" />
-            </div>
-          </div>
-          <div class="form-group" id="f-platform-group">
-            <label>Plateforme</label>
-            <input type="text" id="f-platform" value="${esc(entry?.platform||"")}" placeholder="PS5, PC, Switch…" />
-          </div>
-          <div class="form-group">
-            <label>Image de couverture (URL)</label>
-            <input type="url" id="f-cover" value="${esc(entry?.cover_url||"")}" placeholder="https://…" />
-          </div>
+          </details>
+
           <div class="form-group">
             <label>Notes personnelles</label>
             <textarea id="f-notes" placeholder="Ton avis, tes impressions…">${esc(entry?.notes||"")}</textarea>
           </div>
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.875rem;font-weight:500">
-            <input type="checkbox" id="f-favorite" ${entry?.is_favorite?"checked":""} />
-            ♥ Coup de cœur
+
+          <!-- Toggle coup de cœur -->
+          <label class="toggle-row">
+            <span class="toggle-label">♥ Coup de cœur</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="f-favorite" ${entry?.is_favorite?"checked":""} />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </span>
           </label>
         </div>
         <div class="modal-footer">
@@ -535,8 +537,6 @@ async function saveEntry() {
     is_favorite:   document.getElementById("f-favorite")?.checked || false,
     notes:         document.getElementById("f-notes")?.value?.trim() || null,
     cover_url:     document.getElementById("f-cover")?.value?.trim() || null,
-    date_started:  document.getElementById("f-date-start")?.value || null,
-    date_finished: document.getElementById("f-date-end")?.value || null,
     genre:         document.getElementById("f-genre")?.value?.trim() || null,
     author:        document.getElementById("f-author")?.value?.trim() || null,
     platform:      document.getElementById("f-platform")?.value?.trim() || null,
