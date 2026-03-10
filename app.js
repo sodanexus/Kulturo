@@ -242,20 +242,20 @@ function renderApp() {
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
-      <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')">
-        ${iconGrid()}<span>Biblio</span>
+      <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" title="Bibliothèque">
+        ${iconGrid()}
       </button>
-      <button class="bottom-nav-item" data-nav="type-game" onclick="UI.navTo('type-game')">
-        🎮<span>Jeux</span>
+      <button class="bottom-nav-item" data-nav="type-game" onclick="UI.navTo('type-game')" title="Jeux">
+        ${iconGame()}
       </button>
-      <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()">
-        ${iconPlus()}<span>Ajouter</span>
+      <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" title="Ajouter">
+        ${iconPlus()}
       </button>
-      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
-        ${iconChart()}<span>Profil</span>
+      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" title="Profil">
+        ${iconChart()}
       </button>
-      <button class="bottom-nav-item" data-nav="discover" onclick="UI.navTo('discover')">
-        ✦<span>Découverte</span>
+      <button class="bottom-nav-item" data-nav="discover" onclick="UI.navTo('discover')" title="Découverte">
+        ${iconCompass()}
       </button>
     </nav>
   `;
@@ -959,6 +959,8 @@ function esc(str) {
 }
 
 // ── Icons (inline SVG minifiés) ───────────────────────────────
+const iconGame    = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 12h.01M17 12h.01"/></svg>`;
+const iconCompass = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
@@ -1258,9 +1260,11 @@ function renderDetailPanel(e, description) {
             <span class="badge badge-${e.status}">${STATUS_LABELS_L[e.status]}</span>
             ${e.is_favorite ? `<span style="color:var(--accent);font-size:1rem">♥</span>` : ""}
           </div>
-          <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-left:auto">
+            ${externalHTML}${youtubeHTML}
+            <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
+          </div>
         </div>
-        <div class="detail-ext-links">${externalHTML}${youtubeHTML}</div>
         <div class="detail-body">
           <div class="detail-cover">${cover}</div>
           <div class="detail-info">
