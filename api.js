@@ -1,5 +1,5 @@
 // ============================================================
-// api.js — Intégrations APIs médias (TMDb · RAWG · OpenLibrary)
+// api.js — Intégrations APIs médias (TMDb · IGDB · OpenLibrary)
 // ============================================================
 
 // ── Utilitaire fetch avec timeout ────────────────────────────
@@ -44,26 +44,57 @@ export const TMDb = {
   },
 };
 
-// ── Jeux — RAWG ──────────────────────────────────────────────
-export const RAWG = {
+// ── Jeux — IGDB (via Twitch) ─────────────────────────────────
+// IGDB nécessite un token OAuth Twitch. On le récupère côté client
+// via le endpoint proxy Twitch (client_credentials).
+// Le token est mis en cache le temps de sa validité (~60 jours).
+let _igdbToken = null;
+let _igdbTokenExpiry = 0;
+
+async function getIGDBToken() {
+  if (_igdbToken && Date.now() < _igdbTokenExpiry) return _igdbToken;
+  const res = await fetch(
+    `https://id.twitch.tv/oauth2/token?client_id=${CONFIG.igdb.clientId}&client_secret=${CONFIG.igdb.clientSecret}&grant_type=client_credentials`,
+    { method: "POST" }
+  );
+  if (!res.ok) throw new Error("IGDB token failed");
+  const data = await res.json();
+  _igdbToken = data.access_token;
+  _igdbTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+  return _igdbToken;
+}
+
+export const IGDB = {
   available() {
-    return CONFIG?.rawg?.apiKey && !CONFIG.rawg.apiKey.includes("VOTRE_");
+    return CONFIG?.igdb?.clientId && !CONFIG.igdb.clientId.includes("VOTRE_");
   },
 
   async search(query) {
     if (!this.available()) return [];
-    const url = `${CONFIG.rawg.baseUrl}/games?key=${CONFIG.rawg.apiKey}&search=${encodeURIComponent(query)}&page_size=6`;
-    const data = await apiFetch(url);
-    return (data.results || []).map(g => ({
+    const token = await getIGDBToken();
+    const body = `search "${query}"; fields name,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,platforms.name; limit 6;`;
+    const data = await apiFetch("https://api.igdb.com/v4/games", {
+      method: "POST",
+      headers: {
+        "Client-ID": CONFIG.igdb.clientId,
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "text/plain",
+      },
+      body,
+    });
+    return (data || []).map(g => ({
       external_id:  String(g.id),
       title:        g.name,
-      cover_url:    g.background_image || null,
-      description:  null,
-      release_year: g.released ? parseInt(g.released) : null,
+      cover_url:    g.cover?.image_id
+        ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${g.cover.image_id}.webp`
+        : null,
+      description:  g.summary || null,
+      release_year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null,
       genre:        g.genres?.map(x => x.name).join(", ") || null,
-      author:       g.developers?.map(x => x.name).join(", ") || null,
-      platform:     g.platforms?.map(x => x.platform.name).join(", ") || null,
-      source_api:   "rawg",
+      author:       g.involved_companies?.find(c => c.developer)?.company?.name
+                    || g.involved_companies?.[0]?.company?.name || null,
+      platform:     g.platforms?.map(x => x.name).join(", ") || null,
+      source_api:   "igdb",
     }));
   },
 };
@@ -97,7 +128,7 @@ export async function searchMedia(query, mediaType) {
   try {
     switch (mediaType) {
       case "movie": return await TMDb.search(query);
-      case "game":  return await RAWG.search(query);
+      case "game":  return await IGDB.search(query);
       case "book":  return await OpenLibrary.search(query);
       default:      return [];
     }
@@ -111,7 +142,7 @@ export async function searchMedia(query, mediaType) {
 export function apiAvailability() {
   return {
     movie: TMDb.available(),
-    game:  RAWG.available(),
+    game:  IGDB.available(),
     book:  OpenLibrary.available(),
   };
 }
