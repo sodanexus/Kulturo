@@ -221,10 +221,8 @@ function renderApp() {
 
 // ── Chargement depuis Supabase ───────────────────────────────
 async function loadEntries() {
-  console.log("loadEntries appelé");
   try {
     State.entries = await Media.getAll({});
-    console.log("entrées :", State.entries.length);
     renderCards();
     updateBadges();
   } catch (e) {
