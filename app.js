@@ -37,6 +37,12 @@ const DEMO_DATA = [
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
 const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
+
+// Retourne "Série" si c'est une série TMDb, sinon le label par défaut
+function getTypeLabel(e) {
+  if (e.media_type === "movie" && e.platform === "Série") return "Série";
+  return TYPE_LABELS[e.media_type] || e.media_type;
+}
 const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
 // ── Init ──────────────────────────────────────────────────────
@@ -492,7 +498,7 @@ function cardHTML(e) {
       <div class="card-body">
         <div class="card-title">${esc(e.title)}</div>
         <div class="card-meta">
-          <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${TYPE_LABELS[e.media_type]}</span>
+          <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
           <span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>
         </div>
         <div class="card-footer">${ratingHTML}</div>
@@ -612,7 +618,7 @@ function renderDashboard() {
         <div class="journal-info">
           <div class="journal-title">${esc(e.title)}</div>
           <div class="journal-meta">
-            <span class="badge badge-${e.media_type}">${icon} ${TYPE_LABELS[e.media_type]}</span>
+            <span class="badge badge-${e.media_type}">${icon} ${getTypeLabel(e)}</span>
             ${e.rating ? `<span class="journal-stars">${stars} <span style="font-size:.75rem">${e.rating}/10</span></span>` : ""}
           </div>
           ${e.notes ? `<div class="journal-notes">${esc(e.notes)}</div>` : ""}
@@ -1347,7 +1353,7 @@ function renderDetailPanel(e, description) {
       <div class="modal detail-modal" role="dialog" aria-modal="true">
         <div class="modal-header">
           <div style="display:flex;align-items:center;gap:.5rem">
-            <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${TYPE_LABELS[e.media_type]}</span>
+            <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
             <span class="badge badge-${e.status}">${STATUS_LABELS_L[e.status]}</span>
             ${e.is_favorite ? `<span style="color:var(--accent);font-size:1rem">♥</span>` : ""}
           </div>
@@ -1599,7 +1605,7 @@ async function updateQuickAdd(query) {
           ${r.cover_url ? `<img src="${esc(r.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[r.media_type]||"🎭"}</div>`}
           <div class="quick-info">
             <div class="quick-title">${esc(r.title)}</div>
-            <div class="quick-sub">${TYPE_LABELS[r.media_type]}${r.release_year ? " · " + r.release_year : ""}${r.author ? " · " + esc(r.author) : ""}</div>
+            <div class="quick-sub">${getTypeLabel(r)}${r.release_year ? " · " + r.release_year : ""}${r.author ? " · " + esc(r.author) : ""}</div>
           </div>
           <div class="quick-add-icon">${iconPlus()}</div>
         </div>`).join("") +
@@ -1795,7 +1801,7 @@ function renderActivityFeed(entries) {
 
 function activityRowHTML(e) {
   const icon   = TYPE_ICONS[e.media_type] || "🎭";
-  const type   = { game:"Jeu", movie:"Film", book:"Livre" }[e.media_type] || e.media_type;
+  const type   = getTypeLabel(e);
   const status = { wishlist:"a ajouté en wishlist", playing:"a commencé", finished:"a terminé", paused:"a mis en pause", dropped:"a abandonné" }[e.status] || "a ajouté";
 
   const starsCount = e.rating ? Math.round(e.rating / 2) : 0;
