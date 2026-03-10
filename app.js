@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, isConfigured, Auth, Media, computeStats, getClient } from "./supabase.js";
+import { initSupabase, isConfigured, Auth, Media, computeStats, getClient, Profiles, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability }                            from "./api.js";
 
 // ── État global ──────────────────────────────────────────────
@@ -48,8 +48,6 @@ async function init() {
   }
   try {
     initSupabase();
-    // Expose le client Supabase pour les fonctions profile/activity
-    window._supabase = getClient?.() || null;
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
     if (!isConfigured() || CONFIG.app.demoMode) {
@@ -1661,12 +1659,8 @@ async function renderProfilePage() {
   let username = "";
   if (!State.demoMode) {
     try {
-      const { data } = await window._supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", State.user.id)
-        .single();
-      username = data?.username || "";
+      const profile = await Profiles.get(State.user.id);
+      username = profile?.username || "";
     } catch {}
   }
 
@@ -1709,7 +1703,7 @@ async function saveUsername() {
   if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
   if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
   try {
-    await window._supabase.from("profiles").upsert({ id: State.user.id, username: val });
+    await Profiles.upsert(State.user.id, val);
     State.username = val;
     toast("Pseudo enregistré ✓", "success");
   } catch (e) {
@@ -1724,7 +1718,7 @@ async function renderActivity() {
 
   if (State.demoMode) {
     container.innerHTML = renderActivityFeed(
-      DEMO_DATA.map(e => ({ ...e, username: "DémoUser" }))
+      DEMO_DATA.map(e => ({ ...e, username: "DémoUser", isMe: true }))
     );
     return;
   }
@@ -1732,30 +1726,9 @@ async function renderActivity() {
   container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
 
   try {
-    // Récupère toutes les entrées (RLS maintenant SELECT ALL)
-    const { data: allEntries, error } = await window._supabase
-      .from("media_entries")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    // Récupère tous les profils pour avoir les usernames
-    const { data: profiles } = await window._supabase
-      .from("profiles")
-      .select("id, username");
-
-    const profileMap = {};
-    (profiles || []).forEach(p => { profileMap[p.id] = p.username; });
-
-    const enriched = (allEntries || []).map(e => ({
-      ...e,
-      username: profileMap[e.user_id] || "Utilisateur",
-      isMe: e.user_id === State.user?.id,
-    }));
-
-    container.innerHTML = renderActivityFeed(enriched);
+    const enriched = await Activity.getFeed(50);
+    const withMe = enriched.map(e => ({ ...e, isMe: e.user_id === State.user?.id }));
+    container.innerHTML = renderActivityFeed(withMe);
   } catch (e) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur de chargement</h3><p>${esc(e.message)}</p></div>`;
   }
