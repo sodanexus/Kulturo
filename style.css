@@ -1739,3 +1739,43 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   #main { padding: 1.5rem; }
   #cards-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
+
+/* ── Topbar mobile fix ────────────────────────────────────── */
+@media (max-width: 680px) {
+  #topbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem .9rem;
+    position: relative;
+  }
+  .topbar-logo { font-size: 1.1rem; white-space: nowrap; }
+  .topbar-search-wrap {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+  .topbar-right {
+    margin-left: 0;
+    flex-shrink: 0;
+  }
+  /* Cache les boutons thème et déco — accessibles via settings plus tard */
+  .topbar-right .btn-icon { display: none; }
+  #loading-bar { grid-column: 1 / -1; }
+}
+
+/* ── Cards mobile — plus compactes ───────────────────────── */
+@media (max-width: 680px) {
+  #cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: .5rem;
+  }
+  .card-body { padding: .5rem; gap: .2rem; }
+  .card-title { font-size: .75rem; -webkit-line-clamp: 1; }
+  .card-meta { gap: .2rem; }
+  .badge { font-size: .6rem; padding: .1rem .35rem; }
+  .card-footer { padding-top: .15rem; }
+  .rating-display { font-size: .72rem; }
+  .fav-btn { width: 24px; height: 24px; font-size: 11px; }
+}
