@@ -47,6 +47,7 @@ export const TMDb = {
       author:       null,
       platform:     null,
       source_api:   "tmdb",
+      subtype:      "movie",
     });
 
     const normalizeShow = s => ({
@@ -59,6 +60,7 @@ export const TMDb = {
       author:       null,
       platform:     null,
       source_api:   "tmdb",
+      subtype:      "tv",
     });
 
     const movieResults = movies.status === "fulfilled" ? (movies.value.results || []).slice(0, 4).map(normalizeMovie) : [];
