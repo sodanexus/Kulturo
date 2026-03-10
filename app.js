@@ -1530,11 +1530,15 @@ async function updateQuickAdd(query) {
       if (spinnerEl) spinnerEl.remove();
       if (!apiResultsEl) return;
 
+      const currentQuery = document.getElementById("global-search")?.value?.trim() || "";
       if (!allResults.length) {
-        apiResultsEl.innerHTML = `<div style="padding:.5rem .85rem;font-size:.78rem;color:var(--text-3)">Aucun résultat</div>`;
+        apiResultsEl.innerHTML = `<div class="quick-add-fallback" onclick="UI.quickAdd('${currentQuery.replace(/'/g,"\\'")}')">
+          ${iconPlus()} Ajouter "<strong>${esc(currentQuery)}</strong>" manuellement
+        </div>`;
         return;
       }
 
+      const q2 = document.getElementById("global-search")?.value?.trim() || "";
       apiResultsEl.innerHTML = allResults.map((r, i) => `
         <div class="quick-result quick-result-api" onclick="UI.quickAddFromResult(${i})">
           ${r.cover_url ? `<img src="${esc(r.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[r.media_type]||"🎭"}</div>`}
@@ -1543,7 +1547,10 @@ async function updateQuickAdd(query) {
             <div class="quick-sub">${TYPE_LABELS[r.media_type]}${r.release_year ? " · " + r.release_year : ""}${r.author ? " · " + esc(r.author) : ""}</div>
           </div>
           <div class="quick-add-icon">${iconPlus()}</div>
-        </div>`).join("");
+        </div>`).join("") +
+        `<div class="quick-add-fallback" onclick="UI.quickAdd('${q2.replace(/'/g,"\\'")}')">
+          ${iconPlus()} Ajouter "<strong>${esc(q2)}</strong>" manuellement
+        </div>`;
 
       // Store results for onclick access
       window._quickApiResults = allResults;
@@ -1571,9 +1578,32 @@ function quickAddFromResult(idx) {
   if (qa) qa.style.display = "none";
   const searchEl = document.getElementById("global-search");
   if (searchEl) searchEl.value = "";
-  _currentRating = 0;
+  _currentRating = result.rating || 0;
   window._apiSelected = result;
+  // Sélectionne le bon type avant d'ouvrir
   openModal(null, result.title);
+  // Pré-remplit les champs après que le modal soit dans le DOM
+  requestAnimationFrame(() => {
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+    // Set type first (triggers API label update)
+    const typeEl = document.getElementById("f-type");
+    if (typeEl && result.media_type) {
+      typeEl.value = result.media_type;
+      updateApiAvailLabel(result.media_type);
+    }
+    set("f-title",    result.title);
+    set("f-cover",    result.cover_url);
+    set("f-genre",    result.genre);
+    set("f-author",   result.author);
+    set("f-platform", result.platform);
+    // Ouvre les détails avancés si on a des infos
+    if (result.cover_url || result.genre || result.author) {
+      const details = document.querySelector(".advanced-details");
+      if (details) details.open = true;
+    }
+    // Note
+    if (result.rating) buildRatingStars(result.rating);
+  });
 }
 
 
