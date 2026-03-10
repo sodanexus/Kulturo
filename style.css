@@ -1942,3 +1942,121 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .quick-add-fallback:hover { background: var(--bg-3); color: var(--accent); }
 .quick-add-fallback strong { color: var(--text-1); }
+
+/* ── Activité partagée ───────────────────────────────────────── */
+.activity-date-group { margin-bottom: 1.5rem; }
+
+.activity-date-label {
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-3);
+  padding: .4rem 0;
+  margin-bottom: .5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  border-radius: var(--radius);
+}
+.activity-row:last-child { border-bottom: none; }
+
+.activity-cover {
+  width: 44px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--bg-3);
+}
+.activity-cover-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.activity-info { flex: 1; min-width: 0; }
+
+.activity-line {
+  font-size: .82rem;
+  color: var(--text-2);
+  margin-bottom: .2rem;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  flex-wrap: wrap;
+}
+.activity-username {
+  font-weight: 700;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+.activity-verb { color: var(--text-3); }
+
+.activity-me-badge {
+  font-size: .62rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--bg-1);
+  padding: .1rem .35rem;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.activity-title {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: .3rem;
+}
+
+.activity-meta {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.activity-stars {
+  font-size: .82rem;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: .2rem;
+}
+.activity-rating {
+  font-size: .72rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.activity-time {
+  font-size: .72rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: .2rem;
+}
+
+/* ── Page Profil ─────────────────────────────────────────────── */
+.profile-username-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: .5rem;
+}
