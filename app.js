@@ -188,6 +188,7 @@ function renderApp() {
         <div class="page-header">
           <h2>Bibliothèque</h2>
           <div class="page-actions">
+            <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Changer la vue" onclick="UI.toggleView()">⊞</button>
             <button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>
           </div>
         </div>
@@ -202,9 +203,13 @@ function renderApp() {
         <div id="cards-grid"></div>
       </section>
 
-      <!-- Page Dashboard -->
+      <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
-        <div class="page-header"><h2>Statistiques</h2></div>
+        <div class="page-header"><h2>Profil &amp; Statistiques</h2>
+          <div class="page-actions">
+            <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
+          </div>
+        </div>
         <div id="dashboard-content"></div>
       </section>
 
@@ -242,6 +247,14 @@ function renderApp() {
   buildFilterBar();
   renderCards();
   updateBadges();
+  // Restaure la vue grille/liste
+  const savedView = localStorage.getItem("kulturo-view");
+  if (savedView === "list") {
+    const grid = document.getElementById("cards-grid");
+    const btn  = document.getElementById("btn-view-toggle");
+    if (grid) grid.classList.add("list-view");
+    if (btn)  btn.textContent = "⊟";
+  }
   // Restaure la nav active
   const savedNav = localStorage.getItem("kulturo-nav") || "library";
   navTo(savedNav);
@@ -398,45 +411,123 @@ function updateBadges() {
   set("badge-fav",     count(e => e.is_favorite));
 }
 
-// ── Dashboard ─────────────────────────────────────────────────
+// ── Dashboard / Profil ────────────────────────────────────────
+let _profileYear = new Date().getFullYear();
+
+function setProfileYear(y) {
+  _profileYear = parseInt(y);
+  renderDashboard();
+}
+
 function renderDashboard() {
-  const stats = computeStats(State.entries);
   const container = document.getElementById("dashboard-content");
   if (!container) return;
 
-  const total = stats.total || 1; // évite div/0 dans les barres
+  // Populate year selector
+  const yearSel = document.getElementById("profile-year-select");
+  if (yearSel) {
+    const years = [...new Set(State.entries
+      .map(e => e.created_at ? new Date(e.created_at).getFullYear() : null)
+      .filter(Boolean))].sort((a,b)=>b-a);
+    if (!years.includes(_profileYear)) years.unshift(_profileYear);
+    yearSel.innerHTML = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
+  }
 
-  const barHTML = (label, value, total, color) => `
+  // Stats globales
+  const all   = State.entries;
+  const stats = computeStats(all);
+  const total = stats.total || 1;
+
+  // Stats année sélectionnée
+  const yearEntries   = all.filter(e => e.created_at && new Date(e.created_at).getFullYear() === _profileYear);
+  const yearFinished  = yearEntries.filter(e => e.status === "finished");
+  const yearFavs      = yearEntries.filter(e => e.is_favorite);
+
+  // Activité mensuelle (année sélectionnée)
+  const monthCounts = Array(12).fill(0);
+  yearEntries.forEach(e => {
+    const m = new Date(e.created_at).getMonth();
+    monthCounts[m]++;
+  });
+  const maxMonth = Math.max(...monthCounts, 1);
+  const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  const monthBars = monthCounts.map((n, i) => `
+    <div class="month-col">
+      <div class="month-bar-wrap">
+        <div class="month-bar" style="height:${Math.round(n/maxMonth*100)}%" title="${n} ajout${n>1?"s":""}"></div>
+      </div>
+      <div class="month-label">${MONTHS[i]}</div>
+      ${n ? `<div class="month-count">${n}</div>` : ""}
+    </div>`).join("");
+
+  // Top médias de l'année (notés)
+  const topYear = [...yearEntries].filter(e => e.rating).sort((a,b) => b.rating - a.rating).slice(0, 5);
+  const topHTML = topYear.length
+    ? topYear.map((e,i) => `
+        <div class="top-row" onclick="UI.openEditModal('${e.id}')">
+          <span class="top-rank">${i+1}</span>
+          ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="top-cover" alt="" loading="lazy">` : `<div class="top-cover top-cover-placeholder">${TYPE_ICONS[e.media_type]}</div>`}
+          <span class="top-title">${esc(e.title)}</span>
+          <span class="top-rating">★ ${e.rating}/10</span>
+        </div>`).join("")
+    : `<p style="color:var(--text-3);font-size:.85rem">Aucun média noté en ${_profileYear}.</p>`;
+
+  const barHTML = (label, value, tot, color) => `
     <div class="bar-item">
       <div class="bar-item-label"><span>${label}</span><span>${value}</span></div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(value/total*100)}%;background:${color}"></div></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(value/tot*100)}%;background:${color}"></div></div>
     </div>`;
 
+  // Temps estimé
+  const TIME_EST = { game: 20, movie: 2, book: 8 };
+  const finishedAll = all.filter(e => e.status === "finished");
+  const totalHours = finishedAll.reduce((acc, e) => acc + (TIME_EST[e.media_type] || 5), 0);
+
   container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">${stats.total}</div><div class="stat-label">Total médias</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.finished}</div><div class="stat-label">Terminés</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.inProgress}</div><div class="stat-label">En cours</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.favorites}</div><div class="stat-label">Coups de cœur</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.avgRating}</div><div class="stat-label">Note moyenne</div></div>
+    <!-- Résumé annuel -->
+    <div class="profile-section">
+      <h3 class="profile-section-title">✦ Résumé ${_profileYear}</h3>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-value">${yearEntries.length}</div><div class="stat-label">Ajoutés</div></div>
+        <div class="stat-card"><div class="stat-value">${yearFinished.length}</div><div class="stat-label">Terminés</div></div>
+        <div class="stat-card"><div class="stat-value">${yearFavs.length}</div><div class="stat-label">Coups de cœur</div></div>
+        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="game").length}</div><div class="stat-label">🎮 Jeux</div></div>
+        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="movie").length}</div><div class="stat-label">🎬 Films</div></div>
+        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="book").length}</div><div class="stat-label">📚 Livres</div></div>
+      </div>
     </div>
+
+    <!-- Graphique mensuel -->
+    <div class="profile-section">
+      <h3 class="profile-section-title">Activité mensuelle</h3>
+      <div class="month-chart">${monthBars}</div>
+    </div>
+
+    <!-- Top de l'année -->
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Par catégorie</h3>
+        <h3>Top ${_profileYear}</h3>
+        <div class="top-list">${topHTML}</div>
+      </div>
+
+      <!-- Stats globales -->
+      <div class="chart-card">
+        <h3>Global — ${stats.total} médias</h3>
         <div class="bar-chart">
           ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
           ${barHTML("🎬 Films",  stats.byType.movie, total, "var(--movie)")}
           ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
         </div>
-      </div>
-      <div class="chart-card">
-        <h3>Par statut</h3>
-        <div class="bar-chart">
+        <div class="bar-chart" style="margin-top:1rem">
           ${barHTML("Terminés",  stats.byStatus.finished, total, "var(--success)")}
           ${barHTML("En cours",  stats.byStatus.playing,  total, "var(--game)")}
           ${barHTML("Wishlist",  stats.byStatus.wishlist, total, "var(--text-3)")}
           ${barHTML("En pause",  stats.byStatus.paused,   total, "var(--warn)")}
           ${barHTML("Abandonnés",stats.byStatus.dropped,  total, "var(--danger)")}
+        </div>
+        <div style="margin-top:1rem;padding:.75rem;background:var(--bg-3);border-radius:var(--radius);font-size:.85rem;color:var(--text-2)">
+          ⏱ Temps estimé passé : <strong style="color:var(--text-1)">${totalHours}h</strong>
+          <span style="font-size:.72rem;color:var(--text-3);display:block;margin-top:.2rem">(20h/jeu · 2h/film · 8h/livre)</span>
         </div>
       </div>
     </div>`;
@@ -995,10 +1086,7 @@ function setDiscoverType(type) {
 
 
 // ── Fiche détaillée ───────────────────────────────────────────
-function openDetailPanel(id) {
-  const e = State.entries.find(x => x.id === id);
-  if (!e) return;
-
+function renderDetailPanel(e, description) {
   const TYPE_ICONS  = { game:"🎮", movie:"🎬", book:"📚" };
   const TYPE_LABELS = { game:"Jeu", movie:"Film", book:"Livre" };
   const STATUS_LABELS_L = { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
@@ -1015,6 +1103,27 @@ function openDetailPanel(id) {
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(value)}</span></div>`
     : "";
 
+  const synopsisHTML = description
+    ? `<div class="detail-synopsis"><div class="detail-notes-label">Synopsis</div><p>${esc(description)}</p></div>`
+    : "";
+
+  const externalUrl = (() => {
+    if (!e.external_id && !e.title) return null;
+    if (e.media_type === "game")  return `https://store.steampowered.com/search/?term=${encodeURIComponent(e.title)}`;
+    if (e.media_type === "movie") return e.external_id ? `https://www.imdb.com/find/?q=${encodeURIComponent(e.title)}` : null;
+    if (e.media_type === "book")  return e.external_id ? `https://openlibrary.org/works/${e.external_id}` : `https://www.goodreads.com/search?q=${encodeURIComponent(e.title)}`;
+    return null;
+  })();
+  const externalLabel = { game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien";
+  const externalIcon  = { game:"🎮", movie:"🎬", book:"📚" }[e.media_type] || "🔗";
+  const externalHTML  = externalUrl
+    ? `<a href="${externalUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} Voir sur ${externalLabel}</a>`
+    : "";
+
+  const youtubeQuery  = encodeURIComponent(`${e.title} ${e.media_type === "game" ? "trailer" : e.media_type === "movie" ? "bande annonce" : "book trailer"}`);
+  const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${youtubeQuery}`;
+  const youtubeHTML   = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">▶ Bande-annonce</a>`;
+
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
@@ -1027,6 +1136,7 @@ function openDetailPanel(id) {
           </div>
           <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
         </div>
+        <div class="detail-ext-links">${externalHTML}${youtubeHTML}</div>
         <div class="detail-body">
           <div class="detail-cover">${cover}</div>
           <div class="detail-info">
@@ -1039,6 +1149,7 @@ function openDetailPanel(id) {
               ${metaRow("Année", e.release_year)}
               ${metaRow("Ajouté le", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null)}
             </div>
+            ${synopsisHTML}
             ${e.notes ? `<div class="detail-notes"><div class="detail-notes-label">Notes personnelles</div><p>${esc(e.notes)}</p></div>` : ""}
           </div>
         </div>
@@ -1049,6 +1160,41 @@ function openDetailPanel(id) {
         </div>
       </div>
     </div>`;
+}
+
+async function openDetailPanel(id) {
+  const e = State.entries.find(x => x.id === id);
+  if (!e) return;
+
+  // Affiche la fiche immédiatement avec ce qu'on a déjà
+  renderDetailPanel(e, e.description || null);
+
+  // Si pas de description stockée, on va la chercher via l'API
+  if (!e.description && e.title) {
+    try {
+      const items = await searchMedia(e.title, e.media_type);
+      const match = items.find(it => it.title.toLowerCase() === e.title.toLowerCase()) || items[0];
+      if (match?.description) {
+        // Met à jour l'affichage avec le synopsis récupéré
+        const synopsisEl = document.querySelector(".detail-synopsis p");
+        if (synopsisEl) {
+          synopsisEl.textContent = match.description;
+        } else {
+          // Injecte le bloc synopsis s'il n'existait pas encore
+          const notesEl = document.querySelector(".detail-notes");
+          const infoEl  = document.querySelector(".detail-info");
+          if (infoEl) {
+            const div = document.createElement("div");
+            div.className = "detail-synopsis";
+            div.innerHTML = `<div class="detail-notes-label">Synopsis</div><p>${esc(match.description)}</p>`;
+            infoEl.insertBefore(div, notesEl || null);
+          }
+        }
+        // Sauvegarde en local pour ne pas refaire l'appel
+        e.description = match.description;
+      }
+    } catch {}
+  }
 }
 
 
