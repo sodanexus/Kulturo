@@ -1899,3 +1899,32 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   flex-shrink: 0;
   padding-top: .2rem;
 }
+
+/* ── Quick search — résultats API ─────────────────────────── */
+.quick-section-label {
+  padding: .4rem .85rem .25rem;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.quick-spinner {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+.quick-result-api { border-top: none; }
+.quick-add-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.quick-result-api:hover .quick-add-icon { opacity: 1; }
