@@ -1019,7 +1019,7 @@ Types valides : "game", "movie", "book". Maximum 12 suggestions.`;
         "Authorization": `Bearer ${CONFIG.groq.apiKey}`,
       },
       body: JSON.stringify({
-        model: CONFIG.groq.model || "llama3-8b-8192",
+        model: CONFIG.groq.model || "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
         max_tokens: 800,
