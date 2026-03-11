@@ -381,6 +381,7 @@ function navTo(key) {
     showPage("activity");
   } else if (key === "profile") {
     showPage("dashboard");
+    key = "dashboard"; // corrige la clé pour localStorage
   } else {
     showPage("library");
     renderCards();
@@ -1339,8 +1340,6 @@ function esc(str) {
 }
 
 // ── Icons (inline SVG minifiés) ───────────────────────────────
-const iconHeart   = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
-const iconGame    = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 12h.01M17 12h.01"/></svg>`;
 const iconCompass = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
@@ -1504,18 +1503,16 @@ async function renderDiscover() {
 }
 
 function discoverCardHTML(it, idx) {
-  const typeLabel = { game:"Jeu", movie:"Film", book:"Livre" };
-  const typeIcon  = { game:"🎮", movie:"🎬", book:"📚" };
   const cover = it.cover_url
     ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
-    : `<div class="card-cover-placeholder">${typeIcon[it.media_type]||"🎭"}</div>`;
+    : `<div class="card-cover-placeholder">${TYPE_ICONS[it.media_type]||"🎭"}</div>`;
   return `
     <article class="media-card discover-card">
       ${cover}
       <div class="card-body">
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-meta">
-          <span class="badge badge-${it.media_type}">${typeIcon[it.media_type]} ${typeLabel[it.media_type]}</span>
+          <span class="badge badge-${it.media_type}">${TYPE_ICONS[it.media_type]} ${TYPE_LABELS[it.media_type]}</span>
           ${it.release_year ? `<span style="font-size:.72rem;color:var(--text-3)">${it.release_year}</span>` : ""}
         </div>
         ${it.author ? `<div style="font-size:.75rem;color:var(--text-3);margin-top:.2rem">${esc(it.author)}</div>` : ""}
@@ -1596,9 +1593,7 @@ function setDiscoverType(type) {
 
 // ── Fiche détaillée ───────────────────────────────────────────
 function renderDetailPanel(e, description) {
-  const TYPE_ICONS  = { game:"🎮", movie:"🎬", book:"📚" };
-  const TYPE_LABELS = { game:"Jeu", movie:"Film", book:"Livre" };
-  const STATUS_LABELS_L = { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
+  // Utilise les constantes globales TYPE_ICONS, TYPE_LABELS, STATUS_LABELS
 
   const stars = e.rating
     ? Array.from({length:10}, (_,i) => `<span style="color:${i<e.rating?"var(--accent)":"var(--border-2)"}">★</span>`).join("")
@@ -1640,7 +1635,7 @@ function renderDetailPanel(e, description) {
         <div class="modal-header">
           <div style="display:flex;align-items:center;gap:.5rem">
             <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
-            <span class="badge badge-${e.status}">${STATUS_LABELS_L[e.status]}</span>
+            <span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>
             ${e.is_favorite ? `<span style="color:var(--accent);font-size:1rem">♥</span>` : ""}
           </div>
           <div style="display:flex;align-items:center;gap:.4rem;margin-left:auto">
@@ -1737,18 +1732,10 @@ function getIgnored() {
   try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_IGNORED_KEY) || "[]")); }
   catch { return new Set(); }
 }
-function getSeen() {
-  try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_SEEN_KEY) || "[]")); }
-  catch { return new Set(); }
 }
 function addIgnored(title) {
   const s = getIgnored(); s.add(title.toLowerCase());
   localStorage.setItem(DISCOVER_IGNORED_KEY, JSON.stringify([...s]));
-}
-function addSeen(titles) {
-  const s = getSeen();
-  titles.forEach(t => s.add(t.toLowerCase()));
-  localStorage.setItem(DISCOVER_SEEN_KEY, JSON.stringify([...s]));
 }
 function clearDiscoverMemory() {
   localStorage.removeItem(DISCOVER_IGNORED_KEY);
@@ -1808,20 +1795,6 @@ function launchConfetti() {
   }
 }
 
-
-// ── Compteurs animés ──────────────────────────────────────────
-function animateCounter(el, target, duration = 600) {
-  if (!el) return;
-  const start = performance.now();
-  const from  = 0;
-  function step(now) {
-    const p = Math.min((now - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - p, 3); // ease-out-cubic
-    el.textContent = Math.round(from + (target - from) * ease);
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
 
 
 // ── Recherche rapide + ajout depuis topbar ────────────────────
@@ -1973,67 +1946,6 @@ function toggleView() {
 
 const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
 const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-
-// ── Profil utilisateur ────────────────────────────────────────
-async function renderProfilePage() {
-  const container = document.getElementById("profile-content");
-  if (!container) return;
-  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:3rem"><div class="spinner"></div></div>`;
-
-  let username = "";
-  if (!State.demoMode) {
-    try {
-      const profile = await Profiles.get(State.user.id);
-      username = profile?.username || "";
-    } catch {}
-  }
-
-  const myEntries = State.entries;
-  const finished  = myEntries.filter(e => e.status === "finished").length;
-  const favs      = myEntries.filter(e => e.is_favorite).length;
-
-  container.innerHTML = `
-    <div class="profile-section">
-      <h3 class="profile-section-title">👤 Mon identité</h3>
-      <div class="profile-username-card">
-        <div class="form-group" style="max-width:320px">
-          <label>Pseudonyme affiché dans le fil d'activité</label>
-          <div style="display:flex;gap:.5rem">
-            <input type="text" id="input-username" value="${esc(username)}" placeholder="Ton pseudo…" maxlength="30" />
-            <button class="btn btn-primary" onclick="UI.saveUsername()">Enregistrer</button>
-          </div>
-          <p style="font-size:.75rem;color:var(--text-3);margin-top:.4rem">Visible par les autres utilisateurs dans le fil d'activité.</p>
-        </div>
-      </div>
-    </div>
-    <div class="profile-section">
-      <h3 class="profile-section-title">📊 Mes stats rapides</h3>
-      <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-value">${myEntries.length}</div><div class="stat-label">Total</div></div>
-        <div class="stat-card"><div class="stat-value">${finished}</div><div class="stat-label">Terminés</div></div>
-        <div class="stat-card"><div class="stat-value">${favs}</div><div class="stat-label">Coups de cœur</div></div>
-      </div>
-    </div>
-    ${!State.demoMode ? `
-    <div class="profile-section">
-      <h3 class="profile-section-title">⚙️ Compte</h3>
-      <p style="font-size:.85rem;color:var(--text-2);margin-bottom:.75rem">Connecté en tant que <strong>${esc(State.user?.email||"")}</strong></p>
-      <button class="btn btn-danger btn-sm" onclick="UI.signOut()">Se déconnecter</button>
-    </div>` : ""}`;
-}
-
-async function saveUsername() {
-  const val = document.getElementById("input-username")?.value?.trim();
-  if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
-  if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
-  try {
-    await Profiles.upsert(State.user.id, val);
-    State.username = val;
-    toast("Pseudo enregistré ✓", "success");
-  } catch (e) {
-    toast("Erreur : " + e.message, "error");
-  }
-}
 
 // ── Fil d'activité partagé ────────────────────────────────────
 async function renderActivity() {
