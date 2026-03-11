@@ -189,7 +189,6 @@ function renderApp() {
       <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
         ✦ Découverte
       </button>
-      <span class="nav-section-label">Compte</span>
       <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
         ${iconActivity()} Activité
       </button>
