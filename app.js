@@ -203,6 +203,7 @@ function renderApp() {
           <button class="category-tab" onclick="UI.navTo('type-game')">🎮 Jeux</button>
           <button class="category-tab" onclick="UI.navTo('type-movie')">🎬 Films</button>
           <button class="category-tab" onclick="UI.navTo('type-book')">📚 Livres</button>
+          <button class="category-tab" onclick="UI.navTo('fav')">♥ Favoris</button>
         </div>
         <div class="page-header">
           <h2>Bibliothèque</h2>
@@ -375,6 +376,7 @@ function navTo(key) {
     State.filters.favorite = true;
     showPage("library");
     renderCards();
+    updateCategoryTabs("all", true);
   } else if (key === "activity") {
     showPage("activity");
   } else if (key === "profile") {
@@ -1953,10 +1955,10 @@ function quickAddFromResult(idx) {
 
 
 // ── Category tabs mobile ─────────────────────────────────────
-function updateCategoryTabs(type) {
+function updateCategoryTabs(type, isFav = false) {
   const tabs = document.querySelectorAll(".category-tab");
-  const map = ["all", "game", "movie", "book"];
-  tabs.forEach((tab, i) => tab.classList.toggle("active", map[i] === type));
+  const map = ["all", "game", "movie", "book", "fav"];
+  tabs.forEach((tab, i) => tab.classList.toggle("active", isFav ? map[i] === "fav" : map[i] === type));
 }
 
 // ── Vue grille / liste ────────────────────────────────────────
