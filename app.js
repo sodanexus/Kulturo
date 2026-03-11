@@ -411,13 +411,19 @@ function showPage(name) {
   const newIdx = PAGE_ORDER.indexOf(name);
   const dir    = newIdx >= oldIdx ? 1 : -1;
 
+  // Cache toutes les pages explicitement
   document.querySelectorAll(".page").forEach(p => {
     p.classList.remove("active","slide-left","slide-right");
+    p.style.animation = "";
+    p.style.display   = "";
   });
 
   if (oldPage && oldPage !== newPage) {
     oldPage.style.animation = `pageSlideOut${dir>0?"Left":"Right"} .2s ease forwards`;
-    setTimeout(() => { oldPage.style.animation = ""; }, 220);
+    setTimeout(() => {
+      oldPage.style.animation = "";
+      oldPage.style.display   = "";
+    }, 220);
   }
 
   newPage.style.animation = `pageSlideIn${dir>0?"Right":"Left"} .28s var(--ease-spring) forwards`;
