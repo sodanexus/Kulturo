@@ -219,6 +219,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   border-radius: 99px;
   padding: .1em .5em;
   font-weight: 600;
+  transition: background .25s, color .25s, transform .2s;
 }
 .nav-item.active .nav-badge { background: var(--accent-glow); color: var(--accent); }
 
@@ -331,6 +332,11 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   position: relative;
   display: flex;
   flex-direction: column;
+  animation: cardAppear .22s var(--ease-out) both;
+}
+@keyframes cardAppear {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: none; }
 }
 
 .card-cover {
@@ -1622,9 +1628,21 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   .modal {
     max-width: 100%;
     width: 100%;
-    max-height: 92vh;
+    max-height: 92dvh; /* dvh tient compte du clavier mobile */
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     animation: modalMobileIn .3s var(--ease-spring) both;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-body {
+    overflow-y: auto;
+    flex: 1;
+    /* Espace pour le footer fixe + safe area */
+    padding-bottom: calc(max(env(safe-area-inset-bottom), 12px) + .5rem);
+  }
+  .modal-footer {
+    flex-shrink: 0;
+    padding-bottom: calc(max(env(safe-area-inset-bottom), 12px) + 1rem);
   }
   @keyframes modalMobileIn {
     from { transform: translateY(100%); }
