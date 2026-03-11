@@ -1847,13 +1847,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   .category-tabs::-webkit-scrollbar { display: none; }
   .category-tab {
     flex-shrink: 0;
-    padding: .4rem .85rem;
+    padding: .3rem .85rem;
     border-radius: 99px;
     border: 1px solid var(--border);
     background: var(--bg-3);
     color: var(--text-2);
     font-size: .8rem;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     transition: all .18s var(--ease-spring);
   }
@@ -1861,6 +1861,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     background: var(--accent);
     color: #0d0d0f;
     border-color: var(--accent);
+    font-weight: 700;
   }
   .category-tab:active { transform: scale(.93); }
 }
