@@ -1349,6 +1349,8 @@ const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="curre
 const iconSun     = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
 const iconMoon    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
+const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 
 
 // ── Découverte ────────────────────────────────────────────────
@@ -1943,8 +1945,19 @@ function toggleView() {
   localStorage.setItem("kulturo-view", isList ? "list" : "grid");
 }
 
-const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
-const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+async function saveUsername() {
+  const val = document.getElementById("input-username")?.value?.trim();
+  if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
+  if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
+  try {
+    await Profiles.upsert(State.user.id, val);
+    State.username = val;
+    toast("Pseudo enregistré ✓", "success");
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
 
 // ── Fil d'activité partagé ────────────────────────────────────
 async function renderActivity() {
