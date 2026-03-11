@@ -100,8 +100,9 @@ if (document.readyState === 'loading') {
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("kulturo-theme", t);
-  const btn = document.getElementById("btn-theme");
-  if (btn) btn.innerHTML = t === "dark" ? iconSun() : iconMoon();
+  document.querySelectorAll(".btn-theme").forEach(btn => {
+    btn.innerHTML = t === "dark" ? iconSun() : iconMoon();
+  });
 }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute("data-theme");
@@ -152,10 +153,7 @@ function renderApp() {
         <div id="search-quick-add" class="search-quick-add" style="display:none"></div>
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
-      <div class="topbar-right">
-        <button class="btn-icon" id="btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
-        ${!State.demoMode ? `<button class="btn-icon" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
-      </div>
+      <div class="topbar-right"></div>
     </header>
 
     <!-- Sidebar -->
@@ -211,6 +209,8 @@ function renderApp() {
           <h2>Bibliothèque</h2>
           <div class="page-actions">
             <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Changer la vue" onclick="UI.toggleView()">⊞</button>
+            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
+            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
         </div>
         <div class="filter-bar" id="filter-bar">
@@ -229,6 +229,8 @@ function renderApp() {
         <div class="page-header"><h2>Mon profil</h2>
           <div class="page-actions">
             <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
+            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
+            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
         </div>
         <div id="dashboard-content"></div>
@@ -245,6 +247,8 @@ function renderApp() {
             <button class="btn btn-secondary" id="discover-filter-book"  onclick="UI.setDiscoverType('book')" >📚 Livres</button>
             <button class="btn btn-primary"   onclick="UI.refreshDiscover()">↻ Actualiser</button>
             <button class="btn btn-ghost btn-sm" onclick="UI.clearDiscoverMemory()" title="Effacer la mémoire des suggestions">🗑 Mémoire</button>
+            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
+            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
         </div>
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
@@ -253,7 +257,12 @@ function renderApp() {
 
       <!-- Page Activité partagée -->
       <section id="page-activity" class="page">
-        <div class="page-header"><h2>🎭 Activité</h2></div>
+        <div class="page-header"><h2>🎭 Activité</h2>
+          <div class="page-actions">
+            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
+            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
+          </div>
+        </div>
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Ce que tout le monde a ajouté ou terminé récemment.</p>
         <div id="activity-feed"></div>
       </section>
