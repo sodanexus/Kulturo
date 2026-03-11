@@ -1732,7 +1732,6 @@ function getIgnored() {
   try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_IGNORED_KEY) || "[]")); }
   catch { return new Set(); }
 }
-}
 function addIgnored(title) {
   const s = getIgnored(); s.add(title.toLowerCase());
   localStorage.setItem(DISCOVER_IGNORED_KEY, JSON.stringify([...s]));
