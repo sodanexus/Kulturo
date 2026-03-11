@@ -145,10 +145,10 @@ function renderApp() {
   app.innerHTML = `
     <!-- Topbar -->
     <header id="topbar">
-      <div class="topbar-logo">Kulturo</div>
+      <div class="topbar-logo">Kulturo<span class="topbar-tagline">Suivez votre culture</span></div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher..." autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher ou ajouter…" autocomplete="off" />
         <div id="search-quick-add" class="search-quick-add" style="display:none"></div>
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
