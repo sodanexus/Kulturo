@@ -1835,6 +1835,17 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
   /* Onglets catégories fixes sous le titre */
   .swipe-indicator { display: none; }
+
+  /* Réordonnancement mobile : filter-bar (statuts) au-dessus des category-tabs (types) */
+  #page-library {
+    display: flex;
+    flex-direction: column;
+  }
+  #page-library .category-tabs { order: 1; }
+  #page-library .page-header   { order: 2; }
+  #page-library .filter-bar    { order: 3; }
+  #page-library #cards-grid    { order: 4; }
+
   .category-tabs {
     display: flex;
     gap: .4rem;
