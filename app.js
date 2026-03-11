@@ -164,7 +164,7 @@ function renderApp() {
         ${iconGrid()} Bibliothèque <span class="nav-badge" id="badge-all">—</span>
       </button>
       <button class="nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
-        ${iconChart()} Statistiques
+        ${iconChart()} Mon profil
       </button>
       <span class="nav-section-label">Catégories</span>
       <button class="nav-item" data-nav="type-game" onclick="UI.navTo('type-game')">
@@ -192,9 +192,6 @@ function renderApp() {
       <span class="nav-section-label">Compte</span>
       <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
         ${iconActivity()} Activité
-      </button>
-      <button class="nav-item" data-nav="profile" onclick="UI.navTo('profile')">
-        👤 Mon profil
       </button>
     </nav>
 
@@ -227,12 +224,26 @@ function renderApp() {
 
       <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
-        <div class="page-header"><h2>Profil &amp; Statistiques</h2>
+        <div class="page-header"><h2>Mon profil</h2>
           <div class="page-actions">
             <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
           </div>
         </div>
         <div id="dashboard-content"></div>
+      </section>
+        <div class="page-header">
+          <h2>Découverte</h2>
+          <div class="page-actions">
+            <button class="btn btn-secondary" id="discover-filter-all"   onclick="UI.setDiscoverType('all')"  >Tout</button>
+            <button class="btn btn-secondary" id="discover-filter-game"  onclick="UI.setDiscoverType('game')" >🎮 Jeux</button>
+            <button class="btn btn-secondary" id="discover-filter-movie" onclick="UI.setDiscoverType('movie')">🎬 Films</button>
+            <button class="btn btn-secondary" id="discover-filter-book"  onclick="UI.setDiscoverType('book')" >📚 Livres</button>
+            <button class="btn btn-primary"   onclick="UI.refreshDiscover()">↻ Actualiser</button>
+            <button class="btn btn-ghost btn-sm" onclick="UI.clearDiscoverMemory()" title="Effacer la mémoire des suggestions">🗑 Mémoire</button>
+          </div>
+        </div>
+        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
+        <div id="discover-grid" class="discover-grid"></div>
       </section>
 
       <!-- Page Découverte -->
@@ -250,12 +261,6 @@ function renderApp() {
         </div>
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
         <div id="discover-grid" class="discover-grid"></div>
-      </section>
-
-      <!-- Page Profil utilisateur -->
-      <section id="page-profile" class="page">
-        <div class="page-header"><h2>Mon profil</h2></div>
-        <div id="profile-content"></div>
       </section>
 
       <!-- Page Activité partagée -->
@@ -277,16 +282,16 @@ function renderApp() {
       <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" title="Bibliothèque">
         ${iconGrid()}
       </button>
-      <button class="bottom-nav-item" data-nav="fav" onclick="UI.navTo('fav')" title="Coups de cœur">
-        ${iconHeart()}
+      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" title="Activité">
+        ${iconActivity()}
       </button>
       <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" title="Ajouter">
         ${iconPlus()}
       </button>
-      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" title="Activité">
-        ${iconActivity()}
+      <button class="bottom-nav-item" data-nav="discover" onclick="UI.navTo('discover')" title="Découverte">
+        ${iconCompass()}
       </button>
-      <button class="bottom-nav-item" data-nav="profile" onclick="UI.navTo('profile')" title="Profil">
+      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" title="Mon profil">
         ${iconUser()}
       </button>
     </nav>
@@ -388,14 +393,14 @@ function navTo(key) {
   } else if (key === "activity") {
     showPage("activity");
   } else if (key === "profile") {
-    showPage("profile");
+    showPage("dashboard");
   } else {
     showPage("library");
     renderCards();
   }
 }
 
-const PAGE_ORDER = ["library","dashboard","discover","activity","profile"];
+const PAGE_ORDER = ["library","dashboard","discover","activity"];
 let _currentPage = "library";
 function showPage(name) {
   const oldPage = document.getElementById(`page-${_currentPage}`);
@@ -541,6 +546,34 @@ function renderDashboard() {
   const container = document.getElementById("dashboard-content");
   if (!container) return;
 
+  // Section identité (username) en haut
+  const profileTopHTML = !State.demoMode ? `
+    <div class="profile-section profile-identity-bar">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px">
+          <span style="font-size:1.5rem">👤</span>
+          <div>
+            <div style="font-size:.75rem;color:var(--text-3)">Connecté en tant que</div>
+            <div style="font-size:.88rem;font-weight:600;color:var(--text-1)">${esc(State.user?.email||"")}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30"
+            style="font-size:.85rem;padding:.35rem .65rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-1);width:140px" />
+          <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="UI.signOut()">Déconnexion</button>
+      </div>
+    </div>` : "";
+
+  // Charge le username en async
+  if (!State.demoMode) {
+    Profiles.get(State.user.id).then(p => {
+      const el = document.getElementById("input-username");
+      if (el && p?.username) el.value = p.username;
+    }).catch(() => {});
+  }
+
   // Populate year selector
   const yearSel = document.getElementById("profile-year-select");
   if (yearSel) {
@@ -628,6 +661,7 @@ function renderDashboard() {
   }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
 
   container.innerHTML = `
+    ${profileTopHTML}
     <!-- Résumé annuel -->
     <div class="profile-section">
       <h3 class="profile-section-title">✦ Résumé ${_profileYear}</h3>
