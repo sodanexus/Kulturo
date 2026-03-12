@@ -363,10 +363,15 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   background: var(--bg-3);
   border-radius: var(--radius);
   flex-shrink: 0;
-  transition: transform .2s var(--ease-spring), box-shadow .2s;
+  transition: box-shadow .2s;
+}
+.media-card {
+  transition: transform .2s var(--ease-spring);
+}
+.media-card:hover {
+  transform: translateY(-3px);
 }
 .media-card:hover .card-cover {
-  transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(0,0,0,.5);
 }
 .card-cover-placeholder {
