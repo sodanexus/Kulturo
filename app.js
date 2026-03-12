@@ -545,10 +545,12 @@ function cardHTML(e, i = 0) {
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const isPerfect = e.rating === 10;
+  const statusClass = { wishlist: "is-wishlist", playing: "is-playing", paused: "is-paused", dropped: "is-dropped" }[e.status] || "";
   const classes = ["media-card",
     e.is_favorite ? "favorite" : "",
     isPerfect      ? "perfect"  : "",
-    (e.is_favorite && isPerfect) ? "both" : ""
+    (e.is_favorite && isPerfect) ? "both" : "",
+    statusClass
   ].filter(Boolean).join(" ");
 
   return `
