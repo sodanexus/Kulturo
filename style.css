@@ -238,7 +238,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 
 /* ── Main content ─────────────────────────────────────────── */
 #main {
-  padding: .35rem 2rem 4rem;
+  padding: .75rem 2rem 4rem;
   overflow-y: auto;
   height: calc(100vh - 53px);
 }
@@ -1662,7 +1662,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   #main {
     height: auto;
     min-height: calc(100vh - 53px - 72px);
-    padding: .35rem 1rem calc(max(env(safe-area-inset-bottom), 20px) + 80px);
+    padding: .75rem 1rem calc(max(env(safe-area-inset-bottom), 20px) + 80px);
     overflow-x: hidden;
     overflow-y: visible;
   }
