@@ -355,23 +355,21 @@ function navTo(key) {
     showPage("dashboard");
     key = "dashboard";
   } else if (key.startsWith("type-")) {
-    // Change uniquement le type, conserve le status en cours
     State.filters.type     = key.replace("type-", "");
     State.filters.favorite = false;
-    showPage("library");
+    if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs(State.filters.type);
   } else if (key.startsWith("status-")) {
-    // Change uniquement le status, conserve le type en cours
     State.filters.status   = key.replace("status-", "");
     State.filters.favorite = false;
-    showPage("library");
+    if (_currentPage !== "library") showPage("library");
     renderCards();
   } else if (key === "fav") {
     State.filters.favorite = true;
     State.filters.type     = "all";
     State.filters.status   = "all";
-    showPage("library");
+    if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs("all", true);
   } else {
@@ -379,7 +377,7 @@ function navTo(key) {
     State.filters.type     = "all";
     State.filters.status   = "all";
     State.filters.favorite = false;
-    showPage("library");
+    if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs("all");
   }
@@ -458,6 +456,10 @@ function renderCards() {
   // Micro-animation au changement de filtre
   grid.classList.remove("filter-transition");
   requestAnimationFrame(() => grid.classList.add("filter-transition"));
+
+  // Scroll to top
+  const main = document.getElementById("main");
+  if (main) main.scrollTop = 0;
 
   let entries = filterEntries(State.entries);
 
