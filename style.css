@@ -352,6 +352,15 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   from { opacity: 0; transform: translateY(8px) scale(.98); }
   to   { opacity: 1; transform: none; }
 }
+
+/* Transition grille au changement de filtre */
+#cards-grid.filter-transition {
+  animation: gridRefresh .18s var(--ease-out) both;
+}
+@keyframes gridRefresh {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
 .card-cover {
   width: 100%;
   aspect-ratio: 2/3;
@@ -1942,6 +1951,11 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   border-radius: var(--radius);
   flex-shrink: 0;
   background: var(--bg-2);
+  transition: transform .2s var(--ease-spring);
+  overflow: hidden;
+}
+.journal-row:hover .journal-cover {
+  transform: scale(1.08);
 }
 .journal-cover-ph {
   display: flex;
