@@ -395,9 +395,9 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   min-height: 1rem;
 }
 .card-stars {
-  font-size: .72rem;
+  font-size: .62rem;
   color: var(--accent);
-  letter-spacing: .03em;
+  letter-spacing: -.01em;
   line-height: 1;
 }
 .card-stars-empty { color: var(--border-2); }
