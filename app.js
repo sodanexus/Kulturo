@@ -199,11 +199,6 @@ function renderApp() {
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
         <div class="page-header">
-          <div class="page-actions">
-            <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Changer la vue" onclick="UI.toggleView()">⊞</button>
-            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
-            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
-          </div>
         </div>
         <div class="filter-bar" id="filter-bar">
           <select class="filter-select" id="sort-select" onchange="UI.setSort(this.value)">
@@ -245,8 +240,6 @@ function renderApp() {
             <button class="btn btn-secondary" id="discover-filter-book"  onclick="UI.setDiscoverType('book')" >📚 Livres</button>
             <button class="btn btn-primary"   onclick="UI.refreshDiscover()">↻ Actualiser</button>
             <button class="btn btn-ghost btn-sm" onclick="UI.clearDiscoverMemory()" title="Effacer la mémoire des suggestions">🗑 Mémoire</button>
-            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
-            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
         </div>
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
@@ -255,12 +248,6 @@ function renderApp() {
 
       <!-- Page Activité partagée -->
       <section id="page-activity" class="page">
-        <div class="page-header">
-          <div class="page-actions">
-            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
-            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
-          </div>
-        </div>
         <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Ce que tout le monde a ajouté ou terminé récemment.</p>
         <div id="activity-feed"></div>
       </section>
@@ -301,9 +288,6 @@ function renderApp() {
   buildFilterBar();
   renderCards();
   updateBadges();
-  // Restaure la taille des cartes (small / medium)
-  const savedView = localStorage.getItem("kulturo-view") || "medium";
-  applyCardSize(savedView);
   // Restaure la nav active
   const savedNav = localStorage.getItem("kulturo-nav") || "library";
   navTo(savedNav);
@@ -2096,22 +2080,6 @@ function updateCategoryTabs(type, isFav = false) {
 
 // ── Vue grille / liste ────────────────────────────────────────
 // ── Taille des cartes (small / medium) ───────────────────────
-function applyCardSize(size) {
-  const grid = document.getElementById("cards-grid");
-  const btn  = document.getElementById("btn-view-toggle");
-  if (!grid) return;
-  grid.classList.toggle("cards-small", size === "small");
-  if (btn) btn.textContent = size === "small" ? "⊞" : "⊟";
-}
-
-function toggleView() {
-  const grid = document.getElementById("cards-grid");
-  if (!grid) return;
-  const isSmall = grid.classList.toggle("cards-small");
-  const btn = document.getElementById("btn-view-toggle");
-  if (btn) btn.textContent = isSmall ? "⊞" : "⊟";
-  localStorage.setItem("kulturo-view", isSmall ? "small" : "medium");
-}
 
 
 async function saveUsername() {
@@ -2232,7 +2200,6 @@ window.UI = {
   setStatusChip,
   setSort,
   setProfileYear,
-  toggleView,
   setDiscoverType,
   refreshDiscover: () => { DiscoverState.results = []; renderDiscover(); },
   ignoreDiscover,
