@@ -5,6 +5,14 @@
 import { initSupabase, isConfigured, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability }                            from "./api.js";
 
+// Debug visible — à retirer après diagnostic
+document.addEventListener("DOMContentLoaded", () => {
+  const el = document.getElementById("app");
+  if (el && el.querySelector(".spinner")) {
+    el.insertAdjacentHTML("beforeend", "<div style='position:fixed;bottom:20px;left:0;right:0;text-align:center;font-size:12px;color:#c9a84c'>app.js chargé ✓</div>");
+  }
+});
+
 // ── État global ──────────────────────────────────────────────
 const State = {
   user:       null,
