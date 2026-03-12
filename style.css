@@ -27,9 +27,9 @@
   --danger:      #e05b5b;
   --success:     #5bbf8d;
   --warn:        #e09b5b;
-  --radius:      12px;
-  --radius-lg:   18px;
-  --radius-xl:   24px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
   --shadow:      0 4px 24px rgba(0,0,0,.5);
   --shadow-lg:   0 8px 48px rgba(0,0,0,.7);
   --transition:  .18s cubic-bezier(.4,0,.2,1);
@@ -1509,24 +1509,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 /* ── Glow pulsant sur coups de cœur ──────────────────────── */
 /* ── Contours pulsants cartes ─────────────────────────────── */
 
-/* Cœur : contour rouge pulsant permanent */
-@keyframes heartPulse {
-  0%, 100% { box-shadow: 0 0 0 1.5px rgba(220,60,60,.6), 0 0 8px 0px rgba(220,60,60,.2); }
-  50%       { box-shadow: 0 0 0 2px   rgba(220,60,60,.9), 0 0 14px 3px rgba(220,60,60,.35); }
-}
-.media-card.favorite:not(.both) .card-cover {
-  animation: heartPulse 2.2s ease-in-out infinite;
-}
-
-/* Note max : contour or pulsant permanent */
-@keyframes perfectPulse {
-  0%, 100% { box-shadow: 0 0 0 1.5px rgba(200,169,110,.6), 0 0 8px 0px rgba(200,169,110,.2); }
-  50%       { box-shadow: 0 0 0 2px   rgba(200,169,110,.95), 0 0 16px 4px rgba(200,169,110,.4); }
-}
-.media-card.perfect:not(.both) .card-cover {
-  animation: perfectPulse 2.5s ease-in-out infinite;
-}
-
 /* Cœur + note max : dégradé or→rouge pulsant */
 @keyframes bothPulse {
   0%   { box-shadow: 0 0 0 2px rgba(200,169,110,.8), 0 0 12px 2px rgba(200,169,110,.3); }
@@ -1535,14 +1517,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .media-card.both .card-cover {
   animation: bothPulse 2s ease-in-out infinite;
-}
-
-/* Au survol, booste juste l'ombre */
-.media-card.favorite:hover .card-cover {
-  box-shadow: 0 8px 24px rgba(0,0,0,.5), 0 0 0 2px rgba(220,60,60,.9), 0 0 18px 4px rgba(220,60,60,.4);
-}
-.media-card.perfect:hover .card-cover {
-  box-shadow: 0 8px 24px rgba(0,0,0,.5), 0 0 0 2px rgba(200,169,110,1), 0 0 20px 5px rgba(200,169,110,.5);
 }
 .media-card.both:hover .card-cover {
   box-shadow: 0 8px 24px rgba(0,0,0,.5), 0 0 0 2px rgba(220,60,60,.9), 0 0 20px 5px rgba(200,169,110,.4);
