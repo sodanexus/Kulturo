@@ -513,14 +513,10 @@ function starsHTML(rating, is_favorite) {
   if (!rating && !is_favorite) return "";
   let starsEl = "";
   if (rating) {
-    const full    = Math.floor(rating / 2);
-    const half    = rating % 2 === 1;
-    const empty   = 5 - full - (half ? 1 : 0);
     const perfect = rating === 10;
     starsEl = `<div class="card-stars${perfect ? " perfect" : ""}">` +
-      "★".repeat(full) +
-      (half ? "½" : "") +
-      `<span class="card-stars-empty">${"★".repeat(empty)}</span>` +
+      "★".repeat(rating) +
+      `<span class="card-stars-empty">${"★".repeat(10 - rating)}</span>` +
       `</div>`;
   }
   const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
