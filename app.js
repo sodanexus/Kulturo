@@ -356,19 +356,25 @@ function navTo(key) {
     key = "dashboard";
   } else if (key.startsWith("type-")) {
     State.filters.type     = key.replace("type-", "");
+    State.filters.status   = "all";
     State.filters.favorite = false;
+    syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs(State.filters.type);
   } else if (key.startsWith("status-")) {
     State.filters.status   = key.replace("status-", "");
+    State.filters.type     = "all";
     State.filters.favorite = false;
+    syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
+    updateCategoryTabs("all");
   } else if (key === "fav") {
     State.filters.favorite = true;
     State.filters.type     = "all";
     State.filters.status   = "all";
+    syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs("all", true);
@@ -377,6 +383,7 @@ function navTo(key) {
     State.filters.type     = "all";
     State.filters.status   = "all";
     State.filters.favorite = false;
+    syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
     updateCategoryTabs("all");
@@ -387,6 +394,7 @@ function navTo(key) {
 function setTypeFilter(type) {
   State.filters.type     = type;
   State.filters.favorite = false;
+  syncFilterChips();
   renderCards();
   updateCategoryTabs(type);
 }
@@ -1376,12 +1384,16 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
 
 
 // ── Filtres chip (status bar) ─────────────────────────────────
+function syncFilterChips() {
+  const status = State.filters.status;
+  document.querySelectorAll(".filter-chip").forEach(c =>
+    c.classList.toggle("active", c.textContent.trim() === (status === "all" ? "Tous" : STATUS_LABELS[status])));
+}
+
 let _chipDebounce = null;
 function setStatusChip(status) {
   State.filters.status = status;
-  document.querySelectorAll(".filter-chip").forEach(c =>
-    c.classList.toggle("active", c.textContent.trim() === (status==="all"?"Tous":STATUS_LABELS[status])));
-  // #16 — debounce pour éviter re-render sur chaque clic rapide
+  syncFilterChips();
   clearTimeout(_chipDebounce);
   _chipDebounce = setTimeout(() => renderCards(), 80);
 }
