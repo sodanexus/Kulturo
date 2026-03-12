@@ -333,7 +333,6 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1.25rem;
-  transition: grid-template-columns .2s ease, gap .2s ease;
 }
 
 /* ── Carte média ──────────────────────────────────────────── */
@@ -984,62 +983,43 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .detail-ext-link:hover { opacity: 1; }
 
 /* ── Vue liste ────────────────────────────────────────────── */
-/* ── Tailles de cartes ────────────────────────────────────── */
-
-/* PETITE — grille serrée, cover dominante, infos minimales */
-#cards-grid.cards-small {
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: .6rem;
-}
-#cards-grid.cards-small .media-card .card-body {
-  padding: .4rem .5rem;
-  gap: .15rem;
-}
-#cards-grid.cards-small .media-card .card-title {
-  font-size: .7rem;
-  -webkit-line-clamp: 1;
-}
-#cards-grid.cards-small .media-card .card-meta { display: none; }
-#cards-grid.cards-small .media-card .card-footer { display: none; }
-#cards-grid.cards-small .media-card .fav-btn {
-  width: 22px; height: 22px; font-size: 10px;
-  top: .3rem; right: .3rem;
-}
-
-/* MOYENNE — défaut actuel */
-#cards-grid.cards-medium {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.25rem;
-}
-
-/* GRANDE — plus large, auteur + année visibles */
-#cards-grid.cards-large {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.5rem;
-}
-#cards-grid.cards-large .media-card .card-body {
-  padding: 1rem;
+#cards-grid.list-view {
+  display: flex;
+  flex-direction: column;
   gap: .5rem;
 }
-#cards-grid.cards-large .media-card .card-title {
-  font-size: 1rem;
-  -webkit-line-clamp: 2;
+#cards-grid.list-view .media-card {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  grid-template-rows: auto;
+  align-items: center;
+  border-radius: var(--radius);
+  padding: .5rem .75rem;
+  aspect-ratio: unset;
+  min-height: 64px;
 }
-#cards-grid.cards-large .card-author {
-  display: block;
-  font-size: .78rem;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+#cards-grid.list-view .media-card .card-cover,
+#cards-grid.list-view .media-card .card-cover-placeholder {
+  width: 40px;
+  height: 52px;
+  border-radius: 4px;
+  object-fit: cover;
+  aspect-ratio: unset;
+  grid-row: 1 / 3;
 }
-#cards-grid.cards-large .card-year {
-  display: inline;
+#cards-grid.list-view .media-card .card-body {
+  padding: 0 .75rem;
 }
-
-/* Par défaut, auteur et année cachés en taille petite/moyenne */
-.card-author { display: none; }
-.card-year   { display: none; }
+#cards-grid.list-view .media-card .fav-btn {
+  position: static;
+  grid-column: 3;
+  font-size: .9rem;
+}
+#cards-grid.list-view .media-card .card-title {
+  font-size: .9rem;
+  margin-bottom: .15rem;
+  -webkit-line-clamp: 1;
+}
 
 /* ── Profil / Stats ───────────────────────────────────────── */
 .profile-section {
@@ -1098,6 +1078,90 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   top: -1rem;
   text-align: center;
   width: 100%;
+}
+
+/* ── Histogramme des notes ────────────────────────────────── */
+.rating-hist-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.rating-hist-meta {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.rating-hist-total {
+  font-size: .78rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.rating-hist-avg {
+  font-size: .78rem;
+  color: var(--text-2);
+}
+.rating-hist-avg strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+.rating-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: .35rem;
+  height: 90px;
+  padding-bottom: 1.6rem;
+  position: relative;
+}
+.rating-hist-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  position: relative;
+  cursor: default;
+}
+.rating-hist-col:hover .rating-hist-bar { filter: brightness(1.25); }
+.rating-hist-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.rating-hist-bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 0;
+  transition: height .4s cubic-bezier(.4,0,.2,1), filter .15s;
+  opacity: .55;
+}
+.rating-hist-bar.peak {
+  opacity: 1;
+}
+.rating-hist-count {
+  font-size: .58rem;
+  color: var(--text-3);
+  font-weight: 600;
+  position: absolute;
+  top: -1.1rem;
+  text-align: center;
+  width: 100%;
+  transition: color .15s;
+}
+.rating-hist-col:hover .rating-hist-count { color: var(--accent); }
+.rating-hist-star {
+  position: absolute;
+  bottom: -1.55rem;
+  font-size: .6rem;
+  color: var(--accent);
+  text-align: center;
+  width: 100%;
+  opacity: .7;
+  line-height: 1;
 }
 
 /* Top liste */
@@ -1607,18 +1671,15 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     overflow-y: visible;
   }
 
-  /* Tailles cartes mobile */
-  #cards-grid.cards-small {
-    grid-template-columns: repeat(4, 1fr);
-    gap: .4rem;
-  }
-  #cards-grid.cards-medium {
-    grid-template-columns: repeat(3, 1fr);
-    gap: .5rem;
-  }
-  #cards-grid.cards-large {
+  /* Grille 2 colonnes sur mobile */
+  #cards-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: .75rem;
+  }
+
+  /* Vue liste mobile */
+  #cards-grid.list-view {
+    grid-template-columns: 1fr;
   }
 
   /* Page header compact */
@@ -1798,17 +1859,26 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   #loading-bar { grid-column: 1 / -1; }
 
   #cards-grid {
-    width: 100%;
-    overflow: hidden;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .5rem;
   }
   .card-body { padding: .5rem; gap: .2rem; }
-  .card-title { font-size: .75rem; -webkit-line-clamp: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-title { font-size: .75rem; -webkit-line-clamp: 1; }
   .card-meta { gap: .2rem; }
   .badge { font-size: .6rem; padding: .1rem .35rem; }
   .card-footer { padding-top: .15rem; }
   .rating-display { font-size: .72rem; }
   .fav-btn { width: 24px; height: 24px; font-size: 11px; }
+
+  #app { overflow-x: hidden; }
+  /* #main padding déjà défini ci-dessus */
+  #cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    overflow: hidden;
+  }
   .media-card { min-width: 0; overflow: hidden; }
+  .card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .filter-bar {
     display: flex;
