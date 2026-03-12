@@ -368,7 +368,51 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   background: var(--bg-3);
   border-radius: var(--radius);
   flex-shrink: 0;
-  transition: transform .2s var(--ease-spring), box-shadow .2s;
+  transition: transform .2s var(--ease-spring), box-shadow .2s, filter .2s, opacity .2s;
+}
+.media-card.is-wishlist .card-cover,
+.media-card.is-wishlist .card-cover-placeholder {
+  opacity: .45;
+  filter: saturate(0.2);
+}
+.media-card.is-wishlist:hover .card-cover,
+.media-card.is-wishlist:hover .card-cover-placeholder {
+  opacity: 1;
+  filter: saturate(1);
+}
+
+/* En cours — légèrement surexposé, vivant */
+.media-card.is-playing .card-cover,
+.media-card.is-playing .card-cover-placeholder {
+  filter: saturate(1.15) brightness(1.05);
+}
+.media-card.is-playing:hover .card-cover,
+.media-card.is-playing:hover .card-cover-placeholder {
+  filter: saturate(1.2) brightness(1.1);
+}
+
+/* En pause — froid et atténué */
+.media-card.is-paused .card-cover,
+.media-card.is-paused .card-cover-placeholder {
+  opacity: .6;
+  filter: saturate(0.4) hue-rotate(200deg);
+}
+.media-card.is-paused:hover .card-cover,
+.media-card.is-paused:hover .card-cover-placeholder {
+  opacity: 1;
+  filter: saturate(1) hue-rotate(0deg);
+}
+
+/* Abandonné — quasi noir et blanc, très éteint */
+.media-card.is-dropped .card-cover,
+.media-card.is-dropped .card-cover-placeholder {
+  opacity: .35;
+  filter: saturate(0) brightness(0.8);
+}
+.media-card.is-dropped:hover .card-cover,
+.media-card.is-dropped:hover .card-cover-placeholder {
+  opacity: 1;
+  filter: saturate(1) brightness(1);
 }
 .media-card:hover .card-cover {
   transform: scale(1.04);
