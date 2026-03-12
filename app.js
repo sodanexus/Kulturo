@@ -516,7 +516,6 @@ function starsHTML(rating, is_favorite) {
     const perfect = rating === 10;
     starsEl = `<div class="card-stars${perfect ? " perfect" : ""}">` +
       "★".repeat(rating) +
-      `<span class="card-stars-empty">${"★".repeat(10 - rating)}</span>` +
       `</div>`;
   }
   const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
