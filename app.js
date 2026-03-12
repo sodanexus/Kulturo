@@ -214,10 +214,10 @@ function renderApp() {
           </select>
         </div>
         <div class="category-tabs" id="category-tabs">
-          <button class="category-tab active" onclick="UI.navTo('library')">Tous</button>
-          <button class="category-tab" onclick="UI.navTo('type-game')">🎮 Jeux</button>
-          <button class="category-tab" onclick="UI.navTo('type-movie')">🎬 Films</button>
-          <button class="category-tab" onclick="UI.navTo('type-book')">📚 Livres</button>
+          <button class="category-tab active" onclick="UI.setTypeFilter('all')">Tous</button>
+          <button class="category-tab" onclick="UI.setTypeFilter('game')">🎮 Jeux</button>
+          <button class="category-tab" onclick="UI.setTypeFilter('movie')">🎬 Films</button>
+          <button class="category-tab" onclick="UI.setTypeFilter('book')">📚 Livres</button>
           <button class="category-tab" onclick="UI.navTo('fav')">♥ Favoris</button>
         </div>
         <div id="cards-grid"></div>
@@ -336,18 +336,12 @@ async function loadEntries() {
 
 // ── Navigation unifiée ───────────────────────────────────────
 function navTo(key) {
-  // #10 — ne rejoue pas l'animation si on clique exactement sur la même destination
-  // Exception : "library" doit toujours être accessible pour reset les filtres
+  // ne rejoue pas l'animation si on clique exactement sur la même destination
   if (key !== "library" && (key === _currentPage || (key === "profile" && _currentPage === "dashboard"))) return;
 
   // #2 — sauvegarde le scroll de la page courante
   const main = document.getElementById("main");
   if (main) State.scrollPos[_currentPage] = main.scrollTop;
-
-  // Reset filtres — chaque branche ci-dessous applique ce dont elle a besoin
-  State.filters.type     = "all";
-  State.filters.status   = "all";
-  State.filters.favorite = false;
 
   // Désactive tous les nav-items
   document.querySelectorAll(".nav-item[data-nav]").forEach(b => b.classList.remove("active"));
@@ -367,36 +361,53 @@ function navTo(key) {
 
   // Sauvegarde la nav active
   localStorage.setItem("kulturo-nav", key);
-  // Mise à jour onglets catégories mobile
-  const tabType = key.startsWith("type-") ? key.replace("type-", "") : "all";
-  updateCategoryTabs(tabType);
 
   if (key === "dashboard") {
     showPage("dashboard");
   } else if (key === "discover") {
     showPage("discover");
-  } else if (key.startsWith("type-")) {
-    State.filters.type = key.replace("type-", "");
-    showPage("library");
-    renderCards();
-  } else if (key.startsWith("status-")) {
-    State.filters.status = key.replace("status-", "");
-    showPage("library");
-    renderCards();
-  } else if (key === "fav") {
-    State.filters.favorite = true;
-    showPage("library");
-    renderCards();
-    updateCategoryTabs("all", true);
   } else if (key === "activity") {
     showPage("activity");
   } else if (key === "profile") {
     showPage("dashboard");
     key = "dashboard";
-  } else {
+  } else if (key.startsWith("type-")) {
+    // Change uniquement le type, conserve le status en cours
+    State.filters.type     = key.replace("type-", "");
+    State.filters.favorite = false;
     showPage("library");
     renderCards();
+    updateCategoryTabs(State.filters.type);
+  } else if (key.startsWith("status-")) {
+    // Change uniquement le status, conserve le type en cours
+    State.filters.status   = key.replace("status-", "");
+    State.filters.favorite = false;
+    showPage("library");
+    renderCards();
+  } else if (key === "fav") {
+    State.filters.favorite = true;
+    State.filters.type     = "all";
+    State.filters.status   = "all";
+    showPage("library");
+    renderCards();
+    updateCategoryTabs("all", true);
+  } else {
+    // "library" → reset complet
+    State.filters.type     = "all";
+    State.filters.status   = "all";
+    State.filters.favorite = false;
+    showPage("library");
+    renderCards();
+    updateCategoryTabs("all");
   }
+}
+
+// ── Filtre type depuis les category-tabs (conserve le status) ─
+function setTypeFilter(type) {
+  State.filters.type     = type;
+  State.filters.favorite = false;
+  renderCards();
+  updateCategoryTabs(type);
 }
 
 const PAGE_ORDER = ["library","dashboard","discover","activity"];
@@ -2217,6 +2228,7 @@ window.UI = {
   fillFromApi,
   setRating,
   navTo,
+  setTypeFilter,
   setStatusChip,
   setSort,
   setProfileYear,
