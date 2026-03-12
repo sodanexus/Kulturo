@@ -224,7 +224,6 @@ function renderApp() {
           <div class="page-actions">
             <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
             <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
-            ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
         </div>
         <div id="dashboard-content"></div>
