@@ -19,10 +19,6 @@
 - PWA installable (iOS / Android)
 - Thème dark / light
 
-## Config
-
-Copier `config.example.js` → `config.js` et renseigner les clés API.
-
 ## Démo
 
 Accessible sans compte via le mode démo sur la page de connexion.
