@@ -455,6 +455,10 @@ function renderCards() {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
+  // Micro-animation au changement de filtre
+  grid.classList.remove("filter-transition");
+  requestAnimationFrame(() => grid.classList.add("filter-transition"));
+
   let entries = filterEntries(State.entries);
 
   if (!entries.length) {
