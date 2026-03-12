@@ -201,7 +201,7 @@ function renderApp() {
         <div class="page-header">
           <h2>Bibliothèque</h2>
           <div class="page-actions">
-            <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Taille des cartes" onclick="UI.toggleView()">⊞</button>
+            <button class="btn btn-secondary btn-icon-only" id="btn-view-toggle" title="Changer la vue" onclick="UI.toggleView()">⊞</button>
             <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
             ${!State.demoMode ? `<button class="btn btn-secondary btn-icon-only" title="Déconnexion" onclick="UI.signOut()">${iconLogout()}</button>` : ""}
           </div>
@@ -303,9 +303,14 @@ function renderApp() {
   buildFilterBar();
   renderCards();
   updateBadges();
-  // Restaure la taille des cartes
-  const savedView = localStorage.getItem("kulturo-view") || "medium";
-  applyCardSize(savedView);
+  // Restaure la vue grille/liste
+  const savedView = localStorage.getItem("kulturo-view");
+  if (savedView === "list") {
+    const grid = document.getElementById("cards-grid");
+    const btn  = document.getElementById("btn-view-toggle");
+    if (grid) grid.classList.add("list-view");
+    if (btn)  btn.textContent = "⊟";
+  }
   // Restaure la nav active
   const savedNav = localStorage.getItem("kulturo-nav") || "library";
   navTo(savedNav);
@@ -526,11 +531,9 @@ function cardHTML(e, i = 0) {
       ${coverHTML}
       <div class="card-body">
         <div class="card-title">${esc(e.title)}</div>
-        ${e.author ? `<span class="card-author">${esc(e.author)}</span>` : ""}
         <div class="card-meta">
           <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
           <span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>
-          ${e.release_year ? `<span class="card-year" style="font-size:.68rem;color:var(--text-3)">${e.release_year}</span>` : ""}
         </div>
         <div class="card-footer">${ratingHTML}</div>
       </div>
@@ -688,6 +691,42 @@ async function renderDashboard() {
       </div>`;
   }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
 
+  // ── Distribution des notes ────────────────────────────────
+  const ratedAll   = all.filter(e => e.rating);
+  const ratingCounts = Array(10).fill(0);
+  ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
+  const maxRatingCount = Math.max(...ratingCounts, 1);
+  const totalRated     = ratedAll.length;
+  const avgRating      = totalRated
+    ? (ratedAll.reduce((s, e) => s + e.rating, 0) / totalRated).toFixed(1)
+    : null;
+
+  const ratingBars = ratingCounts.map((n, i) => {
+    const note   = i + 1;
+    const pct    = Math.round(n / maxRatingCount * 100);
+    const isHalf = note % 2 === 1; // impair = demi-étoile
+    return `
+      <div class="rating-hist-col" title="${n} média${n > 1 ? "s" : ""} · ${note}/10">
+        <div class="rating-hist-count">${n || ""}</div>
+        <div class="rating-hist-bar-wrap">
+          <div class="rating-hist-bar${n === Math.max(...ratingCounts) && n > 0 ? " peak" : ""}" style="height:${pct}%"></div>
+        </div>
+        <div class="rating-hist-star">${isHalf ? "½" : "★"}</div>
+      </div>`;
+  }).join("");
+
+  const ratingsHTML = totalRated > 0 ? `
+    <div class="profile-section">
+      <div class="rating-hist-header">
+        <h3 class="profile-section-title" style="margin:0">Notes</h3>
+        <div class="rating-hist-meta">
+          <span class="rating-hist-total">${totalRated} notes</span>
+          ${avgRating ? `<span class="rating-hist-avg">moyenne <strong>${avgRating}</strong>/10</span>` : ""}
+        </div>
+      </div>
+      <div class="rating-hist">${ratingBars}</div>
+    </div>` : "";
+
   container.innerHTML = `
     ${profileTopHTML}
     <!-- Résumé annuel -->
@@ -708,6 +747,9 @@ async function renderDashboard() {
       <h3 class="profile-section-title">Activité mensuelle</h3>
       <div class="month-chart">${monthBars}</div>
     </div>
+
+    <!-- Distribution des notes -->
+    ${ratingsHTML}
 
     <!-- Top de l'année -->
     <div class="charts-row">
@@ -2035,29 +2077,13 @@ function updateCategoryTabs(type, isFav = false) {
 }
 
 // ── Vue grille / liste ────────────────────────────────────────
-const CARD_SIZES = ["small", "medium", "large"];
-const CARD_SIZE_ICONS = { small: "⊟", medium: "⊞", large: "▦" };
-const CARD_SIZE_LABELS = { small: "Petites", medium: "Moyennes", large: "Grandes" };
-
-function applyCardSize(size) {
+function toggleView() {
   const grid = document.getElementById("cards-grid");
   const btn  = document.getElementById("btn-view-toggle");
   if (!grid) return;
-  CARD_SIZES.forEach(s => grid.classList.remove(`cards-${s}`));
-  grid.classList.add(`cards-${size}`);
-  if (btn) {
-    btn.textContent = CARD_SIZE_ICONS[size];
-    btn.title = `Taille : ${CARD_SIZE_LABELS[size]}`;
-  }
-}
-
-function toggleView() {
-  const grid = document.getElementById("cards-grid");
-  if (!grid) return;
-  const current = CARD_SIZES.find(s => grid.classList.contains(`cards-${s}`)) || "medium";
-  const next = CARD_SIZES[(CARD_SIZES.indexOf(current) + 1) % CARD_SIZES.length];
-  applyCardSize(next);
-  localStorage.setItem("kulturo-view", next);
+  const isList = grid.classList.toggle("list-view");
+  if (btn) btn.textContent = isList ? "⊟" : "⊞";
+  localStorage.setItem("kulturo-view", isList ? "list" : "grid");
 }
 
 
