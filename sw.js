@@ -3,7 +3,7 @@
 // Cache-first pour les assets statiques, network-first pour Supabase
 // ============================================================
 
-const CACHE_NAME = "kulturo-v1";
+const CACHE_NAME = "kulturo-v2";
 const STATIC_ASSETS = [
   "/Kulturo/",
   "/Kulturo/index.html",
@@ -46,7 +46,6 @@ self.addEventListener("fetch", e => {
   if (
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("api.themoviedb.org") ||
-    url.hostname.includes("api.rawg.io") ||
     url.hostname.includes("openlibrary.org") ||
     url.hostname.includes("api.groq.com")
   ) {
