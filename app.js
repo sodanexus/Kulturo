@@ -673,32 +673,6 @@ async function renderDashboard() {
   const finishedAll = all.filter(e => e.status === "finished");
   const totalHours = finishedAll.reduce((acc, e) => acc + (TIME_EST[e.media_type] || 5), 0);
 
-  // Journal — médias terminés (tous temps)
-  const finished = [...all]
-    .filter(e => e.status === "finished")
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-  const journalHTML = finished.length ? finished.map(e => {
-    const date = e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" }) : "";
-    const icon = TYPE_ICONS[e.media_type] || "🎭";
-    const stars = ratingStars(e.rating);
-    return `
-      <div class="journal-row" onclick="UI.openEditModal('${e.id}')">
-        ${e.cover_url
-          ? `<img src="${esc(e.cover_url)}" class="journal-cover" alt="" loading="lazy">`
-          : `<div class="journal-cover journal-cover-ph">${icon}</div>`}
-        <div class="journal-info">
-          <div class="journal-title">${esc(e.title)}</div>
-          <div class="journal-meta">
-            <span class="badge badge-${e.media_type}">${icon} ${getTypeLabel(e)}</span>
-            ${e.rating ? `<span class="journal-stars">${stars}</span>` : ""}
-          </div>
-          ${e.notes ? `<div class="journal-notes">${esc(e.notes)}</div>` : ""}
-        </div>
-        <div class="journal-date">${date}</div>
-      </div>`;
-  }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
-
   // ── Histogramme des notes ─────────────────────────────────
   const ratedAll      = all.filter(e => e.rating);
   const ratingCounts  = Array(10).fill(0);
@@ -752,23 +726,12 @@ async function renderDashboard() {
       </div>
     </div>
 
-    <!-- Graphique mensuel -->
-    <div class="profile-section">
-      <h3 class="profile-section-title">Activité mensuelle</h3>
-      <div class="month-chart">${monthBars}</div>
-    </div>
-
-    <!-- Histogramme des notes -->
-    ${ratingsHTML}
-
-    <!-- Top de l'année -->
+    <!-- Top de l'année + Stats globales côte à côte, compacts -->
     <div class="charts-row">
-      <div class="chart-card">
+      <div class="chart-card chart-card-compact">
         <h3>Top ${_profileYear}</h3>
         <div class="top-list">${topHTML}</div>
       </div>
-
-      <!-- Stats globales -->
       <div class="chart-card">
         <h3>Global — ${stats.total} médias</h3>
         <div class="bar-chart">
@@ -789,6 +752,15 @@ async function renderDashboard() {
         </div>
       </div>
     </div>
+
+    <!-- Graphique mensuel -->
+    <div class="profile-section">
+      <h3 class="profile-section-title">Activité mensuelle</h3>
+      <div class="month-chart">${monthBars}</div>
+    </div>
+
+    <!-- Histogramme des notes -->
+    ${ratingsHTML}
 
     <!-- Comparaison -->
     <div class="profile-section" id="comparison-section">
