@@ -57,7 +57,8 @@ export const Auth = {
 // ── Media CRUD ───────────────────────────────────────────────
 export const Media = {
   async getAll(filters = {}) {
-    let q = _client.from("media_entries").select("*");
+    const user = await Auth.getUser();
+    let q = _client.from("media_entries").select("*").eq("user_id", user.id);
 
     if (filters.media_type) q = q.eq("media_type", filters.media_type);
     if (filters.status)     q = q.eq("status", filters.status);
