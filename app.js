@@ -511,25 +511,19 @@ function filterEntries(entries) {
 
 function starsHTML(rating, is_favorite) {
   if (!rating && !is_favorite) return "";
-
-  // Étoiles : 5 étoiles pour 10 notes (1 étoile = 2 points)
   let starsEl = "";
   if (rating) {
-    const full  = Math.floor(rating / 2);
-    const half  = rating % 2 === 1;
-    const empty = 5 - full - (half ? 1 : 0);
-    const isPerfect = rating === 10;
-    starsEl = `<div class="card-stars${isPerfect ? " perfect" : ""}">` +
+    const full    = Math.floor(rating / 2);
+    const half    = rating % 2 === 1;
+    const empty   = 5 - full - (half ? 1 : 0);
+    const perfect = rating === 10;
+    starsEl = `<div class="card-stars${perfect ? " perfect" : ""}">` +
       "★".repeat(full) +
       (half ? "½" : "") +
       `<span class="card-stars-empty">${"★".repeat(empty)}</span>` +
       `</div>`;
   }
-
-  const heartEl = is_favorite
-    ? `<span class="card-heart">♥</span>`
-    : "";
-
+  const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
   return `<div class="card-bottom">${starsEl}${heartEl}</div>`;
 }
 
@@ -697,6 +691,44 @@ async function renderDashboard() {
       </div>`;
   }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
 
+  // ── Histogramme des notes ─────────────────────────────────
+  const ratedAll      = all.filter(e => e.rating);
+  const ratingCounts  = Array(10).fill(0);
+  ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
+  const maxRatingCount = Math.max(...ratingCounts, 1);
+  const totalRated     = ratedAll.length;
+  const avgRating      = totalRated
+    ? (ratedAll.reduce((s, e) => s + e.rating, 0) / totalRated).toFixed(1)
+    : null;
+  const BAR_MAX_PX = 72;
+
+  const ratingBars = ratingCounts.map((n, i) => {
+    const note   = i + 1;
+    const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
+    const isPeak = n > 0 && n === Math.max(...ratingCounts);
+    return `
+      <div class="rating-hist-col" title="${n} média${n !== 1 ? "s" : ""} · ${note}/10">
+        <div class="rating-hist-count">${n || ""}</div>
+        <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
+      </div>`;
+  }).join("");
+
+  const ratingsHTML = totalRated > 0 ? `
+    <div class="profile-section">
+      <div class="rating-hist-header">
+        <h3 class="profile-section-title" style="margin:0">Notes</h3>
+        <div class="rating-hist-meta">
+          <span class="rating-hist-total">${totalRated} notes</span>
+          ${avgRating ? `<span class="rating-hist-avg">moyenne <strong>${avgRating}</strong>/10</span>` : ""}
+        </div>
+      </div>
+      <div class="rating-hist">${ratingBars}</div>
+      <div class="rating-hist-legend">
+        <span>1★</span>
+        <span>5★★★★★</span>
+      </div>
+    </div>` : "";
+
   container.innerHTML = `
     ${profileTopHTML}
     <!-- Résumé annuel -->
@@ -717,6 +749,9 @@ async function renderDashboard() {
       <h3 class="profile-section-title">Activité mensuelle</h3>
       <div class="month-chart">${monthBars}</div>
     </div>
+
+    <!-- Histogramme des notes -->
+    ${ratingsHTML}
 
     <!-- Top de l'année -->
     <div class="charts-row">
@@ -2043,6 +2078,7 @@ function updateCategoryTabs(type, isFav = false) {
   tabs.forEach((tab, i) => tab.classList.toggle("active", isFav ? map[i] === "fav" : map[i] === type));
 }
 
+// ── Vue grille / liste ────────────────────────────────────────
 // ── Taille des cartes (small / medium) ───────────────────────
 function applyCardSize(size) {
   const grid = document.getElementById("cards-grid");
