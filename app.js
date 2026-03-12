@@ -701,16 +701,16 @@ async function renderDashboard() {
     ? (ratedAll.reduce((s, e) => s + e.rating, 0) / totalRated).toFixed(1)
     : null;
 
+  const BAR_MAX_HEIGHT = 72; // px — hauteur max des barres
   const ratingBars = ratingCounts.map((n, i) => {
-    const note   = i + 1;
-    const pct    = Math.round(n / maxRatingCount * 100);
-    const isHalf = note % 2 === 1; // impair = demi-étoile
+    const note    = i + 1;
+    const px      = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_HEIGHT), 3) : 0;
+    const isPeak  = n === Math.max(...ratingCounts) && n > 0;
+    const isHalf  = note % 2 === 1;
     return `
       <div class="rating-hist-col" title="${n} média${n > 1 ? "s" : ""} · ${note}/10">
         <div class="rating-hist-count">${n || ""}</div>
-        <div class="rating-hist-bar-wrap">
-          <div class="rating-hist-bar${n === Math.max(...ratingCounts) && n > 0 ? " peak" : ""}" style="height:${pct}%"></div>
-        </div>
+        <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
         <div class="rating-hist-star">${isHalf ? "½" : "★"}</div>
       </div>`;
   }).join("");
