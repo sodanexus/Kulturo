@@ -2366,3 +2366,9 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   padding: 1rem 1.25rem;
   margin-bottom: 1.5rem;
 }
+
+.star-wrap svg {
+  transition: transform .12s var(--ease-spring);
+  display: block;
+}
+.star-wrap:hover svg { transform: scale(1.2); }
