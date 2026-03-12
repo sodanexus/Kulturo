@@ -43,11 +43,13 @@ export const Auth = {
   },
 
   async getUser() {
+    if (!_client) return null;
     const { data: { user } } = await _client.auth.getUser();
     return user;
   },
 
   onAuthChange(callback) {
+    if (!_client) return { data: { subscription: { unsubscribe: () => {} } } };
     return _client.auth.onAuthStateChange((event, session) => {
       callback(event, session?.user ?? null);
     });
