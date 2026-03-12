@@ -773,266 +773,10 @@ async function renderDashboard() {
 
     <!-- Histogramme des notes -->
     ${ratingsHTML}
+`;
 
-    <!-- Comparaison -->
-    <div class="profile-section" id="comparison-section">
-      <h3 class="profile-section-title">👥 Comparaison</h3>
-      <div id="comparison-content"><div style="display:flex;align-items:center;gap:.75rem;padding:1rem 0;color:var(--text-3)"><div class="spinner"></div><span>Chargement…</span></div></div>
-    </div>`;
-
-  // Charge la comparaison en async après le rendu initial
-  if (!State.demoMode) renderComparison();
-  else renderComparisonDemo();
 }
 
-async function renderComparison() {
-  const container = document.getElementById("comparison-content");
-  if (!container) return;
-  try {
-    const feed = await Activity.getFeed(200);
-    const myId = State.user?.id;
-    const otherEntries = feed.filter(e => e.user_id !== myId);
-    const myEntries    = State.entries;
-
-    if (!otherEntries.length) {
-      container.innerHTML = `<p style="color:var(--text-3);font-size:.85rem">L'autre utilisateur n'a pas encore ajouté de médias.</p>`;
-      return;
-    }
-
-    container.innerHTML = buildComparisonHTML(myEntries, otherEntries);
-  } catch(e) {
-    container.innerHTML = `<p style="color:var(--danger);font-size:.85rem">Erreur : ${esc(e.message)}</p>`;
-  }
-}
-
-function renderComparisonDemo() {
-  const container = document.getElementById("comparison-content");
-  if (!container) return;
-  // En démo, simule un second utilisateur avec quelques entrées
-  const fakeOther = DEMO_DATA.slice(0, 5).map(e => ({ ...e, user_id: "other", username: "Ami" }));
-  container.innerHTML = buildComparisonHTML(State.entries, fakeOther);
-}
-
-function buildComparisonHTML(myEntries, otherEntries) {
-  const otherUsername = otherEntries[0]?.username || "L'autre";
-
-  // Index par titre normalisé
-  const myMap    = {};
-  myEntries.forEach(e => { myMap[e.title.toLowerCase()] = e; });
-  const otherMap = {};
-  otherEntries.forEach(e => { otherMap[e.title.toLowerCase()] = e; });
-
-  // Titres en commun
-  const common = Object.keys(myMap).filter(k => otherMap[k]);
-  // Titres que l'autre a mais pas moi
-  const onlyOther = Object.keys(otherMap).filter(k => !myMap[k]);
-  // Titres que j'ai mais pas l'autre
-  const onlyMe = Object.keys(myMap).filter(k => !otherMap[k] && myMap[k].status === "finished");
-
-  const starsBar = (rating, color) => {
-    if (!rating) return `<span style="color:var(--text-3);font-size:.75rem">Non noté</span>`;
-    const pct = Math.round(rating / 10 * 100);
-    return `
-      <div style="display:flex;align-items:center;gap:.4rem">
-        <div style="flex:1;height:5px;background:var(--bg-4);border-radius:99px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${color};border-radius:99px"></div>
-        </div>
-        <span style="font-size:.75rem;color:var(--text-2);width:2rem">${rating}/10</span>
-      </div>`;
-  };
-
-  // Section en commun
-  let commonHTML = "";
-  if (common.length) {
-    commonHTML = `
-      <div class="comparison-block">
-        <div class="comparison-block-title">🤝 En commun (${common.length})</div>
-        ${common.slice(0, 10).map(k => {
-          const me    = myMap[k];
-          const other = otherMap[k];
-          const icon  = TYPE_ICONS[me.media_type] || "🎭";
-          const bothFav = me.is_favorite && other.is_favorite;
-          return `
-            <div class="comparison-row">
-              ${me.cover_url
-                ? `<img src="${esc(me.cover_url)}" class="comparison-cover" alt="" loading="lazy">`
-                : `<div class="comparison-cover comparison-cover-ph">${icon}</div>`}
-              <div class="comparison-info">
-                <div class="comparison-title">${esc(me.title)} ${bothFav ? "♥" : ""}</div>
-                <div class="comparison-bars">
-                  <div class="comparison-bar-row">
-                    <span class="comparison-name">Moi</span>
-                    ${starsBar(me.rating, "var(--accent)")}
-                  </div>
-                  <div class="comparison-bar-row">
-                    <span class="comparison-name">${esc(otherUsername)}</span>
-                    ${starsBar(other.rating, "var(--movie)")}
-                  </div>
-                </div>
-              </div>
-            </div>`;
-        }).join("")}
-        ${common.length > 10 ? `<p style="font-size:.78rem;color:var(--text-3);margin-top:.5rem">+ ${common.length - 10} autres en commun</p>` : ""}
-      </div>`;
-  }
-
-  // Section que l'autre a terminé, pas moi
-  const otherFinished = onlyOther.filter(k => otherMap[k].status === "finished").slice(0, 5);
-  let otherOnlyHTML = "";
-  if (otherFinished.length) {
-    otherOnlyHTML = `
-      <div class="comparison-block">
-        <div class="comparison-block-title">👀 ${esc(otherUsername)} a terminé, pas toi</div>
-        ${otherFinished.map(k => {
-          const e = otherMap[k];
-          const icon = TYPE_ICONS[e.media_type] || "🎭";
-          const stars = e.rating ? ratingStars(e.rating) : "";
-          return `
-            <div class="comparison-row comparison-row-sm">
-              ${e.cover_url
-                ? `<img src="${esc(e.cover_url)}" class="comparison-cover" alt="" loading="lazy">`
-                : `<div class="comparison-cover comparison-cover-ph">${icon}</div>`}
-              <div class="comparison-info">
-                <div class="comparison-title">${esc(e.title)}</div>
-                <div style="font-size:.75rem;color:var(--text-3)">${getTypeLabel(e)}${stars ? " · " + stars : ""}</div>
-              </div>
-            </div>`;
-        }).join("")}
-      </div>`;
-  }
-
-  // Section que j'ai terminé, pas l'autre
-  const meFinished = onlyMe.slice(0, 5);
-  let meOnlyHTML = "";
-  if (meFinished.length) {
-    meOnlyHTML = `
-      <div class="comparison-block">
-        <div class="comparison-block-title">🏁 Tu as terminé, pas ${esc(otherUsername)}</div>
-        ${meFinished.map(k => {
-          const e = myMap[k];
-          const icon = TYPE_ICONS[e.media_type] || "🎭";
-          const stars = e.rating ? ratingStars(e.rating) : "";
-          return `
-            <div class="comparison-row comparison-row-sm">
-              ${e.cover_url
-                ? `<img src="${esc(e.cover_url)}" class="comparison-cover" alt="" loading="lazy">`
-                : `<div class="comparison-cover comparison-cover-ph">${icon}</div>`}
-              <div class="comparison-info">
-                <div class="comparison-title">${esc(e.title)}</div>
-                <div style="font-size:.75rem;color:var(--text-3)">${getTypeLabel(e)}${stars ? " · " + stars : ""}</div>
-              </div>
-            </div>`;
-        }).join("")}
-      </div>`;
-  }
-
-  if (!commonHTML && !otherOnlyHTML && !meOnlyHTML) {
-    return `<p style="color:var(--text-3);font-size:.85rem">Pas encore assez de médias en commun.</p>`;
-  }
-
-  // ── Score de compatibilité ────────────────────────────────
-  let compatScore = 0;
-  let compatDetails = [];
-
-  // Points communs en base
-  const commonCount = common.length;
-  if (commonCount > 0) compatScore += Math.min(commonCount * 5, 30);
-
-  // Notes similaires sur les titres en commun
-  const ratedCommon = common.filter(k => myMap[k].rating && otherMap[k].rating);
-  if (ratedCommon.length) {
-    const avgDiff = ratedCommon.reduce((acc, k) =>
-      acc + Math.abs(myMap[k].rating - otherMap[k].rating), 0) / ratedCommon.length;
-    const noteScore = Math.round(Math.max(0, 30 - avgDiff * 6));
-    compatScore += noteScore;
-    if (avgDiff <= 1.5) compatDetails.push("notes très proches");
-    else if (avgDiff <= 3) compatDetails.push("goûts similaires");
-  }
-
-  // Favoris en commun
-  const commonFavs = common.filter(k => myMap[k].is_favorite && otherMap[k].is_favorite);
-  if (commonFavs.length) {
-    compatScore += Math.min(commonFavs.length * 8, 24);
-    compatDetails.push(`${commonFavs.length} coup${commonFavs.length > 1 ? "s" : ""} de cœur en commun`);
-  }
-
-  // Genres en commun
-  const myGenres   = new Set(myEntries.flatMap(e => e.genre?.split(/[,/]/).map(g => g.trim().toLowerCase()) || []));
-  const otherGenres= new Set(otherEntries.flatMap(e => e.genre?.split(/[,/]/).map(g => g.trim().toLowerCase()) || []));
-  const sharedGenres = [...myGenres].filter(g => g && otherGenres.has(g));
-  if (sharedGenres.length) {
-    compatScore += Math.min(sharedGenres.length * 2, 16);
-    compatDetails.push(`${sharedGenres.length} genre${sharedGenres.length > 1 ? "s" : ""} en commun`);
-  }
-
-  compatScore = Math.min(compatScore, 100);
-  const compatEmoji = compatScore >= 80 ? "🔥" : compatScore >= 60 ? "🎯" : compatScore >= 40 ? "👍" : "🌱";
-  const compatColor = compatScore >= 80 ? "var(--success)" : compatScore >= 60 ? "var(--accent)" : compatScore >= 40 ? "var(--game)" : "var(--text-3)";
-  const compatLabel = compatScore >= 80 ? "Excellente compatibilité !" : compatScore >= 60 ? "Très bons goûts communs" : compatScore >= 40 ? "Quelques points communs" : "Encore peu de données";
-
-  const compatHTML = `
-    <div class="compat-card">
-      <div class="compat-header">
-        <span class="compat-emoji">${compatEmoji}</span>
-        <div class="compat-info">
-          <div class="compat-label">${compatLabel}</div>
-          ${compatDetails.length ? `<div class="compat-details">${compatDetails.join(" · ")}</div>` : ""}
-        </div>
-        <div class="compat-score" style="color:${compatColor}">${compatScore}%</div>
-      </div>
-      <div class="compat-bar-track">
-        <div class="compat-bar-fill" style="width:${compatScore}%;background:${compatColor}"></div>
-      </div>
-    </div>`;
-
-  // ── Course du mois ────────────────────────────────────────
-  const now   = new Date();
-  const month = now.getMonth();
-  const year  = now.getFullYear();
-  const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-
-  const myMonth    = myEntries.filter(e => {
-    const d = new Date(e.created_at);
-    return d.getMonth() === month && d.getFullYear() === year;
-  }).length;
-  const otherMonth = otherEntries.filter(e => {
-    const d = new Date(e.created_at);
-    return d.getMonth() === month && d.getFullYear() === year;
-  }).length;
-
-  const totalMonth = Math.max(myMonth + otherMonth, 1);
-  const myPct      = Math.round(myMonth / totalMonth * 100);
-  const otherPct   = 100 - myPct;
-  const leader     = myMonth > otherMonth ? "Toi" : myMonth < otherMonth ? esc(otherUsername) : null;
-
-  const raceHTML = `
-    <div class="race-card">
-      <div class="race-title">🏁 Course du mois — ${MONTHS_FR[month]}</div>
-      <div class="race-bar-wrap">
-        <div class="race-side race-side-me">
-          <span class="race-name">Moi</span>
-          <span class="race-count">${myMonth}</span>
-        </div>
-        <div class="race-bar-track">
-          <div class="race-bar-me"   style="width:${myPct}%"></div>
-          <div class="race-bar-other" style="width:${otherPct}%"></div>
-        </div>
-        <div class="race-side race-side-other">
-          <span class="race-count">${otherMonth}</span>
-          <span class="race-name">${esc(otherUsername)}</span>
-        </div>
-      </div>
-      ${leader
-        ? `<div class="race-leader">${leader} mène ce mois-ci 👑</div>`
-        : `<div class="race-leader">Égalité parfaite ce mois 🤝</div>`}
-    </div>`;
-
-  return `
-    <div class="comparison-top">${compatHTML}${raceHTML}</div>
-    <div class="comparison-grid">${commonHTML}${otherOnlyHTML}${meOnlyHTML}</div>`;
-}
-
-// ── Modal Ajout / Édition ─────────────────────────────────────
 function openModal(entry = null, prefillTitle = null) {
   const isEdit = !!entry;
   State.editingId = isEdit ? entry.id : null;
@@ -1157,65 +901,26 @@ const RATING_LABELS = {
 function buildRatingStars(current) {
   const wrap = document.getElementById("rating-stars");
   if (!wrap) return;
-  // SVG étoile clipée pour les demi-étoiles
-  const starSVG = (fill) => `<svg viewBox="0 0 20 20" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <clipPath id="half-clip-${fill}">
-        <rect x="0" y="0" width="10" height="20"/>
-      </clipPath>
-    </defs>
-    <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
-      fill="var(--border-2)" stroke="none"/>
-    ${fill === "full" ? `<polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
-      fill="var(--accent)" stroke="none"/>` : ""}
-    ${fill === "half" ? `<polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
-      fill="var(--accent)" stroke="none" clip-path="url(#half-clip-${fill})"/>` : ""}
-  </svg>`;
-
   wrap.innerHTML = Array.from({length: 5}, (_, i) => {
-    const full = (i + 1) * 2;
-    const half = full - 1;
+    const full = (i + 1) * 2;      // 2,4,6,8,10
+    const half = full - 1;         // 1,3,5,7,9
     const filledFull = current >= full;
     const filledHalf = current >= half && current < full;
-    const fillType = filledFull ? "full" : filledHalf ? "half" : "empty";
     return `
-      <span class="star-wrap" data-full="${full}" data-half="${half}">
-        <button type="button" class="star-half-zone"
+      <span class="star-wrap">
+        <button type="button" class="star-half ${filledHalf || filledFull ? "on" : ""}"
           onclick="UI.setRating(${half})"
-          onmouseenter="UI.previewRating(${half})"
-          onmouseleave="UI.clearPreview()"
-          title="${half}/10"></button>
-        <button type="button" class="star-full-zone"
+          onmouseenter="UI.showRatingLabel(${half})"
+          onmouseleave="UI.hideRatingLabel()"
+          title="${half}/10 — ${RATING_LABELS[half]}">½</button>
+        <button type="button" class="star-full ${filledFull ? "on" : ""}"
           onclick="UI.setRating(${full})"
-          onmouseenter="UI.previewRating(${full})"
-          onmouseleave="UI.clearPreview()"
-          title="${full}/10"></button>
-        <span class="star-svg" data-idx="${i}">${starSVG(fillType)}</span>
+          onmouseenter="UI.showRatingLabel(${full})"
+          onmouseleave="UI.hideRatingLabel()"
+          title="${full}/10 — ${RATING_LABELS[full]}">★</button>
       </span>`;
   }).join("");
   if (current) showRatingLabel(current);
-
-  // Touch swipe support
-  if (wrap) {
-    const getRatingFromTouch = (touch) => {
-      const rect = wrap.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const starWidth = rect.width / 5;
-      const starIdx = Math.floor(x / starWidth);
-      const posInStar = (x - starIdx * starWidth) / starWidth;
-      const clamped = Math.max(0, Math.min(4, starIdx));
-      return posInStar < 0.5 ? clamped * 2 + 1 : clamped * 2 + 2;
-    };
-    wrap.addEventListener("touchmove", (e) => {
-      e.preventDefault();
-      const n = getRatingFromTouch(e.touches[0]);
-      previewRating(n);
-    }, { passive: false });
-    wrap.addEventListener("touchend", (e) => {
-      const n = getRatingFromTouch(e.changedTouches[0]);
-      setRating(Math.max(1, Math.min(10, n)));
-    });
-  }
 }
 
 let _currentRating = 0;
@@ -1223,30 +928,6 @@ function setRating(n) {
   _currentRating = n;
   buildRatingStars(n);
   showRatingLabel(n);
-}
-function previewRating(n) {
-  // Mise à jour visuelle des SVG sans changer _currentRating
-  const wraps = document.querySelectorAll(".star-wrap");
-  wraps.forEach((w, i) => {
-    const full = (i + 1) * 2;
-    const half = full - 1;
-    const fillType = n >= full ? "full" : n >= half ? "half" : "empty";
-    const svg = w.querySelector(".star-svg");
-    if (svg) {
-      const poly = svg.querySelectorAll("polygon");
-      poly.forEach((p, pi) => {
-        if (pi === 0) p.setAttribute("fill", "var(--border-2)");
-        else if (fillType === "full") p.setAttribute("fill", "var(--accent)");
-        else if (fillType === "half" && pi === 1) p.setAttribute("fill", "var(--accent)");
-        else p.setAttribute("fill", "var(--border-2)");
-      });
-    }
-  });
-  showRatingLabel(n);
-}
-function clearPreview() {
-  buildRatingStars(_currentRating);
-  if (!_currentRating) hideRatingLabel();
 }
 function showRatingLabel(n) {
   const el = document.getElementById("rating-tooltip");
@@ -2261,8 +1942,6 @@ window.UI = {
   toggleFav,
   fillFromApi,
   setRating,
-  previewRating,
-  clearPreview,
   navTo,
   setTypeFilter,
   setStatusChip,
