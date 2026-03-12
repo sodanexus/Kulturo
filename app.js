@@ -1157,23 +1157,40 @@ const RATING_LABELS = {
 function buildRatingStars(current) {
   const wrap = document.getElementById("rating-stars");
   if (!wrap) return;
+  // SVG étoile clipée pour les demi-étoiles
+  const starSVG = (fill) => `<svg viewBox="0 0 20 20" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="half-clip-${fill}">
+        <rect x="0" y="0" width="10" height="20"/>
+      </clipPath>
+    </defs>
+    <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
+      fill="var(--border-2)" stroke="none"/>
+    ${fill === "full" ? `<polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
+      fill="var(--accent)" stroke="none"/>` : ""}
+    ${fill === "half" ? `<polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6"
+      fill="var(--accent)" stroke="none" clip-path="url(#half-clip-${fill})"/>` : ""}
+  </svg>`;
+
   wrap.innerHTML = Array.from({length: 5}, (_, i) => {
-    const full = (i + 1) * 2;      // 2,4,6,8,10
-    const half = full - 1;         // 1,3,5,7,9
+    const full = (i + 1) * 2;
+    const half = full - 1;
     const filledFull = current >= full;
     const filledHalf = current >= half && current < full;
+    const fillType = filledFull ? "full" : filledHalf ? "half" : "empty";
     return `
-      <span class="star-wrap">
-        <button type="button" class="star-half ${filledHalf || filledFull ? "on" : ""}"
+      <span class="star-wrap" data-full="${full}" data-half="${half}">
+        <button type="button" class="star-half-zone"
           onclick="UI.setRating(${half})"
-          onmouseenter="UI.showRatingLabel(${half})"
-          onmouseleave="UI.hideRatingLabel()"
-          title="${half}/10 — ${RATING_LABELS[half]}">½</button>
-        <button type="button" class="star-full ${filledFull ? "on" : ""}"
+          onmouseenter="UI.previewRating(${half})"
+          onmouseleave="UI.clearPreview()"
+          title="${half}/10"></button>
+        <button type="button" class="star-full-zone"
           onclick="UI.setRating(${full})"
-          onmouseenter="UI.showRatingLabel(${full})"
-          onmouseleave="UI.hideRatingLabel()"
-          title="${full}/10 — ${RATING_LABELS[full]}">★</button>
+          onmouseenter="UI.previewRating(${full})"
+          onmouseleave="UI.clearPreview()"
+          title="${full}/10"></button>
+        <span class="star-svg" data-idx="${i}">${starSVG(fillType)}</span>
       </span>`;
   }).join("");
   if (current) showRatingLabel(current);
@@ -1184,6 +1201,30 @@ function setRating(n) {
   _currentRating = n;
   buildRatingStars(n);
   showRatingLabel(n);
+}
+function previewRating(n) {
+  // Mise à jour visuelle des SVG sans changer _currentRating
+  const wraps = document.querySelectorAll(".star-wrap");
+  wraps.forEach((w, i) => {
+    const full = (i + 1) * 2;
+    const half = full - 1;
+    const fillType = n >= full ? "full" : n >= half ? "half" : "empty";
+    const svg = w.querySelector(".star-svg");
+    if (svg) {
+      const poly = svg.querySelectorAll("polygon");
+      poly.forEach((p, pi) => {
+        if (pi === 0) p.setAttribute("fill", "var(--border-2)");
+        else if (fillType === "full") p.setAttribute("fill", "var(--accent)");
+        else if (fillType === "half" && pi === 1) p.setAttribute("fill", "var(--accent)");
+        else p.setAttribute("fill", "var(--border-2)");
+      });
+    }
+  });
+  showRatingLabel(n);
+}
+function clearPreview() {
+  buildRatingStars(_currentRating);
+  if (!_currentRating) hideRatingLabel();
 }
 function showRatingLabel(n) {
   const el = document.getElementById("rating-tooltip");
@@ -2198,6 +2239,8 @@ window.UI = {
   toggleFav,
   fillFromApi,
   setRating,
+  previewRating,
+  clearPreview,
   navTo,
   setTypeFilter,
   setStatusChip,
