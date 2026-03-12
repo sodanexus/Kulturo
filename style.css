@@ -1237,7 +1237,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .media-card:hover .card-cover {
   transform: scale(1.04);
-  box-shadow: 0 12px 40px rgba(0,0,0,.5);
   z-index: 2;
 }
 @media (hover: none) {
@@ -1247,9 +1246,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .media-card:active .card-cover {
   transform: scale(0.99);
   transition-duration: .08s;
-}
-.media-card.favorite:hover .card-cover {
-  box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 0 0 2px var(--accent);
 }
 
 /* ── Skeleton loader ──────────────────────────────────────── */
