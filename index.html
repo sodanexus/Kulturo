@@ -60,10 +60,17 @@
 
   <!-- Service Worker -->
   <script>
+    // Vide tous les caches et désenregistre les SW au démarrage
     if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+      caches.keys().then(keys => {
+        keys.forEach(k => caches.delete(k));
+      });
+      // Réenregistre après nettoyage
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("/Kulturo/sw.js")
-          .then(r => console.log("[SW] Enregistré :", r.scope))
           .catch(e => console.warn("[SW] Erreur :", e));
       });
     }
