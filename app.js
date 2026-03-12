@@ -303,14 +303,9 @@ function renderApp() {
   buildFilterBar();
   renderCards();
   updateBadges();
-  // Restaure la vue grille/liste
-  const savedView = localStorage.getItem("kulturo-view");
-  if (savedView === "list") {
-    const grid = document.getElementById("cards-grid");
-    const btn  = document.getElementById("btn-view-toggle");
-    if (grid) grid.classList.add("list-view");
-    if (btn)  btn.textContent = "⊟";
-  }
+  // Restaure la taille des cartes (small / medium)
+  const savedView = localStorage.getItem("kulturo-view") || "medium";
+  applyCardSize(savedView);
   // Restaure la nav active
   const savedNav = localStorage.getItem("kulturo-nav") || "library";
   navTo(savedNav);
@@ -514,30 +509,41 @@ function filterEntries(entries) {
   return res;
 }
 
+function starsHTML(rating, is_favorite) {
+  if (!rating && !is_favorite) return "";
+
+  // Étoiles : 5 étoiles pour 10 notes (1 étoile = 2 points)
+  let starsEl = "";
+  if (rating) {
+    const full  = Math.floor(rating / 2);
+    const half  = rating % 2 === 1;
+    const empty = 5 - full - (half ? 1 : 0);
+    const isPerfect = rating === 10;
+    starsEl = `<div class="card-stars${isPerfect ? " perfect" : ""}">` +
+      "★".repeat(full) +
+      (half ? "½" : "") +
+      `<span class="card-stars-empty">${"★".repeat(empty)}</span>` +
+      `</div>`;
+  }
+
+  const heartEl = is_favorite
+    ? `<span class="card-heart">♥</span>`
+    : "";
+
+  return `<div class="card-bottom">${starsEl}${heartEl}</div>`;
+}
+
 function cardHTML(e, i = 0) {
   const coverHTML = e.cover_url
     ? `<img class="card-cover" src="${e.cover_url}" alt="${esc(e.title)}" loading="lazy" onerror="this.replaceWith(makePlaceholder('${TYPE_ICONS[e.media_type]}'))">`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
-  const ratingHTML = e.rating
-    ? `<div class="rating-display"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>${e.rating}/10</div>`
-    : `<span class="rating-empty" style="font-size:.75rem;color:var(--text-3)">Non noté</span>`;
-
   return `
-    <article class="media-card${e.is_favorite?" favorite":""}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
-      <button class="fav-btn${e.is_favorite?" on":""}" onclick="event.stopPropagation();UI.toggleFav('${e.id}')" title="${e.is_favorite?"Retirer des favoris":"Coup de cœur"}">
-        ${e.is_favorite ? "♥" : "♡"}
-      </button>
+    <article class="media-card${e.is_favorite ? " favorite" : ""}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
       ${coverHTML}
-      <div class="card-body">
-        <div class="card-title">${esc(e.title)}</div>
-        <div class="card-meta">
-          <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
-          <span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>
-        </div>
-        <div class="card-footer">${ratingHTML}</div>
-      </div>
+      ${starsHTML(e.rating, e.is_favorite)}
     </article>`;
+}
 }
 
 // ── Badges sidebar ────────────────────────────────────────────
@@ -691,42 +697,6 @@ async function renderDashboard() {
       </div>`;
   }).join("") : `<p style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">Aucun média terminé pour l'instant.</p>`;
 
-  // ── Distribution des notes ────────────────────────────────
-  const ratedAll   = all.filter(e => e.rating);
-  const ratingCounts = Array(10).fill(0);
-  ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
-  const maxRatingCount = Math.max(...ratingCounts, 1);
-  const totalRated     = ratedAll.length;
-  const avgRating      = totalRated
-    ? (ratedAll.reduce((s, e) => s + e.rating, 0) / totalRated).toFixed(1)
-    : null;
-
-  const BAR_MAX_HEIGHT = 72; // px — hauteur max des barres
-  const ratingBars = ratingCounts.map((n, i) => {
-    const note    = i + 1;
-    const px      = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_HEIGHT), 3) : 0;
-    const isPeak  = n === Math.max(...ratingCounts) && n > 0;
-    const isHalf  = note % 2 === 1;
-    return `
-      <div class="rating-hist-col" title="${n} média${n > 1 ? "s" : ""} · ${note}/10">
-        <div class="rating-hist-count">${n || ""}</div>
-        <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
-        <div class="rating-hist-star">${isHalf ? "½" : "★"}</div>
-      </div>`;
-  }).join("");
-
-  const ratingsHTML = totalRated > 0 ? `
-    <div class="profile-section">
-      <div class="rating-hist-header">
-        <h3 class="profile-section-title" style="margin:0">Notes</h3>
-        <div class="rating-hist-meta">
-          <span class="rating-hist-total">${totalRated} notes</span>
-          ${avgRating ? `<span class="rating-hist-avg">moyenne <strong>${avgRating}</strong>/10</span>` : ""}
-        </div>
-      </div>
-      <div class="rating-hist">${ratingBars}</div>
-    </div>` : "";
-
   container.innerHTML = `
     ${profileTopHTML}
     <!-- Résumé annuel -->
@@ -747,9 +717,6 @@ async function renderDashboard() {
       <h3 class="profile-section-title">Activité mensuelle</h3>
       <div class="month-chart">${monthBars}</div>
     </div>
-
-    <!-- Distribution des notes -->
-    ${ratingsHTML}
 
     <!-- Top de l'année -->
     <div class="charts-row">
@@ -2076,14 +2043,22 @@ function updateCategoryTabs(type, isFav = false) {
   tabs.forEach((tab, i) => tab.classList.toggle("active", isFav ? map[i] === "fav" : map[i] === type));
 }
 
-// ── Vue grille / liste ────────────────────────────────────────
-function toggleView() {
+// ── Taille des cartes (small / medium) ───────────────────────
+function applyCardSize(size) {
   const grid = document.getElementById("cards-grid");
   const btn  = document.getElementById("btn-view-toggle");
   if (!grid) return;
-  const isList = grid.classList.toggle("list-view");
-  if (btn) btn.textContent = isList ? "⊟" : "⊞";
-  localStorage.setItem("kulturo-view", isList ? "list" : "grid");
+  grid.classList.toggle("cards-small", size === "small");
+  if (btn) btn.textContent = size === "small" ? "⊞" : "⊟";
+}
+
+function toggleView() {
+  const grid = document.getElementById("cards-grid");
+  if (!grid) return;
+  const isSmall = grid.classList.toggle("cards-small");
+  const btn = document.getElementById("btn-view-toggle");
+  if (btn) btn.textContent = isSmall ? "⊞" : "⊟";
+  localStorage.setItem("kulturo-view", isSmall ? "small" : "medium");
 }
 
 
