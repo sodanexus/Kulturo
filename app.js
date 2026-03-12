@@ -1194,6 +1194,28 @@ function buildRatingStars(current) {
       </span>`;
   }).join("");
   if (current) showRatingLabel(current);
+
+  // Touch swipe support
+  if (wrap) {
+    const getRatingFromTouch = (touch) => {
+      const rect = wrap.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const starWidth = rect.width / 5;
+      const starIdx = Math.floor(x / starWidth);
+      const posInStar = (x - starIdx * starWidth) / starWidth;
+      const clamped = Math.max(0, Math.min(4, starIdx));
+      return posInStar < 0.5 ? clamped * 2 + 1 : clamped * 2 + 2;
+    };
+    wrap.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const n = getRatingFromTouch(e.touches[0]);
+      previewRating(n);
+    }, { passive: false });
+    wrap.addEventListener("touchend", (e) => {
+      const n = getRatingFromTouch(e.changedTouches[0]);
+      setRating(Math.max(1, Math.min(10, n)));
+    });
+  }
 }
 
 let _currentRating = 0;
