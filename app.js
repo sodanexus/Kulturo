@@ -83,7 +83,12 @@ async function init() {
   } catch(err) {
     clearTimeout(safetyTimeout);
     console.error("Erreur init:", err);
-    renderAuthPage();
+    document.getElementById("app").innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:1rem;padding:2rem;font-family:sans-serif;color:#e05b5b;text-align:center">
+        <b>Erreur de démarrage</b>
+        <p style="font-size:.85rem;color:#a0a0b0;word-break:break-all">\${err?.message || err}</p>
+        <button onclick="location.reload()" style="padding:.5rem 1.5rem;background:#c9a84c;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:.9rem">Réessayer</button>
+      </div>`;
   }
 }
 
