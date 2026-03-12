@@ -501,6 +501,14 @@ function filterEntries(entries) {
   return res;
 }
 
+// ── Helper notation 5 étoiles avec demies ─────────────────────
+function ratingStars(rating) {
+  if (!rating) return "<span style='color:var(--text-3);font-size:.85rem'>Non noté</span>";
+  const full = Math.floor(rating / 2);
+  const half = rating % 2 === 1;
+  return `<span style="color:var(--accent)">${"★".repeat(full)}${half ? "½" : ""}</span>`;
+}
+
 function starsHTML(rating, is_favorite) {
   if (!rating && !is_favorite) return "";
   let starsEl = "";
@@ -646,7 +654,7 @@ async function renderDashboard() {
           <span class="top-rank">${i+1}</span>
           ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="top-cover" alt="" loading="lazy">` : `<div class="top-cover top-cover-placeholder">${TYPE_ICONS[e.media_type]}</div>`}
           <span class="top-title">${esc(e.title)}</span>
-          <span class="top-rating">★ ${e.rating}/10</span>
+          <span class="top-rating">${ratingStars(e.rating)}</span>
         </div>`).join("")
     : `<p style="color:var(--text-3);font-size:.85rem">Aucun média noté en ${_profileYear}.</p>`;
 
@@ -669,7 +677,7 @@ async function renderDashboard() {
   const journalHTML = finished.length ? finished.map(e => {
     const date = e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" }) : "";
     const icon = TYPE_ICONS[e.media_type] || "🎭";
-    const stars = e.rating ? "★".repeat(Math.round(e.rating/2)) + "☆".repeat(5 - Math.round(e.rating/2)) : "";
+    const stars = ratingStars(e.rating);
     return `
       <div class="journal-row" onclick="UI.openEditModal('${e.id}')">
         ${e.cover_url
@@ -679,7 +687,7 @@ async function renderDashboard() {
           <div class="journal-title">${esc(e.title)}</div>
           <div class="journal-meta">
             <span class="badge badge-${e.media_type}">${icon} ${getTypeLabel(e)}</span>
-            ${e.rating ? `<span class="journal-stars">${stars} <span style="font-size:.75rem">${e.rating}/10</span></span>` : ""}
+            ${e.rating ? `<span class="journal-stars">${stars}</span>` : ""}
           </div>
           ${e.notes ? `<div class="journal-notes">${esc(e.notes)}</div>` : ""}
         </div>
@@ -890,7 +898,7 @@ function buildComparisonHTML(myEntries, otherEntries) {
         ${otherFinished.map(k => {
           const e = otherMap[k];
           const icon = TYPE_ICONS[e.media_type] || "🎭";
-          const stars = e.rating ? `★ ${e.rating}/10` : "";
+          const stars = e.rating ? ratingStars(e.rating) : "";
           return `
             <div class="comparison-row comparison-row-sm">
               ${e.cover_url
@@ -915,7 +923,7 @@ function buildComparisonHTML(myEntries, otherEntries) {
         ${meFinished.map(k => {
           const e = myMap[k];
           const icon = TYPE_ICONS[e.media_type] || "🎭";
-          const stars = e.rating ? `★ ${e.rating}/10` : "";
+          const stars = e.rating ? ratingStars(e.rating) : "";
           return `
             <div class="comparison-row comparison-row-sm">
               ${e.cover_url
@@ -1746,9 +1754,7 @@ function setDiscoverType(type) {
 function renderDetailPanel(e, description) {
   // Utilise les constantes globales TYPE_ICONS, TYPE_LABELS, STATUS_LABELS
 
-  const stars = e.rating
-    ? Array.from({length:10}, (_,i) => `<span style="color:${i<e.rating?"var(--accent)":"var(--border-2)"}">★</span>`).join("")
-    : "<span style='color:var(--text-3);font-size:.85rem'>Non noté</span>";
+  const stars = ratingStars(e.rating);
 
   const cover = e.cover_url
     ? `<img src="${esc(e.cover_url)}" alt="${esc(e.title)}" style="width:100%;border-radius:var(--radius);object-fit:cover;max-height:320px" onerror="this.style.display='none'">`
@@ -2156,9 +2162,8 @@ function activityRowHTML(e) {
   const type   = getTypeLabel(e);
   const status = { wishlist:"a ajouté en wishlist", playing:"a commencé", finished:"a terminé", paused:"a mis en pause", dropped:"a abandonné" }[e.status] || "a ajouté";
 
-  const starsCount = e.rating ? Math.round(e.rating / 2) : 0;
   const starsHTML  = e.rating
-    ? `<span class="activity-stars">${"★".repeat(starsCount)}${"☆".repeat(5 - starsCount)} <span class="activity-rating">${e.rating}/10</span></span>`
+    ? `<span class="activity-stars">${ratingStars(e.rating)}</span>`
     : "";
 
   const coverHTML = e.cover_url
