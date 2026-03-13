@@ -9,7 +9,6 @@ import { searchMedia, apiAvailability }                            from "./api.j
 const State = {
   user:       null,
   entries:    [],
-  demoMode:   false,
   filters: {
     type:     "all",
     status:   "all",
@@ -23,18 +22,6 @@ const State = {
 };
 
 // ── Données de démo ──────────────────────────────────────────
-const DEMO_DATA = [
-  { id:"d1", title:"The Last of Us Part II", media_type:"game",  status:"finished",  rating:9, is_favorite:true,  cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.webp",  notes:"Difficile émotionnellement. Chef-d'œuvre.", date_finished:"2023-06-12", date_started:"2023-05-28", release_year:2020, genre:"Action/Aventure", author:"Naughty Dog", created_at:"2023-06-12" },
-  { id:"d2", title:"Oppenheimer",             media_type:"movie", status:"finished",  rating:9, is_favorite:true,  cover_url:"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", notes:"Nolan à son meilleur.", date_finished:"2023-07-22", release_year:2023, genre:"Biopic/Drame", author:"Christopher Nolan", created_at:"2023-07-22" },
-  { id:"d3", title:"Shōgun (2024)",           media_type:"movie", status:"finished",  rating:8, is_favorite:false, cover_url:"https://image.tmdb.org/t/p/w500/eM6fVLlKpFB3lnMlTlRSEBlyoEI.jpg", notes:"Série magistrale.", date_finished:"2024-04-10", release_year:2024, genre:"Historique/Drame", created_at:"2024-04-10" },
-  { id:"d4", title:"Elden Ring",              media_type:"game",  status:"playing",   rating:8, is_favorite:true,  cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.webp",  notes:"Tellement grand...", release_year:2022, genre:"RPG/Action", author:"FromSoftware", created_at:"2024-01-05" },
-  { id:"d5", title:"Dune (Livre)",            media_type:"book",  status:"finished",  rating:10,is_favorite:true,  cover_url:"https://covers.openlibrary.org/b/id/8475170-M.jpg",                   notes:"Masterpiece absolu.", date_finished:"2022-03-01", release_year:1965, genre:"Science-fiction", author:"Frank Herbert", created_at:"2022-03-01" },
-  { id:"d6", title:"Hollow Knight",           media_type:"game",  status:"paused",    rating:7, is_favorite:false, cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rgi.webp",  notes:"Très beau, mais je m'y perds.", release_year:2017, genre:"Metroidvania", created_at:"2023-11-20" },
-  { id:"d7", title:"Andor",                   media_type:"movie", status:"playing",   rating:null, is_favorite:false, cover_url:"https://image.tmdb.org/t/p/w500/59SVNwLfoMnZPPB6ukW6dlPxAdI.jpg", notes:"Saison 2 en cours.", release_year:2022, genre:"SF/Thriller", created_at:"2024-03-15" },
-  { id:"d8", title:"La Horde du Contrevent",  media_type:"book",  status:"wishlist",  rating:null, is_favorite:false, cover_url:"https://covers.openlibrary.org/b/id/8231856-M.jpg",                  notes:"Très recommandé.", release_year:2004, genre:"Fantasy", author:"Alain Damasio", created_at:"2024-02-01" },
-  { id:"d9", title:"Cyberpunk 2077",          media_type:"game",  status:"dropped",   rating:5, is_favorite:false, cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co4g2b.webp",  notes:"Trop buggué à la sortie.", release_year:2020, genre:"RPG/Action", created_at:"2021-01-10" },
-  { id:"d10",title:"Inception",               media_type:"movie", status:"finished",  rating:9, is_favorite:true,  cover_url:"https://image.tmdb.org/t/p/w500/ljsZTbVsrQSqZgWeep2B1QiDKuh.jpg", notes:"Revu pour la 5e fois.", date_finished:"2023-09-03", release_year:2010, genre:"SF/Thriller", author:"Christopher Nolan", created_at:"2023-09-03" },
-];
 
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
@@ -58,9 +45,8 @@ async function init() {
     initSupabase();
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
-    if (!isConfigured() || CONFIG.app.demoMode) {
-      State.demoMode = true;
-      State.entries  = structuredClone(DEMO_DATA);
+    if (false) {
+      // mode démo supprimé
       renderApp();
       showPage("library");
     } else {
@@ -134,7 +120,6 @@ function renderAuthPage() {
           <button class="btn btn-primary" style="width:100%" onclick="UI.handleAuth()">Se connecter</button>
         </div>
         <div class="auth-divider">ou</div>
-        <button class="auth-demo-btn" onclick="UI.enterDemo()">✨ Essayer en mode démo (sans compte)</button>
       </div>
     </div>`;
 }
@@ -597,7 +582,7 @@ async function renderDashboard() {
 
   // #15 — charge le username AVANT le rendu pour éviter le flash
   let cachedUsername = "";
-  if (!State.demoMode && State.user) {
+  if (!false && State.user) {
     try {
       const p = await Profiles.get(State.user.id);
       cachedUsername = p?.username || "";
@@ -605,7 +590,7 @@ async function renderDashboard() {
   }
 
   // Section identité (username) en haut
-  const profileTopHTML = !State.demoMode ? `
+  const profileTopHTML = !false ? `
     <div class="profile-section profile-identity-bar">
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px">
@@ -1060,7 +1045,7 @@ async function saveEntry() {
   _currentRating = 0;
 
   try {
-    if (State.demoMode) {
+    if (false) {
       if (State.editingId) {
         const idx = State.entries.findIndex(e => e.id === State.editingId);
         if (idx !== -1) State.entries[idx] = { ...State.entries[idx], ...payload };
@@ -1099,7 +1084,7 @@ async function deleteEntry(id) {
   const confirmed = await confirmDialog("Supprimer ce média ?", "Cette action est irréversible.", "Supprimer", "danger");
   if (!confirmed) return;
   try {
-    if (!State.demoMode) await Media.delete(id);
+    if (!false) await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     closeModal();
     // #13 — mise à jour locale uniquement
@@ -1123,7 +1108,7 @@ async function toggleFav(id) {
   if (!entry) return;
   const next = !entry.is_favorite;
   try {
-    if (!State.demoMode) await Media.toggleFavorite(id, entry.is_favorite);
+    if (!false) await Media.toggleFavorite(id, entry.is_favorite);
     entry.is_favorite = next;
     // #13 — mise à jour locale uniquement
     renderCards();
@@ -1463,7 +1448,7 @@ async function addToWishlist(idx) {
     platform:    it.platform  || null,
   };
   try {
-    if (State.demoMode) {
+    if (false) {
       State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
     } else {
       const created = await Media.create(payload);
@@ -1632,7 +1617,7 @@ async function openDetailPanel(id) {
         }
         // Sauvegarde en base et en local
         e.description = match.description;
-        if (!State.demoMode) {
+        if (!false) {
           Media.update(e.id, { description: match.description }).catch(() => {});
         }
       }
@@ -1874,7 +1859,7 @@ function updateCategoryTabs(type, isFav = false) {
 async function saveUsername() {
   const val = document.getElementById("input-username")?.value?.trim();
   if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
-  if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
+  if (false) { toast("Indisponible en mode démo", "info"); return; }
   try {
     await Profiles.upsert(State.user.id, val);
     State.username = val;
@@ -1889,7 +1874,7 @@ async function renderActivity() {
   const container = document.getElementById("activity-feed");
   if (!container) return;
 
-  if (State.demoMode) {
+  if (false) {
     container.innerHTML = renderActivityFeed(
       DEMO_DATA.map(e => ({ ...e, username: "DémoUser", isMe: true }))
     );
@@ -2013,13 +1998,6 @@ window.UI = {
       if (isSignup) await Auth.signUp(email, password);
       else          await Auth.signIn(email, password);
     } catch (e) { toast(e.message, "error"); }
-  },
-  enterDemo: () => {
-    State.demoMode = true;
-    State.entries  = structuredClone(DEMO_DATA);
-    renderApp();
-    showPage("library");
-    toast("Mode démo activé — données non sauvegardées", "info");
   },
   signOut: async () => {
     try { await Auth.signOut(); } catch (e) { toast(e.message, "error"); }
