@@ -440,16 +440,30 @@ function buildFilterBar() {
   _updateFilterToggleLabel();
 }
 
+function _countActiveFilters() {
+  let n = 0;
+  if (State.filters.favorite) n++;
+  if (State.filters.status !== "all") n++;
+  if ((State.filters.minRating||0) > 0) n++;
+  if (State.filters.sort !== "created_at") n++;
+  return n;
+}
+
 function _updateFilterToggleLabel() {
-  const label = document.getElementById("filter-active-label");
-  if (!label) return;
-  const parts = [];
-  if (State.filters.favorite) parts.push("♥");
-  if (State.filters.status !== "all") parts.push(STATUS_LABELS[State.filters.status]);
-  if (State.filters.sort !== "created_at") parts.push({date_finished:"Date fin",rating:"Note",title:"Titre"}[State.filters.sort] || "");
-  label.textContent = parts.length ? ` · ${parts.join(", ")}` : "";
   const btn = document.getElementById("btn-filter-toggle");
-  if (btn) btn.classList.toggle("has-filter", parts.length > 0);
+  if (btn) btn.classList.toggle("has-filter", _countActiveFilters() > 0);
+}
+
+function _updateFilterModalHeader() {
+  const title = document.getElementById("fm-title");
+  if (!title) return;
+  const n = _countActiveFilters();
+  title.innerHTML = n > 0 ? `Filtres <span class="filter-active-count">${n}</span>` : "Filtres";
+}
+
+function _updateResetBtn() {
+  const btn = document.getElementById("fm-reset-btn");
+  if (btn) btn.style.visibility = _countActiveFilters() > 0 ? "visible" : "hidden";
 }
 
 // ── Rendu grille ──────────────────────────────────────────────
@@ -498,6 +512,7 @@ function filterEntries(entries) {
   if (f.type    !== "all") res = res.filter(e => e.media_type === f.type);
   if (f.status  !== "all") res = res.filter(e => e.status    === f.status);
   if (f.favorite)          res = res.filter(e => e.is_favorite);
+  if ((f.minRating||0) > 0) res = res.filter(e => (e.rating||0) >= f.minRating);
   if (f.search)  res = res.filter(e => e.title.toLowerCase().includes(f.search.toLowerCase()));
   // Tri local
   res.sort((a, b) => {
@@ -1373,8 +1388,7 @@ let _chipDebounce = null;
 function setStatusChip(status) {
   State.filters.status = status;
   syncFilterChips();
-  _updateFilterToggleLabel();
-  // Met à jour les chips dans la modal filtre si ouverte
+  _updateFilterToggleLabel(); _updateFilterModalHeader();
   const fmChips = document.getElementById("fm-status-chips");
   if (fmChips) {
     fmChips.querySelectorAll(".filter-chip").forEach(b => {
@@ -1382,13 +1396,13 @@ function setStatusChip(status) {
       b.classList.toggle("active", s === status);
     });
   }
+  _updateResetBtn();
   clearTimeout(_chipDebounce);
   _chipDebounce = setTimeout(() => renderCards(), 80);
 }
 function setSort(val) {
   State.filters.sort = val;
-  _updateFilterToggleLabel();
-  // Met à jour les chips dans la modal filtre si ouverte
+  _updateFilterToggleLabel(); _updateFilterModalHeader();
   const fmChips = document.getElementById("fm-sort-chips");
   if (fmChips) {
     fmChips.querySelectorAll(".filter-chip").forEach(b => {
@@ -1396,6 +1410,7 @@ function setSort(val) {
       b.classList.toggle("active", v === val);
     });
   }
+  _updateResetBtn();
   localStorage.setItem("kulturo-sort", val);
   renderCards();
 }
@@ -2216,52 +2231,82 @@ window.UI = {
   navTo,
   setTypeFilter,
   setStatusChip,
+  setMinRating: (r) => UI.setMinRating(r),
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
-    const statuses = ["all","wishlist","playing","finished","paused","dropped"];
-    const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating","Note"],["title","Titre"]];
+    // Evite double ouverture
+    if (document.getElementById("filter-modal-overlay")) return;
 
-    const statusChips = statuses.map(s => {
-      const label = s === "all" ? "Tous" : STATUS_LABELS[s];
-      return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}"
-        onclick="UI.setStatusChip('${s}')">${label}</button>`;
-    }).join("");
+    const _buildModal = () => {
+      const statuses = ["all","wishlist","playing","finished","paused","dropped"];
+      const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating","Note"],["title","Titre"]];
+      const ratingOpts = [0,3,3.5,4,4.5,5];
 
-    const favChip = `<button class="filter-chip ${State.filters.favorite ? "active" : ""}"
-      onclick="UI.toggleFavFilter()">♥ Coups de cœur</button>`;
+      const activeCount = _countActiveFilters();
+      const headerLabel = activeCount > 0 ? `Filtres <span class="filter-active-count">${activeCount}</span>` : "Filtres";
 
-    const sortChips = sorts.map(([v, l]) =>
-      `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}"
-        onclick="UI.setSort('${v}')">${l}</button>`
-    ).join("");
+      const favChip = `<button class="filter-chip ${State.filters.favorite ? "active" : ""}"
+        onclick="UI.toggleFavFilter()">♥ Coups de cœur</button>`;
 
-    root.insertAdjacentHTML("beforeend", `
-      <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" onclick="if(event.target.id==='filter-modal-overlay') UI.closeFilterModal()">
-        <div class="modal filter-modal" role="dialog" aria-modal="true">
-          <div class="modal-header">
-            <h3>Filtres</h3>
-            <button class="btn-icon" onclick="UI.closeFilterModal()">${iconX()}</button>
-          </div>
-          <div class="modal-body">
-            <div class="filter-modal-section">
-              <div class="filter-modal-label">Coup de cœur</div>
-              <div class="filter-modal-chips">${favChip}</div>
+      const statusChips = statuses.map(s => {
+        const label = s === "all" ? "Tous" : STATUS_LABELS[s];
+        return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}"
+          onclick="UI.setStatusChip('${s}')">${label}</button>`;
+      }).join("");
+
+      const ratingChips = ratingOpts.map(r => {
+        const label = r === 0 ? "Toutes" : (r % 1 === 0 ? "★".repeat(r) : "★".repeat(Math.floor(r)) + "½");
+        return `<button class="filter-chip ${(State.filters.minRating||0) === r ? "active" : ""}"
+          onclick="UI.setMinRating(${r})">${label}</button>`;
+      }).join("");
+
+      const sortChips = sorts.map(([v, l]) =>
+        `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}"
+          onclick="UI.setSort('${v}')">${l}</button>`
+      ).join("");
+
+      const hasActive = activeCount > 0;
+
+      return `
+        <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" onclick="if(event.target.id==='filter-modal-overlay') UI.closeFilterModal()">
+          <div class="modal filter-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+              <h3 id="fm-title">${headerLabel}</h3>
+              <button class="btn-icon" onclick="UI.closeFilterModal()">${iconX()}</button>
             </div>
-            <div class="filter-modal-section">
-              <div class="filter-modal-label">Statut</div>
-              <div class="filter-modal-chips" id="fm-status-chips">${statusChips}</div>
+            <div class="modal-body">
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Coup de cœur</div>
+                <div class="filter-modal-chips" id="fm-fav-chips">${favChip}</div>
+              </div>
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Statut</div>
+                <div class="filter-modal-chips" id="fm-status-chips">${statusChips}</div>
+              </div>
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Note minimale</div>
+                <div class="filter-modal-chips" id="fm-rating-chips">${ratingChips}</div>
+              </div>
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Trier par</div>
+                <div class="filter-modal-chips" id="fm-sort-chips">${sortChips}</div>
+              </div>
             </div>
-            <div class="filter-modal-section">
-              <div class="filter-modal-label">Trier par</div>
-              <div class="filter-modal-chips" id="fm-sort-chips">${sortChips}</div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" onclick="UI.resetFilters()">Réinitialiser</button>
+              <button class="btn btn-primary" onclick="UI.applyFilters()">Appliquer</button>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="UI.resetFilters()">Réinitialiser</button>
-            <button class="btn btn-primary" onclick="UI.closeFilterModal()">Appliquer ✓</button>
-          </div>
-        </div>
-      </div>`);
+        </div>`;
+    };
+
+    root.insertAdjacentHTML("beforeend", _buildModal());
+  },
+
+  applyFilters: () => {
+    const count = filterEntries(State.entries || []).length;
+    UI.closeFilterModal();
+    setTimeout(() => toast(`${count} résultat${count > 1 ? "s" : ""}`, "info"), 220);
   },
 
   closeFilterModal: () => {
@@ -2276,20 +2321,28 @@ window.UI = {
 
   toggleFavFilter: () => {
     State.filters.favorite = !State.filters.favorite;
-    renderCards();
-    _updateFilterToggleLabel();
-    // Update chip in modal
-    const favBtn = document.querySelector(".filter-modal-chips .filter-chip");
-    if (favBtn) favBtn.classList.toggle("active", State.filters.favorite);
+    renderCards(); _updateFilterToggleLabel(); _updateFilterModalHeader();
+    const btn = document.querySelector("#fm-fav-chips .filter-chip");
+    if (btn) btn.classList.toggle("active", State.filters.favorite);
+    _updateResetBtn();
+  },
+
+  setMinRating: (r) => {
+    State.filters.minRating = r;
+    renderCards(); _updateFilterToggleLabel(); _updateFilterModalHeader();
+    document.querySelectorAll("#fm-rating-chips .filter-chip").forEach(b => {
+      const val = parseFloat(b.getAttribute("onclick").match(/\(([^)]+)\)/)?.[1] || 0);
+      b.classList.toggle("active", val === r);
+    });
+    _updateResetBtn();
   },
 
   resetFilters: () => {
     State.filters.status = "all";
     State.filters.sort = "created_at";
     State.filters.favorite = false;
-    renderCards();
-    buildFilterBar();
-    _updateFilterToggleLabel();
+    State.filters.minRating = 0;
+    renderCards(); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },
   setSort,
