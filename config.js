@@ -29,11 +29,6 @@ igdb: {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
 
-  groq: {
-  apiKey: "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",
-  model:  "llama-3.3-70b-versatile",
-},
-
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
