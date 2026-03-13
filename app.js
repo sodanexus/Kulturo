@@ -119,7 +119,6 @@ function renderAuthPage() {
           </div>
           <button class="btn btn-primary" style="width:100%" onclick="UI.handleAuth()">Se connecter</button>
         </div>
-        <div class="auth-divider">ou</div>
       </div>
     </div>`;
 }
