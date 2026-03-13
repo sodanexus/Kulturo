@@ -2571,26 +2571,47 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Wizard mobile fixes ────────────────────────────────────── */
+/* ── Wizard mobile — plein écran ────────────────────────────── */
 @media (max-width: 600px) {
+  /* Modal overlay plein écran */
+  .modal-overlay:has(.modal-wizard) {
+    align-items: flex-end;
+    padding: 0;
+  }
   .modal-wizard {
-    max-height: 92vh;
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
+  }
+  .modal-wizard .modal-header {
+    flex-shrink: 0;
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  .modal-wizard .wz-progress {
+    flex-shrink: 0;
   }
   .modal-wizard .modal-body {
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-bottom: 1rem;
+  }
+  .modal-wizard .modal-footer {
+    flex-shrink: 0;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
   .modal-wizard .api-results {
-    max-height: 45vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
   }
   .wz-type-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: .5rem;
+    gap: .75rem;
   }
-  .wz-type-btn { padding: 1rem .25rem; }
-  .wz-type-icon { font-size: 1.75rem; }
+  .wz-type-btn { padding: 1.5rem .5rem; }
+  .wz-type-icon { font-size: 2.25rem; }
 }
