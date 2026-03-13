@@ -2789,3 +2789,14 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   margin-left: .35rem;
   vertical-align: middle;
 }
+
+
+/* Couche backdrop qui fade par-dessus le fallback */
+.detail-backdrop-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  z-index: 0;
+  transition: opacity .6s ease;
+}
