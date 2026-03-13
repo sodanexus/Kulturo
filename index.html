@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Kulturo — Votre journal culturel personnel. Suivez vos jeux, films et livres." />
+  <title>Kulturo</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0d0d0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kulturo" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       Point de montage de l'application.
+       Tout le HTML est injecté dynamiquement par app.js.
+       ═══════════════════════════════════════════════════════ -->
+  <div id="app">
+    <!-- État de chargement initial -->
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+      flex-direction:column;
+      gap:1rem;
+      color:#a0a0b0;
+      font-family:'DM Sans',system-ui,sans-serif;
+    ">
+      <div class="spinner"></div>
+      <span style="font-size:.875rem">Chargement…</span>
+    </div>
+  </div>
+
+  <!-- ── Configuration (à copier depuis config.example.js) ── -->
+  <!--
+    INSTRUCTIONS :
+    1. Copiez config.example.js → config.js
+    2. Remplissez vos clés Supabase et APIs
+    3. config.js est ignoré par .gitignore
+
+    Pour un usage rapide sans compte, laissez les valeurs
+    par défaut et l'app démarrera en mode démo.
+  -->
+  <!-- config.js chargé en bloquant AVANT le module -->
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+
+  <!-- Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/Kulturo/sw.js")
+          .then(r => console.log("[SW] Enregistré :", r.scope))
+          .catch(e => console.warn("[SW] Erreur :", e));
+      });
+    }
+  </script>
+
+</body>
+</html>
