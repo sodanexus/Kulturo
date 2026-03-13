@@ -802,7 +802,7 @@ function _renderWizard() {
 
   if (s.step === 1) {
     bodyHTML = `
-      <p class="wz-hint">Qu'est-ce que tu veux ajouter à ta collection ?</p>
+      <p class="wz-hint">Qu'est-ce que tu veux ajouter ?</p>
       <div class="wz-type-grid">
         <button type="button" class="wz-type-btn ${s.type === "movie" ? "active" : ""}" onclick="UI.wzSetType('movie')">
           <span class="wz-type-icon">🎬</span>
@@ -894,7 +894,7 @@ function _renderWizard() {
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal modal-wizard" role="dialog" aria-modal="true">
         <div class="modal-header">
-          <h3>Ajouter à ma collection</h3>
+          <h3>Ajouter à ma bibliothèque</h3>
           <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
         </div>
         <div class="wz-progress">${progressHTML}</div>
