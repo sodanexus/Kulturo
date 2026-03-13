@@ -1303,8 +1303,20 @@ async function toggleFav(id) {
 
 // ── Modal helpers ─────────────────────────────────────────────
 function closeModal() {
-  document.getElementById("modal-root").innerHTML = "";
-  _currentRating = 0;
+  const overlay = document.getElementById("modal-overlay");
+  if (!overlay) { document.getElementById("modal-root").innerHTML = ""; return; }
+  overlay.style.transition = "opacity .2s ease";
+  overlay.style.opacity = "0";
+  const modal = overlay.querySelector(".modal");
+  if (modal) {
+    modal.style.transition = "opacity .2s ease, transform .2s ease";
+    modal.style.opacity = "0";
+    modal.style.transform = "translateY(10px)";
+  }
+  setTimeout(() => {
+    document.getElementById("modal-root").innerHTML = "";
+    _currentRating = 0;
+  }, 200);
 }
 function closeModalOnBg(e) {
   if (e.target.id === "modal-overlay") closeModal();
