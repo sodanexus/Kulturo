@@ -150,6 +150,9 @@ function renderApp() {
       <button class="nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
         ${iconChart()} Mon profil
       </button>
+      <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
+        ${iconActivity()} Activité
+      </button>
       <span class="nav-section-label">Catégories</span>
       <button class="nav-item" data-nav="type-game" onclick="UI.navTo('type-game')">
         🎮 Jeux <span class="nav-badge" id="badge-game">—</span>
@@ -172,9 +175,6 @@ function renderApp() {
       </button>
       <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
         ✦ Découverte
-      </button>
-      <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
-        ${iconActivity()} Activité
       </button>
     </nav>
 
