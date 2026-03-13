@@ -18,7 +18,3 @@
 - Fil d'activité partagé entre utilisateurs
 - PWA installable (iOS / Android)
 - Thème dark / light
-
-## Démo
-
-Accessible sans compte via le mode démo sur la page de connexion.
