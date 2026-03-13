@@ -1773,12 +1773,12 @@ function renderDetailPanel(e, description, backdropUrl = null) {
   const externalLabel = { game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien";
   const externalIcon  = { game:"🎮", movie:"🎬", book:"📚" }[e.media_type] || "🔗";
   const externalHTML  = externalUrl
-    ? `<a href="${externalUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} Voir sur ${externalLabel}</a>`
+    ? `<a href="${externalUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} ${externalLabel}</a>`
     : "";
 
   const youtubeQuery     = encodeURIComponent(`${e.title} ${e.media_type === "game" ? "trailer" : e.media_type === "movie" ? "bande annonce" : "book trailer"}`);
   const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${youtubeQuery}`;
-  const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">▶ Bande-annonce</a>`;
+  const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">▶ Trailer</a>`;
 
   // Backdrop header
   const backdropStyle = backdropUrl
@@ -1815,10 +1815,10 @@ function renderDetailPanel(e, description, backdropUrl = null) {
         <div class="detail-body">${renderDetailBody(e)}</div>
 
         <div class="modal-footer">
-          <button class="btn btn-danger btn-sm" onclick="UI.deleteEntry('${e.id}')">Supprimer</button>
+          <button class="btn btn-danger btn-icon-only" title="Supprimer" onclick="UI.deleteEntry('${e.id}')">🗑</button>
           <div style="display:flex;gap:.5rem;margin-left:auto">
             ${externalHTML}${youtubeHTML}
-            <button class="btn btn-primary" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
+            <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
           </div>
         </div>
       </div>
