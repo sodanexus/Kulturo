@@ -2657,32 +2657,14 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .filter-bar .category-tabs::-webkit-scrollbar { display: none; }
 .filter-actions { flex-shrink: 0; }
 
+/* btn-filter-toggle hérite du style category-tab */
 .btn-filter-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px; height: 34px;
-  background: var(--bg-3);
-  border: 1.5px solid var(--border);
-  border-radius: 50%;
-  color: var(--text-2);
-  cursor: pointer;
-  transition: all .15s ease;
-  flex-shrink: 0;
-  position: relative;
+  gap: .3rem;
+  white-space: nowrap;
 }
-.btn-filter-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.btn-filter-toggle.has-filter { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.btn-filter-toggle.has-filter::after {
-  content: '';
-  position: absolute;
-  top: -2px; right: -2px;
-  width: 8px; height: 8px;
-  background: var(--accent);
-  border-radius: 50%;
-  border: 2px solid var(--bg-1);
-}
-.btn-filter-toggle.open { border-color: var(--accent); color: var(--accent); }
+.btn-filter-toggle.has-filter { border-color: var(--accent) !important; color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 15%, transparent) !important; }
 
 /* Modal filtres */
 .filter-modal {
