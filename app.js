@@ -1848,13 +1848,16 @@ async function openDetailPanel(id) {
       const key  = CONFIG?.tmdb?.apiKey;
       const base = CONFIG?.tmdb?.baseUrl;
       if (key && base) {
-        const data = await apiFetch(`${base}/movie/${e.external_id}?api_key=${key}&language=fr-FR`);
+        // Films = /movie/, Séries = /tv/
+        const endpoint = e.subtype === "tv" ? "tv" : "movie";
+        const res = await fetch(`${base}/${endpoint}/${e.external_id}?api_key=${key}&language=fr-FR`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
         const backdrop = data.backdrop_path
           ? `https://image.tmdb.org/t/p/w1280${data.backdrop_path}`
           : null;
         const description = data.overview || e.description || null;
 
-        // Met à jour backdrop en base si nouveau
         if (backdrop && backdrop !== e.backdrop_url) {
           e.backdrop_url = backdrop;
           Media.update(e.id, { backdrop_url: backdrop }).catch(() => {});
@@ -1865,7 +1868,7 @@ async function openDetailPanel(id) {
         }
         renderDetailPanel(e, description, backdrop);
       }
-    } catch(err) {}
+    } catch(err) { console.warn("Backdrop fetch error:", err); }
   } else if (!e.description && e.title) {
     // Fallback recherche pour description (jeux, livres, séries sans external_id)
     try {
