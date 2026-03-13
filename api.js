@@ -226,14 +226,48 @@ export const IGDBDetails = {
   },
 };
 
+async function translateViaProxy(text) {
+  if (!text || !CONFIG?.supabase?.url) return text;
+  // Détection basique — si c'est déjà en français on ne translate pas
+  const frWords = [" le ", " la ", " les ", " un ", " une ", " des ", " est ", " dans ", " que ", " qui "];
+  const looksFrenh = frWords.some(w => text.toLowerCase().includes(w));
+  if (looksFrenh) return text;
+  try {
+    const res = await fetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
+      },
+      body: JSON.stringify({
+        messages: [{
+          role: "user",
+          content: `Traduis ce texte en français de façon naturelle. Réponds UNIQUEMENT avec la traduction, sans guillemets ni explication :\n\n${text}`,
+        }],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.3,
+        max_tokens: 400,
+      }),
+    });
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || text;
+  } catch {
+    return text;
+  }
+}
+
 export const OpenLibraryDetails = {
   async fetch(externalId) {
     if (!externalId) return null;
     try {
       const data = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`);
-      const description = typeof data.description === "string"
+      const rawDescription = typeof data.description === "string"
         ? data.description
         : data.description?.value || null;
+
+      const description = rawDescription
+        ? await translateViaProxy(rawDescription)
+        : null;
 
       // Éditions pour pages + ISBN
       const edData = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=1`);
