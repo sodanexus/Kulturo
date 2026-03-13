@@ -1916,6 +1916,26 @@ function renderDetailBody(e) {
   return html || "";
 }
 
+function _injectBackdrop(backdrop) {
+  if (!backdrop) return;
+  const bdEl = document.querySelector(".detail-backdrop");
+  if (!bdEl) return;
+  // Evite de doubler la couche si déjà présente
+  if (bdEl.querySelector(".detail-backdrop-layer")) return;
+  const img = new Image();
+  img.onload = () => {
+    if (!document.querySelector(".detail-backdrop")) return;
+    const layer = document.createElement("div");
+    layer.className = "detail-backdrop-layer";
+    layer.style.backgroundImage = `url('${backdrop}')`;
+    layer.style.opacity = "0";
+    bdEl.insertBefore(layer, bdEl.firstChild);
+    requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.opacity = "1"; }));
+    bdEl.classList.add("has-backdrop");
+  };
+  img.src = backdrop;
+}
+
 async function openDetailPanel(id) {
   const e = State.entries.find(x => x.id === id);
   if (!e) return;
@@ -1923,8 +1943,11 @@ async function openDetailPanel(id) {
   // Affichage immédiat avec ce qu'on a déjà en base
   renderDetailPanel(e);
 
-  // Si déjà enrichi (directors stocké = déjà fetchés), on ne refetch pas
-  if (e._detailsFetched) return;
+  // Si déjà enrichi, on injecte juste le backdrop sans refetch
+  if (e._detailsFetched) {
+    _injectBackdrop(e.backdrop_url);
+    return;
+  }
   e._detailsFetched = true;
 
   try {
@@ -1956,22 +1979,7 @@ async function openDetailPanel(id) {
     }
 
     // Injecter le backdrop en fondu
-    const backdrop = e.backdrop_url;
-    const bdEl = document.querySelector(".detail-backdrop");
-    if (bdEl && backdrop) {
-      const img = new Image();
-      img.onload = () => {
-        if (!document.querySelector(".detail-backdrop")) return;
-        const layer = document.createElement("div");
-        layer.className = "detail-backdrop-layer";
-        layer.style.backgroundImage = `url('${backdrop}')`;
-        layer.style.opacity = "0";
-        bdEl.insertBefore(layer, bdEl.firstChild);
-        requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.opacity = "1"; }));
-        bdEl.classList.add("has-backdrop");
-      };
-      img.src = backdrop;
-    }
+    _injectBackdrop(e.backdrop_url);
 
     // Re-render le body enrichi (pas le backdrop — déjà géré ci-dessus)
     const body = document.querySelector(".detail-body");
