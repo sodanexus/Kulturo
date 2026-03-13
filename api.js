@@ -139,6 +139,114 @@ export const OpenLibrary = {
   },
 };
 
+// ── Détails enrichis ────────────────────────────────────────
+
+export const TMDbDetails = {
+  async fetch(externalId, subtype = "movie") {
+    if (!CONFIG?.tmdb?.apiKey) return null;
+    const key  = CONFIG.tmdb.apiKey;
+    const base = CONFIG.tmdb.baseUrl;
+    const ep   = subtype === "tv" ? "tv" : "movie";
+    const lang = "language=fr-FR";
+
+    const [main, credits, providers] = await Promise.allSettled([
+      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`),
+      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`),
+      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`),
+    ]);
+
+    const d = main.status === "fulfilled" ? main.value : null;
+    const c = credits.status === "fulfilled" ? credits.value : null;
+    const p = providers.status === "fulfilled" ? providers.value : null;
+
+    if (!d) return null;
+
+    // Réalisateur (film) ou créateur (série)
+    let directors = null;
+    if (ep === "movie" && c?.crew) {
+      directors = c.crew.filter(x => x.job === "Director").map(x => x.name).slice(0, 2).join(", ") || null;
+    } else if (ep === "tv" && d.created_by) {
+      directors = d.created_by.map(x => x.name).slice(0, 2).join(", ") || null;
+    }
+
+    // Casting top 4
+    const cast_members = c?.cast?.slice(0, 4).map(x => x.name).join(", ") || null;
+
+    // Durée / saisons / épisodes
+    const duration       = ep === "movie" ? (d.runtime || null) : null;
+    const seasons_count  = ep === "tv" ? (d.number_of_seasons || null) : null;
+    const episodes_count = ep === "tv" ? (d.number_of_episodes || null) : null;
+
+    // Statut diffusion
+    const statusMap = {
+      "Ended": "Terminée", "Canceled": "Annulée", "Returning Series": "En cours",
+      "In Production": "En production", "Planned": "Prévue", "Released": null,
+    };
+    const air_status = statusMap[d.status] || null;
+
+    // Plateformes France
+    const fr = p?.results?.FR;
+    const providersList = [
+      ...(fr?.flatrate || []),
+      ...(fr?.free || []),
+    ].map(x => x.provider_name).slice(0, 4);
+    const watch_providers = providersList.length ? providersList.join(", ") : null;
+
+    // Backdrop
+    const backdrop_url = d.backdrop_path
+      ? `https://image.tmdb.org/t/p/w1280${d.backdrop_path}`
+      : null;
+
+    const description = d.overview || null;
+
+    return { backdrop_url, description, directors, cast_members, duration, seasons_count, episodes_count, air_status, watch_providers };
+  },
+};
+
+export const IGDBDetails = {
+  async fetch(externalId) {
+    if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
+    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
+    const res = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.supabase.anonKey}` },
+      body: JSON.stringify({ id: Number(externalId) }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const g = Array.isArray(data) ? data[0] : data;
+    if (!g) return null;
+
+    const developer  = g.involved_companies?.find(c => c.developer)?.company?.name || null;
+    const publisher  = g.involved_companies?.find(c => c.publisher)?.company?.name || null;
+    const platform   = g.platforms?.map(x => x.name).join(", ") || null;
+    const description = g.summary || null;
+
+    return { developer, publisher, platform, description };
+  },
+};
+
+export const OpenLibraryDetails = {
+  async fetch(externalId) {
+    if (!externalId) return null;
+    try {
+      const data = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`);
+      const description = typeof data.description === "string"
+        ? data.description
+        : data.description?.value || null;
+
+      // Éditions pour pages + ISBN
+      const edData = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=1`);
+      const ed = edData?.entries?.[0];
+      const page_count = ed?.number_of_pages || null;
+      const isbn = ed?.isbn_13?.[0] || ed?.isbn_10?.[0] || null;
+      const publisher = ed?.publishers?.[0] || null;
+
+      return { description, page_count, isbn, publisher };
+    } catch { return null; }
+  },
+};
+
 // ── Dispatcher selon le type de média ───────────────────────
 export async function searchMedia(query, mediaType) {
   if (!query || query.length < 2) return [];
