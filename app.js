@@ -1820,7 +1820,7 @@ function renderDetailPanel(e, description, backdropUrl = null) {
           </div>
         </div>
 
-        <div class="detail-body">${renderDetailBody(e)}</div>
+        <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e)}</div>
 
         <div class="modal-footer">
           <button class="btn btn-danger btn-icon-only" title="Supprimer" onclick="UI.deleteEntry('${e.id}')">🗑</button>
@@ -1863,7 +1863,7 @@ function renderDetailBody(e) {
     html += section("Synopsis",
       `<div class="detail-synopsis-wrap" id="${synId}">
         <p class="detail-synopsis-text">${esc(e.description)}</p>
-        <button class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')">Voir plus</button>
+        <button class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" style="display:none">Voir plus</button>
       </div>`
     );
   }
@@ -1914,6 +1914,18 @@ function renderDetailBody(e) {
   }
 
   return html || "";
+}
+
+function _checkSynopsisOverflow(entryId) {
+  const wrap = document.getElementById(`syn-${entryId}`);
+  if (!wrap) return;
+  const p = wrap.querySelector(".detail-synopsis-text");
+  const btn = wrap.querySelector(".detail-synopsis-toggle");
+  if (!p || !btn) return;
+  // Si le texte est tronqué (scrollHeight > clientHeight), on affiche le bouton
+  if (p.scrollHeight > p.clientHeight + 2) {
+    btn.style.display = "block";
+  }
 }
 
 function _injectBackdrop(backdrop) {
@@ -1983,7 +1995,10 @@ async function openDetailPanel(id) {
 
     // Re-render le body enrichi (pas le backdrop — déjà géré ci-dessus)
     const body = document.querySelector(".detail-body");
-    if (body) body.innerHTML = renderDetailBody(e);
+    if (body) {
+      body.innerHTML = renderDetailBody(e);
+      _checkSynopsisOverflow(e.id);
+    }
 
   } catch(err) { console.warn("[Detail] fetch error:", err); }
 }
