@@ -1867,24 +1867,24 @@ async function openDetailPanel(id) {
           Media.update(e.id, { description }).catch(() => {});
         }
 
-        // Injecter le backdrop sans re-render
+        // Injecter le backdrop via un élément superposé qui fade in
         const bdEl = document.querySelector(".detail-backdrop");
         if (bdEl && backdrop) {
-          bdEl.style.transition = "background-image 0s";
-          // Précharge l'image avant de l'afficher
           const img = new Image();
           img.onload = () => {
-            if (!bdEl) return;
-            bdEl.style.backgroundImage = `url('${backdrop}')`;
-            bdEl.style.backgroundSize = "cover";
-            bdEl.style.backgroundPosition = "center top";
-            bdEl.classList.remove("has-fallback");
-            bdEl.classList.add("has-backdrop");
-            bdEl.style.opacity = "0";
+            if (!document.querySelector(".detail-backdrop")) return;
+            // Crée une couche par-dessus le fallback
+            const layer = document.createElement("div");
+            layer.className = "detail-backdrop-layer";
+            layer.style.backgroundImage = `url('${backdrop}')`;
+            layer.style.opacity = "0";
+            bdEl.insertBefore(layer, bdEl.firstChild);
             requestAnimationFrame(() => {
-              bdEl.style.transition = "opacity .4s ease";
-              bdEl.style.opacity = "1";
+              requestAnimationFrame(() => {
+                layer.style.opacity = "1";
+              });
             });
+            bdEl.classList.add("has-backdrop");
           };
           img.src = backdrop;
         }
