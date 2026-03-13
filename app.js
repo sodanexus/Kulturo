@@ -563,9 +563,17 @@ function cardHTML(e, i = 0) {
     statusClass
   ].filter(Boolean).join(" ");
 
+  const statusLabel = {
+    wishlist: "♡ Wishlist",
+    playing:  "▶ En cours",
+    paused:   "⏸ En pause",
+    dropped:  "✕ Abandonné",
+  }[e.status] || "";
+
   return `
     <article class="${classes}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
       ${coverHTML}
+      ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
       ${starsHTML(e.rating, e.is_favorite)}
     </article>`;
 }
@@ -1876,10 +1884,7 @@ function renderDetailBody(e) {
       html += section("Casting", `<div class="detail-chips">${cast}</div>`);
     }
 
-    if (e.watch_providers) {
-      const providers = e.watch_providers.split(",").map(n => chip(n.trim())).join("");
-      html += section("Disponible sur", `<div class="detail-chips">${providers}</div>`);
-    }
+
   }
 
   // ── Jeux ──
