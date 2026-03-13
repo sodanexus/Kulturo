@@ -11,7 +11,7 @@
 
 ## Fonctionnalités
 
-- Bibliothèque avec filtres, tri, vue grille/liste
+- Bibliothèque avec filtres, tri, vue grille
 - Recherche automatique via APIs (jeux, films, livres)
 - Recommandations IA personnalisées (Groq)
 - Statistiques & journal des médias terminés
