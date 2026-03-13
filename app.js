@@ -579,7 +579,7 @@ async function renderDashboard() {
     try {
       const p = await Profiles.get(State.user.id);
       cachedUsername = p?.username || "";
-    } catch {}
+    } catch(e) {}
   }
 
   // Section identité (username) en haut
@@ -1037,8 +1037,7 @@ async function saveEntry() {
   window._apiSelected = null;
   _currentRating = 0;
 
-  try {
-    if (DiscoverState.loading) return;
+  if (DiscoverState.loading) return;
   DiscoverState.loading = true;
 
   grid.innerHTML = `<div class="discover-loading"><div class="spinner"></div><span>Analyse de vos goûts avec l'IA…</span></div>`;
@@ -1078,7 +1077,7 @@ async function saveEntry() {
             description: s.reason, source_api: "manual", groq_reason: s.reason,
           });
         }
-      } catch {}
+      } catch(e) {}
     }));
   } else {
     // Fallback : recherche par genres/auteurs si Groq indisponible
@@ -1100,7 +1099,7 @@ async function saveEntry() {
             if (!existingTitles.has(it.title.toLowerCase()))
               allResults.push({ ...it, media_type: type });
           });
-        } catch {}
+        } catch(e) {}
       })
     ));
   }
@@ -1171,8 +1170,7 @@ async function addToWishlist(idx) {
     notes:       null,
     platform:    it.platform  || null,
   };
-  try {
-  
+
   // Retire la carte par son index data-attribute
   const card = grid.querySelector(`[data-discover-idx="${idx}"]`);
   if (card) {
@@ -1319,7 +1317,7 @@ async function openDetailPanel(id) {
           Media.update(e.id, { description: match.description }).catch(() => {});
         }
       }
-    } catch {}
+    } catch(e) {}
   }
 }
 
@@ -1347,7 +1345,7 @@ const DISCOVER_SEEN_KEY    = "kulturo-discover-seen";
 
 function getIgnored() {
   try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_IGNORED_KEY) || "[]")); }
-  catch { return new Set(); }
+  catch(e) { return new Set(); }
 }
 function addIgnored(title) {
   const s = getIgnored(); s.add(title.toLowerCase());
