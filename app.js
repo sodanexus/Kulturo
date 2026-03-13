@@ -9,6 +9,7 @@ import { searchMedia, apiAvailability }                            from "./api.j
 const State = {
   user:       null,
   entries:    [],
+  demoMode:   false,
   filters: {
     type:     "all",
     status:   "all",
@@ -22,6 +23,19 @@ const State = {
 };
 
 // ── Données de démo ──────────────────────────────────────────
+const DEMO_DATA = [
+  { id:"d1", title:"The Last of Us Part II", media_type:"game",  status:"finished",  rating:9, is_favorite:true,  cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co1tmu.webp",  notes:"Difficile émotionnellement. Chef-d'œuvre.", date_finished:"2023-06-12", date_started:"2023-05-28", release_year:2020, genre:"Action/Aventure", author:"Naughty Dog", created_at:"2023-06-12" },
+  { id:"d2", title:"Oppenheimer",             media_type:"movie", status:"finished",  rating:9, is_favorite:true,  cover_url:"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", notes:"Nolan à son meilleur.", date_finished:"2023-07-22", release_year:2023, genre:"Biopic/Drame", author:"Christopher Nolan", created_at:"2023-07-22" },
+  { id:"d3", title:"Shōgun (2024)",           media_type:"movie", status:"finished",  rating:8, is_favorite:false, cover_url:"https://image.tmdb.org/t/p/w500/eM6fVLlKpFB3lnMlTlRSEBlyoEI.jpg", notes:"Série magistrale.", date_finished:"2024-04-10", release_year:2024, genre:"Historique/Drame", created_at:"2024-04-10" },
+  { id:"d4", title:"Elden Ring",              media_type:"game",  status:"playing",   rating:8, is_favorite:true,  cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.webp",  notes:"Tellement grand...", release_year:2022, genre:"RPG/Action", author:"FromSoftware", created_at:"2024-01-05" },
+  { id:"d5", title:"Dune (Livre)",            media_type:"book",  status:"finished",  rating:10,is_favorite:true,  cover_url:"https://covers.openlibrary.org/b/id/8475170-M.jpg",                   notes:"Masterpiece absolu.", date_finished:"2022-03-01", release_year:1965, genre:"Science-fiction", author:"Frank Herbert", created_at:"2022-03-01" },
+  { id:"d6", title:"Hollow Knight",           media_type:"game",  status:"paused",    rating:7, is_favorite:false, cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co1rgi.webp",  notes:"Très beau, mais je m'y perds.", release_year:2017, genre:"Metroidvania", created_at:"2023-11-20" },
+  { id:"d7", title:"Andor",                   media_type:"movie", status:"playing",   rating:null, is_favorite:false, cover_url:"https://image.tmdb.org/t/p/w500/59SVNwLfoMnZPPB6ukW6dlPxAdI.jpg", notes:"Saison 2 en cours.", release_year:2022, genre:"SF/Thriller", created_at:"2024-03-15" },
+  { id:"d8", title:"La Horde du Contrevent",  media_type:"book",  status:"wishlist",  rating:null, is_favorite:false, cover_url:"https://covers.openlibrary.org/b/id/8231856-M.jpg",                  notes:"Très recommandé.", release_year:2004, genre:"Fantasy", author:"Alain Damasio", created_at:"2024-02-01" },
+  { id:"d9", title:"Cyberpunk 2077",          media_type:"game",  status:"dropped",   rating:5, is_favorite:false, cover_url:"https://images.igdb.com/igdb/image/upload/t_cover_big/co4g2b.webp",  notes:"Trop buggué à la sortie.", release_year:2020, genre:"RPG/Action", created_at:"2021-01-10" },
+  { id:"d10",title:"Inception",               media_type:"movie", status:"finished",  rating:9, is_favorite:true,  cover_url:"https://image.tmdb.org/t/p/w500/ljsZTbVsrQSqZgWeep2B1QiDKuh.jpg", notes:"Revu pour la 5e fois.", date_finished:"2023-09-03", release_year:2010, genre:"SF/Thriller", author:"Christopher Nolan", created_at:"2023-09-03" },
+];
+
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
 const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
@@ -44,25 +58,32 @@ async function init() {
     initSupabase();
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
-    const existingUser = await Auth.getUser().catch(() => null);
-    if (existingUser) {
-      State.user = existingUser;
+    if (!isConfigured() || CONFIG.app.demoMode) {
+      State.demoMode = true;
+      State.entries  = structuredClone(DEMO_DATA);
       renderApp();
-      await loadEntries();
       showPage("library");
     } else {
-      renderAuthPage();
-    }
-    Auth.onAuthChange((event, user) => {
-      State.user = user;
-      if (event === "SIGNED_IN" && user) {
+      const existingUser = await Auth.getUser().catch(() => null);
+      if (existingUser) {
+        State.user = existingUser;
         renderApp();
-        loadEntries();
+        await loadEntries();
         showPage("library");
-      } else if (event === "SIGNED_OUT") {
+      } else {
         renderAuthPage();
       }
-    });
+      Auth.onAuthChange((event, user) => {
+        State.user = user;
+        if (event === "SIGNED_IN" && user) {
+          renderApp();
+          loadEntries();
+          showPage("library");
+        } else if (event === "SIGNED_OUT") {
+          renderAuthPage();
+        }
+      });
+    }
     bindGlobalEvents();
   } catch(err) {
     console.error("Erreur init:", err);
@@ -113,6 +134,7 @@ function renderAuthPage() {
           <button class="btn btn-primary" style="width:100%" onclick="UI.handleAuth()">Se connecter</button>
         </div>
         <div class="auth-divider">ou</div>
+        <button class="auth-demo-btn" onclick="UI.enterDemo()">✨ Essayer en mode démo (sans compte)</button>
       </div>
     </div>`;
 }
@@ -575,15 +597,15 @@ async function renderDashboard() {
 
   // #15 — charge le username AVANT le rendu pour éviter le flash
   let cachedUsername = "";
-  if (State.user) {
+  if (!State.demoMode && State.user) {
     try {
       const p = await Profiles.get(State.user.id);
       cachedUsername = p?.username || "";
-    } catch(e) {}
+    } catch {}
   }
 
   // Section identité (username) en haut
-  const profileTopHTML = `
+  const profileTopHTML = !State.demoMode ? `
     <div class="profile-section profile-identity-bar">
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px">
@@ -601,7 +623,7 @@ async function renderDashboard() {
         </div>
         <button class="btn btn-ghost btn-sm" onclick="UI.signOut()">Déconnexion</button>
       </div>
-    </div>`;
+    </div>` : "";
 
   // Populate year selector
   const yearSel = document.getElementById("profile-year-select");
@@ -1037,6 +1059,276 @@ async function saveEntry() {
   window._apiSelected = null;
   _currentRating = 0;
 
+  try {
+    if (State.demoMode) {
+      if (State.editingId) {
+        const idx = State.entries.findIndex(e => e.id === State.editingId);
+        if (idx !== -1) State.entries[idx] = { ...State.entries[idx], ...payload };
+      } else {
+        State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
+      }
+    } else {
+      if (State.editingId) {
+        const updated = await Media.update(State.editingId, payload);
+        const idx = State.entries.findIndex(e => e.id === State.editingId);
+        if (idx !== -1) State.entries[idx] = updated;
+      } else {
+        const created = await Media.create(payload);
+        State.entries.unshift(created);
+      }
+    }
+    const wasAdding = !State.editingId;
+    const savedTitle = payload.title;
+    const justFinished = payload.status === "finished";
+    closeModal();
+    // #13 — State.entries déjà mis à jour localement, pas besoin de refetch
+    renderCards();
+    updateBadges();
+    toast(wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓", "success");
+    if (wasAdding) flashNewCard(savedTitle);
+    if (justFinished) launchConfetti();
+  } catch (e) {
+    const saveBtn = document.querySelector(".modal-footer .btn-primary");
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = State.editingId ? "Enregistrer" : "Ajouter"; }
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+async function deleteEntry(id) {
+  // #5 — modal de confirmation custom
+  const confirmed = await confirmDialog("Supprimer ce média ?", "Cette action est irréversible.", "Supprimer", "danger");
+  if (!confirmed) return;
+  try {
+    if (!State.demoMode) await Media.delete(id);
+    State.entries = State.entries.filter(e => e.id !== id);
+    closeModal();
+    // #13 — mise à jour locale uniquement
+    renderCards();
+    updateBadges();
+    toast("Supprimé", "info");
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+async function toggleFav(id) {
+  // Anime le bouton fav
+  const btn = document.querySelector(`.fav-btn[onclick*="${id}"]`);
+  if (btn) {
+    btn.classList.remove("pop");
+    requestAnimationFrame(() => btn.classList.add("pop"));
+    btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true });
+  }
+  const entry = State.entries.find(e => e.id === id);
+  if (!entry) return;
+  const next = !entry.is_favorite;
+  try {
+    if (!State.demoMode) await Media.toggleFavorite(id, entry.is_favorite);
+    entry.is_favorite = next;
+    // #13 — mise à jour locale uniquement
+    renderCards();
+    updateBadges();
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+// ── Modal helpers ─────────────────────────────────────────────
+function closeModal() {
+  document.getElementById("modal-root").innerHTML = "";
+  _currentRating = 0;
+}
+function closeModalOnBg(e) {
+  if (e.target.id === "modal-overlay") closeModal();
+}
+
+// #5 — modal de confirmation custom
+function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "danger") {
+  return new Promise(resolve => {
+    const root = document.getElementById("modal-root");
+    const prev = root.innerHTML;
+    root.insertAdjacentHTML("beforeend", `
+      <div class="modal-overlay confirm-overlay" id="confirm-overlay" style="z-index:1100;background:rgba(0,0,0,.6)">
+        <div class="modal confirm-modal" style="max-width:360px" role="alertdialog" aria-modal="true">
+          <div class="modal-header"><h3>${esc(title)}</h3></div>
+          <div class="modal-body" style="padding-top:.5rem">
+            <p style="color:var(--text-2);font-size:.9rem">${esc(message)}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+            <button class="btn btn-${variant}" id="confirm-ok">${esc(confirmLabel)}</button>
+          </div>
+        </div>
+      </div>`);
+    const overlay = document.getElementById("confirm-overlay");
+    const cleanup = (result) => { overlay.remove(); resolve(result); };
+    document.getElementById("confirm-ok").onclick     = () => cleanup(true);
+    document.getElementById("confirm-cancel").onclick = () => cleanup(false);
+    overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(false); });
+    document.getElementById("confirm-ok").focus();
+  });
+}
+
+
+// ── Filtres chip (status bar) ─────────────────────────────────
+function syncFilterChips() {
+  const status = State.filters.status;
+  document.querySelectorAll(".filter-chip").forEach(c =>
+    c.classList.toggle("active", c.textContent.trim() === (status === "all" ? "Tous" : STATUS_LABELS[status])));
+}
+
+let _chipDebounce = null;
+function setStatusChip(status) {
+  State.filters.status = status;
+  syncFilterChips();
+  clearTimeout(_chipDebounce);
+  _chipDebounce = setTimeout(() => renderCards(), 80);
+}
+function setSort(val) {
+  State.filters.sort = val;
+  localStorage.setItem("kulturo-sort", val);
+  renderCards();
+}
+
+// ── Global search ─────────────────────────────────────────────
+function bindGlobalEvents() {
+  // Ripple effect sur les boutons
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".btn");
+    if (!btn) return;
+    const ripple = document.createElement("span");
+    ripple.className = "ripple-effect";
+    const rect = btn.getBoundingClientRect();
+    ripple.style.left = (e.clientX - rect.left) + "px";
+    ripple.style.top  = (e.clientY - rect.top)  + "px";
+    btn.appendChild(ripple);
+    ripple.addEventListener("animationend", () => ripple.remove());
+  });
+
+  document.addEventListener("input", e => {
+    if (e.target.id === "global-search") {
+      const q = e.target.value.trim();
+      // #3 — si on tape depuis une autre page, navigue vers library
+      if (q.length > 0 && _currentPage !== "library") {
+        State.filters.search = q;
+        showPage("library");
+        renderCards();
+      }
+      updateQuickAdd(q);
+    }
+  });
+  document.addEventListener("focusout", e => {
+    if (e.target.id === "global-search") {
+      setTimeout(() => {
+        const qa = document.getElementById("search-quick-add");
+        if (qa) qa.style.display = "none";
+      }, 200);
+    }
+  });
+  document.addEventListener("focusin", e => {
+    if (e.target.id === "global-search" && e.target.value.trim().length > 1) {
+      updateQuickAdd(e.target.value.trim());
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeModal();
+  });
+
+
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg, type = "info") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("removing");
+    el.addEventListener("animationend", () => el.remove(), { once: true });
+  }, 2800);
+}
+
+// ── Escape HTML ───────────────────────────────────────────────
+function esc(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Icons (inline SVG minifiés) ───────────────────────────────
+const iconCompass = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`;
+const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
+const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
+const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const iconGrid    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
+const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`;
+const iconSun     = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+const iconMoon    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
+const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+
+// ── Découverte ────────────────────────────────────────────────
+const DiscoverState = { type: "all", results: [], loading: false };
+
+// Demande à Groq de suggérer des titres précis basés sur la bibliothèque
+async function getGroqSuggestions(liked, types, existingTitles) {
+  if (!CONFIG?.groq?.apiKey || CONFIG.groq.apiKey.includes("VOTRE_")) return null;
+
+  const summary = liked.slice(0, 20).map(e =>
+    `- ${e.title} (${e.media_type}${e.genre ? ", " + e.genre : ""}${e.rating ? ", note " + e.rating + "/10" : ""}${e.is_favorite ? ", coup de cœur" : ""})`
+  ).join("\n");
+
+  const typeFilter = types.length === 3
+    ? "jeux vidéo, films/séries ET livres"
+    : types.map(t => ({ game:"jeux vidéo", movie:"films/séries", book:"livres" }[t])).join(" et ");
+
+  const prompt = `Tu es un expert en recommandations culturelles. Voici la bibliothèque d'un utilisateur (ses coups de cœur et meilleures notes) :
+
+${summary}
+
+Suggère exactement 12 titres de ${typeFilter} que cet utilisateur devrait découvrir, qu'il n'a pas encore dans sa liste.
+Ces titres doivent correspondre précisément à ses goûts.
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte autour, sans markdown, sans backticks :
+{"suggestions":[{"title":"...","type":"game|movie|book","reason":"..."}]}
+
+Types valides : "game", "movie", "book". Maximum 12 suggestions.`;
+
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.groq.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: CONFIG.groq.model || "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return parsed.suggestions || null;
+  } catch (err) {
+    console.warn("[Groq] Erreur suggestions :", err);
+    return null;
+  }
+}
+
+async function renderDiscover() {
+  const grid = document.getElementById("discover-grid");
+  if (!grid) return;
+  if (_currentPage !== "discover") return;
+  if (DiscoverState.results.length) { grid.innerHTML = DiscoverState.results.map((r,i) => discoverCardHTML(r,i)).join(""); return; }
   if (DiscoverState.loading) return;
   DiscoverState.loading = true;
 
@@ -1077,7 +1369,7 @@ async function saveEntry() {
             description: s.reason, source_api: "manual", groq_reason: s.reason,
           });
         }
-      } catch(e) {}
+      } catch {}
     }));
   } else {
     // Fallback : recherche par genres/auteurs si Groq indisponible
@@ -1099,7 +1391,7 @@ async function saveEntry() {
             if (!existingTitles.has(it.title.toLowerCase()))
               allResults.push({ ...it, media_type: type });
           });
-        } catch(e) {}
+        } catch {}
       })
     ));
   }
@@ -1170,6 +1462,33 @@ async function addToWishlist(idx) {
     notes:       null,
     platform:    it.platform  || null,
   };
+  try {
+    if (State.demoMode) {
+      State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
+    } else {
+      const created = await Media.create(payload);
+      State.entries.unshift(created);
+    }
+    updateBadges();
+    addIgnored(it.title); // ne plus proposer ce titre
+    removeDiscoverCard(idx);
+    toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
+    flashNewCard(it.title);
+  } catch (e) {
+    toast("Erreur : " + e.message, "error");
+  }
+}
+
+function removeDiscoverCard(idx) {
+  // #14 — retire directement du DOM, pas de re-render complet
+  DiscoverState.results.splice(idx, 1);
+  const grid = document.getElementById("discover-grid");
+  if (!grid) return;
+
+  if (!DiscoverState.results.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><h3>Plus de suggestions</h3><p><button class="btn btn-secondary btn-sm" onclick="UI.clearDiscoverMemory()">Effacer la mémoire</button> pour en voir de nouvelles.</p></div>`;
+    return;
+  }
 
   // Retire la carte par son index data-attribute
   const card = grid.querySelector(`[data-discover-idx="${idx}"]`);
@@ -1313,11 +1632,11 @@ async function openDetailPanel(id) {
         }
         // Sauvegarde en base et en local
         e.description = match.description;
-        {
+        if (!State.demoMode) {
           Media.update(e.id, { description: match.description }).catch(() => {});
         }
       }
-    } catch(e) {}
+    } catch {}
   }
 }
 
@@ -1345,7 +1664,7 @@ const DISCOVER_SEEN_KEY    = "kulturo-discover-seen";
 
 function getIgnored() {
   try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_IGNORED_KEY) || "[]")); }
-  catch(e) { return new Set(); }
+  catch { return new Set(); }
 }
 function addIgnored(title) {
   const s = getIgnored(); s.add(title.toLowerCase());
@@ -1555,6 +1874,7 @@ function updateCategoryTabs(type, isFav = false) {
 async function saveUsername() {
   const val = document.getElementById("input-username")?.value?.trim();
   if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
+  if (State.demoMode) { toast("Indisponible en mode démo", "info"); return; }
   try {
     await Profiles.upsert(State.user.id, val);
     State.username = val;
@@ -1568,6 +1888,13 @@ async function saveUsername() {
 async function renderActivity() {
   const container = document.getElementById("activity-feed");
   if (!container) return;
+
+  if (State.demoMode) {
+    container.innerHTML = renderActivityFeed(
+      DEMO_DATA.map(e => ({ ...e, username: "DémoUser", isMe: true }))
+    );
+    return;
+  }
 
   container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
 
@@ -1687,73 +2014,15 @@ window.UI = {
       else          await Auth.signIn(email, password);
     } catch (e) { toast(e.message, "error"); }
   },
+  enterDemo: () => {
+    State.demoMode = true;
+    State.entries  = structuredClone(DEMO_DATA);
+    renderApp();
+    showPage("library");
+    toast("Mode démo activé — données non sauvegardées", "info");
+  },
   signOut: async () => {
     try { await Auth.signOut(); } catch (e) { toast(e.message, "error"); }
   },
 };
 window.showPage = showPage;
-
-// ── Fonctions globales manquantes ────────────────────────────
-
-function toast(msg, type = "info") {
-  const existing = document.getElementById("toast");
-  if (existing) existing.remove();
-  const t = document.createElement("div");
-  t.id = "toast";
-  t.className = `toast toast-${type}`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  requestAnimationFrame(() => t.classList.add("toast-in"));
-  setTimeout(() => {
-    t.classList.add("toast-out");
-    setTimeout(() => t.remove(), 400);
-  }, 3000);
-}
-
-function closeModal() {
-  const overlay = document.getElementById("modal-overlay");
-  if (!overlay) return;
-  overlay.classList.remove("open");
-  setTimeout(() => overlay.remove(), 300);
-}
-
-function bindGlobalEvents() {
-  document.addEventListener("click", e => {
-    const btn = e.target.closest(".btn, .btn-icon, .nav-item, .bottom-nav-item");
-    if (!btn || btn.disabled) return;
-    btn.querySelectorAll(".ripple-effect").forEach(r => r.remove());
-    const rEl = document.createElement("span");
-    rEl.className = "ripple-effect";
-    const rect = btn.getBoundingClientRect();
-    rEl.style.left = (e.clientX - rect.left - 20) + "px";
-    rEl.style.top  = (e.clientY - rect.top  - 20) + "px";
-    btn.appendChild(rEl);
-    rEl.addEventListener("animationend", () => rEl.remove(), { once: true });
-  });
-
-  document.addEventListener("input", e => {
-    if (e.target.id === "global-search") {
-      const q = e.target.value.trim();
-      updateQuickAdd(q);
-    }
-  });
-
-  document.addEventListener("focusout", e => {
-    if (e.target.id === "global-search") {
-      setTimeout(() => {
-        const qa = document.getElementById("search-quick-add");
-        if (qa) qa.style.display = "none";
-      }, 200);
-    }
-  });
-
-  document.addEventListener("focusin", e => {
-    if (e.target.id === "global-search" && e.target.value.trim().length > 1) {
-      updateQuickAdd(e.target.value.trim());
-    }
-  });
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") closeModal();
-  });
-}
