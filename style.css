@@ -2674,6 +2674,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .filter-modal-section {
   margin-bottom: 1.5rem;
 }
+.filter-modal-section:last-child { margin-bottom: 0; }
 .filter-modal-label {
   font-size: .72rem;
   font-weight: 700;
@@ -2686,4 +2687,19 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   display: flex;
   flex-wrap: wrap;
   gap: .4rem;
+}
+.filter-active-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--accent);
+  color: #0d0d0f;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-weight: 800;
+  margin-left: .35rem;
+  vertical-align: middle;
 }
