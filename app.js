@@ -2231,7 +2231,6 @@ window.UI = {
   navTo,
   setTypeFilter,
   setStatusChip,
-  setMinRating: (r) => UI.setMinRating(r),
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
     // Evite double ouverture
@@ -2255,7 +2254,9 @@ window.UI = {
       }).join("");
 
       const ratingChips = ratingOpts.map(r => {
-        const label = r === 0 ? "Toutes" : (r % 1 === 0 ? "★".repeat(r) : "★".repeat(Math.floor(r)) + "½");
+        const full = Math.floor(r);
+        const half = r % 1 !== 0;
+        const label = r === 0 ? "Toutes" : ("★".repeat(full) + (half ? "½" : ""));
         return `<button class="filter-chip ${(State.filters.minRating||0) === r ? "active" : ""}"
           onclick="UI.setMinRating(${r})">${label}</button>`;
       }).join("");
