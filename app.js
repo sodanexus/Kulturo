@@ -2253,14 +2253,6 @@ window.UI = {
           onclick="UI.setStatusChip('${s}')">${label}</button>`;
       }).join("");
 
-      const ratingChips = ratingOpts.map(r => {
-        const full = Math.floor(r);
-        const half = r % 1 !== 0;
-        const label = r === 0 ? "Toutes" : ("★".repeat(full) + (half ? "½" : ""));
-        return `<button class="filter-chip ${(State.filters.minRating||0) === r ? "active" : ""}"
-          onclick="UI.setMinRating(${r})">${label}</button>`;
-      }).join("");
-
       const sortChips = sorts.map(([v, l]) =>
         `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}"
           onclick="UI.setSort('${v}')">${l}</button>`
@@ -2285,8 +2277,8 @@ window.UI = {
                 <div class="filter-modal-chips" id="fm-status-chips">${statusChips}</div>
               </div>
               <div class="filter-modal-section">
-                <div class="filter-modal-label">Note minimale</div>
-                <div class="filter-modal-chips" id="fm-rating-chips">${ratingChips}</div>
+                <div class="filter-modal-label">Note minimale <span id="fm-rating-label" class="filter-rating-label">${(State.filters.minRating||0) > 0 ? `— ${RATING_LABELS[State.filters.minRating]}` : ""}</span></div>
+                <div class="filter-rating-stars" id="fm-rating-stars"></div>
               </div>
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Trier par</div>
@@ -2302,6 +2294,65 @@ window.UI = {
     };
 
     root.insertAdjacentHTML("beforeend", _buildModal());
+    UI._buildFilterRatingStarsInternal();
+  },
+
+  _buildFilterRatingStarsInternal: () => {
+    const wrap = document.getElementById("fm-rating-stars");
+    if (!wrap) return;
+    const cur = (State.filters.minRating || 0);
+
+    wrap.innerHTML = Array.from({length: 5}, (_, i) => {
+      const full = (i + 1) * 2;
+      const half = full - 1;
+      const filledFull = cur >= full;
+      const filledHalf = cur >= half && cur < full;
+      const starColor = filledFull ? "var(--accent)" : "var(--star-empty)";
+      const halfColor = (filledFull || filledHalf) ? "var(--accent)" : "none";
+      return `<span class="star-wrap">
+          <svg viewBox="0 0 20 20" width="32" height="32" class="star-svg">
+            <defs><clipPath id="fhc${i}"><rect x="0" y="0" width="10" height="20"/></clipPath></defs>
+            <polygon class="star-bg" points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${starColor}"/>
+            <polygon class="star-half-fill" points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${halfColor}" clip-path="url(#fhc${i})"/>
+          </svg>
+          <button type="button" class="star-zone star-zone-half" onclick="UI.setMinRating(${half})"
+            onmouseenter="UI._previewFilterRating(${half})" onmouseleave="UI._previewFilterRating(${cur})"></button>
+          <button type="button" class="star-zone star-zone-full" onclick="UI.setMinRating(${full})"
+            onmouseenter="UI._previewFilterRating(${full})" onmouseleave="UI._previewFilterRating(${cur})"></button>
+        </span>`;
+    }).join("") + `<button type="button" class="filter-rating-clear" onclick="UI.setMinRating(0)" style="${cur === 0 ? 'display:none' : ''}">✕</button>`;
+
+    wrap.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = wrap.getBoundingClientRect();
+      const x = Math.max(0, touch.clientX - rect.left);
+      const starsWidth = rect.width - 36; // exclure le bouton clear
+      const n = Math.min(10, Math.max(1, Math.ceil((x / starsWidth) * 10)));
+      UI._previewFilterRating(n);
+    }, { passive: false });
+
+    wrap.addEventListener("touchend", (e) => {
+      const touch = e.changedTouches[0];
+      const rect = wrap.getBoundingClientRect();
+      const x = Math.max(0, touch.clientX - rect.left);
+      const starsWidth = rect.width - 36;
+      const n = Math.min(10, Math.max(1, Math.ceil((x / starsWidth) * 10)));
+      UI.setMinRating(n);
+    });
+  },
+
+  _previewFilterRating: (n) => {
+    document.querySelectorAll("#fm-rating-stars .star-wrap").forEach((wrap, i) => {
+      const full = (i + 1) * 2;
+      const half = full - 1;
+      const bg = wrap.querySelector(".star-bg");
+      const hf = wrap.querySelector(".star-half-fill");
+      if (bg) bg.setAttribute("fill", n >= full ? "var(--accent)" : "var(--star-empty)");
+      if (hf) hf.setAttribute("fill", (n >= full || (n >= half && n < full)) ? "var(--accent)" : "none");
+    });
+    const lbl = document.getElementById("fm-rating-label");
+    if (lbl) lbl.textContent = n > 0 ? `— ${RATING_LABELS[n]}` : "";
   },
 
   applyFilters: () => {
@@ -2330,12 +2381,10 @@ window.UI = {
 
   setMinRating: (r) => {
     State.filters.minRating = r;
-    renderCards(); _updateFilterToggleLabel(); _updateFilterModalHeader();
-    document.querySelectorAll("#fm-rating-chips .filter-chip").forEach(b => {
-      const val = parseFloat(b.getAttribute("onclick").match(/\(([^)]+)\)/)?.[1] || 0);
-      b.classList.toggle("active", val === r);
-    });
-    _updateResetBtn();
+    renderCards(); _updateFilterToggleLabel(); _updateFilterModalHeader(); _updateResetBtn();
+    UI._buildFilterRatingStarsInternal();
+    const lbl = document.getElementById("fm-rating-label");
+    if (lbl) lbl.textContent = r > 0 ? `— ${RATING_LABELS[r]}` : "";
   },
 
   resetFilters: () => {
