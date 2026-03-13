@@ -1866,7 +1866,43 @@ async function openDetailPanel(id) {
           e.description = description;
           Media.update(e.id, { description }).catch(() => {});
         }
-        renderDetailPanel(e, description, backdrop);
+
+        // Injecter le backdrop sans re-render
+        const bdEl = document.querySelector(".detail-backdrop");
+        if (bdEl && backdrop) {
+          bdEl.style.transition = "background-image 0s";
+          // Précharge l'image avant de l'afficher
+          const img = new Image();
+          img.onload = () => {
+            if (!bdEl) return;
+            bdEl.style.backgroundImage = `url('${backdrop}')`;
+            bdEl.style.backgroundSize = "cover";
+            bdEl.style.backgroundPosition = "center top";
+            bdEl.classList.remove("has-fallback");
+            bdEl.classList.add("has-backdrop");
+            bdEl.style.opacity = "0";
+            requestAnimationFrame(() => {
+              bdEl.style.transition = "opacity .4s ease";
+              bdEl.style.opacity = "1";
+            });
+          };
+          img.src = backdrop;
+        }
+        // Injecter le synopsis sans re-render
+        if (description) {
+          const synEl = document.querySelector(".detail-synopsis p");
+          if (synEl) { synEl.textContent = description; }
+          else {
+            const body = document.querySelector(".detail-body");
+            const notes = document.querySelector(".detail-notes");
+            if (body) {
+              const div = document.createElement("div");
+              div.className = "detail-synopsis";
+              div.innerHTML = `<div class="detail-notes-label">Synopsis</div><p>${esc(description)}</p>`;
+              body.insertBefore(div, notes || null);
+            }
+          }
+        }
       }
     } catch(err) { console.warn("Backdrop fetch error:", err); }
   } else if (!e.description && e.title) {
