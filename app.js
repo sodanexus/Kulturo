@@ -1508,40 +1508,57 @@ const DiscoverState = { type: "all", results: [], loading: false };
 
 // Demande à Groq de suggérer des titres précis basés sur la bibliothèque
 async function getGroqSuggestions(liked, types, existingTitles) {
-  if (!CONFIG?.groq?.apiKey || CONFIG.groq.apiKey.includes("VOTRE_")) return null;
+  if (!CONFIG?.supabase?.url) return null;
 
-  const summary = liked.slice(0, 20).map(e =>
-    `- ${e.title} (${e.media_type}${e.genre ? ", " + e.genre : ""}${e.rating ? ", note " + e.rating + "/10" : ""}${e.is_favorite ? ", coup de cœur" : ""})`
+  // Trier par pertinence : coups de cœur > note décroissante
+  const sorted = [...liked].sort((a, b) => {
+    if (a.is_favorite && !b.is_favorite) return -1;
+    if (!a.is_favorite && b.is_favorite) return 1;
+    return (b.rating || 0) - (a.rating || 0);
+  });
+
+  const summary = sorted.slice(0, 30).map(e =>
+    `- ${e.title} (${e.media_type}${e.genre ? ", " + e.genre : ""}${e.rating ? ", note " + e.rating + "/10" : ""}${e.is_favorite ? ", ⭐ coup de cœur" : ""})`
   ).join("\n");
 
+  const alreadyHas = [...existingTitles].slice(0, 60).join(", ");
+
   const typeFilter = types.length === 3
-    ? "jeux vidéo, films/séries ET livres"
+    ? "jeux vidéo, films/séries ET livres (répartis équitablement)"
     : types.map(t => ({ game:"jeux vidéo", movie:"films/séries", book:"livres" }[t])).join(" et ");
 
-  const prompt = `Tu es un expert en recommandations culturelles. Voici la bibliothèque d'un utilisateur (ses coups de cœur et meilleures notes) :
+  const diversityInstruction = types.length === 3
+    ? "Assure-toi d'inclure au moins 4 jeux, 4 films/séries et 4 livres."
+    : "";
+
+  const prompt = `Tu es un expert en recommandations culturelles pointues. Voici la bibliothèque d'un utilisateur, triée par préférence (coups de cœur en premier) :
 
 ${summary}
 
-Suggère exactement 12 titres de ${typeFilter} que cet utilisateur devrait découvrir, qu'il n'a pas encore dans sa liste.
-Ces titres doivent correspondre précisément à ses goûts.
+Titres déjà dans sa bibliothèque à NE PAS suggérer : ${alreadyHas}
+
+Suggère exactement 18 titres de ${typeFilter} qu'il devrait découvrir.
+${diversityInstruction}
+- Privilégie des œuvres moins connues ou de niche qui correspondent précisément à ses goûts, pas uniquement les blockbusters évidents.
+- La raison doit être courte (max 12 mots), précise et personnalisée à SA bibliothèque.
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte autour, sans markdown, sans backticks :
 {"suggestions":[{"title":"...","type":"game|movie|book","reason":"..."}]}
 
-Types valides : "game", "movie", "book". Maximum 12 suggestions.`;
+Types valides : "game", "movie", "book". Exactement 18 suggestions.`;
 
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/groq-proxy`;
+    const res = await fetch(proxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${CONFIG.groq.apiKey}`,
+        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
       },
       body: JSON.stringify({
-        model: CONFIG.groq.model || "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 800,
+        temperature: 0.85,
+        max_tokens: 1200,
       }),
     });
     const data = await res.json();
