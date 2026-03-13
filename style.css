@@ -1002,6 +1002,20 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     rgba(13,13,15,1) 100%);
   z-index: 1;
 }
+/* Fallback poster flou — via ::before pour ne pas flouter les enfants */
+.detail-backdrop.has-fallback {
+  background: none !important;
+}
+.detail-backdrop.has-fallback::before {
+  content: '';
+  position: absolute;
+  inset: -12%;
+  background-image: var(--fallback-img);
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) saturate(1.5) brightness(.85);
+  z-index: 0;
+}
 .detail-close-btn {
   position: absolute;
   top: .85rem;
