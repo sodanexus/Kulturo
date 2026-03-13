@@ -1692,3 +1692,68 @@ window.UI = {
   },
 };
 window.showPage = showPage;
+
+// ── Fonctions globales manquantes ────────────────────────────
+
+function toast(msg, type = "info") {
+  const existing = document.getElementById("toast");
+  if (existing) existing.remove();
+  const t = document.createElement("div");
+  t.id = "toast";
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("toast-in"));
+  setTimeout(() => {
+    t.classList.add("toast-out");
+    setTimeout(() => t.remove(), 400);
+  }, 3000);
+}
+
+function closeModal() {
+  const overlay = document.getElementById("modal-overlay");
+  if (!overlay) return;
+  overlay.classList.remove("open");
+  setTimeout(() => overlay.remove(), 300);
+}
+
+function bindGlobalEvents() {
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".btn, .btn-icon, .nav-item, .bottom-nav-item");
+    if (!btn || btn.disabled) return;
+    btn.querySelectorAll(".ripple-effect").forEach(r => r.remove());
+    const rEl = document.createElement("span");
+    rEl.className = "ripple-effect";
+    const rect = btn.getBoundingClientRect();
+    rEl.style.left = (e.clientX - rect.left - 20) + "px";
+    rEl.style.top  = (e.clientY - rect.top  - 20) + "px";
+    btn.appendChild(rEl);
+    rEl.addEventListener("animationend", () => rEl.remove(), { once: true });
+  });
+
+  document.addEventListener("input", e => {
+    if (e.target.id === "global-search") {
+      const q = e.target.value.trim();
+      updateQuickAdd(q);
+    }
+  });
+
+  document.addEventListener("focusout", e => {
+    if (e.target.id === "global-search") {
+      setTimeout(() => {
+        const qa = document.getElementById("search-quick-add");
+        if (qa) qa.style.display = "none";
+      }, 200);
+    }
+  });
+
+  document.addEventListener("focusin", e => {
+    if (e.target.id === "global-search" && e.target.value.trim().length > 1) {
+      updateQuickAdd(e.target.value.trim());
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeModal();
+  });
+}
