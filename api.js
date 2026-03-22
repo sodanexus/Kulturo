@@ -292,7 +292,10 @@ export async function searchMedia(query, mediaType) {
       default:      return [];
     }
   } catch (err) {
-    console.error("[API] Erreur recherche :", err);
+    // On ignore les erreurs serveur (5xx) qui sont hors de notre contrôle
+    if (!err.message?.includes("HTTP 5")) {
+      console.error("[API] Erreur recherche :", err);
+    }
     return [];
   }
 }
