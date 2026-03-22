@@ -108,17 +108,17 @@ function renderAuthPage() {
           <button class="auth-tab active" id="tab-login"  onclick="UI.switchAuthTab('login')">Connexion</button>
           <button class="auth-tab"        id="tab-signup" onclick="UI.switchAuthTab('signup')">Inscription</button>
         </div>
-        <div class="auth-form" id="auth-form">
+        <form class="auth-form" id="auth-form" onsubmit="event.preventDefault(); UI.handleAuth()">
           <div class="form-group">
             <label>Email</label>
-            <input type="email" id="auth-email" placeholder="vous@exemple.com" onkeydown="if(event.key==='Enter') UI.handleAuth()" />
+            <input type="email" id="auth-email" placeholder="vous@exemple.com" />
           </div>
           <div class="form-group">
             <label>Mot de passe</label>
-            <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') UI.handleAuth()" />
+            <input type="password" id="auth-password" placeholder="••••••••" />
           </div>
-          <button class="btn btn-primary" style="width:100%" onclick="UI.handleAuth()">Se connecter</button>
-        </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">Se connecter</button>
+        </form>
       </div>
     </div>`;
 }
