@@ -76,3 +76,7 @@ CREATE POLICY "user_update" ON media_entries
 
 CREATE POLICY "user_delete" ON media_entries
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ── Grants explicites (requis depuis mai 2026) ───────────────
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.media_entries TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.media_entries TO service_role;
