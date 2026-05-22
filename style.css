@@ -1866,6 +1866,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
   /* Detail modal mobile */
   .detail-modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .detail-modal::before { display: none; }
+  .detail-modal .detail-backdrop { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 
   /* Stats grid 2 colonnes */
   .stats-grid {
