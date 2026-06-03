@@ -611,8 +611,7 @@ async function renderDashboard() {
     } catch {}
   }
 
-  // Section identité redesignée
-  const displayName = cachedUsername || State.user?.email?.split("@")[0] || "";
+  // Section identité
   const profileTopHTML = !false ? `
     <div class="profile-identity-bar">
       <div class="profile-avatar-circle">👤</div>
@@ -628,42 +627,25 @@ async function renderDashboard() {
       <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" style="flex-shrink:0">↩</button>
     </div>` : "";
 
-  // Populate year selector
+  // Populate year selector (inline dans le header Résumé)
+  const all   = State.entries;
+  const years = [...new Set(all
+    .map(e => e.created_at ? new Date(e.created_at).getFullYear() : null)
+    .filter(Boolean))].sort((a,b)=>b-a);
+  if (!years.includes(_profileYear)) years.unshift(_profileYear);
+  const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
+  // Aussi mettre à jour le select dans la topbar si présent
   const yearSel = document.getElementById("profile-year-select");
-  if (yearSel) {
-    const years = [...new Set(State.entries
-      .map(e => e.created_at ? new Date(e.created_at).getFullYear() : null)
-      .filter(Boolean))].sort((a,b)=>b-a);
-    if (!years.includes(_profileYear)) years.unshift(_profileYear);
-    yearSel.innerHTML = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
-  }
+  if (yearSel) yearSel.innerHTML = yearOptions;
 
   // Stats globales
-  const all   = State.entries;
   const stats = computeStats(all);
   const total = stats.total || 1;
 
   // Stats année sélectionnée
-  const yearEntries   = all.filter(e => e.created_at && new Date(e.created_at).getFullYear() === _profileYear);
-  const yearFinished  = yearEntries.filter(e => e.status === "finished");
-  const yearFavs      = yearEntries.filter(e => e.is_favorite);
-
-  // Activité mensuelle
-  const monthCounts = Array(12).fill(0);
-  yearEntries.forEach(e => {
-    const m = new Date(e.created_at).getMonth();
-    monthCounts[m]++;
-  });
-  const maxMonth = Math.max(...monthCounts, 1);
-  const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
-  const monthBars = monthCounts.map((n, i) => `
-    <div class="month-col">
-      <div class="month-bar-wrap">
-        <div class="month-bar" style="height:${Math.round(n/maxMonth*100)}%" title="${n} ajout${n>1?"s":""}"></div>
-      </div>
-      <div class="month-label">${MONTHS[i]}</div>
-      ${n ? `<div class="month-count">${n}</div>` : ""}
-    </div>`).join("");
+  const yearEntries  = all.filter(e => e.created_at && new Date(e.created_at).getFullYear() === _profileYear);
+  const yearFinished = yearEntries.filter(e => e.status === "finished");
+  const yearFavs     = yearEntries.filter(e => e.is_favorite);
 
   // Top médias de l'année (notés)
   const topYear = [...yearEntries].filter(e => e.rating).sort((a,b) => b.rating - a.rating).slice(0, 5);
@@ -683,12 +665,7 @@ async function renderDashboard() {
       <div class="bar-track"><div class="bar-fill" style="width:${Math.round(value/tot*100)}%;background:${color}"></div></div>
     </div>`;
 
-  // Temps estimé
-  const TIME_EST = { game: 20, movie: 2, book: 8 };
-  const finishedAll = all.filter(e => e.status === "finished");
-  const totalHours = finishedAll.reduce((acc, e) => acc + (TIME_EST[e.media_type] || 5), 0);
-
-  // Histogramme des notes
+  // Histogramme des notes (toutes années)
   const ratedAll      = all.filter(e => e.rating);
   const ratingCounts  = Array(10).fill(0);
   ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
@@ -713,9 +690,9 @@ async function renderDashboard() {
   const ratingsHTML = totalRated > 0 ? `
     <div class="profile-section">
       <div class="rating-hist-header">
-        <h3 class="profile-section-title" style="margin:0">Notes</h3>
+        <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
         <div class="rating-hist-meta">
-          <span class="rating-hist-total">${totalRated} notes</span>
+          <span class="rating-hist-total">${totalRated} notés</span>
           ${avgRating ? `<span class="rating-hist-avg">moy. <strong>${avgRating}</strong>/10</span>` : ""}
         </div>
       </div>
@@ -729,10 +706,16 @@ async function renderDashboard() {
   container.innerHTML = `
     ${profileTopHTML}
 
-    <!-- Résumé annuel : 3 grandes stats + 3 types -->
+    <!-- Notes en haut, juste après l'identité -->
+    ${ratingsHTML}
+
+    <!-- Résumé annuel avec sélecteur d'année intégré -->
     <div class="profile-section">
       <div class="profile-year-header">
-        <span class="profile-year-label">Résumé ${_profileYear}</span>
+        <span class="profile-year-label">Résumé</span>
+        <select class="filter-select profile-year-inline" onchange="UI.setProfileYear(this.value)">
+          ${yearOptions}
+        </select>
       </div>
       <div class="stats-grid">
         <div class="stat-card accent">
@@ -762,42 +745,34 @@ async function renderDashboard() {
       </div>
     </div>
 
-    <!-- Top de l'année + Stats globales -->
-    <div class="charts-row">
-      <div class="chart-card chart-card-compact">
-        <h3>Top ${_profileYear}</h3>
-        <div class="top-list">${topHTML}</div>
-      </div>
-      <div class="chart-card">
-        <h3>Global · ${stats.total} médias</h3>
-        <div class="bar-chart">
-          ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
-          ${barHTML("🎬 Films",  stats.byType.movie, total, "var(--movie)")}
-          ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
+    <!-- Section fusionnée : Top de l'année + Stats globales -->
+    <div class="chart-card">
+      <div class="merged-stats-layout">
+        <!-- Colonne gauche : Top année -->
+        <div class="merged-col merged-col-top">
+          <h3 class="profile-section-title">Top ${_profileYear}</h3>
+          <div class="top-list">${topHTML}</div>
         </div>
-        <div class="bar-chart" style="margin-top:.875rem">
-          ${barHTML("Terminés",  stats.byStatus.finished, total, "var(--success)")}
-          ${barHTML("En cours",  stats.byStatus.playing,  total, "var(--game)")}
-          ${barHTML("Wishlist",  stats.byStatus.wishlist, total, "var(--text-3)")}
-          ${barHTML("En pause",  stats.byStatus.paused,   total, "var(--warn)")}
-          ${barHTML("Abandonnés",stats.byStatus.dropped,  total, "var(--danger)")}
-        </div>
-        <div class="time-badge">
-          <span>⏱</span>
-          <span>Temps estimé : <strong>${totalHours}h</strong></span>
-          <span class="time-badge-hint">20h/jeu · 2h/film · 8h/livre</span>
+        <!-- Séparateur vertical -->
+        <div class="merged-divider"></div>
+        <!-- Colonne droite : Global -->
+        <div class="merged-col merged-col-global">
+          <h3 class="profile-section-title">Global · ${stats.total} médias</h3>
+          <div class="bar-chart">
+            ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
+            ${barHTML("🎬 Films",  stats.byType.movie, total, "var(--movie)")}
+            ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
+          </div>
+          <div class="bar-chart" style="margin-top:.875rem">
+            ${barHTML("Terminés",  stats.byStatus.finished, total, "var(--success)")}
+            ${barHTML("En cours",  stats.byStatus.playing,  total, "var(--game)")}
+            ${barHTML("Wishlist",  stats.byStatus.wishlist, total, "var(--text-3)")}
+            ${barHTML("En pause",  stats.byStatus.paused,   total, "var(--warn)")}
+            ${barHTML("Abandonnés",stats.byStatus.dropped,  total, "var(--danger)")}
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- Activité mensuelle -->
-    <div class="profile-section">
-      <h3 class="profile-section-title">Activité mensuelle</h3>
-      <div class="month-chart">${monthBars}</div>
-    </div>
-
-    <!-- Histogramme des notes -->
-    ${ratingsHTML}
   `;
 
 }

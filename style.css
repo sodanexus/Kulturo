@@ -2636,6 +2636,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   align-items: center;
   justify-content: space-between;
   margin-bottom: .875rem;
+  gap: .75rem;
 }
 .profile-year-label {
   font-size: .8rem;
@@ -2643,6 +2644,49 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: .08em;
+}
+.profile-year-inline {
+  font-size: .8rem;
+  padding: .25rem .5rem;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+/* ── Section fusionnée Top + Global ──────────────────────── */
+.merged-stats-layout {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+}
+.merged-col {
+  padding: .25rem;
+}
+.merged-col-top {
+  padding-right: 1.25rem;
+}
+.merged-col-global {
+  padding-left: 1.25rem;
+}
+.merged-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+@media (max-width: 600px) {
+  .merged-stats-layout {
+    grid-template-columns: 1fr;
+  }
+  .merged-divider {
+    width: auto;
+    height: 1px;
+    align-self: auto;
+    margin: .75rem 0;
+  }
+  .merged-col-top { padding-right: 0; }
+  .merged-col-global { padding-left: 0; }
 }
 
 /* ── Time badge ───────────────────────────────────────────── */
