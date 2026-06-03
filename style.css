@@ -339,13 +339,14 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   display: flex;
   gap: .5rem;
   flex-wrap: wrap;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 50;
   background: var(--bg);
-  padding: .75rem 0 .6rem;
+  padding: .8rem 0;
+  box-shadow: 0 16px 20px -4px var(--bg);
 }
 .filter-chip {
   padding: .3rem .85rem;
@@ -379,6 +380,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 
 /* ── Grille cartes ────────────────────────────────────────── */
 #cards-grid {
+  margin-top: 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: .8rem;
@@ -1864,13 +1866,15 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   .filter-bar {
     overflow-x: auto;
     flex-wrap: nowrap;
-    padding: .75rem 0 .5rem;
+    padding: .8rem 0;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     position: sticky;
     top: 0;
     z-index: 50;
     background: var(--bg);
+    mask-image: none;
+    -webkit-mask-image: none;
   }
   .filter-bar::-webkit-scrollbar { display: none; }
   .filter-chip { white-space: nowrap; flex-shrink: 0; }
@@ -2049,8 +2053,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     padding-bottom: .4rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    mask-image: linear-gradient(to right, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: none;
+    -webkit-mask-image: none;
   }
   .filter-bar::-webkit-scrollbar { display: none; }
   .filter-chip, .filter-select { flex-shrink: 0; }
