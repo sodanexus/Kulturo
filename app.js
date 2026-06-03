@@ -1959,6 +1959,7 @@ function _injectBackdrop(backdrop) {
     layer.style.backgroundImage = `url('${backdrop}')`;
     layer.style.opacity = "0";
     bdEl.insertBefore(layer, bdEl.firstChild);
+    bdEl.style.backgroundImage = "none"; // retire la cover inline une fois le banner chargé
     requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.opacity = "1"; }));
     bdEl.classList.add("has-backdrop");
   };

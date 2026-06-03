@@ -1060,6 +1060,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   overflow: hidden;
   padding: 0;
   border-radius: var(--radius-xl);
+  isolation: isolate;
 }
 
 /* ── Backdrop ── */
@@ -1070,6 +1071,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   overflow: hidden;
   flex-shrink: 0;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  transform: translateZ(0); /* force GPU layer — clips children on Safari/Chrome */
 }
 .detail-backdrop.has-backdrop {
   height: 240px;
