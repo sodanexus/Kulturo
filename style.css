@@ -626,8 +626,10 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   width: 100%;
   max-width: 560px;
   max-height: 92vh;
-  overflow-y: auto;
+  overflow: hidden;
   box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
 }
 .modal-header {
   display: flex;
@@ -637,7 +639,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   margin-bottom: 1.25rem;
 }
 .modal-header h3 { font-size: 1.1rem; }
-.modal-body { padding: 0 1.5rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.modal-body { padding: 0 1.5rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
 .modal-footer {
   display: flex;
   gap: .5rem;
@@ -1038,6 +1040,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   background: var(--bg-3);
   overflow: hidden;
   flex-shrink: 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
 .detail-backdrop.has-backdrop {
   height: 240px;
@@ -1137,6 +1140,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 /* ── Body ── */
 .detail-body {
+  overflow-y: auto;
+  max-height: calc(92vh - 280px); /* hauteur dispo sous le backdrop */
   padding: 1rem 1.25rem .5rem;
   display: flex;
   flex-direction: column;
@@ -1837,11 +1842,11 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
   /* Main pleine largeur */
   #main {
-    height: auto;
-    min-height: calc(100vh - 53px - 72px);
-    padding: .75rem 1rem calc(max(env(safe-area-inset-bottom), 20px) + 80px);
+    height: calc(100dvh - 53px - 58px);
+    padding: .75rem 1rem calc(max(env(safe-area-inset-bottom), 20px) + 1rem);
     overflow-x: hidden;
-    overflow-y: visible;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Grille mobile équilibrée */
@@ -1906,6 +1911,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
   /* Detail modal mobile */
   .detail-modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .detail-body { max-height: calc(92dvh - 260px); }
   .detail-modal::before { display: none; }
   .detail-modal .detail-backdrop { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 
