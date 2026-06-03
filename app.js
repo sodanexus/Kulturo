@@ -163,23 +163,11 @@ function renderApp() {
     <main id="main">
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
-        <div class="page-header">
-        </div>
-        <div class="filter-bar" id="filter-bar">
-          <div class="category-tabs" id="category-tabs">
-            <button class="category-tab active" onclick="UI.setTypeFilter('all')">Tous</button>
-            <button class="category-tab" onclick="UI.setTypeFilter('game')">🎮 Jeux</button>
-            <button class="category-tab" onclick="UI.setTypeFilter('movie')">🎬 Films</button>
-            <button class="category-tab" onclick="UI.setTypeFilter('book')">📚 Livres</button>
-            <button class="category-tab" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-              Filtres
-            </button>
-          </div>
-          <div class="filter-actions" style="display:none">
-          </div>
-        </div>
         <div id="cards-grid"></div>
+        <button class="filter-fab" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filtres
+        </button>
       </section>
 
       <!-- Page Profil / Stats -->
@@ -424,15 +412,39 @@ function buildFilterBar() {
 
 function _countActiveFilters() {
   let n = 0;
+  if (State.filters.type !== "all") n++;
   if (State.filters.favorite) n++;
   if (State.filters.status !== "all") n++;
   if (State.filters.sort !== "created_at") n++;
   return n;
 }
 
+function _updateFilterModalTypeChips() {
+  const chips = document.querySelectorAll("#fm-type-chips .filter-chip");
+  const types = ["all","game","movie","book"];
+  chips.forEach((c, i) => c.classList.toggle("active", types[i] === State.filters.type));
+  _updateFilterToggleLabel();
+  _updateFilterModalHeader();
+  _updateResetBtn();
+}
+
 function _updateFilterToggleLabel() {
   const btn = document.getElementById("btn-filter-toggle");
-  if (btn) btn.classList.toggle("has-filter", _countActiveFilters() > 0);
+  if (!btn) return;
+  const n = _countActiveFilters();
+  btn.classList.toggle("has-filter", n > 0);
+  // Badge count
+  let badge = btn.querySelector(".filter-fab-badge");
+  if (n > 0) {
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "filter-fab-badge";
+      btn.appendChild(badge);
+    }
+    badge.textContent = n;
+  } else {
+    if (badge) badge.remove();
+  }
 }
 
 function _updateFilterModalHeader() {
@@ -2246,9 +2258,8 @@ function quickAddFromResult(idx) {
 
 // ── Category tabs mobile ─────────────────────────────────────
 function updateCategoryTabs(type, isFav = false) {
-  const tabs = document.querySelectorAll(".category-tab");
-  const map = ["all", "game", "movie", "book", "fav"];
-  tabs.forEach((tab, i) => tab.classList.toggle("active", isFav ? map[i] === "fav" : map[i] === type));
+  // Tabs supprimés — on met juste à jour le badge FAB
+  _updateFilterToggleLabel();
 }
 
 // ── Vue grille / liste ────────────────────────────────────────
@@ -2354,6 +2365,7 @@ function activityRowHTML(e) {
 
 
 
+window._updateFilterModalTypeChips = _updateFilterModalTypeChips;
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   quickAdd,
@@ -2390,6 +2402,12 @@ window.UI = {
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
       const ratingOpts = [0,3,3.5,4,4.5,5];
 
+      const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films"],["book","📚 Livres"]];
+      const typeChips = types.map(([v,l]) =>
+        `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
+          onclick="UI.setTypeFilter('${v}'); _updateFilterModalTypeChips();">${l}</button>`
+      ).join("");
+
       const activeCount = _countActiveFilters();
       const headerLabel = activeCount > 0 ? `Filtres <span class="filter-active-count">${activeCount}</span>` : "Filtres";
 
@@ -2417,6 +2435,10 @@ window.UI = {
               <button class="btn-icon" onclick="UI.closeFilterModal()">${iconX()}</button>
             </div>
             <div class="modal-body">
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Catégorie</div>
+                <div class="filter-modal-chips" id="fm-type-chips">${typeChips}</div>
+              </div>
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Coup de cœur</div>
                 <div class="filter-modal-chips" id="fm-fav-chips">${favChip}</div>
@@ -2477,6 +2499,7 @@ window.UI = {
 
 
   resetFilters: () => {
+    State.filters.type = "all";
     State.filters.status = "all";
     State.filters.sort = "created_at";
     State.filters.favorite = false;

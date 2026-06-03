@@ -281,7 +281,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 
 /* ── Main content ─────────────────────────────────────────── */
 #main {
-  padding: 0 2rem 4rem;
+  padding: .75rem 2rem 4rem;
   padding-left: calc(56px + 2rem);
   overflow-y: auto;
   height: calc(100vh - 53px);
@@ -335,18 +335,49 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 .btn-sm { padding: .35rem .75rem; font-size: .8rem; }
 
 /* ── Filtres ──────────────────────────────────────────────── */
-.filter-bar {
+.filter-bar { display: none; }
+
+/* ── FAB Filtres ──────────────────────────────────────────── */
+.filter-fab {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 90;
   display: flex;
-  gap: .5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: var(--bg);
-  padding: .8rem 0;
-  box-shadow: 0 16px 20px -4px var(--bg);
+  gap: .5rem;
+  padding: .6rem 1.1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  border-radius: 99px;
+  color: var(--text-2);
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  transition: background var(--transition), color var(--transition),
+              transform .15s var(--ease-spring), box-shadow .2s;
+}
+.filter-fab:hover {
+  background: var(--bg-4);
+  color: var(--text);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
+}
+.filter-fab:active { transform: scale(.96); }
+.filter-fab.has-filter {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.filter-fab-badge {
+  background: var(--accent);
+  color: #0d0d0f;
+  font-size: .65rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: .1em .45em;
+  line-height: 1.4;
 }
 .filter-chip {
   padding: .3rem .85rem;
@@ -380,7 +411,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 
 /* ── Grille cartes ────────────────────────────────────────── */
 #cards-grid {
-  margin-top: 1rem;
+  margin-top: .75rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: .8rem;
@@ -1878,6 +1909,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   }
   .filter-bar::-webkit-scrollbar { display: none; }
   .filter-chip { white-space: nowrap; flex-shrink: 0; }
+  .filter-fab { bottom: calc(58px + 1rem); right: 1rem; }
 
   /* Modal plein écran en bas */
   .modal-overlay {
