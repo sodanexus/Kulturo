@@ -281,7 +281,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 
 /* ── Main content ─────────────────────────────────────────── */
 #main {
-  padding: .75rem 2rem 4rem;
+  padding: 0 2rem 4rem;
   padding-left: calc(56px + 2rem);
   overflow-y: auto;
   height: calc(100vh - 53px);
@@ -345,8 +345,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   top: 0;
   z-index: 50;
   background: var(--bg);
-  padding: .6rem 0;
-  margin-top: -.25rem;
+  padding: .75rem 0 .6rem;
 }
 .filter-chip {
   padding: .3rem .85rem;
@@ -1849,7 +1848,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   /* Main pleine largeur */
   #main {
     height: calc(100dvh - 53px - 58px);
-    padding: .75rem 1rem calc(max(env(safe-area-inset-bottom), 20px) + 1rem);
+    padding: 0 1rem calc(max(env(safe-area-inset-bottom), 20px) + 1rem);
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -1865,7 +1864,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   .filter-bar {
     overflow-x: auto;
     flex-wrap: nowrap;
-    padding: .5rem 0;
+    padding: .75rem 0 .5rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     position: sticky;
