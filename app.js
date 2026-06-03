@@ -602,7 +602,7 @@ async function renderDashboard() {
   const container = document.getElementById("dashboard-content");
   if (!container) return;
 
-  // #15 — charge le username AVANT le rendu pour éviter le flash
+  // Charge le username AVANT le rendu pour éviter le flash
   let cachedUsername = "";
   if (!false && State.user) {
     try {
@@ -611,25 +611,21 @@ async function renderDashboard() {
     } catch {}
   }
 
-  // Section identité (username) en haut
+  // Section identité redesignée
+  const displayName = cachedUsername || State.user?.email?.split("@")[0] || "";
   const profileTopHTML = !false ? `
-    <div class="profile-section profile-identity-bar">
-      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:200px">
-          <span style="font-size:1.5rem">👤</span>
-          <div>
-            <div style="font-size:.75rem;color:var(--text-3)">Connecté en tant que</div>
-            <div style="font-size:.88rem;font-weight:600;color:var(--text-1)">${esc(State.user?.email||"")}</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:.5rem">
+    <div class="profile-identity-bar">
+      <div class="profile-avatar-circle">👤</div>
+      <div class="profile-identity-meta">
+        <div class="profile-identity-email">${esc(State.user?.email||"")}</div>
+        <div class="profile-username-row">
           <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30"
             value="${esc(cachedUsername)}"
-            style="font-size:.85rem;padding:.35rem .65rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-1);width:140px" />
+            aria-label="Pseudo" />
           <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="UI.signOut()">Déconnexion</button>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" style="flex-shrink:0">↩</button>
     </div>` : "";
 
   // Populate year selector
@@ -652,7 +648,7 @@ async function renderDashboard() {
   const yearFinished  = yearEntries.filter(e => e.status === "finished");
   const yearFavs      = yearEntries.filter(e => e.is_favorite);
 
-  // Activité mensuelle (année sélectionnée)
+  // Activité mensuelle
   const monthCounts = Array(12).fill(0);
   yearEntries.forEach(e => {
     const m = new Date(e.created_at).getMonth();
@@ -679,7 +675,7 @@ async function renderDashboard() {
           <span class="top-title">${esc(e.title)}</span>
           <span class="top-rating">${ratingStars(e.rating)}</span>
         </div>`).join("")
-    : `<p style="color:var(--text-3);font-size:.85rem">Aucun média noté en ${_profileYear}.</p>`;
+    : `<p style="color:var(--text-3);font-size:.82rem;padding:.5rem 0">Aucun média noté en ${_profileYear}.</p>`;
 
   const barHTML = (label, value, tot, color) => `
     <div class="bar-item">
@@ -692,7 +688,7 @@ async function renderDashboard() {
   const finishedAll = all.filter(e => e.status === "finished");
   const totalHours = finishedAll.reduce((acc, e) => acc + (TIME_EST[e.media_type] || 5), 0);
 
-  // ── Histogramme des notes ─────────────────────────────────
+  // Histogramme des notes
   const ratedAll      = all.filter(e => e.rating);
   const ratingCounts  = Array(10).fill(0);
   ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
@@ -720,7 +716,7 @@ async function renderDashboard() {
         <h3 class="profile-section-title" style="margin:0">Notes</h3>
         <div class="rating-hist-meta">
           <span class="rating-hist-total">${totalRated} notes</span>
-          ${avgRating ? `<span class="rating-hist-avg">moyenne <strong>${avgRating}</strong>/10</span>` : ""}
+          ${avgRating ? `<span class="rating-hist-avg">moy. <strong>${avgRating}</strong>/10</span>` : ""}
         </div>
       </div>
       <div class="rating-hist">${ratingBars}</div>
@@ -732,47 +728,69 @@ async function renderDashboard() {
 
   container.innerHTML = `
     ${profileTopHTML}
-    <!-- Résumé annuel -->
+
+    <!-- Résumé annuel : 3 grandes stats + 3 types -->
     <div class="profile-section">
-      <h3 class="profile-section-title">✦ Résumé ${_profileYear}</h3>
+      <div class="profile-year-header">
+        <span class="profile-year-label">Résumé ${_profileYear}</span>
+      </div>
       <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-value">${yearEntries.length}</div><div class="stat-label">Ajoutés</div></div>
-        <div class="stat-card"><div class="stat-value">${yearFinished.length}</div><div class="stat-label">Terminés</div></div>
-        <div class="stat-card"><div class="stat-value">${yearFavs.length}</div><div class="stat-label">Coups de cœur</div></div>
-        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="game").length}</div><div class="stat-label">🎮 Jeux</div></div>
-        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="movie").length}</div><div class="stat-label">🎬 Films</div></div>
-        <div class="stat-card"><div class="stat-value">${yearEntries.filter(e=>e.media_type==="book").length}</div><div class="stat-label">📚 Livres</div></div>
+        <div class="stat-card accent">
+          <div class="stat-value">${yearEntries.length}</div>
+          <div class="stat-label">Ajoutés</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${yearFinished.length}</div>
+          <div class="stat-label">Terminés</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${yearFavs.length}</div>
+          <div class="stat-label">❤ Favoris</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="game").length}</div>
+          <div class="stat-label">🎮 Jeux</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="movie").length}</div>
+          <div class="stat-label">🎬 Films</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="book").length}</div>
+          <div class="stat-label">📚 Livres</div>
+        </div>
       </div>
     </div>
 
-    <!-- Top de l'année + Stats globales côte à côte, compacts -->
+    <!-- Top de l'année + Stats globales -->
     <div class="charts-row">
       <div class="chart-card chart-card-compact">
         <h3>Top ${_profileYear}</h3>
         <div class="top-list">${topHTML}</div>
       </div>
       <div class="chart-card">
-        <h3>Global — ${stats.total} médias</h3>
+        <h3>Global · ${stats.total} médias</h3>
         <div class="bar-chart">
           ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
           ${barHTML("🎬 Films",  stats.byType.movie, total, "var(--movie)")}
           ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
         </div>
-        <div class="bar-chart" style="margin-top:1rem">
+        <div class="bar-chart" style="margin-top:.875rem">
           ${barHTML("Terminés",  stats.byStatus.finished, total, "var(--success)")}
           ${barHTML("En cours",  stats.byStatus.playing,  total, "var(--game)")}
           ${barHTML("Wishlist",  stats.byStatus.wishlist, total, "var(--text-3)")}
           ${barHTML("En pause",  stats.byStatus.paused,   total, "var(--warn)")}
           ${barHTML("Abandonnés",stats.byStatus.dropped,  total, "var(--danger)")}
         </div>
-        <div style="margin-top:1rem;padding:.75rem;background:var(--bg-3);border-radius:var(--radius);font-size:.85rem;color:var(--text-2)">
-          ⏱ Temps estimé passé : <strong style="color:var(--text-1)">${totalHours}h</strong>
-          <span style="font-size:.72rem;color:var(--text-3);display:block;margin-top:.2rem">(20h/jeu · 2h/film · 8h/livre)</span>
+        <div class="time-badge">
+          <span>⏱</span>
+          <span>Temps estimé : <strong>${totalHours}h</strong></span>
+          <span class="time-badge-hint">20h/jeu · 2h/film · 8h/livre</span>
         </div>
       </div>
     </div>
 
-    <!-- Graphique mensuel -->
+    <!-- Activité mensuelle -->
     <div class="profile-section">
       <h3 class="profile-section-title">Activité mensuelle</h3>
       <div class="month-chart">${monthBars}</div>
@@ -780,7 +798,7 @@ async function renderDashboard() {
 
     <!-- Histogramme des notes -->
     ${ratingsHTML}
-`;
+  `;
 
 }
 
