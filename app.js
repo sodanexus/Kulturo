@@ -86,13 +86,7 @@ if (document.readyState === 'loading') {
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("kulturo-theme", t);
-  document.querySelectorAll(".btn-theme").forEach(btn => {
-    btn.innerHTML = t === "dark" ? iconSun() : iconMoon();
-  });
-}
-function toggleTheme() {
-  const cur = document.documentElement.getAttribute("data-theme");
-  applyTheme(cur === "dark" ? "light" : "dark");
+  // btn-theme removed
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -177,7 +171,6 @@ function renderApp() {
         <div class="page-header">
           <div class="page-actions">
             <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
-            <button class="btn btn-secondary btn-icon-only btn-theme" title="Thème" onclick="UI.toggleTheme()">${iconSun()}</button>
           </div>
         </div>
         <div id="dashboard-content"></div>
@@ -567,7 +560,7 @@ function cardHTML(e, i = 0) {
   }[e.status] || "";
 
   return `
-    <article class="${classes}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
+    <article class="${classes}" data-id="${e.id}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
       ${coverHTML}
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
       ${starsHTML(e.rating, e.is_favorite)}
@@ -1293,14 +1286,18 @@ async function saveEntry() {
 }
 
 async function deleteEntry(id) {
-  // #5 — modal de confirmation custom
   const confirmed = await confirmDialog("Supprimer ce média ?", "Cette action est irréversible.", "Supprimer", "danger");
   if (!confirmed) return;
   try {
+    // Anime la card avant suppression
+    const cardEl = document.querySelector(`.media-card[data-id="${id}"]`);
+    if (cardEl) {
+      cardEl.classList.add("card-exit");
+      await new Promise(r => setTimeout(r, 300));
+    }
     if (!false) await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     closeModal();
-    // #13 — mise à jour locale uniquement
     renderCards();
     updateBadges();
     toast("Supprimé", "info");
@@ -1492,8 +1489,7 @@ const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="curre
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
 const iconGrid    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
 const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`;
-const iconSun     = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
-const iconMoon    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
 const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
 const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -2024,14 +2020,13 @@ async function openDetailPanel(id) {
 
 // ── Animation nouvelle carte ──────────────────────────────────
 function flashNewCard(title) {
-  // Attend que le DOM soit mis à jour puis anime la première carte correspondante
   requestAnimationFrame(() => {
     const cards = document.querySelectorAll(".media-card");
     for (const card of cards) {
       const t = card.querySelector(".card-title");
       if (t && t.textContent.trim().toLowerCase().includes(title.toLowerCase())) {
-        card.classList.add("card-flash");
-        card.addEventListener("animationend", () => card.classList.remove("card-flash"), { once: true });
+        card.classList.add("card-enter");
+        card.addEventListener("animationend", () => card.classList.remove("card-enter"), { once: true });
         card.scrollIntoView({ behavior: "smooth", block: "nearest" });
         break;
       }
@@ -2516,7 +2511,6 @@ window.UI = {
   ignoreDiscover,
   clearDiscoverMemory,
   addToWishlist,
-  toggleTheme,
   saveUsername,
   showRatingLabel,
   hideRatingLabel,
