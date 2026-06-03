@@ -102,7 +102,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 /* ── Layout ───────────────────────────────────────────────── */
 #app {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 56px 1fr;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
@@ -118,7 +118,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 200;
 }
 .topbar-logo {
   font-family: var(--font-display);
@@ -186,18 +186,45 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 .btn-icon.active { background: var(--accent-glow); color: var(--accent); }
 
 /* ── Sidebar ──────────────────────────────────────────────── */
+/* ── Sidebar — collapsible overlay ───────────────────────── */
 #sidebar {
+  position: fixed;
+  top: 53px; /* topbar height */
+  left: 0;
+  height: calc(100vh - 53px);
+  width: 56px;
   background: var(--bg-2);
   border-right: 1px solid var(--border);
-  padding: 1.5rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: .25rem;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
+  align-items: stretch;
+  padding: 1rem 0 1.5rem;
+  gap: 0;
+  z-index: 100;
+  overflow: hidden;
+  transition: width .28s cubic-bezier(.4,0,.2,1),
+              box-shadow .28s cubic-bezier(.4,0,.2,1),
+              background .28s;
+  will-change: width;
 }
+
+/* Expanded state — hover or pinned */
+#sidebar:hover,
+#sidebar.pinned {
+  width: 220px;
+  background: var(--bg-2);
+  box-shadow: 4px 0 32px rgba(0,0,0,.45);
+}
+
+/* Nav items group */
+.nav-items-group {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  padding: 0 .5rem;
+  flex: 1;
+}
+
 .nav-section-label {
   font-size: .65rem;
   font-weight: 700;
@@ -205,12 +232,18 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   text-transform: uppercase;
   color: var(--text-3);
   padding: .75rem .5rem .25rem;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .18s .05s;
 }
+#sidebar:hover .nav-section-label,
+#sidebar.pinned .nav-section-label { opacity: 1; }
+
 .nav-item {
   display: flex;
   align-items: center;
-  gap: .6rem;
-  padding: .5rem .75rem;
+  gap: .7rem;
+  padding: .6rem .65rem;
   border-radius: var(--radius);
   color: var(--text-2);
   font-size: .875rem;
@@ -221,9 +254,33 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   background: transparent;
   width: 100%;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  min-height: 40px;
 }
 .nav-item:hover { background: var(--bg-3); color: var(--text); }
 .nav-item.active { background: var(--accent-glow); color: var(--accent); font-weight: 600; }
+
+/* Icon stays visible always, label fades in */
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+}
+.nav-label {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity .2s .04s, transform .22s .04s cubic-bezier(.4,0,.2,1);
+  flex: 1;
+}
+#sidebar:hover .nav-label,
+#sidebar.pinned .nav-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .nav-item .nav-badge {
   margin-left: auto;
   font-size: .7rem;
@@ -232,9 +289,70 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   border-radius: 99px;
   padding: .1em .5em;
   font-weight: 600;
-  transition: background .25s, color .25s, transform .2s;
+  transition: background .25s, color .25s, opacity .2s .06s;
+  opacity: 0;
+  flex-shrink: 0;
 }
+#sidebar:hover .nav-item .nav-badge,
+#sidebar.pinned .nav-item .nav-badge { opacity: 1; }
 .nav-item.active .nav-badge { background: var(--accent-glow); color: var(--accent); }
+
+/* Active indicator dot — visible in collapsed mode */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  transition: opacity .2s;
+}
+#sidebar:hover .nav-item.active::before,
+#sidebar.pinned .nav-item.active::before {
+  opacity: 0;
+}
+
+/* Pin button */
+.sidebar-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-3);
+  cursor: pointer;
+  margin: 0 auto .75rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity .2s, transform .2s, background .15s, color .15s;
+  pointer-events: none;
+}
+#sidebar:hover .sidebar-pin {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.sidebar-pin:hover { background: var(--bg-4); color: var(--text); }
+.sidebar-pin.active {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+#sidebar.pinned .sidebar-pin {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
 
 /* ── Main content ─────────────────────────────────────────── */
 #main {
@@ -1511,10 +1629,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
               color .18s var(--ease-smooth),
               transform .12s var(--ease-spring);
 }
-@media (hover: hover) {
-  .nav-item:hover { transform: translateX(3px); }
-}
-.nav-item:active { transform: translateX(1px) scale(.98); }
+.nav-item:active { transform: scale(.97); }
 .nav-item.active { transform: none; }
 .nav-badge {
   transition: background .18s, color .18s, transform .2s var(--ease-spring);
@@ -1581,11 +1696,10 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 
 /* ── Sidebar indicator glide ──────────────────────────────── */
-#sidebar { position: relative; }
 .nav-indicator {
   position: absolute;
-  left: 1rem;
-  right: 1rem;
+  left: .5rem;
+  right: .5rem;
   height: 36px;
   background: var(--accent-glow);
   border-radius: var(--radius);
@@ -1753,7 +1867,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 /* ── Tablet ────────────────────────────────────────────────── */
 @media (min-width: 681px) and (max-width: 900px) {
-  #app { grid-template-columns: 180px 1fr; }
+  #app { grid-template-columns: 56px 1fr; }
   #main { padding: .75rem 1rem 5rem; }
   #cards-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }

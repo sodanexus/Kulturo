@@ -143,39 +143,23 @@ function renderApp() {
     <!-- Sidebar -->
     <nav id="sidebar">
       <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
-      <span class="nav-section-label">Navigation</span>
-      <button class="nav-item active" data-nav="library" onclick="UI.navTo('library')">
-        ${iconGrid()} Bibliothèque <span class="nav-badge" id="badge-all">—</span>
+      <button class="sidebar-pin" id="sidebar-pin" title="Épingler le menu" onclick="UI.toggleSidebarPin()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-2a6 6 0 0 0-3-5.2V4h1V2H7v2h1v5.8A6 6 0 0 0 5 15v2z"/></svg>
       </button>
-      <button class="nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
-        ${iconChart()} Mon profil
-      </button>
-      <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
-        ${iconActivity()} Activité
-      </button>
-      <span class="nav-section-label">Catégories</span>
-      <button class="nav-item" data-nav="type-game" onclick="UI.navTo('type-game')">
-        🎮 Jeux <span class="nav-badge" id="badge-game">—</span>
-      </button>
-      <button class="nav-item" data-nav="type-movie" onclick="UI.navTo('type-movie')">
-        🎬 Films <span class="nav-badge" id="badge-movie">—</span>
-      </button>
-      <button class="nav-item" data-nav="type-book" onclick="UI.navTo('type-book')">
-        📚 Livres <span class="nav-badge" id="badge-book">—</span>
-      </button>
-      <span class="nav-section-label">Accès rapide</span>
-      <button class="nav-item" data-nav="status-playing" onclick="UI.navTo('status-playing')">
-        ▶ En cours <span class="nav-badge" id="badge-playing">—</span>
-      </button>
-      <button class="nav-item" data-nav="status-wishlist" onclick="UI.navTo('status-wishlist')">
-        🔖 Wishlist <span class="nav-badge" id="badge-wishlist">—</span>
-      </button>
-      <button class="nav-item" data-nav="fav" onclick="UI.navTo('fav')">
-        ♥ Coups de cœur <span class="nav-badge" id="badge-fav">—</span>
-      </button>
-      <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
-        ✦ Découverte
-      </button>
+      <div class="nav-items-group">
+        <button class="nav-item active" data-nav="library" onclick="UI.navTo('library')">
+          <span class="nav-icon">${iconGrid()}</span><span class="nav-label">Bibliothèque</span><span class="nav-badge" id="badge-all">—</span>
+        </button>
+        <button class="nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')">
+          <span class="nav-icon">${iconChart()}</span><span class="nav-label">Mon profil</span>
+        </button>
+        <button class="nav-item" data-nav="activity" onclick="UI.navTo('activity')">
+          <span class="nav-icon">${iconActivity()}</span><span class="nav-label">Activité</span>
+        </button>
+        <button class="nav-item" data-nav="discover" onclick="UI.navTo('discover')">
+          <span class="nav-icon">${iconCompass()}</span><span class="nav-label">Découverte</span>
+        </button>
+      </div>
     </nav>
 
     <!-- Main -->
@@ -273,6 +257,11 @@ function renderApp() {
   // Restaure la nav active
   const savedNav = localStorage.getItem("kulturo-nav") || "library";
   navTo(savedNav);
+  // Restaure pin sidebar
+  if (localStorage.getItem("kulturo-sidebar-pinned") === "1") {
+    document.getElementById("sidebar")?.classList.add("pinned");
+    document.getElementById("sidebar-pin")?.classList.add("active");
+  }
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
@@ -2395,6 +2384,13 @@ window.UI = {
   previewRating,
   clearPreview,
   navTo,
+  toggleSidebarPin: () => {
+    const sidebar = document.getElementById("sidebar");
+    const pinBtn   = document.getElementById("sidebar-pin");
+    const pinned   = sidebar.classList.toggle("pinned");
+    pinBtn.classList.toggle("active", pinned);
+    localStorage.setItem("kulturo-sidebar-pinned", pinned ? "1" : "0");
+  },
   setTypeFilter,
   setStatusChip,
   toggleFilterDrawer: () => {
