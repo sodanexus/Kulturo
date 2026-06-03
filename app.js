@@ -547,7 +547,7 @@ function starsHTML(rating, is_favorite) {
 
 function cardHTML(e, i = 0) {
   const coverHTML = e.cover_url
-    ? `<img class="card-cover" src="${e.cover_url}" alt="${esc(e.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+    ? `<img class="card-cover" src="${e.cover_url}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const isPerfect = e.rating === 10;
@@ -1669,7 +1669,7 @@ async function renderDiscover() {
 
 function discoverCardHTML(it, idx) {
   const cover = it.cover_url
-    ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none'">`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[it.media_type]||"🎭"}</div>`;
   return `
     <article class="media-card discover-card" data-discover-idx="${idx}">

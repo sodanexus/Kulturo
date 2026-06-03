@@ -440,7 +440,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   background: var(--bg-3);
   border-radius: var(--radius);
   flex-shrink: 0;
-  transition: transform .2s var(--ease-spring), box-shadow .2s, filter .2s, opacity .2s;
+  transition: transform .2s var(--ease-spring), box-shadow .2s, filter .2s, opacity .4s ease;
 }
 .media-card.is-wishlist .card-cover,
 .media-card.is-wishlist .card-cover-placeholder {
