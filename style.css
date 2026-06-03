@@ -102,7 +102,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 /* ── Layout ───────────────────────────────────────────────── */
 #app {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
@@ -357,6 +357,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 /* ── Main content ─────────────────────────────────────────── */
 #main {
   padding: .75rem 2rem 4rem;
+  padding-left: calc(56px + 2rem);
   overflow-y: auto;
   height: calc(100vh - 53px);
 }
@@ -1867,8 +1868,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 /* ── Tablet ────────────────────────────────────────────────── */
 @media (min-width: 681px) and (max-width: 900px) {
-  #app { grid-template-columns: 56px 1fr; }
-  #main { padding: .75rem 1rem 5rem; }
+  #main { padding: .75rem 1rem 5rem; padding-left: calc(56px + 1rem); }
   #cards-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
@@ -1908,6 +1908,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
   /* Sidebar cachée */
   #sidebar { display: none; }
+  #main { padding-left: 1rem; }
 
   /* Main pleine largeur */
   #main {
