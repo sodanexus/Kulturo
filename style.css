@@ -143,6 +143,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   margin: 0 auto;
 }
 .topbar-right {
+  padding-right: 1rem;
   display: flex;
   align-items: center;
   gap: .5rem;
@@ -338,34 +339,23 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 .filter-bar { display: none; }
 
 /* ── FAB Filtres ──────────────────────────────────────────── */
-.filter-fab {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 90;
+.topbar-filter-btn {
   display: flex;
   align-items: center;
-  gap: .5rem;
-  padding: .6rem 1.1rem;
+  gap: .45rem;
+  padding: .45rem .9rem;
   background: var(--bg-3);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--border);
   border-radius: 99px;
   color: var(--text-2);
-  font-size: .85rem;
+  font-size: .82rem;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,.4);
-  transition: background var(--transition), color var(--transition),
-              transform .15s var(--ease-spring), box-shadow .2s;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
-.filter-fab:hover {
-  background: var(--bg-4);
-  color: var(--text);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0,0,0,.5);
-}
-.filter-fab:active { transform: scale(.96); }
-.filter-fab.has-filter {
+.topbar-filter-btn:hover { background: var(--bg-4); color: var(--text); }
+.topbar-filter-btn.has-filter {
   background: var(--accent-glow);
   border-color: var(--accent);
   color: var(--accent);
@@ -1909,7 +1899,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   }
   .filter-bar::-webkit-scrollbar { display: none; }
   .filter-chip { white-space: nowrap; flex-shrink: 0; }
-  .filter-fab { bottom: calc(58px + 1rem); right: 1rem; }
+
 
   /* Modal plein écran en bas */
   .modal-overlay {
