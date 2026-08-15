@@ -244,7 +244,7 @@ async function translateViaProxy(text) {
           role: "user",
           content: `Traduis ce texte en français de façon naturelle. Réponds UNIQUEMENT avec la traduction, sans guillemets ni explication :\n\n${text}`,
         }],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         temperature: 0.3,
         max_tokens: 400,
       }),
