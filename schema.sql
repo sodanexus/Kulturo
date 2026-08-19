@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS media_entries (
   -- Enrichissement API
   external_id   TEXT,
   source_api    TEXT CHECK (source_api IN ('tmdb', 'rawg', 'openlibrary', 'manual')),
+  subtype       TEXT CHECK (subtype IS NULL OR subtype IN ('movie', 'tv')),
   genre         TEXT,
   author        TEXT,       -- livres : auteur / jeux : studio / films : réalisateur
   release_year  SMALLINT,
@@ -38,6 +39,12 @@ CREATE TABLE IF NOT EXISTS media_entries (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration sûre pour les bases créées avant l'ajout des séries TMDB.
+ALTER TABLE media_entries ADD COLUMN IF NOT EXISTS subtype TEXT;
+ALTER TABLE media_entries DROP CONSTRAINT IF EXISTS media_entries_subtype_check;
+ALTER TABLE media_entries ADD CONSTRAINT media_entries_subtype_check
+  CHECK (subtype IS NULL OR subtype IN ('movie', 'tv'));
 
 -- ── Index ────────────────────────────────────────────────────
 CREATE INDEX idx_media_user        ON media_entries (user_id);

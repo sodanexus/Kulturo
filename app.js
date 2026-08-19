@@ -3,7 +3,7 @@
 // ============================================================
 
 import { initSupabase, isConfigured, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 
 // ── État global ──────────────────────────────────────────────
 const State = {
@@ -152,8 +152,8 @@ function renderApp() {
         <button class="nav-item" data-nav="activity" data-tooltip="Activité" onclick="UI.navTo('activity')">
           <span class="nav-icon">${iconActivity()}</span>
         </button>
-        <button class="nav-item" data-nav="discover" data-tooltip="Découverte" onclick="UI.navTo('discover')">
-          <span class="nav-icon">${iconCompass()}</span>
+        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" onclick="UI.navTo('upcoming')">
+          <span class="nav-icon">${iconCalendar()}</span>
         </button>
       </div>
     </nav>
@@ -176,20 +176,18 @@ function renderApp() {
         <div id="dashboard-content"></div>
       </section>
 
-      <!-- Page Découverte -->
-      <section id="page-discover" class="page">
+      <!-- Page Prochaines sorties -->
+      <section id="page-upcoming" class="page">
         <div class="page-header">
           <div class="page-actions">
-            <button class="btn btn-secondary" id="discover-filter-all"   onclick="UI.setDiscoverType('all')"  >Tout</button>
-            <button class="btn btn-secondary" id="discover-filter-game"  onclick="UI.setDiscoverType('game')" >🎮 Jeux</button>
-            <button class="btn btn-secondary" id="discover-filter-movie" onclick="UI.setDiscoverType('movie')">🎬 Films</button>
-            <button class="btn btn-secondary" id="discover-filter-book"  onclick="UI.setDiscoverType('book')" >📚 Livres</button>
-            <button class="btn btn-primary"   onclick="UI.refreshDiscover()">↻ Actualiser</button>
-            <button class="btn btn-ghost btn-sm" onclick="UI.clearDiscoverMemory()" title="Effacer la mémoire des suggestions">🗑 Mémoire</button>
+            <button class="btn btn-primary" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')">Tout</button>
+            <button class="btn btn-secondary" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')">🎬 Films</button>
+            <button class="btn btn-secondary" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')">📺 Séries</button>
+            <button class="btn btn-ghost btn-sm" onclick="UI.refreshUpcoming()" title="Actualiser les sorties">↻ Actualiser</button>
           </div>
         </div>
-        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Basé sur vos coups de cœur et vos meilleures notes.</p>
-        <div id="discover-grid" class="discover-grid"></div>
+        <p class="upcoming-intro">Films et nouvelles séries attendus en France au cours des six prochains mois.</p>
+        <div id="upcoming-grid" class="upcoming-grid"></div>
       </section>
 
       <!-- Page Activité partagée -->
@@ -210,8 +208,8 @@ function renderApp() {
       <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" title="Bibliothèque">
         ${iconGrid()}
       </button>
-      <button class="bottom-nav-item" data-nav="discover" onclick="UI.navTo('discover')" title="Découverte">
-        ${iconCompass()}
+      <button class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" title="Prochaines sorties">
+        ${iconCalendar()}
       </button>
       <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" title="Ajouter">
         ${iconPlus()}
@@ -235,7 +233,8 @@ function renderApp() {
   renderCards();
   updateBadges();
   // Restaure la nav active
-  const savedNav = localStorage.getItem("kulturo-nav") || "library";
+  const savedNavRaw = localStorage.getItem("kulturo-nav") || "library";
+  const savedNav = savedNavRaw === "discover" ? "upcoming" : savedNavRaw;
   navTo(savedNav);
 
 }
@@ -295,8 +294,8 @@ function navTo(key) {
 
   if (key === "dashboard") {
     showPage("dashboard");
-  } else if (key === "discover") {
-    showPage("discover");
+  } else if (key === "upcoming") {
+    showPage("upcoming");
   } else if (key === "activity") {
     showPage("activity");
   } else if (key === "profile") {
@@ -347,7 +346,7 @@ function setTypeFilter(type) {
   updateCategoryTabs(type);
 }
 
-const PAGE_ORDER = ["library","dashboard","discover","activity"];
+const PAGE_ORDER = ["library","dashboard","upcoming","activity"];
 let _currentPage = "library";
 function showPage(name) {
   const oldPage = document.getElementById(`page-${_currentPage}`);
@@ -385,7 +384,7 @@ function showPage(name) {
   }
 
   if (name === "dashboard") renderDashboard();
-  if (name === "discover")  renderDiscover();
+  if (name === "upcoming")  renderUpcoming();
   if (name === "activity")  renderActivity();
 }
 
@@ -1476,7 +1475,7 @@ function esc(str) {
 }
 
 // ── Icons (inline SVG minifiés) ───────────────────────────────
-const iconCompass = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`;
+const iconCalendar = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
@@ -1488,280 +1487,157 @@ const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="curr
 const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 
 
-// ── Découverte ────────────────────────────────────────────────
-const DiscoverState = { type: "all", results: [], loading: false };
+// ── Prochaines sorties ────────────────────────────────────────
+const UpcomingState = { type: "all", results: [], loading: false, loaded: false };
 
-// Demande à Groq de suggérer des titres précis basés sur la bibliothèque
-async function getGroqSuggestions(liked, types, existingTitles) {
-  if (!CONFIG?.supabase?.url) return null;
-
-  // Trier par pertinence : coups de cœur > note décroissante
-  const sorted = [...liked].sort((a, b) => {
-    if (a.is_favorite && !b.is_favorite) return -1;
-    if (!a.is_favorite && b.is_favorite) return 1;
-    return (b.rating || 0) - (a.rating || 0);
-  });
-
-  const summary = sorted.slice(0, 30).map(e =>
-    `- ${e.title} (${e.media_type}${e.genre ? ", " + e.genre : ""}${e.rating ? ", note " + e.rating + "/10" : ""}${e.is_favorite ? ", ⭐ coup de cœur" : ""})`
-  ).join("\n");
-
-  const alreadyHas = [...existingTitles].slice(0, 60).join(", ");
-
-  const typeFilter = types.length === 3
-    ? "jeux vidéo, films/séries ET livres (répartis équitablement)"
-    : types.map(t => ({ game:"jeux vidéo", movie:"films/séries", book:"livres" }[t])).join(" et ");
-
-  const diversityInstruction = types.length === 3
-    ? "Assure-toi d'inclure au moins 4 jeux, 4 films/séries et 4 livres."
-    : "";
-
-  const prompt = `Tu es un expert en recommandations culturelles pointues. Voici la bibliothèque d'un utilisateur, triée par préférence (coups de cœur en premier) :
-
-${summary}
-
-Titres déjà dans sa bibliothèque à NE PAS suggérer : ${alreadyHas}
-
-Suggère exactement 18 titres de ${typeFilter} qu'il devrait découvrir.
-${diversityInstruction}
-- Privilégie des œuvres moins connues ou de niche qui correspondent précisément à ses goûts, pas uniquement les blockbusters évidents.
-- La raison doit être courte (max 12 mots), précise et personnalisée à SA bibliothèque.
-
-Réponds UNIQUEMENT avec un JSON valide, sans texte autour, sans markdown, sans backticks :
-{"suggestions":[{"title":"...","type":"game|movie|book","reason":"..."}]}
-
-Types valides : "game", "movie", "book". Exactement 18 suggestions.`;
-
-  try {
-    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/groq-proxy`;
-    const res = await fetch(proxyUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
-      },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.85,
-        max_tokens: 1200,
-      }),
-    });
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) return null;
-    const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-    return parsed.suggestions || null;
-  } catch (err) {
-    console.warn("[Groq] Erreur suggestions :", err);
-    return null;
-  }
+function formatReleaseDate(value) {
+  if (!value) return "Date à confirmer";
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric", month: "long", year: "numeric",
+  }).format(new Date(`${value}T12:00:00`));
 }
 
-async function renderDiscover() {
-  const grid = document.getElementById("discover-grid");
-  if (!grid) return;
-  if (_currentPage !== "discover") return;
-  if (DiscoverState.results.length) { grid.innerHTML = DiscoverState.results.map((r,i) => discoverCardHTML(r,i)).join(""); return; }
-  if (DiscoverState.loading) return;
-  DiscoverState.loading = true;
+function daysUntilRelease(value) {
+  if (!value) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(`${value}T00:00:00`);
+  return Math.max(0, Math.ceil((date - today) / 86400000));
+}
 
-  grid.innerHTML = `<div class="discover-loading"><div class="spinner"></div><span>Analyse de vos goûts avec l'IA…</span></div>`;
+function isUpcomingInLibrary(it) {
+  return State.entries.some(e =>
+    (e.source_api === "tmdb" && e.external_id && String(e.external_id) === String(it.external_id)) ||
+    e.title?.trim().toLowerCase() === it.title?.trim().toLowerCase()
+  );
+}
+
+function visibleUpcomingResults() {
+  const filtered = UpcomingState.type === "all"
+    ? UpcomingState.results
+    : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
+  return filtered.slice(0, UpcomingState.type === "all" ? 36 : 30);
+}
+
+async function renderUpcoming(force = false) {
+  const grid = document.getElementById("upcoming-grid");
+  if (!grid || _currentPage !== "upcoming") return;
+
+  if (UpcomingState.loaded && !force) {
+    renderUpcomingCards();
+    return;
+  }
+  if (UpcomingState.loading) return;
+
+  UpcomingState.loading = true;
+  grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement des prochaines sorties TMDB…</span></div>`;
   loadingStart();
 
-  const liked = State.entries.filter(e => e.is_favorite || (e.rating && e.rating >= 7));
-  if (!liked.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><h3>Pas encore assez de données</h3><p>Notez des médias (7+) ou marquez des coups de cœur pour recevoir des recommandations.</p></div>`;
-    DiscoverState.loading = false;
+  try {
+    UpcomingState.results = await TMDb.upcoming();
+    UpcomingState.loaded = true;
+    renderUpcomingCards();
+  } catch (err) {
+    console.error("[TMDB] Erreur prochaines sorties :", err);
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Sorties indisponibles</h3><p>Impossible de joindre TMDB pour le moment. Réessayez dans quelques instants.</p><button class="btn btn-secondary btn-sm" onclick="UI.refreshUpcoming()">Réessayer</button></div>`;
+  } finally {
+    UpcomingState.loading = false;
+    loadingDone();
+  }
+}
+
+function renderUpcomingCards() {
+  const grid = document.getElementById("upcoming-grid");
+  if (!grid) return;
+  const results = visibleUpcomingResults();
+
+  if (!TMDb.available()) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔑</div><h3>TMDB n'est pas configuré</h3><p>Ajoutez votre clé TMDB dans config.js pour afficher les prochaines sorties.</p></div>`;
+    return;
+  }
+  if (!results.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Aucune sortie trouvée</h3><p>TMDB ne retourne aucune date pour ce filtre actuellement.</p></div>`;
     return;
   }
 
-  const existingTitles = new Set(State.entries.map(e => e.title.toLowerCase()));
-  const types = DiscoverState.type === "all" ? ["game","movie","book"] : [DiscoverState.type];
-
-  // Étape 1 : Groq suggère des titres précis
-  const suggestions = await getGroqSuggestions(liked, types, existingTitles);
-
-  let allResults = [];
-
-  if (suggestions && suggestions.length) {
-    // Étape 2 : Pour chaque suggestion, on cherche la fiche via l'API
-    grid.innerHTML = `<div class="discover-loading"><div class="spinner"></div><span>Récupération des fiches (${suggestions.length} titres)…</span></div>`;
-
-    await Promise.allSettled(suggestions.map(async (s) => {
-      const type = types.includes(s.type) ? s.type : types[0];
-      if (existingTitles.has(s.title.toLowerCase())) return;
-      try {
-        const items = await searchMedia(s.title, type);
-        if (items.length) {
-          // Prend le premier résultat, le plus pertinent
-          allResults.push({ ...items[0], media_type: type, groq_reason: s.reason });
-        } else {
-          // Aucune fiche API trouvée — on crée une entrée minimale
-          allResults.push({
-            title: s.title, media_type: type, cover_url: null,
-            description: s.reason, source_api: "manual", groq_reason: s.reason,
-          });
-        }
-      } catch {}
-    }));
-  } else {
-    // Fallback : recherche par genres/auteurs si Groq indisponible
-    const genreCount = {};
-    liked.forEach(e => {
-      if (e.genre) e.genre.split(/[,/]/).forEach(g => {
-        const k = g.trim(); if (k) genreCount[k] = (genreCount[k] || 0) + 1;
-      });
-    });
-    const topGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
-    const topTitles = liked.slice(0,3).map(e => e.title);
-    const terms = [...topTitles, ...topGenres].slice(0,4);
-
-    await Promise.allSettled(types.flatMap(type =>
-      terms.slice(0,2).map(async term => {
-        try {
-          const items = await searchMedia(term, type);
-          items.forEach(it => {
-            if (!existingTitles.has(it.title.toLowerCase()))
-              allResults.push({ ...it, media_type: type });
-          });
-        } catch {}
-      })
-    ));
-  }
-
-  // Dédupliquer
-  const seen = new Set();
-  const unique = allResults.filter(it => {
-    const k = it.title.toLowerCase();
-    if (seen.has(k) || existingTitles.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-
-  DiscoverState.results = unique;
-  DiscoverState.loading = false;
-  loadingDone();
-
-  if (!unique.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><h3>Aucun résultat</h3><p>Vérifiez vos clés API dans config.js.</p></div>`;
-    return;
-  }
-
-  grid.innerHTML = unique.map((it, idx) => discoverCardHTML(it, idx)).join("");
+  grid.innerHTML = results.map((it, idx) => upcomingCardHTML(it, idx)).join("");
   requestAnimationFrame(() => {
-    grid.querySelectorAll(".discover-card").forEach((card, i) => {
-      card.style.animationDelay = `${i * 60}ms`;
+    grid.querySelectorAll(".upcoming-card").forEach((card, i) => {
+      card.style.animationDelay = `${Math.min(i * 40, 480)}ms`;
     });
   });
 }
 
-function discoverCardHTML(it, idx) {
+function upcomingCardHTML(it, idx) {
+  const inLibrary = isUpcomingInLibrary(it);
+  const days = daysUntilRelease(it.release_date);
+  const typeLabel = it.subtype === "tv" ? "Série" : "Film";
+  const typeIcon = it.subtype === "tv" ? "📺" : "🎬";
   const cover = it.cover_url
     ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none'">`
-    : `<div class="card-cover-placeholder">${TYPE_ICONS[it.media_type]||"🎭"}</div>`;
+    : `<div class="card-cover-placeholder">${typeIcon}</div>`;
+
   return `
-    <article class="media-card discover-card" data-discover-idx="${idx}">
-      ${cover}
+    <article class="media-card upcoming-card" data-upcoming-idx="${idx}">
+      <div class="upcoming-cover-wrap">
+        ${cover}
+        ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
+      </div>
       <div class="card-body">
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-meta">
-          <span class="badge badge-${it.media_type}">${TYPE_ICONS[it.media_type]} ${TYPE_LABELS[it.media_type]}</span>
-          ${it.release_year ? `<span style="font-size:.72rem;color:var(--text-3)">${it.release_year}</span>` : ""}
+          <span class="badge badge-movie">${typeIcon} ${typeLabel}</span>
         </div>
-        ${it.author ? `<div style="font-size:.75rem;color:var(--text-3);margin-top:.2rem">${esc(it.author)}</div>` : ""}
-        ${it.groq_reason
-          ? `<div class="discover-reason"><span class="discover-reason-icon">✦</span>${esc(it.groq_reason)}</div>`
-          : it.description
-          ? `<div class="discover-desc">${esc(it.description)}</div>`
-          : ""}
-        <div style="display:flex;gap:.4rem;margin-top:.75rem">
-          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="UI.addToWishlist(${idx})">+ Wishlist</button>
-          <button class="btn btn-ghost btn-sm" title="Pas intéressé" onclick="UI.ignoreDiscover(${idx})">✕</button>
-        </div>
+        <div class="release-date">${formatReleaseDate(it.release_date)}</div>
+        ${it.description ? `<div class="upcoming-desc">${esc(it.description)}</div>` : ""}
+        <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="UI.addUpcomingToWishlist(${idx})">
+          ${inLibrary ? "✓ Dans la bibliothèque" : "+ Wishlist"}
+        </button>
       </div>
     </article>`;
 }
 
-async function addToWishlist(idx) {
-  const it = DiscoverState.results[idx];
-  if (!it) return;
+async function addUpcomingToWishlist(idx) {
+  const it = visibleUpcomingResults()[idx];
+  if (!it || isUpcomingInLibrary(it)) return;
   const payload = {
-    title:       it.title,
-    media_type:  it.media_type,
-    status:      "wishlist",
-    cover_url:   it.cover_url || null,
-    genre:       it.genre     || null,
-    author:      it.author    || null,
+    title: it.title,
+    media_type: "movie",
+    subtype: it.subtype,
+    status: "wishlist",
+    cover_url: it.cover_url || null,
+    description: it.description || null,
+    release_year: it.release_year || null,
+    genre: null,
+    author: null,
     external_id: it.external_id || null,
-    source_api:  it.source_api  || "manual",
+    source_api: "tmdb",
     is_favorite: false,
-    rating:      null,
-    notes:       null,
-    platform:    it.platform  || null,
+    rating: null,
+    notes: null,
+    platform: null,
   };
+
   try {
-    if (false) {
-      State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
-    } else {
-      const created = await Media.create(payload);
-      State.entries.unshift(created);
-    }
+    const created = await Media.create(payload);
+    State.entries.unshift(created);
     updateBadges();
-    addIgnored(it.title); // ne plus proposer ce titre
-    removeDiscoverCard(idx);
+    renderUpcomingCards();
     toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
-    flashNewCard(it.title);
   } catch (e) {
     toast("Erreur : " + e.message, "error");
   }
 }
 
-function removeDiscoverCard(idx) {
-  // #14 — retire directement du DOM, pas de re-render complet
-  DiscoverState.results.splice(idx, 1);
-  const grid = document.getElementById("discover-grid");
-  if (!grid) return;
-
-  if (!DiscoverState.results.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><h3>Plus de suggestions</h3><p><button class="btn btn-secondary btn-sm" onclick="UI.clearDiscoverMemory()">Effacer la mémoire</button> pour en voir de nouvelles.</p></div>`;
-    return;
-  }
-
-  // Retire la carte par son index data-attribute
-  const card = grid.querySelector(`[data-discover-idx="${idx}"]`);
-  if (card) {
-    card.style.transition = "opacity .2s, transform .2s";
-    card.style.opacity = "0";
-    card.style.transform = "scale(.95)";
-    setTimeout(() => {
-      card.remove();
-      // Réindexe les data-attributes restants
-      grid.querySelectorAll("[data-discover-idx]").forEach((c, i) => c.dataset.discoverIdx = i);
-    }, 200);
-  } else {
-    // Fallback si pas de data-attribute
-    grid.innerHTML = DiscoverState.results.map((r,i) => discoverCardHTML(r,i)).join("");
-  }
-}
-
-function ignoreDiscover(idx) {
-  const it = DiscoverState.results[idx];
-  if (!it) return;
-  addIgnored(it.title);
-  removeDiscoverCard(idx);
-  toast(`"${it.title}" ignoré`, "info");
-}
-
-function setDiscoverType(type) {
-  DiscoverState.type = type;
-  // Highlight boutons
-  ["all","game","movie","book"].forEach(t => {
-    const btn = document.getElementById(`discover-filter-${t}`);
+function setUpcomingType(type) {
+  if (!["all", "movie", "tv"].includes(type)) return;
+  UpcomingState.type = type;
+  ["all", "movie", "tv"].forEach(t => {
+    const btn = document.getElementById(`upcoming-filter-${t}`);
     if (btn) btn.classList.toggle("btn-primary", t === type);
     if (btn) btn.classList.toggle("btn-secondary", t !== type);
   });
-  renderDiscover();
+  renderUpcomingCards();
 }
 
 
@@ -2025,26 +1901,6 @@ function flashNewCard(title) {
       }
     }
   });
-}
-
-// ── Mémorisation découverte ───────────────────────────────────
-const DISCOVER_IGNORED_KEY = "kulturo-discover-ignored";
-const DISCOVER_SEEN_KEY    = "kulturo-discover-seen";
-
-function getIgnored() {
-  try { return new Set(JSON.parse(localStorage.getItem(DISCOVER_IGNORED_KEY) || "[]")); }
-  catch { return new Set(); }
-}
-function addIgnored(title) {
-  const s = getIgnored(); s.add(title.toLowerCase());
-  localStorage.setItem(DISCOVER_IGNORED_KEY, JSON.stringify([...s]));
-}
-function clearDiscoverMemory() {
-  localStorage.removeItem(DISCOVER_IGNORED_KEY);
-  localStorage.removeItem(DISCOVER_SEEN_KEY);
-  DiscoverState.results = [];
-  renderDiscover();
-  toast("Mémoire effacée — nouvelles suggestions en cours…", "info");
 }
 
 // ── Interface publique (appelée depuis le HTML inline) ────────
@@ -2499,11 +2355,13 @@ window.UI = {
   },
   setSort,
   setProfileYear,
-  setDiscoverType,
-  refreshDiscover: () => { DiscoverState.results = []; renderDiscover(); },
-  ignoreDiscover,
-  clearDiscoverMemory,
-  addToWishlist,
+  setUpcomingType,
+  refreshUpcoming: () => {
+    UpcomingState.loaded = false;
+    UpcomingState.results = [];
+    renderUpcoming(true);
+  },
+  addUpcomingToWishlist,
   saveUsername,
   showRatingLabel,
   hideRatingLabel,

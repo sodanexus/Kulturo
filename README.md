@@ -1,6 +1,6 @@
 # Kulturo — Journal culturel personnel
 
-> Suis tes jeux, films, séries et livres. Enrichissement automatique via les APIs, recommandations personnalisées par l'IA, fil d'activité partagé entre utilisateurs.
+> Suis tes jeux, films, séries et livres. Enrichissement automatique via les APIs, calendrier des prochaines sorties, fil d'activité partagé entre utilisateurs.
 
 ![GitHub Pages](https://img.shields.io/badge/hébergement-GitHub%20Pages-black) ![Supabase](https://img.shields.io/badge/base%20de%20données-Supabase-3ECF8E) ![Groq](https://img.shields.io/badge/IA-Groq-F55036) ![TMDb](https://img.shields.io/badge/films-TMDb-01B4E4) ![IGDB](https://img.shields.io/badge/jeux-IGDB-9146FF)
 
@@ -10,7 +10,7 @@
 
 - 🎮 **Catalogue jeux, films, séries et livres** — recherche via IGDB, TMDb et Open Library
 - ⭐ **Notation demi-étoiles** — swipe mobile, coups de cœur avec animation dorée
-- 🤖 **Recommandations IA personnalisées** — basées sur tes coups de cœur et meilleures notes
+- 📅 **Prochaines sorties** — films et nouvelles séries attendus en France via TMDB
 - 🌍 **Descriptions traduites en français** — automatiquement via Groq pour les jeux et livres
 - 📊 **Dashboard personnel** — stats, progression, journal des médias terminés
 - 👥 **Fil d'activité partagé** — voir ce que les autres utilisateurs ajoutent
@@ -28,7 +28,7 @@
 | Films & Séries | TMDb API |
 | Jeux vidéo | IGDB API (via Twitch) |
 | Livres | Open Library API (sans clé) |
-| IA | Groq — `llama-3.3-70b-versatile` (recommandations) · `llama3-8b-8192` (traductions) |
+| Traduction | Groq — descriptions de jeux et livres en français |
 | Hébergement | GitHub Pages |
 
 ---
@@ -45,6 +45,7 @@ kulturo/
 ├── config.js                           # Clés API — ne pas committer (voir .gitignore)
 ├── sw.js                               # Service Worker (cache + offline)
 ├── schema.sql                          # Schéma Supabase à exécuter
+├── migration-upcoming.sql              # Migration d'une installation existante
 ├── manifest.json                       # PWA manifest
 ├── icon.svg / icon-192.png / icon-512.png
 └── supabase/functions/
@@ -63,6 +64,8 @@ kulturo/
 2. **SQL Editor** → coller et exécuter `schema.sql`
 3. **Settings > API** → noter `Project URL` et `anon public key`
 
+> Projet Kulturo déjà installé : exécuter `migration-upcoming.sql` une fois pour ajouter la colonne `subtype` utilisée par les séries. La migration conserve les données existantes.
+
 #### Déployer les Edge Functions
 
 ```bash
@@ -77,7 +80,7 @@ Ajouter les secrets dans **Settings > Edge Functions** :
 | `IGDB_CLIENT_SECRET` | Client Secret Twitch |
 | `GROQ_API_KEY` | Clé depuis [console.groq.com](https://console.groq.com) |
 
-> La Edge Function `groq-proxy` gère aussi les recommandations IA — déployer les deux.
+> La Edge Function `groq-proxy` reste utilisée uniquement pour traduire les descriptions de livres.
 
 ---
 
@@ -148,12 +151,12 @@ const CONFIG = {
 - Descriptions jeux et livres traduites en français via Groq
 - Saisie manuelle possible si l'API ne retourne rien
 
-### Recommandations IA (page Découverte)
-- Suggestions personnalisées via Groq (`llama-3.3-70b-versatile`) basées sur les coups de cœur et meilleures notes
-- Diversité forcée entre les types de médias
-- Suggestions de niche uniquement — les titres déjà en bibliothèque sont exclus
-- Raison personnalisée affichée sur chaque carte
-- Fallback par genres/auteurs si Groq est indisponible
+### Prochaines sorties
+- Films et nouvelles séries prévus en France dans les six prochains mois
+- Données TMDB triées par date de sortie
+- Filtres Tout / Films / Séries
+- Compte à rebours et date française sur chaque carte
+- Ajout direct à la wishlist, avec détection des titres déjà présents
 
 ### Dashboard
 - Statistiques personnelles (totaux par type, par statut, temps estimé)
@@ -184,6 +187,7 @@ Table principale `media_entries` :
 | `is_favorite` | BOOLEAN | Coup de cœur |
 | `external_id` | TEXT | ID TMDb / IGDB / OpenLibrary |
 | `source_api` | TEXT | `tmdb` · `rawg` · `openlibrary` · `manual` |
+| `subtype` | TEXT | `movie` · `tv` pour distinguer films et séries TMDB |
 | `author` | TEXT | Auteur (livres) · Studio (jeux) · Réalisateur (films) |
 
 RLS activée — policies `SELECT / INSERT / UPDATE / DELETE` restreintes à `auth.uid() = user_id`.
@@ -196,7 +200,7 @@ RLS activée — policies `SELECT / INSERT / UPDATE / DELETE` restreintes à `au
 - TMDb : 50 requêtes / seconde
 - IGDB : 4 requêtes / seconde
 - Open Library : pas de limite officielle
-- Groq `llama-3.3-70b-versatile` : 1 000 req/jour · `llama3-8b-8192` : 14 400 req/jour
+- Groq : selon les limites du modèle configuré pour les traductions
 
 **Service Worker**
 - Network-first pour HTML / JS / CSS (toujours à jour)

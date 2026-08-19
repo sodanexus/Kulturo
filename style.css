@@ -1004,16 +1004,16 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   gap: .75rem;
 }
 
-/* ── Découverte ───────────────────────────────────────────── */
-.discover-grid {
+/* ── Prochaines sorties ───────────────────────────────────── */
+.upcoming-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1.25rem;
 }
-.discover-card {
+.upcoming-card {
   cursor: default;
 }
-.discover-loading {
+.upcoming-loading {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
@@ -1023,36 +1023,52 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   color: var(--text-3);
   font-size: .875rem;
 }
-
-/* ── Discover reason (Groq) ───────────────────────────────── */
-.discover-reason {
-  display: flex;
-  align-items: flex-start;
-  gap: .3rem;
-  font-size: .72rem;
-  color: var(--text-2);
-  margin-top: .5rem;
-  line-height: 1.45;
-  background: rgba(200,169,110,.08);
-  border-left: 2px solid var(--accent);
-  padding: .3rem .45rem;
-  border-radius: 0 var(--radius) var(--radius) 0;
+.upcoming-intro {
+  color: var(--text-3);
+  font-size: .85rem;
+  margin-bottom: 1.5rem;
 }
-.discover-reason-icon {
+.upcoming-cover-wrap {
+  position: relative;
+}
+.release-countdown {
+  position: absolute;
+  top: .6rem;
+  right: .6rem;
+  padding: .28rem .5rem;
+  border-radius: 999px;
+  background: rgba(13, 13, 15, .82);
   color: var(--accent);
-  flex-shrink: 0;
-  font-size: .7rem;
-  margin-top: .05rem;
+  border: 1px solid rgba(200, 169, 110, .35);
+  backdrop-filter: blur(8px);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .02em;
 }
-.discover-desc {
+.release-date {
+  margin-top: .55rem;
+  color: var(--accent);
+  font-size: .76rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.upcoming-desc {
   font-size: .72rem;
   color: var(--text-3);
-  margin-top: .35rem;
+  margin-top: .45rem;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.upcoming-wishlist-btn {
+  width: 100%;
+  margin-top: .75rem;
+}
+.upcoming-wishlist-btn:disabled {
+  cursor: default;
+  opacity: .65;
 }
 
 /* ── Fiche détaillée ──────────────────────────────────────── */
@@ -1222,7 +1238,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   animation: cardFlash .6s ease-out forwards;
 }
 
-/* ── Bouton ghost discover ────────────────────────────────── */
+/* ── Bouton ghost ─────────────────────────────────────────── */
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border-2);
@@ -1615,13 +1631,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .star-full:hover { transform: scale(1.3) rotate(-5deg); }
 
-/* ── Cartes découverte — stagger ──────────────────────────── */
-@keyframes discoverIn {
+/* ── Cartes prochaines sorties — stagger ─────────────────── */
+@keyframes upcomingIn {
   from { opacity: 0; transform: translateY(20px) scale(.95); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.discover-card {
-  animation: discoverIn .4s var(--ease-spring) both;
+.upcoming-card {
+  animation: upcomingIn .4s var(--ease-spring) both;
 }
 
 /* ── Toast — entrée/sortie ────────────────────────────────── */
@@ -1970,8 +1986,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   /* Time badge hint masqué sur mobile */
   .time-badge-hint { display: none; }
 
-  /* Discover grid 2 colonnes */
-  .discover-grid {
+  /* Prochaines sorties : grille 2 colonnes */
+  .upcoming-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: .75rem;
   }

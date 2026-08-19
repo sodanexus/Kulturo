@@ -3,7 +3,7 @@
 // Network-first pour JS/CSS/HTML, cache-first pour images/fonts
 // ============================================================
 
-const CACHE_NAME = "kulturo-v3";
+const CACHE_NAME = "kulturo-v4";
 const STATIC_ASSETS = [
   "/Kulturo/icon-192.png",
   "/Kulturo/icon-512.png",

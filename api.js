@@ -75,6 +75,82 @@ export const TMDb = {
     }
     return merged.slice(0, 8);
   },
+
+  // Sorties cinéma et nouvelles séries prévues dans les 6 prochains mois.
+  // L'endpoint discover permet de borner précisément les dates françaises.
+  async upcoming() {
+    if (!this.available()) return [];
+
+    const base = CONFIG.tmdb.baseUrl;
+    const key  = CONFIG.tmdb.apiKey;
+    const today = new Date();
+    const end = new Date(today);
+    end.setMonth(end.getMonth() + 6);
+    const isoDate = date => [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+    const common = `api_key=${key}&language=fr-FR&include_adult=false&sort_by=popularity.desc`;
+
+    const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=2%7C3&release_date.gte=${isoDate(today)}&release_date.lte=${isoDate(end)}&page=${page}`;
+    const tvUrl = page => `${base}/discover/tv?${common}&timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${isoDate(today)}&first_air_date.lte=${isoDate(end)}&page=${page}`;
+
+    const requests = await Promise.allSettled([
+      apiFetch(movieUrl(1)), apiFetch(movieUrl(2)),
+      apiFetch(tvUrl(1)), apiFetch(tvUrl(2)),
+    ]);
+    if (requests.every(r => r.status === "rejected")) {
+      throw new Error("TMDB indisponible");
+    }
+
+    const moviePages = requests.slice(0, 2)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value.results || []);
+    const tvPages = requests.slice(2)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value.results || []);
+
+    const movies = moviePages.map(m => ({
+      external_id:  String(m.id),
+      title:        m.title,
+      cover_url:    m.poster_path ? `${CONFIG.tmdb.imageBase}${m.poster_path}` : null,
+      description:  m.overview || null,
+      release_year: m.release_date ? Number.parseInt(m.release_date.slice(0, 4), 10) : null,
+      release_date: m.release_date || null,
+      genre:        null,
+      author:       null,
+      platform:     null,
+      source_api:   "tmdb",
+      subtype:      "movie",
+      popularity:   m.popularity || 0,
+    }));
+
+    const shows = tvPages.map(s => ({
+      external_id:  String(s.id),
+      title:        s.name,
+      cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
+      description:  s.overview || null,
+      release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
+      release_date: s.first_air_date || null,
+      genre:        null,
+      author:       null,
+      platform:     null,
+      source_api:   "tmdb",
+      subtype:      "tv",
+      popularity:   s.popularity || 0,
+    }));
+
+    const unique = new Map();
+    [...movies, ...shows].forEach(item => {
+      if (!item.release_date) return;
+      unique.set(`${item.subtype}:${item.external_id}`, item);
+    });
+
+    return [...unique.values()].sort((a, b) =>
+      a.release_date.localeCompare(b.release_date) || b.popularity - a.popularity
+    );
+  },
 };
 
 // ── Jeux — IGDB (via Supabase Edge Function proxy) ───────────
