@@ -104,10 +104,12 @@ export const TMDb = {
       String(date.getMonth() + 1).padStart(2, "0"),
       String(date.getDate()).padStart(2, "0"),
     ].join("-");
+    const startDate = isoDate(today);
+    const endDate = isoDate(end);
     const common = `api_key=${key}&language=fr-FR&include_adult=false&sort_by=popularity.desc`;
 
-    const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=2%7C3&release_date.gte=${isoDate(today)}&release_date.lte=${isoDate(end)}&page=${page}`;
-    const tvUrl = page => `${base}/discover/tv?${common}&timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${isoDate(today)}&first_air_date.lte=${isoDate(end)}&page=${page}`;
+    const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=2%7C3&release_date.gte=${startDate}&release_date.lte=${endDate}&page=${page}`;
+    const tvUrl = page => `${base}/discover/tv?${common}&timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${startDate}&first_air_date.lte=${endDate}&page=${page}`;
 
     const requests = await Promise.allSettled([
       apiFetch(movieUrl(1)), apiFetch(movieUrl(2)),
@@ -156,7 +158,10 @@ export const TMDb = {
 
     const unique = new Map();
     [...movies, ...shows].forEach(item => {
-      if (!item.release_date) return;
+      // TMDb peut faire correspondre une ressortie régionale tout en renvoyant
+      // parfois la date historique du film dans le résultat. Kulturo affiche
+      // uniquement les œuvres dont la date renvoyée est réellement à venir.
+      if (!item.release_date || item.release_date < startDate || item.release_date > endDate) return;
       unique.set(`${item.subtype}:${item.external_id}`, item);
     });
 

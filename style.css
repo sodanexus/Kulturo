@@ -1541,6 +1541,21 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+.modal-overlay.is-closing {
+  pointer-events: none;
+  animation: overlayOut .18s var(--ease-smooth) both;
+}
+.modal-overlay.is-closing .modal {
+  animation: modalOut .18s var(--ease-smooth) both;
+}
+@keyframes overlayOut {
+  from { opacity: 1; backdrop-filter: blur(6px); }
+  to   { opacity: 0; backdrop-filter: blur(0); }
+}
+@keyframes modalOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(14px) scale(.985); }
+}
 
 /* ── Favori — pulse cœur ──────────────────────────────────── */
 @keyframes heartPop {

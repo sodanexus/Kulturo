@@ -175,6 +175,8 @@ Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche dét
 
 TMDb fournit les films et premières diffusions de séries attendus en France pendant environ six mois. Les boutons **Tout**, **Films** et **Séries** changent uniquement l’affichage ; ils ne modifient pas la bibliothèque.
 
+Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régionale sont écartées : l’onglet conserve uniquement les dates réellement comprises entre aujourd’hui et la fin de la période affichée.
+
 ### PWA
 
 Le service worker utilise une stratégie network-first pour l’application et cache-first pour les images. L’interface déjà visitée reste accessible hors ligne, mais les recherches externes, l’authentification et les prochaines sorties nécessitent le réseau.

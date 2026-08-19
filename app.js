@@ -1388,18 +1388,12 @@ async function toggleFav(id) {
 function closeModal() {
   const overlay = document.getElementById("modal-overlay");
   if (!overlay) { document.getElementById("modal-root").innerHTML = ""; return; }
-  overlay.style.transition = "opacity .2s ease";
-  overlay.style.opacity = "0";
-  const modal = overlay.querySelector(".modal");
-  if (modal) {
-    modal.style.transition = "opacity .2s ease, transform .2s ease";
-    modal.style.opacity = "0";
-    modal.style.transform = "translateY(10px)";
-  }
+  if (overlay.classList.contains("is-closing")) return;
+  overlay.classList.add("is-closing");
   setTimeout(() => {
     document.getElementById("modal-root").innerHTML = "";
     _currentRating = 0;
-  }, 200);
+  }, 180);
 }
 function closeModalOnBg(e) {
   if (e.target.id === "modal-overlay") closeModal();
@@ -1423,7 +1417,11 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
         </div>
       </div>`);
     const overlay = document.getElementById("confirm-overlay");
-    const cleanup = (result) => { overlay.remove(); resolve(result); };
+    const cleanup = (result) => {
+      if (overlay.classList.contains("is-closing")) return;
+      overlay.classList.add("is-closing");
+      setTimeout(() => { overlay.remove(); resolve(result); }, 180);
+    };
     document.getElementById("confirm-ok").onclick     = () => cleanup(true);
     document.getElementById("confirm-cancel").onclick = () => cleanup(false);
     overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(false); });
@@ -1509,7 +1507,11 @@ function bindGlobalEvents() {
     }
   });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") closeModal();
+    if (e.key !== "Escape") return;
+    const confirmCancel = document.getElementById("confirm-cancel");
+    if (confirmCancel) confirmCancel.click();
+    else if (document.getElementById("filter-modal-overlay")) UI.closeFilterModal();
+    else closeModal();
   });
 
 
@@ -1564,7 +1566,8 @@ function daysUntilRelease(value) {
   const [year, month, day] = value.split("-").map(Number);
   const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   const releaseUtc = Date.UTC(year, month - 1, day);
-  return Math.max(0, Math.round((releaseUtc - todayUtc) / 86400000));
+  const days = Math.round((releaseUtc - todayUtc) / 86400000);
+  return days >= 0 ? days : null;
 }
 
 function isUpcomingInLibrary(it) {
@@ -2451,11 +2454,9 @@ window.UI = {
   closeFilterModal: () => {
     const overlay = document.getElementById("filter-modal-overlay");
     if (!overlay) return;
-    overlay.style.transition = "opacity .2s ease";
-    overlay.style.opacity = "0";
-    const modal = overlay.querySelector(".modal");
-    if (modal) { modal.style.transition = "opacity .2s ease, transform .2s ease"; modal.style.opacity = "0"; modal.style.transform = "translateY(10px)"; }
-    setTimeout(() => overlay.remove(), 200);
+    if (overlay.classList.contains("is-closing")) return;
+    overlay.classList.add("is-closing");
+    setTimeout(() => overlay.remove(), 180);
   },
 
   toggleFavFilter: () => {
