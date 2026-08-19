@@ -9,7 +9,7 @@ let _client = null;
 // ── Initialisation ───────────────────────────────────────────
 export function initSupabase() {
   if (!CONFIG?.supabase?.url || CONFIG.supabase.url.includes("VOTRE_")) {
-    console.warn("[Supabase] Clés non configurées — mode démo activé");
+    console.warn("[Supabase] Configuration publique manquante");
     return null;
   }
   _client = createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey, {
@@ -18,10 +18,6 @@ export function initSupabase() {
   return _client;
 }
 
-
-export function isConfigured() {
-  return _client !== null;
-}
 
 // ── Auth ─────────────────────────────────────────────────────
 export const Auth = {
@@ -45,6 +41,12 @@ export const Auth = {
   async getUser() {
     const { data: { user } } = await _client.auth.getUser();
     return user;
+  },
+
+  async getAccessToken() {
+    const { data, error } = await _client.auth.getSession();
+    if (error) throw error;
+    return data.session?.access_token || null;
   },
 
   onAuthChange(callback) {
@@ -135,8 +137,8 @@ export const Profiles = {
       .from("profiles")
       .select("id, username")
       .eq("id", userId)
-      .single();
-    if (error && error.code !== "PGRST116") throw error; // PGRST116 = not found, c'est ok
+      .maybeSingle();
+    if (error) throw error;
     return data || null;
   },
 
@@ -149,38 +151,20 @@ export const Profiles = {
     if (error) throw error;
     return data;
   },
-
-  async getAll() {
-    const { data, error } = await _client
-      .from("profiles")
-      .select("id, username");
-    if (error) throw error;
-    return data || [];
-  },
 };
 
 // ── Activité partagée ─────────────────────────────────────────
 export const Activity = {
   async getFeed(limit = 50) {
-    const { data: entries, error } = await _client
-      .from("media_entries")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
+    const { data, error } = await _client
+      .rpc("get_activity_feed", { p_limit: safeLimit });
     if (error) throw error;
-
-    const profiles = await Profiles.getAll();
-    const profileMap = {};
-    profiles.forEach(p => { profileMap[p.id] = p.username; });
-
-    return (entries || []).map(e => ({
-      ...e,
-      username: profileMap[e.user_id] || "Utilisateur",
-    }));
+    return data || [];
   },
 };
 
-// ── Calcul des statistiques (partagé avec le mode démo) ──────
+// ── Calcul des statistiques ──────────────────────────────────
 export function computeStats(entries) {
   const total = entries.length;
   const finished = entries.filter(e => e.status === "finished").length;

@@ -2,6 +2,8 @@
 // api.js — Intégrations APIs médias (TMDb · IGDB · OpenLibrary)
 // ============================================================
 
+import { Auth } from "./supabase.js";
+
 // ── Utilitaire fetch avec timeout ────────────────────────────
 async function apiFetch(url, options = {}) {
   const controller = new AbortController();
@@ -13,6 +15,15 @@ async function apiFetch(url, options = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function edgeFunctionHeaders() {
+  const accessToken = await Auth.getAccessToken();
+  if (!accessToken) throw new Error("Session expirée");
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${accessToken}`,
+  };
 }
 
 // ── Normalisation commune ────────────────────────────────────
@@ -85,7 +96,9 @@ export const TMDb = {
     const key  = CONFIG.tmdb.apiKey;
     const today = new Date();
     const end = new Date(today);
-    end.setMonth(end.getMonth() + 6);
+    // Un ajout de mois peut sauter en mars depuis un 31 janvier.
+    // 183 jours donne une fenêtre stable d'environ six mois.
+    end.setDate(end.getDate() + 183);
     const isoDate = date => [
       date.getFullYear(),
       String(date.getMonth() + 1).padStart(2, "0"),
@@ -164,16 +177,11 @@ export const IGDB = {
   async search(query) {
     if (!this.available()) return [];
     const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
-    const res = await fetch(proxyUrl, {
+    const data = await apiFetch(proxyUrl, {
       method: "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
-      },
+      headers: await edgeFunctionHeaders(),
       body: JSON.stringify({ query }),
     });
-    if (!res.ok) throw new Error(`IGDB proxy HTTP ${res.status}`);
-    const data = await res.json();
     if (data.error) throw new Error(data.error);
     return (data || []).map(g => ({
       external_id:  String(g.id),
@@ -283,13 +291,11 @@ export const IGDBDetails = {
   async fetch(externalId) {
     if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
     const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
-    const res = await fetch(proxyUrl, {
+    const data = await apiFetch(proxyUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.supabase.anonKey}` },
+      headers: await edgeFunctionHeaders(),
       body: JSON.stringify({ id: Number(externalId) }),
     });
-    if (!res.ok) return null;
-    const data = await res.json();
     const g = Array.isArray(data) ? data[0] : data;
     if (!g) return null;
 
@@ -306,27 +312,17 @@ async function translateViaProxy(text) {
   if (!text || !CONFIG?.supabase?.url) return text;
   // Détection basique — si c'est déjà en français on ne translate pas
   const frWords = [" le ", " la ", " les ", " un ", " une ", " des ", " est ", " dans ", " que ", " qui "];
-  const looksFrenh = frWords.some(w => text.toLowerCase().includes(w));
-  if (looksFrenh) return text;
+  const looksFrench = frWords.some(w => text.toLowerCase().includes(w));
+  if (looksFrench) return text;
   try {
-    const res = await fetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
+    const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${CONFIG.supabase.anonKey}`,
-      },
-      body: JSON.stringify({
-        messages: [{
-          role: "user",
-          content: `Traduis ce texte en français de façon naturelle. Réponds UNIQUEMENT avec la traduction, sans guillemets ni explication :\n\n${text}`,
-        }],
-        model: "openai/gpt-oss-120b",
-        temperature: 0.3,
-        max_tokens: 400,
-      }),
+      headers: await edgeFunctionHeaders(),
+      // Le navigateur n'a pas le droit de choisir le prompt ou le modèle.
+      // Le proxy applique lui-même une consigne de traduction fixe.
+      body: JSON.stringify({ text }),
     });
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() || text;
+    return data.translation?.trim() || text;
   } catch {
     return text;
   }

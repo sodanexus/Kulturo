@@ -1,6 +1,6 @@
 // ============================================================
-// config.example.js — Copier ce fichier en config.js
-// et remplir vos vraies clés. Ne jamais committer config.js.
+// config.js — configuration publique chargée par le navigateur.
+// Ne jamais placer de secret serveur dans ce fichier.
 // ============================================================
 
 const CONFIG = {
@@ -17,11 +17,11 @@ const CONFIG = {
     imageBase: "https://image.tmdb.org/t/p/w500",
   },
 
-// ── IGDB/Twitch (jeux vidéo) — https://dev.twitch.tv/console
-igdb: {
-  clientId:     "kg3t3t0fm5ufgc8pe4op8q38zewxlw",
-  clientSecret: "zdh8tg73y428kydfkfmz4ijxqvzm2j",
-},
+  // ── IGDB/Twitch (jeux vidéo) — identifiant public uniquement.
+  // Le secret client reste dans les secrets de la fonction Supabase.
+  igdb: {
+    clientId: "kg3t3t0fm5ufgc8pe4op8q38zewxlw",
+  },
 
   // ── Open Library (livres) — pas de clé requise
   openLibrary: {
@@ -32,11 +32,8 @@ igdb: {
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "1.0.0",
+    version: "2.0.0",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
-    demoMode: false, // true = données de démo si Supabase non configuré
   },
 };
-
-

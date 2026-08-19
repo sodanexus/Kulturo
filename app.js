@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, isConfigured, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
+import { initSupabase, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 
 // ── État global ──────────────────────────────────────────────
@@ -18,10 +18,7 @@ const State = {
   },
   editingId:  null,
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
-  savedFilters: null,      // #2 — mémorise les filtres avant changement de page
 };
-
-// ── Données de démo ──────────────────────────────────────────
 
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
@@ -34,6 +31,45 @@ function getTypeLabel(e) {
 }
 const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
+function normalizeTitle(value) {
+  return String(value || "").trim().toLocaleLowerCase("fr-FR");
+}
+
+function safeMediaUrl(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(String(value), window.location.href);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function normalizedSubtype(item) {
+  return item?.media_type === "movie" || item?.subtype
+    ? (item?.subtype === "tv" ? "tv" : "movie")
+    : null;
+}
+
+function findMatchingEntry(candidate, excludeId = null) {
+  const candidateType = candidate.media_type || "movie";
+  const candidateSubtype = normalizedSubtype({ ...candidate, media_type: candidateType });
+  const title = normalizeTitle(candidate.title);
+
+  return State.entries.find(entry => {
+    if (entry.id === excludeId || entry.media_type !== candidateType) return false;
+    const sameSubtype = normalizedSubtype(entry) === candidateSubtype;
+    const sameExternalId = candidate.external_id && entry.external_id &&
+      candidate.source_api === entry.source_api &&
+      String(candidate.external_id) === String(entry.external_id) &&
+      sameSubtype;
+    if (sameExternalId) return true;
+
+    const subtypeCompatible = sameSubtype || !entry.subtype || !candidate.subtype;
+    return Boolean(title && subtypeCompatible && normalizeTitle(entry.title) === title);
+  }) || null;
+}
+
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   if (typeof CONFIG === "undefined") {
@@ -42,34 +78,32 @@ async function init() {
     return;
   }
   try {
-    initSupabase();
+    if (!initSupabase()) {
+      document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;text-align:center;padding:2rem"><b>Configuration Supabase manquante</b><p style="font-size:.85rem;color:#a0a0b0">Renseignez les valeurs publiques Supabase dans config.js.</p></div>';
+      return;
+    }
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
-    if (false) {
-      // mode démo supprimé
+    const existingUser = await Auth.getUser().catch(() => null);
+    if (existingUser) {
+      State.user = existingUser;
       renderApp();
-      showPage("library");
+      await loadEntries();
+      restoreNavigation();
     } else {
-      const existingUser = await Auth.getUser().catch(() => null);
-      if (existingUser) {
-        State.user = existingUser;
+      renderAuthPage();
+    }
+    Auth.onAuthChange(async (event, user) => {
+      State.user = user;
+      if (event === "SIGNED_IN" && user) {
         renderApp();
         await loadEntries();
-        showPage("library");
-      } else {
+        restoreNavigation();
+      } else if (event === "SIGNED_OUT") {
+        State.entries = [];
         renderAuthPage();
       }
-      Auth.onAuthChange((event, user) => {
-        State.user = user;
-        if (event === "SIGNED_IN" && user) {
-          renderApp();
-          loadEntries();
-          showPage("library");
-        } else if (event === "SIGNED_OUT") {
-          renderAuthPage();
-        }
-      });
-    }
+    });
     bindGlobalEvents();
   } catch(err) {
     console.error("Erreur init:", err);
@@ -87,6 +121,12 @@ function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("kulturo-theme", t);
   // btn-theme removed
+}
+
+function restoreNavigation() {
+  const saved = localStorage.getItem("kulturo-nav") || "library";
+  const allowed = new Set(["library", "dashboard", "upcoming", "activity"]);
+  navTo(saved === "discover" ? "upcoming" : (allowed.has(saved) ? saved : "library"));
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -226,17 +266,11 @@ function renderApp() {
   applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
   // Restaure le tri mémorisé
   const savedSort = localStorage.getItem("kulturo-sort");
-  if (savedSort) State.filters.sort = savedSort;
-  const sortEl = document.getElementById("sort-select");
-  if (sortEl && savedSort) sortEl.value = savedSort;
+  const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
+  State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
   buildFilterBar();
   renderCards();
   updateBadges();
-  // Restaure la nav active
-  const savedNavRaw = localStorage.getItem("kulturo-nav") || "library";
-  const savedNav = savedNavRaw === "discover" ? "upcoming" : savedNavRaw;
-  navTo(savedNav);
-
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
@@ -265,7 +299,7 @@ async function loadEntries() {
 }
 
 // ── Navigation unifiée ───────────────────────────────────────
-function navTo(key) {
+function navTo(key, options = {}) {
   // ne rejoue pas l'animation si on clique exactement sur la même destination
   if (key !== "library" && (key === _currentPage || (key === "profile" && _currentPage === "dashboard"))) return;
 
@@ -330,6 +364,11 @@ function navTo(key) {
     State.filters.type     = "all";
     State.filters.status   = "all";
     State.filters.favorite = false;
+    if (!options.preserveSearch) {
+      State.filters.search = "";
+      const search = document.getElementById("global-search");
+      if (search) search.value = "";
+    }
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -538,8 +577,9 @@ function starsHTML(rating, is_favorite) {
 }
 
 function cardHTML(e, i = 0) {
-  const coverHTML = e.cover_url
-    ? `<img class="card-cover" src="${e.cover_url}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+  const coverUrl = safeMediaUrl(e.cover_url);
+  const coverHTML = coverUrl
+    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const isPerfect = e.rating === 10;
@@ -603,7 +643,7 @@ async function renderDashboard() {
 
   // Charge le username AVANT le rendu pour éviter le flash
   let cachedUsername = "";
-  if (!false && State.user) {
+  if (State.user) {
     try {
       const p = await Profiles.get(State.user.id);
       cachedUsername = p?.username || "";
@@ -611,7 +651,7 @@ async function renderDashboard() {
   }
 
   // Section identité
-  const profileTopHTML = !false ? `
+  const profileTopHTML = `
     <div class="profile-identity-bar">
       <div class="profile-avatar-circle">👤</div>
       <div class="profile-identity-meta">
@@ -624,7 +664,7 @@ async function renderDashboard() {
         </div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" style="flex-shrink:0">↩</button>
-    </div>` : "";
+    </div>`;
 
   // Populate year selector (inline dans le header Résumé)
   const all   = State.entries;
@@ -1085,21 +1125,24 @@ function buildRatingStars(current) {
 
   if (current) showRatingLabel(current);
 
-  wrap.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const rect = wrap.getBoundingClientRect();
-    const x = Math.max(0, touch.clientX - rect.left);
-    const n = Math.min(10, Math.max(1, Math.ceil((x / rect.width) * 10)));
-    previewRating(n);
-  }, { passive: false });
-  wrap.addEventListener("touchend", (e) => {
-    const touch = e.changedTouches[0];
-    const rect = wrap.getBoundingClientRect();
-    const x = Math.max(0, touch.clientX - rect.left);
-    const n = Math.min(10, Math.max(1, Math.ceil((x / rect.width) * 10)));
-    setRating(n);
-  });
+  if (!wrap.dataset.touchBound) {
+    wrap.dataset.touchBound = "true";
+    wrap.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = wrap.getBoundingClientRect();
+      const x = Math.max(0, touch.clientX - rect.left);
+      const n = Math.min(10, Math.max(1, Math.ceil((x / rect.width) * 10)));
+      previewRating(n);
+    }, { passive: false });
+    wrap.addEventListener("touchend", (e) => {
+      const touch = e.changedTouches[0];
+      const rect = wrap.getBoundingClientRect();
+      const x = Math.max(0, touch.clientX - rect.left);
+      const n = Math.min(10, Math.max(1, Math.ceil((x / rect.width) * 10)));
+      setRating(n);
+    });
+  }
 }
 
 let _currentRating = 0;
@@ -1159,7 +1202,7 @@ function setupApiSearch() {
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
         <div class="api-result-item" onclick="UI.fillFromApi(${idx})">
-          ${it.cover_url ? `<img class="api-result-thumb" src="${it.cover_url}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">${TYPE_ICONS[type]}</div>`}
+          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">${TYPE_ICONS[type]}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${it.release_year||""} ${it.author||""}</div>
@@ -1213,10 +1256,10 @@ function fillFromApi(idx) {
 
 // ── CRUD ──────────────────────────────────────────────────────
 async function saveEntry() {
-  // Si f-title vide (pas de sélection API), on prend ce qui est tapé dans la recherche
+  // En édition, le champ visible doit pouvoir modifier le titre sans sélection API.
   const titleHidden = document.getElementById("f-title")?.value?.trim();
   const titleSearch = document.getElementById("f-api-search")?.value?.trim();
-  const title = titleHidden || titleSearch;
+  const title = titleSearch || titleHidden;
   if (!title) { toast("Le titre est obligatoire.", "error"); return; }
 
   // #7 — protection double-submit
@@ -1224,9 +1267,15 @@ async function saveEntry() {
   if (saveBtn?.disabled) return;
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "…"; }
 
+  const existing = State.editingId ? State.entries.find(e => e.id === State.editingId) : null;
+  const selected = window._apiSelected || null;
+  const mediaType = document.getElementById("f-type")?.value;
+  const keepExistingApi = Boolean(existing && !selected &&
+    existing.media_type === mediaType && normalizeTitle(existing.title) === normalizeTitle(title));
+
   const payload = {
     title,
-    media_type:    document.getElementById("f-type")?.value,
+    media_type:    mediaType,
     status:        document.getElementById("f-status")?.value,
     rating:        _currentRating || null,
     is_favorite:   document.getElementById("f-favorite")?.checked || false,
@@ -1235,30 +1284,45 @@ async function saveEntry() {
     genre:         document.getElementById("f-genre")?.value?.trim() || null,
     author:        document.getElementById("f-author")?.value?.trim() || null,
     platform:      document.getElementById("f-platform")?.value?.trim() || null,
-    external_id:   window._apiSelected?.external_id || null,
-    source_api:    window._apiSelected?.source_api  || "manual",
-    subtype:       window._apiSelected?.subtype     || null,
+    external_id:   selected?.external_id ?? (keepExistingApi ? existing.external_id : null),
+    source_api:    selected?.source_api  ?? (keepExistingApi ? existing.source_api : "manual"),
+    subtype:       selected?.subtype     ?? (keepExistingApi ? existing.subtype : null),
+    release_year:  selected?.release_year ?? (keepExistingApi ? existing.release_year : null),
+    description:   selected?.description  ?? (keepExistingApi ? existing.description : null),
   };
+
+  // Une nouvelle identité API ne doit jamais conserver le casting/backdrop
+  // de l'ancien média.
+  const selectedIdentityChanged = Boolean(existing && selected && (
+    existing.media_type !== mediaType ||
+    existing.source_api !== selected.source_api ||
+    String(existing.external_id || "") !== String(selected.external_id || "") ||
+    normalizedSubtype(existing) !== normalizedSubtype({ ...selected, media_type: mediaType })
+  ));
+  if (existing && (selectedIdentityChanged || (!selected && !keepExistingApi))) {
+    ["backdrop_url", "directors", "cast_members", "duration", "seasons_count",
+     "episodes_count", "air_status", "watch_providers", "developer", "publisher",
+     "page_count", "isbn"].forEach(field => { payload[field] = null; });
+  }
+
+  const duplicate = findMatchingEntry(payload, State.editingId);
+  if (duplicate) {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = State.editingId ? "Enregistrer" : "Ajouter"; }
+    toast(`"${duplicate.title}" est déjà dans votre bibliothèque.`, "info");
+    return;
+  }
+
   window._apiSelected = null;
   _currentRating = 0;
 
   try {
-    if (false) {
-      if (State.editingId) {
-        const idx = State.entries.findIndex(e => e.id === State.editingId);
-        if (idx !== -1) State.entries[idx] = { ...State.entries[idx], ...payload };
-      } else {
-        State.entries.unshift({ ...payload, id: "d" + Date.now(), created_at: new Date().toISOString() });
-      }
+    if (State.editingId) {
+      const updated = await Media.update(State.editingId, payload);
+      const idx = State.entries.findIndex(e => e.id === State.editingId);
+      if (idx !== -1) State.entries[idx] = updated;
     } else {
-      if (State.editingId) {
-        const updated = await Media.update(State.editingId, payload);
-        const idx = State.entries.findIndex(e => e.id === State.editingId);
-        if (idx !== -1) State.entries[idx] = updated;
-      } else {
-        const created = await Media.create(payload);
-        State.entries.unshift(created);
-      }
+      const created = await Media.create(payload);
+      State.entries.unshift(created);
     }
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
@@ -1287,7 +1351,7 @@ async function deleteEntry(id) {
       cardEl.classList.add("card-exit");
       await new Promise(r => setTimeout(r, 300));
     }
-    if (!false) await Media.delete(id);
+    await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     closeModal();
     renderCards();
@@ -1310,7 +1374,7 @@ async function toggleFav(id) {
   if (!entry) return;
   const next = !entry.is_favorite;
   try {
-    if (!false) await Media.toggleFavorite(id, entry.is_favorite);
+    await Media.toggleFavorite(id, entry.is_favorite);
     entry.is_favorite = next;
     // #13 — mise à jour locale uniquement
     renderCards();
@@ -1345,7 +1409,6 @@ function closeModalOnBg(e) {
 function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "danger") {
   return new Promise(resolve => {
     const root = document.getElementById("modal-root");
-    const prev = root.innerHTML;
     root.insertAdjacentHTML("beforeend", `
       <div class="modal-overlay confirm-overlay" id="confirm-overlay" style="z-index:1100;background:rgba(0,0,0,.6)">
         <div class="modal confirm-modal" style="max-width:360px" role="alertdialog" aria-modal="true">
@@ -1425,12 +1488,10 @@ function bindGlobalEvents() {
   document.addEventListener("input", e => {
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
-      // #3 — si on tape depuis une autre page, navigue vers library
-      if (q.length > 0 && _currentPage !== "library") {
-        State.filters.search = q;
-        showPage("library");
-        renderCards();
-      }
+      State.filters.search = q;
+      // Si on tape depuis une autre page, synchronise aussi toute la navigation.
+      if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveSearch: true });
+      else if (_currentPage === "library") renderCards();
       updateQuickAdd(q);
     }
   });
@@ -1488,7 +1549,7 @@ const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="curr
 
 
 // ── Prochaines sorties ────────────────────────────────────────
-const UpcomingState = { type: "all", results: [], loading: false, loaded: false };
+const UpcomingState = { type: "all", results: [], loading: false, loaded: false, adding: new Set() };
 
 function formatReleaseDate(value) {
   if (!value) return "Date à confirmer";
@@ -1500,16 +1561,14 @@ function formatReleaseDate(value) {
 function daysUntilRelease(value) {
   if (!value) return null;
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(`${value}T00:00:00`);
-  return Math.max(0, Math.ceil((date - today) / 86400000));
+  const [year, month, day] = value.split("-").map(Number);
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const releaseUtc = Date.UTC(year, month - 1, day);
+  return Math.max(0, Math.round((releaseUtc - todayUtc) / 86400000));
 }
 
 function isUpcomingInLibrary(it) {
-  return State.entries.some(e =>
-    (e.source_api === "tmdb" && e.external_id && String(e.external_id) === String(it.external_id)) ||
-    e.title?.trim().toLowerCase() === it.title?.trim().toLowerCase()
-  );
+  return Boolean(findMatchingEntry({ ...it, media_type: "movie" }));
 }
 
 function visibleUpcomingResults() {
@@ -1573,8 +1632,9 @@ function upcomingCardHTML(it, idx) {
   const days = daysUntilRelease(it.release_date);
   const typeLabel = it.subtype === "tv" ? "Série" : "Film";
   const typeIcon = it.subtype === "tv" ? "📺" : "🎬";
-  const cover = it.cover_url
-    ? `<img class="card-cover" src="${it.cover_url}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none'">`
+  const coverUrl = safeMediaUrl(it.cover_url);
+  const cover = coverUrl
+    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none'">`
     : `<div class="card-cover-placeholder">${typeIcon}</div>`;
 
   return `
@@ -1602,6 +1662,9 @@ function upcomingCardHTML(it, idx) {
 async function addUpcomingToWishlist(idx, closeAfter = false) {
   const it = visibleUpcomingResults()[idx];
   if (!it || isUpcomingInLibrary(it)) return;
+  const addingKey = `${it.subtype}:${it.external_id}`;
+  if (UpcomingState.adding.has(addingKey)) return;
+  UpcomingState.adding.add(addingKey);
   const payload = {
     title: it.title,
     media_type: "movie",
@@ -1629,6 +1692,8 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
     if (closeAfter) closeModal();
   } catch (e) {
     toast("Erreur : " + e.message, "error");
+  } finally {
+    UpcomingState.adding.delete(addingKey);
   }
 }
 
@@ -1636,10 +1701,7 @@ async function openUpcomingDetail(idx) {
   const it = visibleUpcomingResults()[idx];
   if (!it) return;
 
-  const existing = State.entries.find(e =>
-    (e.source_api === "tmdb" && e.external_id && String(e.external_id) === String(it.external_id)) ||
-    e.title?.trim().toLowerCase() === it.title?.trim().toLowerCase()
-  );
+  const existing = findMatchingEntry({ ...it, media_type: "movie" });
   if (existing) {
     if (!existing.release_date) existing.release_date = it.release_date;
     openDetailPanel(existing.id);
@@ -1655,7 +1717,7 @@ async function openUpcomingDetail(idx) {
     is_favorite: false,
   };
 
-  renderDetailPanel(preview, null, null, { preview: true, upcomingIdx: idx });
+  renderDetailPanel(preview, { preview: true, upcomingIdx: idx });
   requestAnimationFrame(() => _checkSynopsisOverflow(preview.id));
 
   try {
@@ -1667,7 +1729,7 @@ async function openUpcomingDetail(idx) {
     });
     const body = document.getElementById(`detail-body-${preview.id}`);
     if (body) {
-      _injectBackdrop(preview.backdrop_url);
+      _injectBackdrop(preview.backdrop_url, preview.id);
       body.innerHTML = renderDetailBody(preview);
       _checkSynopsisOverflow(preview.id);
     }
@@ -1689,17 +1751,11 @@ function setUpcomingType(type) {
 
 
 // ── Fiche détaillée ───────────────────────────────────────────
-function renderDetailPanel(e, description, backdropUrl = null, options = {}) {
+function renderDetailPanel(e, options = {}) {
   const isPreview = options.preview === true;
   const stars = isPreview ? "" : ratingStars(e.rating);
-
-  const metaRow = (label, value) => value
-    ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
-    : "";
-
-  const synopsisHTML = description
-    ? `<div class="detail-synopsis"><div class="detail-notes-label">Synopsis</div><p>${esc(description)}</p></div>`
-    : "";
+  const backdropUrl = safeMediaUrl(e.backdrop_url);
+  const coverUrl = safeMediaUrl(e.cover_url);
 
   const externalUrl = (() => {
     if (!e.external_id && !e.title) return null;
@@ -1719,13 +1775,10 @@ function renderDetailPanel(e, description, backdropUrl = null, options = {}) {
   const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">▶ Trailer</a>`;
 
   // Backdrop header
-  const backdropStyle = backdropUrl
-    ? `background-image: url('${backdropUrl}'); background-size: cover; background-position: center top;`
-    : (e.cover_url ? `--fallback-img: url('${e.cover_url}');` : "");
-  const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (e.cover_url ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
+  const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
-  const posterHTML = e.cover_url
-    ? `<img src="${esc(e.cover_url)}" alt="${esc(e.title)}" class="detail-poster" onerror="this.style.display='none'">`
+  const posterHTML = coverUrl
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster" onerror="this.style.display='none'">`
     : `<div class="detail-poster detail-poster-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const root = document.getElementById("modal-root");
@@ -1733,7 +1786,7 @@ function renderDetailPanel(e, description, backdropUrl = null, options = {}) {
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" role="dialog" aria-modal="true">
 
-        <div class="${backdropClass}" style="${backdropStyle}">
+        <div class="${backdropClass}">
           <div class="detail-backdrop-gradient"></div>
           <button class="detail-close-btn btn-icon" onclick="UI.closeModal()">${iconX()}</button>
           <div class="detail-backdrop-content">
@@ -1768,6 +1821,13 @@ function renderDetailPanel(e, description, backdropUrl = null, options = {}) {
         </div>
       </div>
     </div>`;
+
+  const backdropEl = root.querySelector(".detail-backdrop");
+  if (backdropEl && coverUrl && !backdropUrl) {
+    const cssCoverUrl = coverUrl.replace(/["\\\n\r]/g, "");
+    backdropEl.style.setProperty("--fallback-img", `url("${cssCoverUrl}")`);
+  }
+  if (backdropUrl) requestAnimationFrame(() => _injectBackdrop(backdropUrl, e.id));
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
@@ -1867,18 +1927,19 @@ function _checkSynopsisOverflow(entryId) {
   }
 }
 
-function _injectBackdrop(backdrop) {
+function _injectBackdrop(backdrop, entryId) {
   if (!backdrop) return;
-  const bdEl = document.querySelector(".detail-backdrop");
+  const detailBody = document.getElementById(`detail-body-${entryId}`);
+  const bdEl = detailBody?.closest(".detail-modal")?.querySelector(".detail-backdrop");
   if (!bdEl) return;
   // Evite de doubler la couche si déjà présente
   if (bdEl.querySelector(".detail-backdrop-layer")) return;
   const img = new Image();
   img.onload = () => {
-    if (!document.querySelector(".detail-backdrop")) return;
+    if (!document.getElementById(`detail-body-${entryId}`) || !bdEl.isConnected || bdEl.querySelector(".detail-backdrop-layer")) return;
     const layer = document.createElement("div");
     layer.className = "detail-backdrop-layer";
-    layer.style.backgroundImage = `url('${backdrop}')`;
+    layer.style.backgroundImage = `url(${JSON.stringify(backdrop)})`;
     layer.style.opacity = "0";
     bdEl.insertBefore(layer, bdEl.firstChild);
     bdEl.style.backgroundImage = "none"; // retire la cover inline une fois le banner chargé
@@ -1898,10 +1959,11 @@ async function openDetailPanel(id) {
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
   if (e._detailsFetched) {
-    _injectBackdrop(e.backdrop_url);
+    _injectBackdrop(e.backdrop_url, e.id);
     return;
   }
-  e._detailsFetched = true;
+  if (e._detailsFetching) return;
+  e._detailsFetching = true;
 
   try {
     let details = null;
@@ -1915,7 +1977,6 @@ async function openDetailPanel(id) {
     }
 
     if (!details) return;
-
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = {};
     const fields = ["backdrop_url","description","directors","cast_members","duration",
@@ -1927,21 +1988,33 @@ async function openDetailPanel(id) {
         toSave[f] = details[f];
       }
     }
+    let persisted = true;
     if (Object.keys(toSave).length) {
-      Media.update(e.id, toSave).catch(() => {});
+      try {
+        await Media.update(e.id, toSave);
+      } catch (error) {
+        persisted = false;
+        console.warn("[Detail] persistence error:", error);
+        toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
+      }
     }
+    e._detailsFetched = persisted;
 
     // Injecter le backdrop en fondu
-    _injectBackdrop(e.backdrop_url);
+    _injectBackdrop(e.backdrop_url, e.id);
 
     // Re-render le body enrichi (pas le backdrop — déjà géré ci-dessus)
-    const body = document.querySelector(".detail-body");
+    const body = document.getElementById(`detail-body-${e.id}`);
     if (body) {
       body.innerHTML = renderDetailBody(e);
       _checkSynopsisOverflow(e.id);
     }
 
-  } catch(err) { console.warn("[Detail] fetch error:", err); }
+  } catch(err) {
+    console.warn("[Detail] fetch error:", err);
+  } finally {
+    e._detailsFetching = false;
+  }
 }
 
 
@@ -2047,7 +2120,6 @@ async function updateQuickAdd(query) {
   // Debounce API calls
   clearTimeout(_quickAddTimer);
   _quickAddTimer = setTimeout(() => {
-    const existingTitles = new Set(State.entries.map(e => e.title.toLowerCase()));
     const currentQuery = query;
     let accumulated = [];
 
@@ -2071,7 +2143,7 @@ async function updateQuickAdd(query) {
           </div>
           <div class="quick-add-icon">${iconPlus()}</div>
         </div>`).join("") +
-        `<div class="quick-add-fallback" onclick="UI.quickAdd('${liveQuery.replace(/'/g,"\\'")}')">
+        `<div class="quick-add-fallback" data-manual-title="${esc(liveQuery)}" onclick="UI.quickAdd(this.dataset.manualTitle)">
           ${iconPlus()} Ajouter "<strong>${esc(liveQuery)}</strong>" manuellement
         </div>`;
     }
@@ -2086,7 +2158,7 @@ async function updateQuickAdd(query) {
         const apiResultsEl = document.getElementById("quick-api-results");
         const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
         if (apiResultsEl && !accumulated.length) {
-          apiResultsEl.innerHTML = `<div class="quick-add-fallback" onclick="UI.quickAdd('${liveQuery.replace(/'/g,"\\'")}')">
+          apiResultsEl.innerHTML = `<div class="quick-add-fallback" data-manual-title="${esc(liveQuery)}" onclick="UI.quickAdd(this.dataset.manualTitle)">
             ${iconPlus()} Ajouter "<strong>${esc(liveQuery)}</strong>" manuellement
           </div>`;
         }
@@ -2099,7 +2171,7 @@ async function updateQuickAdd(query) {
       if (liveQuery !== currentQuery) return;
       const newItems = (results || []).slice(0, 4)
         .map(r => ({ ...r, media_type: "game" }))
-        .filter(r => !existingTitles.has(r.title.toLowerCase()));
+        .filter(r => !findMatchingEntry(r));
       accumulated = [...accumulated, ...newItems];
       renderApiResults();
     }).catch(() => {}).finally(onApiDone);
@@ -2109,7 +2181,7 @@ async function updateQuickAdd(query) {
       if (liveQuery !== currentQuery) return;
       const newItems = (results || []).slice(0, 4)
         .map(r => ({ ...r, media_type: "movie" }))
-        .filter(r => !existingTitles.has(r.title.toLowerCase()));
+        .filter(r => !findMatchingEntry(r));
       accumulated = [...accumulated, ...newItems];
       renderApiResults();
     }).catch(() => {}).finally(onApiDone);
@@ -2119,7 +2191,7 @@ async function updateQuickAdd(query) {
       if (liveQuery !== currentQuery) return;
       const newItems = (results || []).slice(0, 4)
         .map(r => ({ ...r, media_type: "book" }))
-        .filter(r => !existingTitles.has(r.title.toLowerCase()));
+        .filter(r => !findMatchingEntry(r));
       accumulated = [...accumulated, ...newItems];
       renderApiResults();
     }).catch(() => {}).finally(onApiDone);
@@ -2132,6 +2204,7 @@ function quickAdd(title) {
   if (qa) qa.style.display = "none";
   const searchEl = document.getElementById("global-search");
   if (searchEl) searchEl.value = "";
+  State.filters.search = "";
   _currentRating = 0;
   window._apiSelected = null;
   openModal(null, title);
@@ -2146,6 +2219,7 @@ function quickAddFromResult(idx) {
   if (qa) qa.style.display = "none";
   const searchEl = document.getElementById("global-search");
   if (searchEl) searchEl.value = "";
+  State.filters.search = "";
 
   // Ouvre le wizard directement à l'étape 3 avec tout pré-rempli
   _currentRating = 0;
@@ -2174,7 +2248,6 @@ function updateCategoryTabs(type, isFav = false) {
 async function saveUsername() {
   const val = document.getElementById("input-username")?.value?.trim();
   if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
-  if (false) { toast("Indisponible en mode démo", "info"); return; }
   try {
     await Profiles.upsert(State.user.id, val);
     State.username = val;
@@ -2188,13 +2261,6 @@ async function saveUsername() {
 async function renderActivity() {
   const container = document.getElementById("activity-feed");
   if (!container) return;
-
-  if (false) {
-    container.innerHTML = renderActivityFeed(
-      DEMO_DATA.map(e => ({ ...e, username: "DémoUser", isMe: true }))
-    );
-    return;
-  }
 
   container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
 
@@ -2305,8 +2371,6 @@ window.UI = {
     const _buildModal = () => {
       const statuses = ["all","wishlist","playing","finished","paused","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
-      const ratingOpts = [0,3,3.5,4,4.5,5];
-
       const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films"],["book","📚 Livres"]];
       const typeChips = types.map(([v,l]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"

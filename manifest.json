@@ -1,7 +1,7 @@
 {
   "name": "Kulturo",
   "short_name": "Kulturo",
-  "description": "Votre journal culturel personnel — jeux, films, livres.",
+  "description": "Votre journal culturel personnel — jeux, films, séries, livres et prochaines sorties.",
   "start_url": "/Kulturo/",
   "scope": "/Kulturo/",
   "display": "standalone",

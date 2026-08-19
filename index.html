@@ -2,8 +2,8 @@
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="description" content="Kulturo — Votre journal culturel personnel. Suivez vos jeux, films et livres." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Kulturo — Votre journal culturel personnel. Suivez vos jeux, films, séries, livres et les prochaines sorties." />
   <title>Kulturo</title>
 
   <!-- PWA -->
@@ -45,15 +45,11 @@
     </div>
   </div>
 
-  <!-- ── Configuration (à copier depuis config.example.js) ── -->
+  <!-- ── Configuration publique du navigateur ── -->
   <!--
-    INSTRUCTIONS :
-    1. Copiez config.example.js → config.js
-    2. Remplissez vos clés Supabase et APIs
-    3. config.js est ignoré par .gitignore
-
-    Pour un usage rapide sans compte, laissez les valeurs
-    par défaut et l'app démarrera en mode démo.
+    config.js contient uniquement l'URL/clé publique Supabase,
+    la clé TMDb et l'identifiant public IGDB. Les secrets Groq
+    et IGDB restent dans les Supabase Edge Functions.
   -->
   <!-- config.js chargé en bloquant AVANT le module -->
   <script src="config.js"></script>

@@ -1,209 +1,200 @@
-# Kulturo — Journal culturel personnel
+# Kulturo — journal culturel personnel
 
-> Suis tes jeux, films, séries et livres. Enrichissement automatique via les APIs, calendrier des prochaines sorties, fil d'activité partagé entre utilisateurs.
+Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de consulter les prochaines sorties cinéma et TV. L’application est une SPA statique déployable sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-![GitHub Pages](https://img.shields.io/badge/hébergement-GitHub%20Pages-black) ![Supabase](https://img.shields.io/badge/base%20de%20données-Supabase-3ECF8E) ![Groq](https://img.shields.io/badge/IA-Groq-F55036) ![TMDb](https://img.shields.io/badge/films-TMDb-01B4E4) ![IGDB](https://img.shields.io/badge/jeux-IGDB-9146FF)
+## Fonctionnalités
 
----
+- Bibliothèque personnelle : statuts, favoris, notes sur 10, dates et notes privées
+- Recherche enrichie via TMDb, IGDB et Open Library
+- Fiche détaillée au clic depuis la bibliothèque **et** les prochaines sorties
+- Prochaines sorties françaises sur six mois, filtrables par films ou séries
+- Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
+- Dashboard personnel et fil d’activité partagé
+- Interface responsive et PWA installable sur mobile
+- Traduction française des descriptions anglaises via Groq
 
-## Ce que ça fait
-
-- 🎮 **Catalogue jeux, films, séries et livres** — recherche via IGDB, TMDb et Open Library
-- ⭐ **Notation demi-étoiles** — swipe mobile, coups de cœur avec animation dorée
-- 📅 **Prochaines sorties** — films et nouvelles séries attendus en France via TMDB
-- 🌍 **Descriptions traduites en français** — automatiquement via Groq pour les jeux et livres
-- 📊 **Dashboard personnel** — stats, progression, journal des médias terminés
-- 👥 **Fil d'activité partagé** — voir ce que les autres utilisateurs ajoutent
-- 📱 **PWA installable** — iOS et Android, fonctionne hors ligne
-
----
+L’ancien onglet Discover et son système de recommandations ont été supprimés. Groq n’est utilisé que pour la traduction de descriptions.
 
 ## Stack
 
-| Couche | Techno |
+| Couche | Technologie |
 |---|---|
-| Frontend | HTML + CSS + JS vanilla (SPA, zéro dépendance) |
-| Auth & DB | Supabase (Auth + PostgreSQL + RLS) |
-| Edge Functions | Supabase Edge Functions (Deno) — proxy IGDB + relay Groq |
-| Films & Séries | TMDb API |
-| Jeux vidéo | IGDB API (via Twitch) |
-| Livres | Open Library API (sans clé) |
-| Traduction | Groq — descriptions de jeux et livres en français |
+| Frontend | HTML, CSS et JavaScript natif |
+| Authentification et base | Supabase Auth + PostgreSQL + RLS |
+| Fonctions serveur | Supabase Edge Functions (Deno) |
+| Films et séries | TMDb |
+| Jeux vidéo | IGDB / Twitch |
+| Livres | Open Library |
+| Traduction | Groq |
 | Hébergement | GitHub Pages |
 
----
+## Structure
 
-## Structure du projet
-
-```
-kulturo/
-├── index.html                          # Shell de l'app
-├── style.css                           # Design complet
-├── app.js                              # Logique principale (SPA)
-├── api.js                              # Clients TMDb, IGDB, Open Library
-├── supabase.js                         # Auth, Media, Stats, Profiles, Activity
-├── config.js                           # Clés API — ne pas committer (voir .gitignore)
-├── sw.js                               # Service Worker (cache + offline)
-├── schema.sql                          # Schéma Supabase à exécuter
-├── migration-upcoming.sql              # Migration d'une installation existante
-├── manifest.json                       # PWA manifest
-├── icon.svg / icon-192.png / icon-512.png
+```text
+Kulturo/
+├── index.html
+├── app.js
+├── api.js
+├── supabase.js
+├── style.css
+├── config.js                  # Configuration publique du navigateur
+├── schema.sql                 # Installation Supabase neuve
+├── migration-v2.sql           # Mise à niveau d'une installation existante
+├── manifest.json
+├── sw.js
+├── icon.svg
+├── icon-192.png
+├── icon-512.png
 └── supabase/functions/
-    └── igdb-proxy/index.ts             # Edge Function — IGDB + traduction Groq
+    ├── igdb-proxy/index.ts     # Requêtes IGDB + traduction des résumés
+    └── groq-proxy/index.ts     # Traduction des descriptions de livres
 ```
 
-> ⚠️ `config.js` est dans `.gitignore`. Ne jamais committer les clés API.
+## Installation
 
----
+### 1. Préparer Supabase
 
-## Déploiement
+Créer un projet sur [Supabase](https://supabase.com), puis ouvrir le **SQL Editor**.
 
-### 1. Supabase
+Pour une installation neuve, exécuter le contenu de :
 
-1. Créer un projet sur [supabase.com](https://supabase.com)
-2. **SQL Editor** → coller et exécuter `schema.sql`
-3. **Settings > API** → noter `Project URL` et `anon public key`
+```text
+schema.sql
+```
 
-> Projet Kulturo déjà installé : exécuter `migration-upcoming.sql` une fois pour ajouter la colonne `subtype` utilisée par les séries. La migration conserve les données existantes.
+Pour un projet Kulturo déjà installé, exécuter :
 
-#### Déployer les Edge Functions
+```text
+migration-v2.sql
+```
+
+La migration v2 est réexécutable et ne supprime pas les médias. Elle :
+
+- ajoute les champs de la fiche enrichie ;
+- autorise `igdb` dans `source_api` ;
+- crée ou complète la table `profiles` ;
+- installe la fonction sécurisée `get_activity_feed`.
+
+Il n’est pas nécessaire d’exécuter `schema.sql` puis `migration-v2.sql` sur une installation neuve : `schema.sql` suffit.
+
+### 2. Déployer les Edge Functions
+
+Depuis un projet lié avec la CLI Supabase :
 
 ```bash
 supabase functions deploy igdb-proxy
+supabase functions deploy groq-proxy
 ```
 
-Ajouter les secrets dans **Settings > Edge Functions** :
+Conserver la vérification JWT par défaut : les appels sont envoyés avec la session de l’utilisateur connecté. Ne pas déployer ces fonctions avec `--no-verify-jwt`.
 
-| Secret | Valeur |
+Configurer ensuite les secrets dans **Supabase > Edge Functions > Secrets**, ou avec la CLI :
+
+```bash
+supabase secrets set IGDB_CLIENT_ID="..."
+supabase secrets set IGDB_CLIENT_SECRET="..."
+supabase secrets set GROQ_API_KEY="..."
+```
+
+| Secret | Origine |
 |---|---|
-| `IGDB_CLIENT_ID` | Client ID depuis [dev.twitch.tv](https://dev.twitch.tv/console) |
-| `IGDB_CLIENT_SECRET` | Client Secret Twitch |
-| `GROQ_API_KEY` | Clé depuis [console.groq.com](https://console.groq.com) |
+| `IGDB_CLIENT_ID` | [Console développeur Twitch](https://dev.twitch.tv/console) |
+| `IGDB_CLIENT_SECRET` | Console développeur Twitch |
+| `GROQ_API_KEY` | [Console Groq](https://console.groq.com) |
 
-> La Edge Function `groq-proxy` reste utilisée uniquement pour traduire les descriptions de livres.
+Les fonctions autorisent actuellement l’origine `https://sodanexus.github.io`. En cas de changement de domaine, modifier `Access-Control-Allow-Origin` dans les deux fichiers `index.ts`, puis les redéployer.
 
----
+### 3. Configurer le navigateur
 
-### 2. Configurer config.js
-
-Copier `config.js` et remplir les valeurs :
+`config.js` est chargé directement par le site et doit donc être présent dans le dépôt GitHub Pages. Il ne doit contenir que des valeurs utilisables publiquement par le navigateur :
 
 ```js
 const CONFIG = {
   supabase: {
-    url:     'https://VOTRE_PROJET.supabase.co',
-    anonKey: 'VOTRE_ANON_KEY',
+    url: "https://VOTRE_PROJET.supabase.co",
+    anonKey: "VOTRE_CLE_ANON_OU_PUBLISHABLE",
   },
   tmdb: {
-    apiKey:    'VOTRE_CLE_TMDB',        // themoviedb.org/settings/api
-    baseUrl:   'https://api.themoviedb.org/3',
-    imageBase: 'https://image.tmdb.org/t/p/w500',
+    apiKey: "VOTRE_CLE_TMDB",
+    baseUrl: "https://api.themoviedb.org/3",
+    imageBase: "https://image.tmdb.org/t/p/w500",
   },
   igdb: {
-    clientId:     'VOTRE_CLIENT_ID',    // dev.twitch.tv/console
-    clientSecret: 'VOTRE_SECRET',
+    clientId: "VOTRE_CLIENT_ID_PUBLIC",
   },
   openLibrary: {
-    baseUrl:   'https://openlibrary.org',
-    coverBase: 'https://covers.openlibrary.org/b/id',
+    baseUrl: "https://openlibrary.org",
+    coverBase: "https://covers.openlibrary.org/b/id",
   },
   app: {
-    name:         'Kulturo',
-    defaultTheme: 'dark',   // "dark" | "light"
+    name: "Kulturo",
+    version: "2.0.0",
+    defaultTheme: "dark",
     itemsPerPage: 24,
   },
 };
 ```
 
----
+Ne jamais placer `IGDB_CLIENT_SECRET`, `GROQ_API_KEY`, une clé Supabase `service_role` ou tout autre secret dans `config.js`.
 
-### 3. GitHub Pages
+### 4. Déployer sur GitHub Pages
 
-1. Créer un repo GitHub et pousser tous les fichiers à la racine
-2. **Settings > Pages** → branche `main`, dossier `/`
-3. L'app est accessible sur `https://VOTRE_USERNAME.github.io/kulturo`
+1. Pousser les fichiers à la racine du dépôt.
+2. Dans **Settings > Pages**, choisir la branche `main` et le dossier `/`.
+3. Vérifier les chemins `/Kulturo/` dans `manifest.json`, `sw.js` et l’enregistrement du service worker dans `index.html` si le dépôt change de nom.
 
----
+URL attendue pour ce dépôt :
 
-### 4. Installer sur mobile (PWA)
+```text
+https://sodanexus.github.io/Kulturo/
+```
 
-**iPhone** — Safari → ouvrir le site → bouton partage **↑** → **"Sur l'écran d'accueil"**
-
-**Android** — Chrome → menu ⋮ → **"Ajouter à l'écran d'accueil"**
-
----
-
-## Fonctionnalités détaillées
+## Utilisation
 
 ### Bibliothèque
-- Grille avec filtres par type (jeux / films / séries / livres), statut, favoris et recherche
-- Tri par date d'ajout, note, titre ou date de fin
-- Statuts : Wishlist · En cours · Terminé · En pause · Abandonné
-- Notation demi-étoiles (1–10 en incréments de 0.5), swipe mobile
-- Coups de cœur avec animation dorée
-- Mémorisation de la position de scroll et des filtres entre pages
 
-### Fiche détail enrichie
-- Backdrop TMDb en fondu pour films & séries
-- Poster flouté en fallback pour jeux & livres
-- Métadonnées complètes : réalisateur, casting, durée, saisons, développeur, éditeur, plateformes, pages, ISBN
-- Synopsis tronqué avec "Voir plus" sur mobile
-- Descriptions jeux et livres traduites en français via Groq
-- Saisie manuelle possible si l'API ne retourne rien
+- Filtres par jeu, film, série ou livre
+- Statuts : wishlist, en cours, terminé, en pause ou abandonné
+- Note de 1 à 10 par demi-étoile
+- Recherche globale et ajout rapide via les APIs
+- Détection des doublons par API/identifiant, type et titre normalisé
+
+### Fiche détaillée
+
+Un clic sur une carte ouvre une modale. Elle affiche immédiatement les informations déjà enregistrées, puis récupère au besoin les détails de l’API associée :
+
+- TMDb : synopsis, backdrop, réalisation/création, casting, durée, saisons, statut et plateformes françaises ;
+- IGDB : description, développeur, éditeur et plateformes ;
+- Open Library : description, nombre de pages, ISBN et éditeur.
+
+Les détails récupérés sont enregistrés dans `media_entries` afin d’être disponibles aux prochaines ouvertures. Si l’API échoue, la modale garde les données locales et pourra réessayer plus tard.
+
+Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche détaillée. Le bouton d’ajout place le titre dans la wishlist.
 
 ### Prochaines sorties
-- Films et nouvelles séries prévus en France dans les six prochains mois
-- Données TMDB triées par date de sortie
-- Filtres Tout / Films / Séries
-- Compte à rebours et date française sur chaque carte
-- Fiche détaillée au clic avec synopsis, casting, durée et bande-annonce
-- Ajout direct à la wishlist, avec détection des titres déjà présents
 
-### Dashboard
-- Statistiques personnelles (totaux par type, par statut, temps estimé)
-- Journal des médias terminés avec dates
-- Graphe d'activité mensuelle
+TMDb fournit les films et premières diffusions de séries attendus en France pendant environ six mois. Les boutons **Tout**, **Films** et **Séries** changent uniquement l’affichage ; ils ne modifient pas la bibliothèque.
 
-### Fil d'activité
-- Activité en temps réel de tous les utilisateurs
-- Filtrable pour n'afficher que son propre historique
+### PWA
 
-### Sécurité
-- Clés Groq et IGDB stockées uniquement dans les secrets Supabase (Edge Functions)
-- `config.js` exclu du repo via `.gitignore`
-- Row Level Security — chaque utilisateur ne voit que ses propres données
-- Tout le HTML est échappé côté client
+Le service worker utilise une stratégie network-first pour l’application et cache-first pour les images. L’interface déjà visitée reste accessible hors ligne, mais les recherches externes, l’authentification et les prochaines sorties nécessitent le réseau.
 
----
+## Base de données et sécurité
 
-## Base de données
+`media_entries` utilise `media_type = 'movie'` pour les films et séries, avec :
 
-Table principale `media_entries` :
+- `subtype = 'movie'` pour un film ;
+- `subtype = 'tv'` pour une série.
 
-| Colonne | Type | Description |
-|---|---|---|
-| `media_type` | TEXT | `game` · `movie` · `book` |
-| `status` | TEXT | `wishlist` · `playing` · `finished` · `paused` · `dropped` |
-| `rating` | SMALLINT | 1–10 (demi-étoiles × 2) |
-| `is_favorite` | BOOLEAN | Coup de cœur |
-| `external_id` | TEXT | ID TMDb / IGDB / OpenLibrary |
-| `source_api` | TEXT | `tmdb` · `rawg` · `openlibrary` · `manual` |
-| `subtype` | TEXT | `movie` · `tv` pour distinguer films et séries TMDB |
-| `author` | TEXT | Auteur (livres) · Studio (jeux) · Réalisateur (films) |
+Les données personnelles restent protégées par Row Level Security : chaque utilisateur ne peut lire et modifier que ses propres lignes. Le fil partagé passe par `get_activity_feed`, une fonction qui ne renvoie que les champs nécessaires à l’activité publique. Les notes textuelles privées, dates personnelles et métadonnées détaillées n’y sont pas exposées.
 
-RLS activée — policies `SELECT / INSERT / UPDATE / DELETE` restreintes à `auth.uid() = user_id`.
+Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishable Supabase est conçue pour le client ; la sécurité des données repose sur les policies RLS, pas sur la dissimulation de cette clé.
 
----
+## Vérifications avant mise en ligne
 
-## Notes techniques
-
-**Rate limits API (plans gratuits)**
-- TMDb : 50 requêtes / seconde
-- IGDB : 4 requêtes / seconde
-- Open Library : pas de limite officielle
-- Groq : selon les limites du modèle configuré pour les traductions
-
-**Service Worker**
-- Network-first pour HTML / JS / CSS (toujours à jour)
-- Cache-first pour images et fonts (performances)
-- Fallback `index.html` en cas d'erreur réseau
+- Exécuter `migration-v2.sql` si la base existait avant la v2
+- Déployer les deux Edge Functions
+- Vérifier que `config.js` ne contient aucun secret serveur
+- Tester connexion, ajout, modification, suppression et détection de doublon
+- Tester les filtres Films/Séries et la modale depuis Prochaines sorties
+- Tester l’installation et le rafraîchissement de la PWA sur mobile

@@ -3,18 +3,20 @@
 // Network-first pour JS/CSS/HTML, cache-first pour images/fonts
 // ============================================================
 
-const CACHE_NAME = "kulturo-v4";
+const CACHE_NAME = "kulturo-v5";
 const STATIC_ASSETS = [
+  "/Kulturo/",
   "/Kulturo/icon-192.png",
-  "/Kulturo/icon-512.png",
-  "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Playfair+Display:wght@700;900&display=swap"
+  "/Kulturo/icon-512.png"
 ];
 
 // Install — met en cache uniquement les assets statiques lourds
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
+      // Une ressource momentanément indisponible ne doit pas annuler
+      // l'installation complète du service worker.
+      .then(cache => Promise.allSettled(STATIC_ASSETS.map(asset => cache.add(asset))))
       .then(() => self.skipWaiting())
   );
 });
@@ -33,6 +35,8 @@ self.addEventListener("activate", e => {
 
 // Fetch — stratégie selon la requête
 self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
+
   const url = new URL(e.request.url);
 
   // Supabase & APIs externes → network-only
@@ -47,6 +51,7 @@ self.addEventListener("fetch", e => {
     e.respondWith(
       fetch(e.request).catch(() =>
         new Response(JSON.stringify({ error: "offline" }), {
+          status: 503,
           headers: { "Content-Type": "application/json" }
         })
       )
@@ -65,11 +70,20 @@ self.addEventListener("fetch", e => {
     e.respondWith(
       fetch(e.request)
         .then(response => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          }
           return response;
         })
-        .catch(() => caches.match(e.request))
+        .catch(async () => {
+          const cached = await caches.match(e.request);
+          if (cached) return cached;
+          if (e.request.mode === "navigate") {
+            return (await caches.match("/Kulturo/")) || new Response("Hors ligne", { status: 503 });
+          }
+          return new Response("Hors ligne", { status: 503 });
+        })
     );
     return;
   }
@@ -83,7 +97,7 @@ self.addEventListener("fetch", e => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         return response;
-      }).catch(() => caches.match("/Kulturo/index.html"));
+      }).catch(() => new Response(null, { status: 504 }));
     })
   );
 });
