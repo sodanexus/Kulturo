@@ -156,6 +156,7 @@ const CONFIG = {
 - Données TMDB triées par date de sortie
 - Filtres Tout / Films / Séries
 - Compte à rebours et date française sur chaque carte
+- Fiche détaillée au clic avec synopsis, casting, durée et bande-annonce
 - Ajout direct à la wishlist, avec détection des titres déjà présents
 
 ### Dashboard

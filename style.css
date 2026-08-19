@@ -1011,7 +1011,16 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   gap: 1.25rem;
 }
 .upcoming-card {
-  cursor: default;
+  cursor: pointer;
+}
+.upcoming-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.badge-upcoming {
+  color: var(--accent);
+  border: 1px solid rgba(200, 169, 110, .35);
+  background: rgba(200, 169, 110, .08);
 }
 .upcoming-loading {
   grid-column: 1 / -1;

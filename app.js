@@ -1578,7 +1578,9 @@ function upcomingCardHTML(it, idx) {
     : `<div class="card-cover-placeholder">${typeIcon}</div>`;
 
   return `
-    <article class="media-card upcoming-card" data-upcoming-idx="${idx}">
+    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" role="button" tabindex="0"
+      onclick="UI.openUpcomingDetail(${idx})"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openUpcomingDetail(${idx})}">
       <div class="upcoming-cover-wrap">
         ${cover}
         ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
@@ -1590,14 +1592,14 @@ function upcomingCardHTML(it, idx) {
         </div>
         <div class="release-date">${formatReleaseDate(it.release_date)}</div>
         ${it.description ? `<div class="upcoming-desc">${esc(it.description)}</div>` : ""}
-        <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="UI.addUpcomingToWishlist(${idx})">
+        <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="event.stopPropagation();UI.addUpcomingToWishlist(${idx})">
           ${inLibrary ? "✓ Dans la bibliothèque" : "+ Wishlist"}
         </button>
       </div>
     </article>`;
 }
 
-async function addUpcomingToWishlist(idx) {
+async function addUpcomingToWishlist(idx, closeAfter = false) {
   const it = visibleUpcomingResults()[idx];
   if (!it || isUpcomingInLibrary(it)) return;
   const payload = {
@@ -1624,8 +1626,53 @@ async function addUpcomingToWishlist(idx) {
     updateBadges();
     renderUpcomingCards();
     toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
+    if (closeAfter) closeModal();
   } catch (e) {
     toast("Erreur : " + e.message, "error");
+  }
+}
+
+async function openUpcomingDetail(idx) {
+  const it = visibleUpcomingResults()[idx];
+  if (!it) return;
+
+  const existing = State.entries.find(e =>
+    (e.source_api === "tmdb" && e.external_id && String(e.external_id) === String(it.external_id)) ||
+    e.title?.trim().toLowerCase() === it.title?.trim().toLowerCase()
+  );
+  if (existing) {
+    if (!existing.release_date) existing.release_date = it.release_date;
+    openDetailPanel(existing.id);
+    return;
+  }
+
+  const preview = {
+    ...it,
+    id: `upcoming-${it.subtype}-${it.external_id}`,
+    media_type: "movie",
+    status: null,
+    rating: null,
+    is_favorite: false,
+  };
+
+  renderDetailPanel(preview, null, null, { preview: true, upcomingIdx: idx });
+  requestAnimationFrame(() => _checkSynopsisOverflow(preview.id));
+
+  try {
+    const details = await TMDbDetails.fetch(preview.external_id, preview.subtype || "movie");
+    if (!details) return;
+
+    Object.entries(details).forEach(([field, value]) => {
+      if (value != null && !preview[field]) preview[field] = value;
+    });
+    const body = document.getElementById(`detail-body-${preview.id}`);
+    if (body) {
+      _injectBackdrop(preview.backdrop_url);
+      body.innerHTML = renderDetailBody(preview);
+      _checkSynopsisOverflow(preview.id);
+    }
+  } catch (err) {
+    console.warn("[Detail upcoming] fetch error:", err);
   }
 }
 
@@ -1642,8 +1689,9 @@ function setUpcomingType(type) {
 
 
 // ── Fiche détaillée ───────────────────────────────────────────
-function renderDetailPanel(e, description, backdropUrl = null) {
-  const stars = ratingStars(e.rating);
+function renderDetailPanel(e, description, backdropUrl = null, options = {}) {
+  const isPreview = options.preview === true;
+  const stars = isPreview ? "" : ratingStars(e.rating);
 
   const metaRow = (label, value) => value
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
@@ -1692,10 +1740,12 @@ function renderDetailPanel(e, description, backdropUrl = null) {
             ${posterHTML}
             <div class="detail-backdrop-info">
               <h2 class="detail-title">${esc(e.title)}</h2>
-              <div class="detail-stars">${stars}</div>
+              ${stars ? `<div class="detail-stars">${stars}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
-                <span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>
+                ${e.status
+                  ? `<span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>`
+                  : `<span class="badge badge-upcoming">📅 À venir</span>`}
                 ${e.is_favorite ? `<span class="detail-fav">♥</span>` : ""}
               </div>
             </div>
@@ -1705,11 +1755,16 @@ function renderDetailPanel(e, description, backdropUrl = null) {
         <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e)}</div>
 
         <div class="modal-footer">
-          <button class="btn btn-danger btn-icon-only" title="Supprimer" onclick="UI.deleteEntry('${e.id}')">🗑</button>
-          <div style="display:flex;gap:.5rem;margin-left:auto">
-            ${externalHTML}${youtubeHTML}
-            <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
-          </div>
+          ${isPreview ? `
+            <div style="display:flex;gap:.5rem;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+              ${externalHTML}${youtubeHTML}
+              <button class="btn btn-primary btn-sm" onclick="UI.addUpcomingToWishlistFromModal(${options.upcomingIdx})">+ Wishlist</button>
+            </div>` : `
+            <button class="btn btn-danger btn-icon-only" title="Supprimer" onclick="UI.deleteEntry('${e.id}')">🗑</button>
+            <div style="display:flex;gap:.5rem;margin-left:auto">
+              ${externalHTML}${youtubeHTML}
+              <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
+            </div>`}
         </div>
       </div>
     </div>`;
@@ -1735,6 +1790,7 @@ function renderDetailBody(e) {
   const baseMeta = [
     metaRow("Genre",    e.genre),
     metaRow("Année",    e.release_year),
+    metaRow("Sortie",   e.release_date ? formatReleaseDate(e.release_date) : null),
     metaRow("Ajouté",   e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null),
   ].filter(Boolean).join("");
   if (baseMeta) html += `<div class="detail-meta">${baseMeta}</div>`;
@@ -1758,6 +1814,7 @@ function renderDetailBody(e) {
       metaRow("Saisons",   e.seasons_count  ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null),
       metaRow("Épisodes",  e.episodes_count ? `${e.episodes_count} épisodes` : null),
       metaRow("Statut",    e.air_status),
+      metaRow("Disponible sur", e.watch_providers),
     ].filter(Boolean).join("");
     if (filmMeta) html += `<div class="detail-meta">${filmMeta}</div>`;
 
@@ -1837,6 +1894,7 @@ async function openDetailPanel(id) {
 
   // Affichage immédiat avec ce qu'on a déjà en base
   renderDetailPanel(e);
+  requestAnimationFrame(() => _checkSynopsisOverflow(e.id));
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
   if (e._detailsFetched) {
@@ -2362,6 +2420,8 @@ window.UI = {
     renderUpcoming(true);
   },
   addUpcomingToWishlist,
+  addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
+  openUpcomingDetail,
   saveUsername,
   showRatingLabel,
   hideRatingLabel,
