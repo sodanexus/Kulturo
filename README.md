@@ -181,6 +181,8 @@ Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régi
 
 Le service worker utilise une stratégie network-first pour l’application et cache-first pour les images. L’interface déjà visitée reste accessible hors ligne, mais les recherches externes, l’authentification et les prochaines sorties nécessitent le réseau.
 
+Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : barre d’état et Dynamic Island en haut, indicateur d’accueil en bas, ainsi que les marges latérales en orientation paysage. Après une mise à jour, fermer puis rouvrir la web app permet au nouveau service worker de remplacer l’ancien cache.
+
 ## Base de données et sécurité
 
 `media_entries` utilise `media_type = 'movie'` pour les films et séries, avec :
