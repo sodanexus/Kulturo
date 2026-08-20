@@ -270,13 +270,24 @@ function renderApp() {
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
-        <div class="page-header">
-          <div class="page-actions">
-            <button class="btn btn-primary" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')">Tout</button>
-            <button class="btn btn-secondary" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')">🎬 Films</button>
-            <button class="btn btn-secondary" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')">📺 Séries</button>
-            <button class="btn btn-ghost btn-sm" onclick="UI.refreshUpcoming()" title="Actualiser les sorties">↻ Actualiser</button>
+        <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
+          <div class="upcoming-toolbar-main">
+            <div class="upcoming-type-switch" role="group" aria-label="Type de sortie">
+              <button class="upcoming-type-btn active" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')" aria-pressed="true">Tout</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')" aria-pressed="false">🎬 Films</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')" aria-pressed="false">📺 Séries</button>
+            </div>
+            <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" onclick="UI.refreshUpcoming()" title="Actualiser les sorties" aria-label="Actualiser les sorties">
+              <span class="upcoming-refresh-icon" aria-hidden="true">↻</span>
+              <span class="upcoming-refresh-label">Actualiser</span>
+            </button>
           </div>
+          <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
+            <span>Genre</span>
+            <select id="upcoming-genre-select" onchange="UI.setUpcomingGenre(this.value)" disabled>
+              <option value="all">Tous les genres</option>
+            </select>
+          </label>
         </div>
         <p class="upcoming-intro">Films et nouvelles séries attendus en France au cours des six prochains mois.</p>
         <div id="upcoming-grid" class="upcoming-grid"></div>
@@ -1708,7 +1719,7 @@ const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="curr
 
 
 // ── Prochaines sorties ────────────────────────────────────────
-const UpcomingState = { type: "all", results: [], loading: false, loaded: false, adding: new Set() };
+const UpcomingState = { type: "all", genre: "all", results: [], loading: false, loaded: false, adding: new Set() };
 
 function formatReleaseDate(value) {
   if (!value) return "Date à confirmer";
@@ -1731,16 +1742,75 @@ function isUpcomingInLibrary(it) {
   return Boolean(findMatchingEntry({ ...it, media_type: "movie" }));
 }
 
-function visibleUpcomingResults() {
-  const filtered = UpcomingState.type === "all"
+function upcomingGenresForItem(it) {
+  if (Array.isArray(it.genres)) return it.genres.filter(Boolean);
+  return String(it.genre || "")
+    .split(",")
+    .map(genre => genre.trim())
+    .filter(Boolean);
+}
+
+function availableUpcomingGenres() {
+  const items = UpcomingState.type === "all"
     ? UpcomingState.results
     : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
+  return [...new Set(items.flatMap(upcomingGenresForItem))]
+    .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
+}
+
+function syncUpcomingTypeButtons() {
+  ["all", "movie", "tv"].forEach(type => {
+    const btn = document.getElementById(`upcoming-filter-${type}`);
+    if (!btn) return;
+    const isActive = type === UpcomingState.type;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function syncUpcomingLoadingState() {
+  const toolbar = document.querySelector(".upcoming-toolbar");
+  const refreshBtn = document.getElementById("upcoming-refresh-btn");
+  toolbar?.setAttribute("aria-busy", String(UpcomingState.loading));
+  if (refreshBtn) {
+    refreshBtn.disabled = UpcomingState.loading;
+    refreshBtn.classList.toggle("is-loading", UpcomingState.loading);
+  }
+}
+
+function renderUpcomingGenreFilter() {
+  const select = document.getElementById("upcoming-genre-select");
+  const wrap = document.getElementById("upcoming-genre-wrap");
+  if (!select) return;
+
+  const genres = availableUpcomingGenres();
+  if (UpcomingState.genre !== "all" && !genres.includes(UpcomingState.genre)) {
+    UpcomingState.genre = "all";
+  }
+  select.innerHTML = [
+    `<option value="all">Tous les genres</option>`,
+    ...genres.map(genre => `<option value="${esc(genre)}">${esc(genre)}</option>`),
+  ].join("");
+  select.value = UpcomingState.genre;
+  select.disabled = genres.length === 0 || UpcomingState.loading;
+  wrap?.classList.toggle("has-filter", UpcomingState.genre !== "all");
+}
+
+function visibleUpcomingResults() {
+  let filtered = UpcomingState.type === "all"
+    ? UpcomingState.results
+    : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
+  if (UpcomingState.genre !== "all") {
+    filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
+  }
   return filtered.slice(0, UpcomingState.type === "all" ? 36 : 30);
 }
 
 async function renderUpcoming(force = false) {
   const grid = document.getElementById("upcoming-grid");
   if (!grid || _currentPage !== "upcoming") return;
+  syncUpcomingTypeButtons();
+  syncUpcomingLoadingState();
 
   if (UpcomingState.loaded && !force) {
     renderUpcomingCards();
@@ -1749,6 +1819,7 @@ async function renderUpcoming(force = false) {
   if (UpcomingState.loading) return;
 
   UpcomingState.loading = true;
+  syncUpcomingLoadingState();
   grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement des prochaines sorties TMDB…</span></div>`;
   loadingStart();
 
@@ -1761,6 +1832,8 @@ async function renderUpcoming(force = false) {
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Sorties indisponibles</h3><p>Impossible de joindre TMDB pour le moment. Réessayez dans quelques instants.</p><button class="btn btn-secondary btn-sm" onclick="UI.refreshUpcoming()">Réessayer</button></div>`;
   } finally {
     UpcomingState.loading = false;
+    syncUpcomingLoadingState();
+    renderUpcomingGenreFilter();
     loadingDone();
   }
 }
@@ -1768,6 +1841,8 @@ async function renderUpcoming(force = false) {
 function renderUpcomingCards() {
   const grid = document.getElementById("upcoming-grid");
   if (!grid) return;
+  syncUpcomingTypeButtons();
+  renderUpcomingGenreFilter();
   const results = visibleUpcomingResults();
 
   if (!TMDb.available()) {
@@ -1775,7 +1850,8 @@ function renderUpcomingCards() {
     return;
   }
   if (!results.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Aucune sortie trouvée</h3><p>TMDB ne retourne aucune date pour ce filtre actuellement.</p></div>`;
+    const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all";
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Aucune sortie trouvée</h3><p>Aucune sortie ne correspond à ces filtres actuellement.</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
     return;
   }
 
@@ -1834,7 +1910,7 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
     cover_url: it.cover_url || null,
     description: it.description || null,
     release_year: it.release_year || null,
-    genre: null,
+    genre: it.genre || null,
     author: null,
     external_id: it.external_id || null,
     source_api: "tmdb",
@@ -1903,11 +1979,22 @@ async function openUpcomingDetail(idx) {
 function setUpcomingType(type) {
   if (!["all", "movie", "tv"].includes(type)) return;
   UpcomingState.type = type;
-  ["all", "movie", "tv"].forEach(t => {
-    const btn = document.getElementById(`upcoming-filter-${t}`);
-    if (btn) btn.classList.toggle("btn-primary", t === type);
-    if (btn) btn.classList.toggle("btn-secondary", t !== type);
-  });
+  syncUpcomingTypeButtons();
+  if (UpcomingState.loading && !UpcomingState.results.length) return;
+  renderUpcomingCards();
+}
+
+function setUpcomingGenre(genre) {
+  const allowed = new Set(["all", ...availableUpcomingGenres()]);
+  if (!allowed.has(genre)) return;
+  UpcomingState.genre = genre;
+  renderUpcomingCards();
+}
+
+function resetUpcomingFilters() {
+  UpcomingState.type = "all";
+  UpcomingState.genre = "all";
+  syncUpcomingTypeButtons();
   renderUpcomingCards();
 }
 
@@ -2757,6 +2844,8 @@ window.UI = {
   setSort,
   setProfileYear,
   setUpcomingType,
+  setUpcomingGenre,
+  resetUpcomingFilters,
   refreshUpcoming: () => {
     UpcomingState.loaded = false;
     UpcomingState.results = [];

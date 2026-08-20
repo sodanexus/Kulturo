@@ -4,6 +4,39 @@
 
 import { Auth } from "./supabase.js";
 
+// Identifiants officiels TMDb. Les libellés sont gardés côté client pour
+// éviter deux requêtes supplémentaires à chaque chargement des sorties.
+const TMDB_GENRE_LABELS = {
+  movie: {
+    28: "Action", 12: "Aventure", 16: "Animation", 35: "Comédie",
+    80: "Crime", 99: "Documentaire", 18: "Drame", 10751: "Familial",
+    14: "Fantastique", 36: "Histoire", 27: "Horreur", 10402: "Musique",
+    9648: "Mystère", 10749: "Romance", 878: "Science-fiction",
+    10770: "Téléfilm", 53: "Thriller", 10752: "Guerre", 37: "Western",
+  },
+  tv: {
+    10759: "Action & aventure", 16: "Animation", 35: "Comédie",
+    80: "Crime", 99: "Documentaire", 18: "Drame", 10751: "Familial",
+    10762: "Enfants", 9648: "Mystère", 10763: "Actualités",
+    10764: "Télé-réalité", 10765: "Science-fiction & fantastique",
+    10766: "Soap", 10767: "Talk-show", 10768: "Guerre & politique",
+    37: "Western",
+  },
+};
+
+function tmdbGenreData(ids, subtype) {
+  const genreIds = Array.isArray(ids)
+    ? [...new Set(ids.map(Number).filter(Number.isFinite))]
+    : [];
+  const labels = TMDB_GENRE_LABELS[subtype] || {};
+  const genres = genreIds.map(id => labels[id]).filter(Boolean);
+  return {
+    genre_ids: genreIds,
+    genres,
+    genre: genres.join(", ") || null,
+  };
+}
+
 // ── Utilitaire fetch avec timeout ────────────────────────────
 async function apiFetch(url, options = {}) {
   const controller = new AbortController();
@@ -54,7 +87,7 @@ export const TMDb = {
       cover_url:    m.poster_path ? `${CONFIG.tmdb.imageBase}${m.poster_path}` : null,
       description:  m.overview,
       release_year: m.release_date ? Number.parseInt(m.release_date.slice(0, 4), 10) : null,
-      genre:        null,
+      ...tmdbGenreData(m.genre_ids, "movie"),
       author:       null,
       platform:     null,
       source_api:   "tmdb",
@@ -67,7 +100,7 @@ export const TMDb = {
       cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
       description:  s.overview,
       release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
-      genre:        null,
+      ...tmdbGenreData(s.genre_ids, "tv"),
       author:       null,
       platform:     null,
       source_api:   "tmdb",
@@ -134,7 +167,7 @@ export const TMDb = {
       description:  m.overview || null,
       release_year: m.release_date ? Number.parseInt(m.release_date.slice(0, 4), 10) : null,
       release_date: m.release_date || null,
-      genre:        null,
+      ...tmdbGenreData(m.genre_ids, "movie"),
       author:       null,
       platform:     null,
       source_api:   "tmdb",
@@ -149,7 +182,7 @@ export const TMDb = {
       description:  s.overview || null,
       release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
       release_date: s.first_air_date || null,
-      genre:        null,
+      ...tmdbGenreData(s.genre_ids, "tv"),
       author:       null,
       platform:     null,
       source_api:   "tmdb",
