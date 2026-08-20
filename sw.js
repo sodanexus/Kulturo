@@ -3,7 +3,11 @@
 // Network-first pour JS/CSS/HTML, cache-first pour images/fonts
 // ============================================================
 
-const CACHE_NAME = "kulturo-v7";
+const CACHE_PREFIX = "kulturo-";
+const STATIC_CACHE = "kulturo-static-v8";
+const IMAGE_CACHE = "kulturo-images-v1";
+const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
+const MAX_IMAGE_ENTRIES = 120;
 const STATIC_ASSETS = [
   "/Kulturo/",
   "/Kulturo/icon-192.png",
@@ -13,7 +17,7 @@ const STATIC_ASSETS = [
 // Install — met en cache uniquement les assets statiques lourds
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       // Une ressource momentanément indisponible ne doit pas annuler
       // l'installation complète du service worker.
       .then(cache => Promise.allSettled(STATIC_ASSETS.map(asset => cache.add(asset))))
@@ -21,17 +25,27 @@ self.addEventListener("install", e => {
   );
 });
 
-// Activate — supprime les anciens caches
+// Activate — supprime uniquement les anciens caches appartenant à Kulturo.
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys
-        .filter(k => k !== CACHE_NAME)
+        .filter(k => k.startsWith(CACHE_PREFIX) && !CURRENT_CACHES.has(k))
         .map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
   );
 });
+
+async function cacheImage(request, response) {
+  const cache = await caches.open(IMAGE_CACHE);
+  await cache.put(request, response);
+  const keys = await cache.keys();
+  const overflow = keys.length - MAX_IMAGE_ENTRIES;
+  if (overflow > 0) {
+    await Promise.all(keys.slice(0, overflow).map(key => cache.delete(key)));
+  }
+}
 
 // Fetch — stratégie selon la requête
 self.addEventListener("fetch", e => {
@@ -72,7 +86,7 @@ self.addEventListener("fetch", e => {
         .then(response => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+            caches.open(STATIC_CACHE).then(cache => cache.put(e.request, clone));
           }
           return response;
         })
@@ -88,14 +102,14 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Images, fonts → cache-first
+  // Images et polices → cache-first avec une limite pour ne pas grossir sans fin.
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        if (!response || response.status !== 200 || response.type === "opaque") return response;
+        if (!response || (!response.ok && response.type !== "opaque")) return response;
         const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        cacheImage(e.request, clone).catch(() => {});
         return response;
       }).catch(() => new Response(null, { status: 504 }));
     })

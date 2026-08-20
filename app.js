@@ -8,6 +8,7 @@ import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibra
 // ── État global ──────────────────────────────────────────────
 const State = {
   user:       null,
+  username:   null,
   entries:    [],
   filters: {
     type:     "all",
@@ -19,6 +20,53 @@ const State = {
   editingId:  null,
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
 };
+
+const ENTRY_CACHE_PREFIX = "kulturo-entries-v1:";
+
+function entryCacheKey() {
+  return State.user?.id ? `${ENTRY_CACHE_PREFIX}${State.user.id}` : null;
+}
+
+// Le cache local est uniquement un instantané de secours hors ligne.
+// Supabase reste toujours la source de vérité et n'est jamais alimenté depuis ce cache.
+function cacheEntriesLocally() {
+  const key = entryCacheKey();
+  if (!key) return;
+  try {
+    const cleanEntries = State.entries.map(entry => Object.fromEntries(
+      Object.entries(entry).filter(([field]) => !field.startsWith("_"))
+    ));
+    localStorage.setItem(key, JSON.stringify(cleanEntries));
+  } catch (error) {
+    console.warn("[Cache] Sauvegarde locale impossible :", error);
+  }
+}
+
+function readCachedEntries() {
+  const key = entryCacheKey();
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function localISODate() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function yearOf(value) {
+  if (!value) return null;
+  const year = new Date(`${String(value).slice(0, 10)}T12:00:00`).getFullYear();
+  return Number.isFinite(year) ? year : null;
+}
 
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
@@ -84,9 +132,11 @@ async function init() {
     }
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
 
-    const existingUser = await Auth.getUser().catch(() => null);
+    const sessionUser = await Auth.getSessionUser().catch(() => null);
+    const existingUser = sessionUser || await Auth.getUser().catch(() => null);
     if (existingUser) {
       State.user = existingUser;
+      State.username = null;
       renderApp();
       await loadEntries();
       restoreNavigation();
@@ -96,11 +146,13 @@ async function init() {
     Auth.onAuthChange(async (event, user) => {
       State.user = user;
       if (event === "SIGNED_IN" && user) {
+        State.username = null;
         renderApp();
         await loadEntries();
         restoreNavigation();
       } else if (event === "SIGNED_OUT") {
         State.entries = [];
+        State.username = null;
         renderAuthPage();
       }
     });
@@ -144,17 +196,18 @@ function renderAuthPage() {
         </div>
         <form class="auth-form" id="auth-form" onsubmit="event.preventDefault(); UI.handleAuth()">
           <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="auth-email" placeholder="vous@exemple.com" />
+            <label for="auth-email">Email</label>
+            <input type="email" id="auth-email" placeholder="vous@exemple.com" autocomplete="email" required />
           </div>
           <div class="form-group">
-            <label>Mot de passe</label>
-            <input type="password" id="auth-password" placeholder="••••••••" />
+            <label for="auth-password">Mot de passe</label>
+            <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" minlength="6" required />
           </div>
-          <button type="submit" class="btn btn-primary" style="width:100%">Se connecter</button>
+          <button type="submit" class="btn btn-primary" id="auth-submit" style="width:100%">Se connecter</button>
         </form>
       </div>
-    </div>`;
+    </div>
+    <div id="toast-container"></div>`;
 }
 
 // ── App shell ─────────────────────────────────────────────────
@@ -172,7 +225,7 @@ function renderApp() {
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
-        <button class="topbar-filter-btn" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()">
+        <button class="topbar-filter-btn" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()" aria-label="Ouvrir les filtres de la bibliothèque">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
           Filtres
         </button>
@@ -183,17 +236,21 @@ function renderApp() {
     <nav id="sidebar">
       <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
       <div class="nav-items-group">
-        <button class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" onclick="UI.navTo('library')">
+        <button class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" onclick="UI.navTo('library')">
           <span class="nav-icon">${iconGrid()}</span>
+          <span class="nav-label">Bibliothèque</span>
         </button>
-        <button class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" onclick="UI.navTo('dashboard')">
+        <button class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
           <span class="nav-icon">${iconChart()}</span>
+          <span class="nav-label">Profil</span>
         </button>
-        <button class="nav-item" data-nav="activity" data-tooltip="Activité" onclick="UI.navTo('activity')">
+        <button class="nav-item" data-nav="activity" data-tooltip="Activité" aria-label="Activité" onclick="UI.navTo('activity')">
           <span class="nav-icon">${iconActivity()}</span>
+          <span class="nav-label">Activité</span>
         </button>
-        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" onclick="UI.navTo('upcoming')">
+        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
           <span class="nav-icon">${iconCalendar()}</span>
+          <span class="nav-label">Sorties</span>
         </button>
       </div>
     </nav>
@@ -208,11 +265,6 @@ function renderApp() {
 
       <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
-        <div class="page-header">
-          <div class="page-actions">
-            <select class="filter-select" id="profile-year-select" onchange="UI.setProfileYear(this.value)"></select>
-          </div>
-        </div>
         <div id="dashboard-content"></div>
       </section>
 
@@ -232,7 +284,7 @@ function renderApp() {
 
       <!-- Page Activité partagée -->
       <section id="page-activity" class="page">
-        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Ce que tout le monde a ajouté ou terminé récemment.</p>
+        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Les derniers médias ajoutés par la communauté.</p>
         <div id="activity-feed"></div>
       </section>
     </main>
@@ -245,20 +297,25 @@ function renderApp() {
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
-      <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" title="Bibliothèque">
+      <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" aria-label="Bibliothèque">
         ${iconGrid()}
+        <span>Bibliothèque</span>
       </button>
-      <button class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" title="Prochaines sorties">
+      <button class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" aria-label="Sorties">
         ${iconCalendar()}
+        <span>Sorties</span>
       </button>
-      <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" title="Ajouter">
+      <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" aria-label="Ajouter un média">
         ${iconPlus()}
+        <span class="sr-only">Ajouter</span>
       </button>
-      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" title="Activité">
+      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" aria-label="Activité">
         ${iconActivity()}
+        <span>Activité</span>
       </button>
-      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" title="Mon profil">
+      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" aria-label="Mon profil">
         ${iconUser()}
+        <span>Profil</span>
       </button>
     </nav>
   `;
@@ -291,10 +348,19 @@ async function loadEntries() {
   try {
     // Charge tout, le filtrage se fait localement dans filterEntries()
     State.entries = await Media.getAll({});
+    cacheEntriesLocally();
     renderCards();
     updateBadges();
   } catch (e) {
-    toast("Erreur de chargement : " + e.message, "error");
+    const cached = readCachedEntries();
+    if (cached) {
+      State.entries = cached;
+      renderCards();
+      updateBadges();
+      toast("Mode hors ligne : dernière bibliothèque enregistrée affichée.", "info");
+    } else {
+      toast("Erreur de chargement : " + e.message, "error");
+    }
   }
 }
 
@@ -379,10 +445,10 @@ function navTo(key, options = {}) {
 // ── Filtre type depuis les category-tabs (conserve le status) ─
 function setTypeFilter(type) {
   State.filters.type     = type;
-  State.filters.favorite = false;
   syncFilterChips();
-  renderCards();
+  renderCards({ resetScroll: true });
   updateCategoryTabs(type);
+  _updateFilterResultCount();
 }
 
 const PAGE_ORDER = ["library","dashboard","upcoming","activity"];
@@ -414,6 +480,8 @@ function showPage(name) {
   newPage.style.animation = `pageSlideIn${dir>0?"Right":"Left"} .28s var(--ease-spring) forwards`;
   newPage.classList.add("active");
   _currentPage = name;
+  const filterBtn = document.getElementById("btn-filter-toggle");
+  if (filterBtn) filterBtn.hidden = name !== "library";
 
   // #1 — restaure la position de scroll
   const main = document.getElementById("main");
@@ -435,7 +503,7 @@ function buildFilterBar() {
     const statuses = ["all","wishlist","playing","finished","paused","dropped"];
     chipsEl.innerHTML = statuses.map(s => {
       const label = s === "all" ? "Tous" : STATUS_LABELS[s];
-      return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}"
+      return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
                       onclick="UI.setStatusChip('${s}')">${label}</button>`;
     }).join("");
   }
@@ -492,8 +560,15 @@ function _updateResetBtn() {
   if (btn) btn.style.visibility = _countActiveFilters() > 0 ? "visible" : "hidden";
 }
 
+function _updateFilterResultCount() {
+  const btn = document.getElementById("fm-apply-btn");
+  if (!btn) return;
+  const count = filterEntries(State.entries || []).length;
+  btn.textContent = `Voir ${count} résultat${count > 1 ? "s" : ""}`;
+}
+
 // ── Rendu grille ──────────────────────────────────────────────
-function renderCards() {
+function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
@@ -501,9 +576,11 @@ function renderCards() {
   grid.classList.remove("filter-transition");
   requestAnimationFrame(() => grid.classList.add("filter-transition"));
 
-  // Scroll to top
-  const main = document.getElementById("main");
-  if (main) main.scrollTop = 0;
+  if (options.resetScroll) {
+    const main = document.getElementById("main");
+    if (main) main.scrollTop = 0;
+    State.scrollPos.library = 0;
+  }
 
   let entries = filterEntries(State.entries);
 
@@ -579,7 +656,8 @@ function starsHTML(rating, is_favorite) {
 function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
-    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex')">`
+    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <div class="card-cover-placeholder" style="display:none">${TYPE_ICONS[e.media_type]||"🎭"}</div>`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const isPerfect = e.rating === 10;
@@ -599,8 +677,11 @@ function cardHTML(e, i = 0) {
   }[e.status] || "";
 
   return `
-    <article class="${classes}" data-id="${e.id}" style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')">
+    <article class="${classes}" data-id="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
+      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
       ${coverHTML}
+      <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
       ${starsHTML(e.rating, e.is_favorite)}
     </article>`;
@@ -642,13 +723,13 @@ async function renderDashboard() {
   if (!container) return;
 
   // Charge le username AVANT le rendu pour éviter le flash
-  let cachedUsername = "";
-  if (State.user) {
+  if (State.user && State.username === null) {
     try {
       const p = await Profiles.get(State.user.id);
-      cachedUsername = p?.username || "";
+      State.username = p?.username || "";
     } catch {}
   }
+  const cachedUsername = State.username || "";
 
   // Section identité
   const profileTopHTML = `
@@ -663,31 +744,35 @@ async function renderDashboard() {
           <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" style="flex-shrink:0">↩</button>
+      <div class="profile-identity-actions">
+        <button class="btn btn-secondary btn-sm" onclick="UI.exportLibrary()" title="Télécharger une copie de sécurité">↓ Sauvegarde</button>
+        <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" aria-label="Se déconnecter">↩</button>
+      </div>
     </div>`;
 
   // Populate year selector (inline dans le header Résumé)
   const all   = State.entries;
-  const years = [...new Set(all
-    .map(e => e.created_at ? new Date(e.created_at).getFullYear() : null)
-    .filter(Boolean))].sort((a,b)=>b-a);
+  const years = [...new Set(all.flatMap(e => [yearOf(e.created_at), yearOf(e.date_finished)]).filter(Boolean))]
+    .sort((a,b)=>b-a);
   if (!years.includes(_profileYear)) years.unshift(_profileYear);
   const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
-  // Aussi mettre à jour le select dans la topbar si présent
-  const yearSel = document.getElementById("profile-year-select");
-  if (yearSel) yearSel.innerHTML = yearOptions;
 
   // Stats globales
   const stats = computeStats(all);
   const total = stats.total || 1;
 
   // Stats année sélectionnée
-  const yearEntries  = all.filter(e => e.created_at && new Date(e.created_at).getFullYear() === _profileYear);
-  const yearFinished = yearEntries.filter(e => e.status === "finished");
+  const yearEntries  = all.filter(e => yearOf(e.created_at) === _profileYear);
+  // Les anciennes entrées n'ont pas forcément date_finished : created_at reste
+  // alors un fallback d'affichage, sans modifier la ligne en base.
+  const yearFinished = all.filter(e =>
+    yearOf(e.date_finished) === _profileYear ||
+    (!e.date_finished && e.status === "finished" && yearOf(e.created_at) === _profileYear)
+  );
   const yearFavs     = yearEntries.filter(e => e.is_favorite);
 
   // Top médias de l'année (notés)
-  const topYear = [...yearEntries].filter(e => e.rating).sort((a,b) => b.rating - a.rating).slice(0, 5);
+  const topYear = [...yearFinished].filter(e => e.rating).sort((a,b) => b.rating - a.rating).slice(0, 5);
   const topHTML = topYear.length
     ? topYear.map((e,i) => `
         <div class="top-row" onclick="UI.openEditModal('${e.id}')">
@@ -775,7 +860,7 @@ async function renderDashboard() {
         </div>
         <div class="stat-card">
           <div class="stat-value">${yearEntries.filter(e=>e.media_type==="movie").length}</div>
-          <div class="stat-label">🎬 Films</div>
+          <div class="stat-label">🎬 Films / Séries</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">${yearEntries.filter(e=>e.media_type==="book").length}</div>
@@ -799,7 +884,7 @@ async function renderDashboard() {
           <h3 class="profile-section-title">Global · ${stats.total} médias</h3>
           <div class="bar-chart">
             ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
-            ${barHTML("🎬 Films",  stats.byType.movie, total, "var(--movie)")}
+            ${barHTML("🎬 Films / Séries", stats.byType.movie, total, "var(--movie)")}
             ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
           </div>
           <div class="bar-chart" style="margin-top:.875rem">
@@ -822,6 +907,7 @@ function openModal(entry = null, prefillTitle = null) {
 
   // Mode édition : modal classique directe
   if (isEdit) {
+    _wizardState = null;
     _openModalClassic(entry);
     return;
   }
@@ -833,6 +919,9 @@ function openModal(entry = null, prefillTitle = null) {
     title: prefillTitle || "",
     apiSelected: null,
     rating: 0,
+    notes: "",
+    favorite: false,
+    _status: "finished",
   };
   _currentRating = 0;
   window._apiSelected = null;
@@ -840,6 +929,14 @@ function openModal(entry = null, prefillTitle = null) {
 }
 
 let _wizardState = null;
+
+function _captureWizardOpinion() {
+  if (!_wizardState || _wizardState.step !== 3) return;
+  _wizardState.rating = _currentRating;
+  _wizardState.notes = document.getElementById("f-notes")?.value || "";
+  _wizardState.favorite = document.getElementById("f-favorite")?.checked || false;
+  _wizardState._status = document.getElementById("f-status")?.value || _wizardState._status || "finished";
+}
 
 function _renderWizard() {
   const s = _wizardState;
@@ -920,7 +1017,7 @@ function _renderWizard() {
             ["paused","⏸️","En pause"],
             ["dropped","❌","Abandonné"],
           ].map(([val, ico, lbl]) => `
-            <button type="button" class="wz-status-btn ${val === "finished" ? "active" : ""}" data-status="${val}" onclick="UI.wzSetStatus('${val}')">
+            <button type="button" class="wz-status-btn ${val === (s._status || "finished") ? "active" : ""}" data-status="${val}" onclick="UI.wzSetStatus('${val}')">
               ${ico} ${lbl}
             </button>`).join("")}
         </div>
@@ -931,12 +1028,12 @@ function _renderWizard() {
       </div>
       <div class="form-group">
         <label>Tes impressions ✍️ <span style="color:var(--text-3);font-weight:400">(optionnel)</span></label>
-        <textarea id="f-notes" placeholder="Qu'est-ce que t'en as pensé ?">${esc("")}</textarea>
+        <textarea id="f-notes" placeholder="Qu'est-ce que t'en as pensé ?">${esc(s.notes || "")}</textarea>
       </div>
       <label class="toggle-row">
         <span class="toggle-label">♥ Coup de cœur</span>
         <span class="toggle-switch">
-          <input type="checkbox" id="f-favorite" />
+          <input type="checkbox" id="f-favorite" ${s.favorite ? "checked" : ""} />
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
         </span>
       </label>`;
@@ -978,7 +1075,7 @@ function _renderWizard() {
       ["f-genre",  s.apiSelected?.genre || ""],
       ["f-author", s.apiSelected?.author || ""],
       ["f-cover",  s.apiSelected?.cover_url || ""],
-      ["f-platform", ""],
+      ["f-platform", s.apiSelected?.platform || ""],
     ].forEach(([id, val]) => {
       const el = document.createElement("input");
       el.type = "hidden"; el.id = id; el.value = val || "";
@@ -989,7 +1086,8 @@ function _renderWizard() {
     statusDefault.type = "hidden"; statusDefault.id = "f-status"; statusDefault.value = _wizardState._status || "finished";
     body.appendChild(statusDefault);
 
-    buildRatingStars(0);
+    _currentRating = s.rating || 0;
+    buildRatingStars(_currentRating);
   }
 }
 
@@ -1005,7 +1103,7 @@ function _openModalClassic(entry) {
         <div class="modal-body">
           <div class="form-group modal-search-unified">
             <div class="modal-type-tabs">
-              <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">🎬 Film</button>
+              <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">🎬 Film / Série</button>
               <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">🎮 Jeu</button>
               <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">📚 Livre</button>
             </div>
@@ -1148,6 +1246,7 @@ function buildRatingStars(current) {
 let _currentRating = 0;
 function setRating(n) {
   _currentRating = n;
+  if (_wizardState?.step === 3) _wizardState.rating = n;
   buildRatingStars(n);
   showRatingLabel(n);
 }
@@ -1191,27 +1290,46 @@ function setupApiSearch() {
   const results = document.getElementById("api-results");
   if (!input || !results) return;
   let timer;
-  input.addEventListener("input", () => {
+  let requestSeq = 0;
+
+  const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
     const q = input.value.trim();
-    if (q.length < 2) { results.style.display = "none"; return; }
+    if (_wizardState?.step === 2 && _wizardState.apiSelected &&
+        normalizeTitle(q) !== normalizeTitle(_wizardState.apiSelected.title)) {
+      _wizardState.apiSelected = null;
+      window._apiSelected = null;
+      const preview = document.getElementById("wz-selected-preview");
+      if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+    }
+    if (q.length < 2) {
+      requestSeq++;
+      results.style.display = "none";
+      return;
+    }
     timer = setTimeout(async () => {
       const type  = document.getElementById("f-type")?.value || "game";
+      const seq = ++requestSeq;
       const items = await searchMedia(q, type);
+      if (seq !== requestSeq || input.value.trim() !== q ||
+          (document.getElementById("f-type")?.value || "game") !== type) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
-        <div class="api-result-item" onclick="UI.fillFromApi(${idx})">
+        <button type="button" class="api-result-item" onclick="UI.fillFromApi(${idx})">
           ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">${TYPE_ICONS[type]}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
-            <div class="api-result-sub">${it.release_year||""} ${it.author||""}</div>
+            <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
           </div>
-        </div>`).join("");
+        </button>`).join("");
       // Stocker temporairement
       window._apiResults = items;
-    }, 350);
-  });
+    }, immediate ? 0 : 350);
+  };
+
+  input.addEventListener("input", () => scheduleSearch(false));
+  input._kulturoSearch = () => scheduleSearch(true);
 }
 
 function fillFromApi(idx) {
@@ -1221,6 +1339,7 @@ function fillFromApi(idx) {
   // Wizard actif étape 2 : stocker et afficher preview
   if (_wizardState && _wizardState.step === 2) {
     _wizardState.apiSelected = it;
+    _wizardState.title = it.title;
     window._apiSelected = it;
     const input = document.getElementById("f-api-search");
     if (input) input.value = it.title;
@@ -1256,6 +1375,7 @@ function fillFromApi(idx) {
 
 // ── CRUD ──────────────────────────────────────────────────────
 async function saveEntry() {
+  _captureWizardOpinion();
   // En édition, le champ visible doit pouvoir modifier le titre sans sélection API.
   const titleHidden = document.getElementById("f-title")?.value?.trim();
   const titleSearch = document.getElementById("f-api-search")?.value?.trim();
@@ -1265,7 +1385,11 @@ async function saveEntry() {
   // #7 — protection double-submit
   const saveBtn = document.querySelector(".modal-footer .btn-primary");
   if (saveBtn?.disabled) return;
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "…"; }
+  if (saveBtn) {
+    saveBtn.dataset.originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "…";
+  }
 
   const existing = State.editingId ? State.entries.find(e => e.id === State.editingId) : null;
   const selected = window._apiSelected || null;
@@ -1291,6 +1415,16 @@ async function saveEntry() {
     description:   selected?.description  ?? (keepExistingApi ? existing.description : null),
   };
 
+  // Ces colonnes existent déjà. Elles sont renseignées uniquement lors d'un
+  // futur changement pertinent et ne réécrivent jamais l'historique existant.
+  const today = localISODate();
+  if (payload.status === "playing" && !existing?.date_started && (!existing || existing.status !== "playing")) {
+    payload.date_started = today;
+  }
+  if (payload.status === "finished" && !existing?.date_finished && (!existing || existing.status !== "finished")) {
+    payload.date_finished = today;
+  }
+
   // Une nouvelle identité API ne doit jamais conserver le casting/backdrop
   // de l'ancien média.
   const selectedIdentityChanged = Boolean(existing && selected && (
@@ -1307,13 +1441,10 @@ async function saveEntry() {
 
   const duplicate = findMatchingEntry(payload, State.editingId);
   if (duplicate) {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = State.editingId ? "Enregistrer" : "Ajouter"; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtn.dataset.originalText || (State.editingId ? "Enregistrer" : "Ajouter"); }
     toast(`"${duplicate.title}" est déjà dans votre bibliothèque.`, "info");
     return;
   }
-
-  window._apiSelected = null;
-  _currentRating = 0;
 
   try {
     if (State.editingId) {
@@ -1324,6 +1455,7 @@ async function saveEntry() {
       const created = await Media.create(payload);
       State.entries.unshift(created);
     }
+    cacheEntriesLocally();
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
     const justFinished = payload.status === "finished";
@@ -1336,7 +1468,7 @@ async function saveEntry() {
     if (justFinished) launchConfetti();
   } catch (e) {
     const saveBtn = document.querySelector(".modal-footer .btn-primary");
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = State.editingId ? "Enregistrer" : "Ajouter"; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtn.dataset.originalText || (State.editingId ? "Enregistrer" : "Ajouter"); }
     toast("Erreur : " + e.message, "error");
   }
 }
@@ -1353,6 +1485,7 @@ async function deleteEntry(id) {
     }
     await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
+    cacheEntriesLocally();
     closeModal();
     renderCards();
     updateBadges();
@@ -1376,6 +1509,7 @@ async function toggleFav(id) {
   try {
     await Media.toggleFavorite(id, entry.is_favorite);
     entry.is_favorite = next;
+    cacheEntriesLocally();
     // #13 — mise à jour locale uniquement
     renderCards();
     updateBadges();
@@ -1387,13 +1521,19 @@ async function toggleFav(id) {
 // ── Modal helpers ─────────────────────────────────────────────
 function closeModal() {
   const overlay = document.getElementById("modal-overlay");
-  if (!overlay) { document.getElementById("modal-root").innerHTML = ""; return; }
+  const cleanup = () => {
+    const root = document.getElementById("modal-root");
+    if (root) root.innerHTML = "";
+    _currentRating = 0;
+    _wizardState = null;
+    State.editingId = null;
+    window._apiSelected = null;
+    window._apiResults = [];
+  };
+  if (!overlay) { cleanup(); return; }
   if (overlay.classList.contains("is-closing")) return;
   overlay.classList.add("is-closing");
-  setTimeout(() => {
-    document.getElementById("modal-root").innerHTML = "";
-    _currentRating = 0;
-  }, 180);
+  setTimeout(cleanup, 180);
 }
 function closeModalOnBg(e) {
   if (e.target.id === "modal-overlay") closeModal();
@@ -1433,8 +1573,11 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
 // ── Filtres chip (status bar) ─────────────────────────────────
 function syncFilterChips() {
   const status = State.filters.status;
-  document.querySelectorAll(".filter-chip").forEach(c =>
-    c.classList.toggle("active", c.textContent.trim() === (status === "all" ? "Tous" : STATUS_LABELS[status])));
+  document.querySelectorAll("#fm-status-chips .filter-chip").forEach(chip => {
+    const value = chip.dataset.value;
+    chip.classList.toggle("active", value === status);
+  });
+  _updateFilterModalTypeChips();
 }
 
 let _chipDebounce = null;
@@ -1450,8 +1593,9 @@ function setStatusChip(status) {
     });
   }
   _updateResetBtn();
+  _updateFilterResultCount();
   clearTimeout(_chipDebounce);
-  _chipDebounce = setTimeout(() => renderCards(), 80);
+  _chipDebounce = setTimeout(() => renderCards({ resetScroll: true }), 80);
 }
 function setSort(val) {
   State.filters.sort = val;
@@ -1464,8 +1608,9 @@ function setSort(val) {
     });
   }
   _updateResetBtn();
+  _updateFilterResultCount();
   localStorage.setItem("kulturo-sort", val);
-  renderCards();
+  renderCards({ resetScroll: true });
 }
 
 // ── Global search ─────────────────────────────────────────────
@@ -1489,7 +1634,7 @@ function bindGlobalEvents() {
       State.filters.search = q;
       // Si on tape depuis une autre page, synchronise aussi toute la navigation.
       if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveSearch: true });
-      else if (_currentPage === "library") renderCards();
+      else if (_currentPage === "library") renderCards({ resetScroll: true });
       updateQuickAdd(q);
     }
   });
@@ -1637,7 +1782,8 @@ function upcomingCardHTML(it, idx) {
   const typeIcon = it.subtype === "tv" ? "📺" : "🎬";
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
-    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none'">`
+    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <div class="card-cover-placeholder" style="display:none">${typeIcon}</div>`
     : `<div class="card-cover-placeholder">${typeIcon}</div>`;
 
   return `
@@ -1689,6 +1835,7 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
   try {
     const created = await Media.create(payload);
     State.entries.unshift(created);
+    cacheEntriesLocally();
     updateBadges();
     renderUpcomingCards();
     toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
@@ -1767,7 +1914,9 @@ function renderDetailPanel(e, options = {}) {
     if (e.media_type === "book")  return e.external_id ? `https://openlibrary.org/works/${e.external_id}` : `https://www.goodreads.com/search?q=${encodeURIComponent(e.title)}`;
     return null;
   })();
-  const externalLabel = { game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien";
+  const externalLabel = e.media_type === "book" && e.external_id
+    ? "Open Library"
+    : ({ game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien");
   const externalIcon  = { game:"🎮", movie:"🎬", book:"📚" }[e.media_type] || "🔗";
   const externalHTML  = externalUrl
     ? `<a href="${externalUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} ${externalLabel}</a>`
@@ -1854,6 +2003,8 @@ function renderDetailBody(e) {
     metaRow("Genre",    e.genre),
     metaRow("Année",    e.release_year),
     metaRow("Sortie",   e.release_date ? formatReleaseDate(e.release_date) : null),
+    metaRow("Commencé", e.date_started ? formatReleaseDate(e.date_started) : null),
+    metaRow("Terminé",  e.date_finished ? formatReleaseDate(e.date_finished) : null),
     metaRow("Ajouté",   e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null),
   ].filter(Boolean).join("");
   if (baseMeta) html += `<div class="detail-meta">${baseMeta}</div>`;
@@ -1969,6 +2120,23 @@ async function openDetailPanel(id) {
   e._detailsFetching = true;
 
   try {
+    // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on
+    // retente d'abord exactement ces champs sans refaire ni écraser les saisies.
+    if (e._detailsPending && Object.keys(e._detailsPending).length) {
+      try {
+        const updated = await Media.update(e.id, e._detailsPending);
+        Object.assign(e, updated);
+        delete e._detailsPending;
+        e._detailsFetched = true;
+        cacheEntriesLocally();
+        _injectBackdrop(e.backdrop_url, e.id);
+      } catch (error) {
+        console.warn("[Detail] persistence retry error:", error);
+        toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
+      }
+      return;
+    }
+
     let details = null;
 
     if (e.media_type === "movie" && e.external_id) {
@@ -1986,7 +2154,9 @@ async function openDetailPanel(id) {
                     "seasons_count","episodes_count","air_status","watch_providers",
                     "developer","publisher","page_count","isbn","platform"];
     for (const f of fields) {
-      if (details[f] != null && !e[f]) {
+      const richerBookDescription = f === "description" && e.source_api === "openlibrary" &&
+        details[f] && details[f] !== e[f];
+      if (details[f] != null && (!e[f] || richerBookDescription)) {
         e[f] = details[f];
         toSave[f] = details[f];
       }
@@ -1994,9 +2164,12 @@ async function openDetailPanel(id) {
     let persisted = true;
     if (Object.keys(toSave).length) {
       try {
-        await Media.update(e.id, toSave);
+        const updated = await Media.update(e.id, toSave);
+        Object.assign(e, updated);
+        cacheEntriesLocally();
       } catch (error) {
         persisted = false;
+        e._detailsPending = { ...toSave };
         console.warn("[Detail] persistence error:", error);
         toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
       }
@@ -2091,8 +2264,10 @@ function launchConfetti() {
 
 // ── Recherche rapide + ajout depuis topbar ────────────────────
 let _quickAddTimer = null;
+let _quickAddSeq = 0;
 
 async function updateQuickAdd(query) {
+  const seq = ++_quickAddSeq;
   const qa = document.getElementById("search-quick-add");
   if (!qa) return;
   if (!query || query.length < 2) { qa.style.display = "none"; return; }
@@ -2111,7 +2286,7 @@ async function updateQuickAdd(query) {
         ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[e.media_type]||"🎭"}</div>`}
         <div class="quick-info">
           <div class="quick-title">${esc(e.title)}</div>
-          <div class="quick-sub">${TYPE_LABELS[e.media_type]} · ${STATUS_LABELS[e.status]}</div>
+          <div class="quick-sub">${getTypeLabel(e)} · ${STATUS_LABELS[e.status]}</div>
         </div>
       </div>`).join("");
   }
@@ -2123,6 +2298,7 @@ async function updateQuickAdd(query) {
   // Debounce API calls
   clearTimeout(_quickAddTimer);
   _quickAddTimer = setTimeout(() => {
+    if (seq !== _quickAddSeq) return;
     const currentQuery = query;
     let accumulated = [];
 
@@ -2153,13 +2329,15 @@ async function updateQuickAdd(query) {
 
     let pendingCount = 3;
     function onApiDone() {
+      if (seq !== _quickAddSeq) return;
+      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
+      if (liveQuery !== currentQuery) return;
       pendingCount--;
       if (pendingCount === 0) {
         const spinnerEl = document.getElementById("quick-api-spinner");
         if (spinnerEl) spinnerEl.remove();
         // Si aucun résultat du tout après les 3 APIs
         const apiResultsEl = document.getElementById("quick-api-results");
-        const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
         if (apiResultsEl && !accumulated.length) {
           apiResultsEl.innerHTML = `<div class="quick-add-fallback" data-manual-title="${esc(liveQuery)}" onclick="UI.quickAdd(this.dataset.manualTitle)">
             ${iconPlus()} Ajouter "<strong>${esc(liveQuery)}</strong>" manuellement
@@ -2260,6 +2438,28 @@ async function saveUsername() {
   }
 }
 
+function exportLibrary() {
+  const cleanEntries = State.entries.map(entry => Object.fromEntries(
+    Object.entries(entry).filter(([field]) => !field.startsWith("_"))
+  ));
+  const backup = {
+    app: "Kulturo",
+    version: CONFIG?.app?.version || null,
+    exported_at: new Date().toISOString(),
+    entries: cleanEntries,
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `kulturo-sauvegarde-${localISODate()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} exporté${cleanEntries.length > 1 ? "s" : ""} ✓`, "success");
+}
+
 // ── Fil d'activité partagé ────────────────────────────────────
 async function renderActivity() {
   const container = document.getElementById("activity-feed");
@@ -2305,15 +2505,16 @@ function renderActivityFeed(entries) {
 
 function activityRowHTML(e) {
   const icon   = TYPE_ICONS[e.media_type] || "🎭";
-  const type   = getTypeLabel(e);
-  const status = { wishlist:"a ajouté en wishlist", playing:"a commencé", finished:"a terminé", paused:"a mis en pause", dropped:"a abandonné" }[e.status] || "a ajouté";
+  const type   = e.media_type === "movie" && !e.subtype ? "Film / Série" : getTypeLabel(e);
+  const status = STATUS_LABELS[e.status] || "Ajouté";
 
   const starsHTML  = e.rating
     ? `<span class="activity-stars">${ratingStars(e.rating)}</span>`
     : "";
 
-  const coverHTML = e.cover_url
-    ? `<img src="${esc(e.cover_url)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+  const activityCoverUrl = safeMediaUrl(e.cover_url);
+  const coverHTML = activityCoverUrl
+    ? `<img src="${esc(activityCoverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
 
   const meLabel = e.isMe ? `<span class="activity-me-badge">moi</span>` : "";
@@ -2324,11 +2525,12 @@ function activityRowHTML(e) {
       <div class="activity-info">
         <div class="activity-line">
           <span class="activity-username">${esc(e.username)}${meLabel}</span>
-          <span class="activity-verb">${status}</span>
+          <span class="activity-verb">a ajouté</span>
         </div>
         <div class="activity-title">${icon} ${esc(e.title)}</div>
         <div class="activity-meta">
           <span class="badge badge-${e.media_type}" style="font-size:.7rem">${type}</span>
+          <span class="badge badge-${e.status}" style="font-size:.7rem">${status}</span>
           ${starsHTML}
           ${e.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
         </div>
@@ -2339,7 +2541,6 @@ function activityRowHTML(e) {
 
 
 
-window._updateFilterModalTypeChips = _updateFilterModalTypeChips;
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   quickAdd,
@@ -2374,10 +2575,10 @@ window.UI = {
     const _buildModal = () => {
       const statuses = ["all","wishlist","playing","finished","paused","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
-      const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films"],["book","📚 Livres"]];
+      const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
       const typeChips = types.map(([v,l]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
-          onclick="UI.setTypeFilter('${v}'); _updateFilterModalTypeChips();">${l}</button>`
+          onclick="UI.setTypeFilter('${v}')">${l}</button>`
       ).join("");
 
       const activeCount = _countActiveFilters();
@@ -2388,7 +2589,7 @@ window.UI = {
 
       const statusChips = statuses.map(s => {
         const label = s === "all" ? "Tous" : STATUS_LABELS[s];
-        return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}"
+        return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
           onclick="UI.setStatusChip('${s}')">${label}</button>`;
       }).join("");
 
@@ -2398,6 +2599,7 @@ window.UI = {
       ).join("");
 
       const hasActive = activeCount > 0;
+      const resultCount = filterEntries(State.entries || []).length;
 
       return `
         <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" onclick="if(event.target.id==='filter-modal-overlay') UI.closeFilterModal()">
@@ -2427,7 +2629,7 @@ window.UI = {
             </div>
             <div class="modal-footer">
               <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" onclick="UI.resetFilters()">Réinitialiser</button>
-              <button class="btn btn-primary" onclick="UI.applyFilters()">Appliquer</button>
+              <button class="btn btn-primary" id="fm-apply-btn" onclick="UI.applyFilters()">Voir ${resultCount} résultat${resultCount > 1 ? "s" : ""}</button>
             </div>
           </div>
         </div>`;
@@ -2461,10 +2663,11 @@ window.UI = {
 
   toggleFavFilter: () => {
     State.filters.favorite = !State.filters.favorite;
-    renderCards(); _updateFilterToggleLabel(); _updateFilterModalHeader();
+    renderCards({ resetScroll: true }); _updateFilterToggleLabel(); _updateFilterModalHeader();
     const btn = document.querySelector("#fm-fav-chips .filter-chip");
     if (btn) btn.classList.toggle("active", State.filters.favorite);
     _updateResetBtn();
+    _updateFilterResultCount();
   },
 
 
@@ -2473,7 +2676,8 @@ window.UI = {
     State.filters.status = "all";
     State.filters.sort = "created_at";
     State.filters.favorite = false;
-    renderCards(); buildFilterBar(); _updateFilterToggleLabel();
+    localStorage.setItem("kulturo-sort", "created_at");
+    renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },
   setSort,
@@ -2488,6 +2692,7 @@ window.UI = {
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
   saveUsername,
+  exportLibrary,
   showRatingLabel,
   hideRatingLabel,
   setModalType: (type) => {
@@ -2496,14 +2701,23 @@ window.UI = {
     document.querySelectorAll(".modal-type-tab").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.type === type);
     });
+    window._apiSelected = null;
+    window._apiResults = [];
     updateApiAvailLabel(type);
     const q = document.getElementById("f-api-search")?.value?.trim();
-    if (q && q.length >= 2) setupApiSearch._trigger?.();
+    const input = document.getElementById("f-api-search");
+    if (q && q.length >= 2) input?._kulturoSearch?.();
   },
 
   // ── Wizard ───────────────────────────────────────────────
   wzSetType: (type) => {
     if (!_wizardState) return;
+    if (_wizardState.type !== type) {
+      _wizardState.apiSelected = null;
+      _wizardState.title = "";
+      window._apiSelected = null;
+      window._apiResults = [];
+    }
     _wizardState.type = type;
     document.querySelectorAll(".wz-type-btn").forEach(b => {
       b.classList.toggle("active", b.getAttribute("onclick").includes(type));
@@ -2551,23 +2765,41 @@ window.UI = {
   wzBack: () => {
     if (!_wizardState) return;
     if (_wizardState.step > 1) {
+      _captureWizardOpinion();
       _wizardState.step--;
       _renderWizard();
     }
   },
   switchAuthTab:   (tab) => {
     document.querySelectorAll(".auth-tab").forEach(b => b.classList.toggle("active", b.id === `tab-${tab}`));
-    const btn = document.querySelector("#auth-form button[onclick]");
+    const btn = document.getElementById("auth-submit");
+    const password = document.getElementById("auth-password");
     if (btn) btn.textContent = tab === "login" ? "Se connecter" : "S'inscrire";
+    if (password) password.autocomplete = tab === "login" ? "current-password" : "new-password";
   },
   handleAuth: async () => {
     const email    = document.getElementById("auth-email")?.value?.trim();
     const password = document.getElementById("auth-password")?.value;
     const isSignup = document.getElementById("tab-signup")?.classList.contains("active");
+    const btn = document.getElementById("auth-submit");
+    if (!email || !password) { toast("Renseigne ton email et ton mot de passe.", "error"); return; }
+    if (password.length < 6) { toast("Le mot de passe doit contenir au moins 6 caractères.", "error"); return; }
     try {
-      if (isSignup) await Auth.signUp(email, password);
-      else          await Auth.signIn(email, password);
-    } catch (e) { toast(e.message, "error"); }
+      if (btn) { btn.disabled = true; btn.textContent = "…"; }
+      if (isSignup) {
+        const result = await Auth.signUp(email, password);
+        if (!result.session) toast("Compte créé. Vérifie ton email pour confirmer l'inscription.", "success");
+      } else {
+        await Auth.signIn(email, password);
+      }
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      if (btn?.isConnected) {
+        btn.disabled = false;
+        btn.textContent = isSignup ? "S'inscrire" : "Se connecter";
+      }
+    }
   },
   signOut: async () => {
     try { await Auth.signOut(); } catch (e) { toast(e.message, "error"); }

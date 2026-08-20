@@ -108,7 +108,8 @@ export const TMDb = {
     const endDate = isoDate(end);
     const common = `api_key=${key}&language=fr-FR&include_adult=false&sort_by=popularity.desc`;
 
-    const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=2%7C3&release_date.gte=${startDate}&release_date.lte=${endDate}&page=${page}`;
+    // Priorité à la sortie cinéma (3), puis à la sortie limitée (2).
+    const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=3%7C2&release_date.gte=${startDate}&release_date.lte=${endDate}&page=${page}`;
     const tvUrl = page => `${base}/discover/tv?${common}&timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${startDate}&first_air_date.lte=${endDate}&page=${page}`;
 
     const requests = await Promise.allSettled([
@@ -210,7 +211,7 @@ export const OpenLibrary = {
   available() { return true; }, // pas de clé requise
 
   async search(query) {
-    const url = `${CONFIG.openLibrary.baseUrl}/search.json?q=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,subject,cover_i,first_sentence`;
+    const url = `${CONFIG.openLibrary.baseUrl}/search.json?q=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,subject,cover_i`;
     const data = await apiFetch(url);
     return (data.docs || []).map(b => ({
       external_id:  b.key?.replace("/works/", "") || null,
@@ -218,7 +219,8 @@ export const OpenLibrary = {
       cover_url:    b.cover_i
         ? `${CONFIG.openLibrary.coverBase}/${b.cover_i}-M.jpg`
         : null,
-      description:  b.first_sentence?.[0] || null,
+      // Le résumé complet et sa traduction sont chargés dans la fiche détail.
+      description:  null,
       release_year: b.first_publish_year || null,
       genre:        b.subject?.slice(0, 3).join(", ") || null,
       author:       b.author_name?.[0] || null,

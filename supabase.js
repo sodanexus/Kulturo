@@ -39,8 +39,17 @@ export const Auth = {
   },
 
   async getUser() {
-    const { data: { user } } = await _client.auth.getUser();
+    const { data: { user }, error } = await _client.auth.getUser();
+    if (error) throw error;
     return user;
+  },
+
+  // Lecture locale de la session persistée, utile pour afficher l'application
+  // hors ligne. Les écritures restent protégées côté serveur par les policies RLS.
+  async getSessionUser() {
+    const { data, error } = await _client.auth.getSession();
+    if (error) throw error;
+    return data.session?.user || null;
   },
 
   async getAccessToken() {
@@ -56,10 +65,17 @@ export const Auth = {
   },
 };
 
+async function requireCurrentUser() {
+  const sessionUser = await Auth.getSessionUser().catch(() => null);
+  const user = sessionUser || await Auth.getUser().catch(() => null);
+  if (!user) throw new Error("Session expirée");
+  return user;
+}
+
 // ── Media CRUD ───────────────────────────────────────────────
 export const Media = {
   async getAll(filters = {}) {
-    const user = await Auth.getUser();
+    const user = await requireCurrentUser();
     let q = _client.from("media_entries").select("*").eq("user_id", user.id);
 
     if (filters.media_type) q = q.eq("media_type", filters.media_type);
@@ -84,7 +100,7 @@ export const Media = {
   },
 
   async create(entry) {
-    const user = await Auth.getUser();
+    const user = await requireCurrentUser();
     const payload = { ...entry, user_id: user.id };
     const { data, error } = await _client
       .from("media_entries")

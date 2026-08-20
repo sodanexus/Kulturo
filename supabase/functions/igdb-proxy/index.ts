@@ -118,15 +118,14 @@ Deno.serve(async (req) => {
 
     if (!Array.isArray(games)) throw new Error("Réponse IGDB invalide");
 
-    // Traduction des descriptions via Groq
-    const translated = await Promise.all(
-      (games || []).map(async (g: any) => {
-        const summary = g.summary
-          ? await translateWithGroq(g.summary, groqKey)
-          : null;
-        return { ...g, summary };
-      })
-    );
+    // La recherche n'affiche pas les résumés : éviter jusqu'à six traductions
+    // inutiles. La fiche détail par ID traduit uniquement le jeu consulté.
+    const translated = hasValidId
+      ? await Promise.all((games || []).map(async (g: any) => ({
+          ...g,
+          summary: g.summary ? await translateWithGroq(g.summary, groqKey) : null,
+        })))
+      : (games || []).map((g: any) => ({ ...g, summary: null }));
 
     return jsonResponse(translated);
 

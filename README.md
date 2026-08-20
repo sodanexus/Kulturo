@@ -10,6 +10,7 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Prochaines sorties françaises sur six mois, filtrables par films ou séries
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
 - Dashboard personnel et fil d’activité partagé
+- Export JSON en un clic depuis le profil pour conserver une copie de sécurité
 - Interface responsive et PWA installable sur mobile
 - Traduction française des descriptions anglaises via Groq
 
@@ -51,6 +52,12 @@ Kulturo/
 ```
 
 ## Installation
+
+### Mise à jour depuis Kulturo 2.0
+
+La version 2.1 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les colonnes `date_started` et `date_finished`, déjà présentes dans le schéma, sont renseignées uniquement pour un nouvel ajout ou un futur changement vers **En cours** / **Terminé** ; l’historique ancien reste intact.
+
+Pour profiter de l’optimisation des recherches IGDB, redéployer uniquement `igdb-proxy`. Ce redéploiement ne touche pas la base de données.
 
 ### 1. Préparer Supabase
 
@@ -128,7 +135,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.0.0",
+    version: "2.1.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -158,6 +165,11 @@ https://sodanexus.github.io/Kulturo/
 - Note de 1 à 10 par demi-étoile
 - Recherche globale et ajout rapide via les APIs
 - Détection des doublons par API/identifiant, type et titre normalisé
+- Dates de début et de fin ajoutées lors des futurs changements de statut, sans rétroactivité
+
+### Copie de sécurité
+
+Le bouton **Sauvegarde** du profil télécharge un fichier JSON contenant la bibliothèque et les notes personnelles. Ce fichier reste sur l’appareil de l’utilisateur et aucune donnée n’est envoyée à un service supplémentaire.
 
 ### Fiche détaillée
 
@@ -179,7 +191,7 @@ Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régi
 
 ### PWA
 
-Le service worker utilise une stratégie network-first pour l’application et cache-first pour les images. L’interface déjà visitée reste accessible hors ligne, mais les recherches externes, l’authentification et les prochaines sorties nécessitent le réseau.
+Le service worker utilise une stratégie network-first pour l’application et un cache limité pour les images. Après une première connexion réussie, la dernière bibliothèque chargée peut être affichée hors ligne en lecture seule. Supabase reste la source de vérité : ce cache local n’est jamais renvoyé vers la base. Les recherches externes, les modifications et les prochaines sorties nécessitent le réseau.
 
 Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : barre d’état et Dynamic Island en haut, indicateur d’accueil en bas, ainsi que les marges latérales en orientation paysage. Après une mise à jour, fermer puis rouvrir la web app permet au nouveau service worker de remplacer l’ancien cache.
 
@@ -200,5 +212,6 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Déployer les deux Edge Functions
 - Vérifier que `config.js` ne contient aucun secret serveur
 - Tester connexion, ajout, modification, suppression et détection de doublon
+- Vérifier l’export JSON depuis le profil
 - Tester les filtres Films/Séries et la modale depuis Prochaines sorties
 - Tester l’installation et le rafraîchissement de la PWA sur mobile
