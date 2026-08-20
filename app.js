@@ -1659,6 +1659,18 @@ function bindGlobalEvents() {
     else closeModal();
   });
 
+  // La largeur de la fiche peut changer (rotation mobile, redimensionnement
+  // desktop). On recalcule alors le vrai débordement du synopsis.
+  let synopsisResizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(synopsisResizeTimer);
+    synopsisResizeTimer = setTimeout(() => {
+      document.querySelectorAll(".detail-synopsis-wrap[id^='syn-']").forEach(wrap => {
+        _checkSynopsisOverflow(wrap.id.slice(4));
+      });
+    }, 120);
+  });
+
 
 }
 
@@ -1868,7 +1880,7 @@ async function openUpcomingDetail(idx) {
   };
 
   renderDetailPanel(preview, { preview: true, upcomingIdx: idx });
-  requestAnimationFrame(() => _checkSynopsisOverflow(preview.id));
+  _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
     const details = await TMDbDetails.fetch(preview.external_id, preview.subtype || "movie");
@@ -1881,7 +1893,7 @@ async function openUpcomingDetail(idx) {
     if (body) {
       _injectBackdrop(preview.backdrop_url, preview.id);
       body.innerHTML = renderDetailBody(preview);
-      _checkSynopsisOverflow(preview.id);
+      _scheduleSynopsisOverflowCheck(preview.id);
     }
   } catch (err) {
     console.warn("[Detail upcoming] fetch error:", err);
@@ -2014,8 +2026,8 @@ function renderDetailBody(e) {
     const synId = `syn-${e.id}`;
     html += section("Synopsis",
       `<div class="detail-synopsis-wrap" id="${synId}">
-        <p class="detail-synopsis-text">${esc(e.description)}</p>
-        <button class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" style="display:none">Voir plus</button>
+        <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
+        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-text" aria-expanded="false" hidden>Voir plus</button>
       </div>`
     );
   }
@@ -2075,9 +2087,68 @@ function _checkSynopsisOverflow(entryId) {
   const p = wrap.querySelector(".detail-synopsis-text");
   const btn = wrap.querySelector(".detail-synopsis-toggle");
   if (!p || !btn) return;
-  // Si le texte est tronqué (scrollHeight > clientHeight), on affiche le bouton
-  if (p.scrollHeight > p.clientHeight + 2) {
-    btn.style.display = "block";
+
+  const width = p.getBoundingClientRect().width;
+  if (width < 1) return;
+
+  // Mesurer une copie non tronquée est plus fiable que scrollHeight sur un
+  // élément utilisant -webkit-line-clamp (résultat variable selon le navigateur).
+  const styles = getComputedStyle(p);
+  const measure = p.cloneNode(true);
+  measure.removeAttribute("id");
+  measure.setAttribute("aria-hidden", "true");
+  Object.assign(measure.style, {
+    position: "fixed",
+    left: "-10000px",
+    top: "0",
+    width: `${width}px`,
+    height: "auto",
+    maxHeight: "none",
+    margin: "0",
+    display: "block",
+    overflow: "visible",
+    visibility: "hidden",
+    pointerEvents: "none",
+    lineHeight: styles.lineHeight,
+    fontSize: styles.fontSize,
+    fontFamily: styles.fontFamily,
+    fontWeight: styles.fontWeight,
+    letterSpacing: styles.letterSpacing,
+    whiteSpace: styles.whiteSpace,
+    wordBreak: styles.wordBreak,
+    overflowWrap: styles.overflowWrap,
+    webkitLineClamp: "unset",
+    webkitBoxOrient: "initial",
+    webkitMaskImage: "none",
+    maskImage: "none",
+  });
+  document.body.appendChild(measure);
+  const naturalHeight = measure.scrollHeight;
+  measure.remove();
+
+  const lineHeight = Number.parseFloat(styles.lineHeight) || Number.parseFloat(styles.fontSize) * 1.65;
+  const maxLines = Number.parseInt(getComputedStyle(wrap).getPropertyValue("--synopsis-lines"), 10) || 4;
+  const collapsedHeight = Math.ceil(lineHeight * maxLines);
+  const isOverflowing = naturalHeight > collapsedHeight + 1;
+
+  wrap.classList.toggle("is-overflowing", isOverflowing);
+  btn.hidden = !isOverflowing;
+
+  if (!isOverflowing) wrap.classList.remove("expanded");
+  const isExpanded = isOverflowing && wrap.classList.contains("expanded");
+  btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
+  btn.setAttribute("aria-expanded", String(isExpanded));
+}
+
+function _scheduleSynopsisOverflowCheck(entryId) {
+  // Deux frames laissent à la modale le temps d'obtenir sa largeur définitive.
+  requestAnimationFrame(() => requestAnimationFrame(() => _checkSynopsisOverflow(entryId)));
+
+  // La police web peut modifier les retours à la ligne après le premier rendu.
+  if (document.fonts?.ready) {
+    document.fonts.ready
+      .then(() => _checkSynopsisOverflow(entryId))
+      .catch(() => {});
   }
 }
 
@@ -2109,7 +2180,7 @@ async function openDetailPanel(id) {
 
   // Affichage immédiat avec ce qu'on a déjà en base
   renderDetailPanel(e);
-  requestAnimationFrame(() => _checkSynopsisOverflow(e.id));
+  _scheduleSynopsisOverflowCheck(e.id);
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
   if (e._detailsFetched) {
@@ -2183,7 +2254,7 @@ async function openDetailPanel(id) {
     const body = document.getElementById(`detail-body-${e.id}`);
     if (body) {
       body.innerHTML = renderDetailBody(e);
-      _checkSynopsisOverflow(e.id);
+      _scheduleSynopsisOverflowCheck(e.id);
     }
 
   } catch(err) {
@@ -2641,10 +2712,13 @@ window.UI = {
 
   toggleSynopsis: (id) => {
     const wrap = document.getElementById(id);
-    if (!wrap) return;
+    if (!wrap || !wrap.classList.contains("is-overflowing")) return;
     const isExpanded = wrap.classList.toggle("expanded");
     const btn = wrap.querySelector(".detail-synopsis-toggle");
-    if (btn) btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
+    if (btn) {
+      btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
+      btn.setAttribute("aria-expanded", String(isExpanded));
+    }
   },
 
   applyFilters: () => {

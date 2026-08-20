@@ -2915,22 +2915,20 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 /* ── Synopsis tronqué avec voir plus ───────────────────────── */
 .detail-synopsis-wrap {
+  --synopsis-lines: 4;
   position: relative;
 }
 .detail-synopsis-wrap:not(.expanded) .detail-synopsis-text {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: var(--synopsis-lines);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.detail-synopsis-wrap:not(.expanded)::after {
-  content: '';
-  position: absolute;
-  bottom: 22px;
-  left: 0; right: 0;
-  height: 2rem;
-  background: linear-gradient(to bottom, transparent, var(--bg-1));
-  pointer-events: none;
+.detail-synopsis-wrap.is-overflowing:not(.expanded) .detail-synopsis-text {
+  /* Le masque révèle directement le fond réel de la modale : aucun raccord
+     visible entre les thèmes clair/sombre et aucune position fixe à ajuster. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 1.2rem), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 1.2rem), transparent 100%);
 }
 .detail-synopsis-toggle {
   display: block;
