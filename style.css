@@ -2216,6 +2216,18 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     gap: .25rem;
     min-height: calc(58px + var(--safe-bottom));
   }
+  /* Si WebKit peint momentanément la barre trop haut au lancement, son fond
+     continue jusqu'au bord inférieur au lieu de laisser apparaître une bande. */
+  #bottom-nav::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background: var(--bg-2);
+    pointer-events: none;
+  }
   .bottom-nav-item {
     flex: 1;
     display: flex;
@@ -2343,6 +2355,25 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     -webkit-overflow-scrolling: touch;
   }
   .category-tabs::-webkit-scrollbar { display: none; }
+}
+
+/* WebKit retire parfois les safe areas de 100dvh au premier rendu d'une PWA.
+   En standalone, 100vh inclut bien tout l'écran ; #main garde son propre scroll. */
+@media (max-width: 680px) {
+  html.is-standalone,
+  html.is-standalone body.app-shell-active {
+    height: 100vh;
+    min-height: 100vh;
+  }
+  html.is-standalone body.app-shell-active {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  html.is-standalone body.app-shell-active #app {
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
+  }
 }
 
 /* Category tabs — global (desktop + mobile) */

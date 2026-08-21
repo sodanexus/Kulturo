@@ -5,6 +5,15 @@
 import { initSupabase, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 
+// En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
+// du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
+// sans modifier le comportement de Safari classique ou du desktop.
+const IS_STANDALONE_DISPLAY = Boolean(
+  window.matchMedia?.("(display-mode: standalone)")?.matches ||
+  window.navigator.standalone === true
+);
+document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
+
 // ── État global ──────────────────────────────────────────────
 const State = {
   user:       null,
@@ -184,6 +193,7 @@ function restoreNavigation() {
 // ── Auth UI ───────────────────────────────────────────────────
 function renderAuthPage() {
   const app = document.getElementById("app");
+  document.body.classList.remove("app-shell-active");
   app.style.cssText = "display:block";
   app.innerHTML = `
     <div id="page-auth">
@@ -213,6 +223,7 @@ function renderAuthPage() {
 // ── App shell ─────────────────────────────────────────────────
 function renderApp() {
   const app = document.getElementById("app");
+  document.body.classList.add("app-shell-active");
   app.style.cssText = "";
   app.innerHTML = `
     <!-- Topbar -->
