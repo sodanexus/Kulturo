@@ -2124,8 +2124,10 @@ function renderDetailBody(e) {
     const synId = `syn-${e.id}`;
     html += section("Synopsis",
       `<div class="detail-synopsis-wrap" id="${synId}">
-        <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
-        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-text" aria-expanded="false" hidden>Voir plus</button>
+        <div class="detail-synopsis-clip" id="${synId}-clip">
+          <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
+        </div>
+        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
       </div>`
     );
   }
@@ -2183,8 +2185,9 @@ function _checkSynopsisOverflow(entryId) {
   const wrap = document.getElementById(`syn-${entryId}`);
   if (!wrap) return;
   const p = wrap.querySelector(".detail-synopsis-text");
+  const clip = wrap.querySelector(".detail-synopsis-clip");
   const btn = wrap.querySelector(".detail-synopsis-toggle");
-  if (!p || !btn) return;
+  if (!p || !clip || !btn) return;
 
   const width = p.getBoundingClientRect().width;
   if (width < 1) return;
@@ -2228,6 +2231,11 @@ function _checkSynopsisOverflow(entryId) {
   const maxLines = Number.parseInt(getComputedStyle(wrap).getPropertyValue("--synopsis-lines"), 10) || 4;
   const collapsedHeight = Math.ceil(lineHeight * maxLines);
   const isOverflowing = naturalHeight > collapsedHeight + 1;
+
+  // Ces deux hauteurs permettent une vraie transition dans les deux sens.
+  // Une hauteur "auto" ne peut pas être animée de façon fiable sur Safari.
+  wrap.style.setProperty("--synopsis-collapsed-height", `${collapsedHeight}px`);
+  wrap.style.setProperty("--synopsis-expanded-height", `${naturalHeight}px`);
 
   wrap.classList.toggle("is-overflowing", isOverflowing);
   btn.hidden = !isOverflowing;
@@ -2816,6 +2824,9 @@ window.UI = {
     if (btn) {
       btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
       btn.setAttribute("aria-expanded", String(isExpanded));
+      btn.classList.remove("is-changing");
+      requestAnimationFrame(() => btn.classList.add("is-changing"));
+      btn.addEventListener("animationend", () => btn.classList.remove("is-changing"), { once: true });
     }
   },
 
