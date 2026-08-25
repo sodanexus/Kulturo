@@ -1959,14 +1959,14 @@ async function saveEntry() {
     description:   selected?.description  ?? (keepExistingApi ? existing.description : null),
   };
 
-  // Ces colonnes existent déjà. Elles sont renseignées uniquement lors d'un
-  // futur changement pertinent et ne réécrivent jamais l'historique existant.
+  // Ces colonnes existent déjà. La même logique est utilisée dans Modifier et
+  // dans les actions rapides afin qu'un revisionnage soit compté une seule fois.
   const today = localISODate();
-  if (payload.status === "playing" && !existing?.date_started && (!existing || existing.status !== "playing")) {
-    payload.date_started = today;
-  }
-  if (payload.status === "finished" && !existing?.date_finished && (!existing || existing.status !== "finished")) {
-    payload.date_finished = today;
+  const statusTransition = statusTransitionChanges(existing, payload.status, today);
+  if (statusTransition.changes.date_started) payload.date_started = statusTransition.changes.date_started;
+  if (statusTransition.changes.date_finished) payload.date_finished = statusTransition.changes.date_finished;
+  if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "repeat_count")) {
+    payload.repeat_count = statusTransition.changes.repeat_count;
   }
 
   // Une nouvelle identité API ne doit jamais conserver le casting/backdrop
@@ -3009,22 +3009,65 @@ function repeatInfo(entry) {
   return { repeats, total, noun: "visionnage", done: "Vu", action: "Revoir" };
 }
 
+function repeatProgressLabel(entry, info = repeatInfo(entry)) {
+  if (entry.status !== "playing" || info.total < 1) return "";
+  if (entry.media_type === "book") return "Relecture en cours";
+  if (entry.media_type === "game") return "Nouvelle partie en cours";
+  return "Revisionnage en cours";
+}
+
+// Un statut "En cours" associé à un achèvement antérieur suffit à mémoriser
+// qu'il s'agit d'une nouvelle lecture/partie/visionnage. Aucune colonne ni
+// migration supplémentaire n'est nécessaire.
+function statusTransitionChanges(entry, nextStatus, today = localISODate()) {
+  const previousStatus = entry?.status || null;
+  const info = repeatInfo(entry || {});
+  const hasPreviousCompletion = Boolean(entry && info.total > 0);
+  const repeatStarted = nextStatus === "playing" && previousStatus !== "playing" && hasPreviousCompletion;
+  const repeatCompleted = nextStatus === "finished" && previousStatus === "playing" && hasPreviousCompletion;
+  const changes = { status: nextStatus };
+
+  if (nextStatus === "playing" && !entry?.date_started && previousStatus !== "playing") {
+    changes.date_started = today;
+  }
+  // Compatibilité avec un ancien média déjà terminé mais sans date enregistrée :
+  // on conserve une preuve du premier achèvement avant de passer à En cours.
+  if (repeatStarted && !entry?.date_finished) changes.date_finished = today;
+
+  if (nextStatus === "finished") {
+    if (repeatCompleted) changes.repeat_count = Math.min(999, info.repeats + 1);
+    else if (!entry?.date_finished && previousStatus !== "finished") changes.date_finished = today;
+  }
+
+  return { changes, repeatStarted, repeatCompleted };
+}
+
 function detailRepeatIndicatorHTML(entry) {
   const info = repeatInfo(entry);
-  const active = info.repeats > 0;
-  const label = active ? `${info.done} ${info.total} fois` : "Aucun revisionnage";
-  return `<span class="detail-repeat ${active ? "is-active" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
+  const progress = repeatProgressLabel(entry, info);
+  const historyLabel = info.total ? `${info.done} ${info.total} fois` : "Aucun revisionnage";
+  const active = info.repeats > 0 || Boolean(progress);
+  const label = progress ? `${progress} · ${historyLabel}` : historyLabel;
+  return `<span class="detail-repeat ${active ? "is-active" : ""} ${progress ? "is-progress" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
 }
 
 function quickRepeatHTML(entry) {
   const info = repeatInfo(entry);
+  const progress = repeatProgressLabel(entry, info);
   const canAdd = Boolean(entry.status === "finished" || entry.date_finished || info.repeats > 0);
-  const countLabel = info.total ? `${info.done} ${info.total} fois` : "Pas encore terminé";
+  const historyLabel = info.total ? `${info.done} ${info.total} fois` : "Pas encore terminé";
+  const countLabel = progress || historyLabel;
+  const fullLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
+  const canAdjustDown = !progress && info.repeats > 0;
+  const canAdjustUp = !progress && canAdd;
+  const addTitle = progress
+    ? "Le compteur augmentera au prochain passage sur Terminé"
+    : canAdd ? info.action : "Disponible une fois terminé";
   return `
-    <div class="quick-repeat-stepper ${canAdd ? "" : "is-disabled"}" role="group" aria-label="Nombre de ${info.noun}s">
-      <button type="button" class="quick-repeat-adjust" onclick="UI.quickAdjustRepeat('${entry.id}', -1)" ${info.repeats > 0 ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
-      <span class="quick-repeat-value" title="${esc(countLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
-      <button type="button" class="quick-repeat-adjust quick-repeat-add" onclick="UI.quickAdjustRepeat('${entry.id}', 1)" ${canAdd ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${canAdd ? info.action : "Disponible une fois terminé"}">+</button>
+    <div class="quick-repeat-stepper ${canAdd ? "" : "is-disabled"} ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
+      <button type="button" class="quick-repeat-adjust" onclick="UI.quickAdjustRepeat('${entry.id}', -1)" ${canAdjustDown ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
+      <span class="quick-repeat-value" title="${esc(fullLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
+      <button type="button" class="quick-repeat-adjust quick-repeat-add" onclick="UI.quickAdjustRepeat('${entry.id}', 1)" ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
     </div>`;
 }
 
@@ -3211,14 +3254,16 @@ async function quickSetStatus(id, status) {
   if (!entry || entry.status === status) return;
 
   const previousStatus = entry.status;
-  const changes = { status };
-  const today = localISODate();
-  // On complète uniquement les dates manquantes : aucun historique existant
-  // n'est effacé par une action rapide.
-  if (status === "playing" && !entry.date_started) changes.date_started = today;
-  if (status === "finished" && !entry.date_finished) changes.date_finished = today;
+  const transition = statusTransitionChanges(entry, status);
+  const preview = { ...entry, ...transition.changes };
+  const previewInfo = repeatInfo(preview);
+  const feedback = transition.repeatStarted
+    ? repeatProgressLabel(preview, previewInfo)
+    : transition.repeatCompleted
+      ? `${previewInfo.done} ${previewInfo.total} fois`
+      : STATUS_LABELS[status];
 
-  const updated = await persistQuickEntryChange(id, changes, STATUS_LABELS[status]);
+  const updated = await persistQuickEntryChange(id, transition.changes, feedback);
   if (updated && status === "finished" && previousStatus !== "finished") launchConfetti();
 }
 

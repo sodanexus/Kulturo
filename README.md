@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.8
+
+La version 2.5.8 automatise les revisionnages, relectures et nouvelles parties. Lorsqu'un média déjà terminé repasse sur **En cours**, sa fiche indique désormais **Revisionnage en cours**, **Relecture en cours** ou **Nouvelle partie en cours** sans augmenter le compteur. Le prochain passage sur **Terminé** ajoute automatiquement une occurrence — par exemple **Terminé 1 fois** devient **Terminé 2 fois** — tandis que les boutons − et + restent disponibles ensuite pour corriger manuellement l'historique. La date du premier achèvement est conservée. **Aucune migration SQL n'est nécessaire et aucune donnée existante n'est supprimée ou réinitialisée.**
+
 ### Correctif Kulturo 2.5.7
 
 La version 2.5.7 maintient entièrement le curseur de **Masquer les titres ajoutés** à l'intérieur de son switch, y compris sur Safari iOS. Elle fiabilise aussi les quatre destinations principales — Bibliothèque, Sorties, Activité et Profil — en resynchronisant les navigations desktop/mobile à chaque appui et en autorisant un nouvel appui sur **Sorties** pendant ou après son chargement. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
@@ -254,7 +258,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.7",
+    version: "2.5.8",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

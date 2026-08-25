@@ -4539,6 +4539,7 @@ input, textarea, select { border-radius: 12px; }
   transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease, max-width var(--motion-base) ease;
 }
 .detail-repeat.is-active { max-width: 64px; opacity: 1; transform: scale(1); }
+.detail-repeat.is-progress { color: var(--accent); }
 .detail-repeat .icon-repeat { width: 14px; height: 14px; }
 .detail-repeat strong { font-size: .66rem; line-height: 1; }
 
@@ -4597,6 +4598,11 @@ input, textarea, select { border-radius: 12px; }
 }
 .quick-repeat-value .icon-repeat { flex: 0 0 auto; color: var(--accent); }
 .quick-repeat-stepper.is-disabled .quick-repeat-value { color: var(--text-3); }
+.quick-repeat-stepper.is-progress {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent-glow);
+}
+.quick-repeat-stepper.is-progress .quick-repeat-value { color: var(--accent-2); }
 
 /* Sélecteurs compacts du profil : période puis catégorie. */
 .profile-date-controls { display: flex; align-items: center; justify-content: flex-end; gap: .4rem; }
