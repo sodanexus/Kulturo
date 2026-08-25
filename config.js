@@ -29,10 +29,16 @@ const CONFIG = {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
 
+  // ── Google Books — clé publique restreinte au domaine GitHub Pages.
+  // Nécessaire uniquement pour le catalogue des prochaines parutions.
+  googleBooks: {
+    apiKey: "AIzaSyBvNeVv8Ukp6-RXUo3DpvGFP3M21bdfUzk",
+  },
+
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "2.4.2",
+    version: "2.5.0",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
   },

@@ -58,6 +58,129 @@ function escapeIgdbSearch(value: string): string {
 
 const IGDB_FIELDS = "name,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,platforms.name";
 
+async function igdbRequest(endpoint: string, query: string, headers: Record<string, string>): Promise<any[]> {
+  const response = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
+    method: "POST",
+    headers,
+    body: query,
+  });
+  if (!response.ok) throw new Error(`IGDB ${endpoint} HTTP ${response.status}`);
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error(`Réponse IGDB ${endpoint} invalide`);
+  return data;
+}
+
+function normalizeIgdbLabel(value: unknown): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[]> {
+  // IGDB a remplacé l'ancien enum numérique de région par des entités
+  // release_date_regions. Résoudre leurs IDs dynamiquement évite de dépendre
+  // d'identifiants amenés à disparaître.
+  const regions = await igdbRequest(
+    "release_date_regions",
+    "fields id,region; limit 100;",
+    headers,
+  );
+  const acceptedRegionIds = regions
+    .filter(region => ["europe", "worldwide", "monde"].includes(normalizeIgdbLabel(region.region)))
+    .map(region => Number(region.id))
+    .filter(Number.isSafeInteger);
+  if (!acceptedRegionIds.length) throw new Error("Régions Europe/Monde introuvables dans IGDB");
+
+  const now = new Date();
+  const end = new Date(now);
+  end.setUTCDate(end.getUTCDate() + 183);
+  const startUnix = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000);
+  const endUnix = Math.floor(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59) / 1000);
+  const fields = [
+    "date",
+    "date_format.format",
+    "release_region.region",
+    "platform.name",
+    "game.id",
+    "game.name",
+    "game.cover.image_id",
+    "game.genres.name",
+    "game.involved_companies.company.name",
+    "game.involved_companies.developer",
+    "game.involved_companies.publisher",
+    "game.game_type.type",
+    "game.hypes",
+    "game.version_parent",
+  ].join(",");
+  const where = `date >= ${startUnix} & date <= ${endUnix} & release_region = (${acceptedRegionIds.join(",")})`;
+  const page = (offset: number) => igdbRequest(
+    "release_dates",
+    `fields ${fields}; where ${where}; sort date asc; limit 500; offset ${offset};`,
+    headers,
+  );
+  const releases = (await Promise.all([page(0), page(500)])).flat();
+  const allowedTypes = new Set([
+    "main game",
+    "remake",
+    "remaster",
+    "expanded game",
+    "standalone expansion",
+  ]);
+  const grouped = new Map<number, any>();
+
+  for (const release of releases) {
+    const game = release?.game;
+    const gameId = Number(game?.id);
+    const timestamp = Number(release?.date);
+    if (!Number.isSafeInteger(gameId) || !game?.name || !Number.isFinite(timestamp)) continue;
+    if (game.version_parent) continue;
+    const dateFormat = normalizeIgdbLabel(release.date_format?.format).replaceAll(" ", "");
+    if (dateFormat && !["yyyymmmmdd", "yyyymmmm"].includes(dateFormat)) continue;
+    const datePrecision = dateFormat === "yyyymmmm" ? "month" : "day";
+    const gameType = normalizeIgdbLabel(game.game_type?.type);
+    if (gameType && !allowedTypes.has(gameType)) continue;
+
+    const regionLabel = normalizeIgdbLabel(release.release_region?.region) === "europe"
+      ? "Europe"
+      : "Worldwide";
+    const existing = grouped.get(gameId);
+    if (!existing || timestamp < existing.release_timestamp) {
+      grouped.set(gameId, {
+        ...game,
+        release_timestamp: timestamp,
+        release_date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+        date_precision: datePrecision,
+        release_region: regionLabel,
+        platforms: release.platform?.name ? [{ name: release.platform.name }] : [],
+      });
+      continue;
+    }
+    if (timestamp === existing.release_timestamp && release.platform?.name) {
+      const names = new Set((existing.platforms || []).map((item: any) => item.name));
+      if (!names.has(release.platform.name)) existing.platforms.push({ name: release.platform.name });
+    }
+    if (timestamp === existing.release_timestamp && datePrecision === "day") existing.date_precision = "day";
+    if (regionLabel === "Europe") existing.release_region = "Europe";
+  }
+
+  // Éviter que des centaines de micro-sorties noient les jeux attendus : on
+  // conserve les plus suivis de chaque mois, tout en gardant la chronologie.
+  const byMonth = new Map<string, any[]>();
+  for (const game of grouped.values()) {
+    const month = game.release_date.slice(0, 7);
+    if (!byMonth.has(month)) byMonth.set(month, []);
+    byMonth.get(month)!.push(game);
+  }
+  return [...byMonth.values()]
+    .flatMap(games => games
+      .sort((a, b) => Number(b.hypes || 0) - Number(a.hypes || 0) || Number(Boolean(b.cover)) - Number(Boolean(a.cover)))
+      .slice(0, 30))
+    .sort((a, b) => a.release_date.localeCompare(b.release_date) || Number(b.hypes || 0) - Number(a.hypes || 0));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
@@ -71,9 +194,10 @@ Deno.serve(async (req) => {
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     const id = Number(body?.id);
     const hasValidId = Number.isSafeInteger(id) && id > 0;
+    const action = body?.action === "upcoming" ? "upcoming" : "";
 
-    if (!query && !hasValidId) {
-      return jsonResponse({ error: "query ou id valide requis" }, 400);
+    if (!query && !hasValidId && !action) {
+      return jsonResponse({ error: "query, id valide ou action requis" }, 400);
     }
     if (query.length > 120) {
       return jsonResponse({ error: "Recherche trop longue" }, 400);
@@ -96,7 +220,9 @@ Deno.serve(async (req) => {
 
     let games: any[] = [];
 
-    if (hasValidId) {
+    if (action === "upcoming") {
+      games = await fetchUpcomingGames(headers);
+    } else if (hasValidId) {
       // ── Détail par ID ──────────────────────────────────────
       const igdbRes = await fetch("https://api.igdb.com/v4/games", {
         method: "POST",

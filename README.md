@@ -1,6 +1,6 @@
 # Kulturo — journal culturel personnel
 
-Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de consulter les prochaines sorties cinéma et TV. L’application est une SPA statique déployable sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
+Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployable sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
 ## Fonctionnalités
 
@@ -12,7 +12,8 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
 - Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** l’activité
-- Prochaines sorties françaises sur six mois, filtrables par films ou séries
+- Prochaines sorties sur six mois, filtrables par films, séries, jeux vidéo ou livres
+- Sélection France renforcée : dates cinéma françaises, diffuseurs TV présents en France, jeux Europe/monde et éditions françaises
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
 - Dashboard personnel et fil d’activité partagé
@@ -35,7 +36,7 @@ L’ancien onglet Discover et son système de recommandations ont été supprim�
 | Fonctions serveur | Supabase Edge Functions (Deno) |
 | Films et séries | TMDb |
 | Jeux vidéo | IGDB / Twitch |
-| Livres | Open Library + secours Google Books |
+| Livres | Open Library + Google Books |
 | Traduction | Groq |
 | Hébergement | GitHub Pages |
 
@@ -63,6 +64,26 @@ Kulturo/
 ```
 
 ## Installation
+
+### Mise à jour vers Kulturo 2.5
+
+La version 2.5 étend **Sorties** aux jeux vidéo et aux livres, et retire la majorité des séries sans diffusion française identifiable. **Aucune migration SQL n’est nécessaire et aucun média existant n’est modifié.**
+
+Après avoir remplacé les fichiers du site, redéployer uniquement la fonction IGDB pour activer les dates de sorties européennes des jeux :
+
+```bash
+supabase functions deploy igdb-proxy
+```
+
+Pour afficher les parutions de livres et compléter les résumés absents d’Open Library, activer **Books API** dans Google Cloud, créer une clé d’API puis la restreindre à l’API Google Books et au référent `https://sodanexus.github.io/*`. Renseigner ensuite la clé publique dans `config.js` :
+
+```js
+googleBooks: {
+  apiKey: "VOTRE_CLE_GOOGLE_BOOKS",
+},
+```
+
+Sans cette clé, le reste de Kulturo fonctionne normalement ; seul le filtre **Livres** indique que sa source n’est pas configurée.
 
 ### Correctif Kulturo 2.4.2
 
@@ -167,9 +188,12 @@ const CONFIG = {
     baseUrl: "https://openlibrary.org",
     coverBase: "https://covers.openlibrary.org/b/id",
   },
+  googleBooks: {
+    apiKey: "VOTRE_CLE_GOOGLE_BOOKS",
+  },
   app: {
     name: "Kulturo",
-    version: "2.4.2",
+    version: "2.5.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

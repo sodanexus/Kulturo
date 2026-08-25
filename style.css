@@ -1175,8 +1175,23 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .upcoming-card .card-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: .35rem;
   margin-top: .45rem;
+}
+.upcoming-region-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: .18rem .42rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--text-3);
+  font-size: .59rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
 }
 .upcoming-card:focus-visible {
   outline: 2px solid var(--accent);
@@ -1225,6 +1240,15 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   font-size: .76rem;
   font-weight: 600;
   text-transform: capitalize;
+}
+.upcoming-secondary {
+  overflow: hidden;
+  margin-top: .35rem;
+  color: var(--text-2);
+  font-size: .68rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .upcoming-desc {
   font-size: .72rem;
@@ -4310,7 +4334,7 @@ input, textarea, select { border-radius: 12px; }
   .profile-top-track { grid-template-columns: repeat(6, minmax(85px, 1fr)); }
 }
 
-@media (min-width: 681px) and (max-width: 1000px) {
+@media (min-width: 681px) and (max-width: 1200px) {
   .upcoming-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
   .upcoming-toolbar-main { grid-column: 1 / -1; }
   .upcoming-genre-filter { grid-column: 1; width: 100%; }
@@ -4712,4 +4736,21 @@ input, textarea, select { border-radius: 12px; }
   .activity-cover { width: 54px; height: 81px; }
   .activity-title { font-size: .94rem; }
   .activity-time { font-size: .66rem; }
+
+  /* Cinq catégories restent visibles sans ajouter une deuxième ligne. */
+  .upcoming-type-switch {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .12rem;
+    padding: .16rem;
+  }
+  .upcoming-type-btn {
+    min-width: 0;
+    padding: .42rem .08rem;
+    font-size: .69rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .upcoming-type-btn { font-size: .64rem; }
+  .upcoming-region-label { font-size: .54rem; }
 }

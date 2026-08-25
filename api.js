@@ -1,5 +1,6 @@
 // ============================================================
-// api.js — Intégrations APIs médias (TMDb · IGDB · OpenLibrary)
+// api.js — Intégrations APIs médias
+// TMDb · IGDB · Open Library · Google Books
 // ============================================================
 
 import { Auth } from "./supabase.js";
@@ -40,9 +41,10 @@ function tmdbGenreData(ids, subtype) {
 // ── Utilitaire fetch avec timeout ────────────────────────────
 async function apiFetch(url, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const { timeoutMs = 8000, ...fetchOptions } = options;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const res = await fetch(url, { ...fetchOptions, signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } finally {
@@ -121,7 +123,9 @@ export const TMDb = {
   },
 
   // Sorties cinéma et nouvelles séries prévues dans les 6 prochains mois.
-  // L'endpoint discover permet de borner précisément les dates françaises.
+  // Les films exigent une date de sortie française. Pour les séries, TMDb ne
+  // possède pas de date régionale équivalente : on exige donc soit une offre
+  // de diffusion référencée en France, soit une production d'origine française.
   async upcoming() {
     if (!this.available()) return [];
 
@@ -143,11 +147,23 @@ export const TMDb = {
 
     // Priorité à la sortie cinéma (3), puis à la sortie limitée (2).
     const movieUrl = page => `${base}/discover/movie?${common}&region=FR&include_video=false&with_release_type=3%7C2&release_date.gte=${startDate}&release_date.lte=${endDate}&page=${page}`;
-    const tvUrl = page => `${base}/discover/tv?${common}&timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${startDate}&first_air_date.lte=${endDate}&page=${page}`;
+    const tvWindow = `timezone=Europe%2FParis&include_null_first_air_dates=false&first_air_date.gte=${startDate}&first_air_date.lte=${endDate}`;
+    const tvFranceUrl = page => `${base}/discover/tv?${common}&${tvWindow}&watch_region=FR&with_watch_monetization_types=flatrate%7Cfree%7Cads&page=${page}`;
+    // Les offres de visionnage TMDb sont souvent renseignées tardivement pour
+    // les séries à venir. Ce second filet conserve uniquement les grands
+    // diffuseurs disponibles en France et les principales chaînes françaises.
+    const franceBroadcasterIds = [
+      213, 2739, 2552, 3186, 4330, 1024, // Netflix, Disney+, Apple TV, Max, Paramount+, Prime Video
+      285, 361, 290, 712, 249, 1628,     // Canal+, France 2, TF1, M6, France 3, ARTE
+    ].join("%7C");
+    const tvBroadcasterUrl = page => `${base}/discover/tv?${common}&${tvWindow}&with_networks=${franceBroadcasterIds}&page=${page}`;
+    const tvFrenchOriginUrl = page => `${base}/discover/tv?${common}&${tvWindow}&with_origin_country=FR&page=${page}`;
 
     const requests = await Promise.allSettled([
       apiFetch(movieUrl(1)), apiFetch(movieUrl(2)),
-      apiFetch(tvUrl(1)), apiFetch(tvUrl(2)),
+      apiFetch(tvFranceUrl(1)), apiFetch(tvFranceUrl(2)),
+      apiFetch(tvBroadcasterUrl(1)), apiFetch(tvBroadcasterUrl(2)), apiFetch(tvBroadcasterUrl(3)),
+      apiFetch(tvFrenchOriginUrl(1)), apiFetch(tvFrenchOriginUrl(2)),
     ]);
     if (requests.every(r => r.status === "rejected")) {
       throw new Error("TMDB indisponible");
@@ -156,9 +172,19 @@ export const TMDb = {
     const moviePages = requests.slice(0, 2)
       .filter(r => r.status === "fulfilled")
       .flatMap(r => r.value.results || []);
-    const tvPages = requests.slice(2)
+    const tvFrancePages = requests.slice(2, 4)
       .filter(r => r.status === "fulfilled")
       .flatMap(r => r.value.results || []);
+    const tvBroadcasterPages = requests.slice(4, 7)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value.results || []);
+    const tvFrenchOriginPages = requests.slice(7)
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value.results || []);
+    const tvFranceIds = new Set(tvFrancePages.map(item => String(item.id)));
+    const tvBroadcasterIds = new Set(tvBroadcasterPages.map(item => String(item.id)));
+    const tvFrenchOriginIds = new Set(tvFrenchOriginPages.map(item => String(item.id)));
+    const tvPages = [...tvFrancePages, ...tvBroadcasterPages, ...tvFrenchOriginPages];
 
     const movies = moviePages.map(m => ({
       external_id:  String(m.id),
@@ -172,36 +198,53 @@ export const TMDb = {
       platform:     null,
       source_api:   "tmdb",
       subtype:      "movie",
+      upcoming_type:"movie",
+      availability_label: "Sortie France",
       popularity:   m.popularity || 0,
     }));
 
-    const shows = tvPages.map(s => ({
-      external_id:  String(s.id),
-      title:        s.name,
-      cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
-      description:  s.overview || null,
-      release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
-      release_date: s.first_air_date || null,
-      ...tmdbGenreData(s.genre_ids, "tv"),
-      author:       null,
-      platform:     null,
-      source_api:   "tmdb",
-      subtype:      "tv",
-      popularity:   s.popularity || 0,
-    }));
+    const shows = tvPages.map(s => {
+      const id = String(s.id);
+      const hasFrenchMetadata = Boolean(String(s.overview || "").trim())
+        || Boolean(s.name && s.original_name && s.name !== s.original_name);
+      const isFrenchOrigin = tvFrenchOriginIds.has(id);
+      const isDirectlyAvailable = tvFranceIds.has(id);
+      const isFranceBroadcaster = tvBroadcasterIds.has(id);
+      const languageIsLocallyCommon = ["fr", "en"].includes(String(s.original_language || "").toLowerCase());
+      return {
+        external_id:  id,
+        title:        s.name,
+        cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
+        description:  s.overview || null,
+        release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
+        release_date: s.first_air_date || null,
+        ...tmdbGenreData(s.genre_ids, "tv"),
+        author:       null,
+        platform:     null,
+        source_api:   "tmdb",
+        subtype:      "tv",
+        upcoming_type:"tv",
+        availability_label: isDirectlyAvailable
+          ? "Diffusion France"
+          : (isFrenchOrigin ? "Production française" : (isFranceBroadcaster ? "Diffuseur présent en France" : null)),
+        france_qualified: isDirectlyAvailable || isFrenchOrigin
+          || (isFranceBroadcaster && (languageIsLocallyCommon || hasFrenchMetadata)),
+        popularity:   s.popularity || 0,
+      };
+    });
 
     const unique = new Map();
     [...movies, ...shows].forEach(item => {
-      // TMDb peut faire correspondre une ressortie régionale tout en renvoyant
-      // parfois la date historique du film dans le résultat. Kulturo affiche
-      // uniquement les œuvres dont la date renvoyée est réellement à venir.
+      // Une œuvre sans date précise dans la fenêtre ne doit pas remonter dans
+      // Kulturo, même si la source la classe parmi ses nouveautés.
       if (!item.release_date || item.release_date < startDate || item.release_date > endDate) return;
+      if (item.subtype === "tv" && !item.france_qualified) return;
       unique.set(`${item.subtype}:${item.external_id}`, item);
     });
 
-    return [...unique.values()].sort((a, b) =>
-      a.release_date.localeCompare(b.release_date) || b.popularity - a.popularity
-    );
+    return [...unique.values()]
+      .sort((a, b) => a.release_date.localeCompare(b.release_date) || b.popularity - a.popularity)
+      .map(({ france_qualified, ...item }) => item);
   },
 };
 
@@ -237,6 +280,73 @@ export const IGDB = {
       source_api:   "igdb",
     }));
   },
+
+  async upcoming() {
+    if (!this.available()) return [];
+    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
+    const data = await apiFetch(proxyUrl, {
+      method: "POST",
+      headers: await edgeFunctionHeaders(),
+      body: JSON.stringify({ action: "upcoming" }),
+      timeoutMs: 15000,
+    });
+    if (data?.error) throw new Error(data.error);
+
+    const genreLabels = {
+      "adventure": "Aventure",
+      "arcade": "Arcade",
+      "card & board game": "Cartes & plateau",
+      "fighting": "Combat",
+      "hack and slash/beat 'em up": "Hack'n slash",
+      "indie": "Indépendant",
+      "music": "Musique",
+      "pinball": "Flipper",
+      "platform": "Plateforme",
+      "point-and-click": "Point & click",
+      "puzzle": "Réflexion",
+      "quiz/trivia": "Quiz",
+      "racing": "Course",
+      "real time strategy (rts)": "Stratégie temps réel",
+      "role-playing (rpg)": "RPG",
+      "shooter": "Tir",
+      "simulator": "Simulation",
+      "sport": "Sport",
+      "strategy": "Stratégie",
+      "tactical": "Tactique",
+      "turn-based strategy (tbs)": "Stratégie au tour par tour",
+      "visual novel": "Roman visuel",
+    };
+    const localizeGenre = value => genreLabels[String(value || "").toLocaleLowerCase("en-US")] || value;
+
+    return (Array.isArray(data) ? data : []).map(g => {
+      const genres = (g.genres || []).map(item => localizeGenre(item.name)).filter(Boolean);
+      const releaseDate = typeof g.release_date === "string" ? g.release_date : null;
+      return {
+        external_id:  String(g.id),
+        title:        g.name,
+        cover_url:    g.cover?.image_id
+          ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${g.cover.image_id}.webp`
+          : null,
+        // La traduction complète reste chargée uniquement à l'ouverture de la
+        // fiche afin d'éviter des dizaines de requêtes Groq inutiles.
+        description:  null,
+        release_year: releaseDate ? Number.parseInt(releaseDate.slice(0, 4), 10) : null,
+        release_date: releaseDate,
+        date_precision: g.date_precision === "month" ? "month" : "day",
+        genres,
+        genre:        genres.join(", ") || null,
+        author:       g.involved_companies?.find(item => item.developer)?.company?.name
+                      || g.involved_companies?.[0]?.company?.name || null,
+        platform:     g.platforms?.map(item => item.name).filter(Boolean).join(", ") || null,
+        source_api:   "igdb",
+        media_type:   "game",
+        subtype:      null,
+        upcoming_type:"game",
+        availability_label: g.release_region === "Europe" ? "Sortie Europe" : "Sortie mondiale",
+        popularity:   Number(g.hypes || 0),
+      };
+    }).filter(item => item.title && item.release_date);
+  },
 };
 
 // ── Livres — Open Library ────────────────────────────────────
@@ -260,6 +370,149 @@ export const OpenLibrary = {
       platform:     null,
       source_api:   "openlibrary",
     }));
+  },
+};
+
+// ── Parutions françaises — Google Books ─────────────────────
+// Google Books est utilisé ici comme catalogue de parutions. Lors de l'ajout,
+// le livre reste enregistré avec la source "manual", déjà autorisée par le
+// schéma Kulturo : aucune migration n'est nécessaire.
+export const GoogleBooks = {
+  available() {
+    const key = CONFIG?.googleBooks?.apiKey?.trim();
+    return Boolean(key && !key.includes("VOTRE_"));
+  },
+
+  async upcoming() {
+    if (!this.available()) return [];
+    const today = new Date();
+    const end = new Date(today);
+    end.setDate(end.getDate() + 183);
+    const isoDate = date => [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+    const startDate = isoDate(today);
+    const endDate = isoDate(end);
+    const queries = [
+      "subject:fiction",
+      "subject:comics",
+      "subject:juvenile",
+      "subject:biography",
+      "subject:history",
+      "subject:science",
+      "subject:self-help",
+    ];
+    const request = query => {
+      const params = new URLSearchParams({
+        q: query,
+        orderBy: "newest",
+        printType: "books",
+        projection: "full",
+        langRestrict: "fr",
+        showPreorders: "true",
+        maxResults: "40",
+      });
+      const key = CONFIG?.googleBooks?.apiKey?.trim();
+      if (key) params.set("key", key);
+      return apiFetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
+    };
+
+    const pages = await Promise.allSettled(queries.map(request));
+    if (pages.every(page => page.status === "rejected")) {
+      throw new Error("Google Books indisponible");
+    }
+
+    const normalizePublishedDate = value => {
+      const raw = String(value || "").trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { date: raw, precision: "day" };
+      if (/^\d{4}-\d{2}$/.test(raw)) return { date: `${raw}-01`, precision: "month" };
+      return null;
+    };
+    const bookGenreLabels = {
+      "art": "Arts",
+      "biography & autobiography": "Biographie",
+      "business & economics": "Économie",
+      "comics & graphic novels": "BD & romans graphiques",
+      "contemporary": "Contemporain",
+      "fantasy": "Fantasy",
+      "fantasy & magic": "Fantasy & magie",
+      "fiction": "Fiction",
+      "historical": "Historique",
+      "history": "Histoire",
+      "juvenile fiction": "Jeunesse",
+      "juvenile nonfiction": "Jeunesse",
+      "literary criticism": "Critique littéraire",
+      "mystery & detective": "Mystère & policier",
+      "poetry": "Poésie",
+      "psychology": "Psychologie",
+      "religion": "Religion",
+      "romance": "Romance",
+      "science": "Sciences",
+      "science fiction": "Science-fiction",
+      "self-help": "Développement personnel",
+      "social science": "Sciences humaines",
+      "thrillers": "Thriller",
+    };
+    const localizeBookCategory = value => String(value || "")
+      .split("/")
+      .map(part => part.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => bookGenreLabels[part.toLocaleLowerCase("en-US")] || part)
+      .join(" · ");
+    const unique = new Map();
+    pages
+      .filter(page => page.status === "fulfilled")
+      .flatMap(page => page.value?.items || [])
+      .forEach(item => {
+        const info = item.volumeInfo || {};
+        const publication = normalizePublishedDate(info.publishedDate);
+        const country = String(item.accessInfo?.country || "").toUpperCase();
+        const image = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
+        if (!publication || publication.date < startDate || publication.date > endDate) return;
+        if (String(info.language || "").toLowerCase() !== "fr") return;
+        if (country && country !== "FR") return;
+        if (!info.title || !image) return;
+
+        const authors = (info.authors || []).filter(Boolean);
+        const categories = [...new Set((info.categories || [])
+          .map(localizeBookCategory)
+          .filter(Boolean))].slice(0, 3);
+        const identity = `${normalizeBookText(info.title)}|${normalizeBookText(authors.join(" "))}`;
+        const normalized = {
+          // L'identifiant Google reste transitoire. Les doublons en base sont
+          // détectés par titre, sans introduire une nouvelle valeur source_api.
+          external_id:  null,
+          upcoming_id:  `googlebooks:${item.id}`,
+          title:        info.title,
+          cover_url:    String(image).replace(/^http:/, "https:"),
+          description:  plainBookDescription(info.description),
+          release_year: Number.parseInt(publication.date.slice(0, 4), 10),
+          release_date: publication.date,
+          date_precision: publication.precision,
+          genres:       categories,
+          genre:        categories.join(", ") || null,
+          author:       authors.join(", ") || null,
+          platform:     null,
+          publisher:    info.publisher || null,
+          source_api:   "manual",
+          media_type:   "book",
+          subtype:      null,
+          upcoming_type:"book",
+          availability_label: "Édition française",
+          external_url: info.infoLink || `https://books.google.com/books?id=${encodeURIComponent(item.id)}`,
+          external_label: "Google Books",
+          popularity:   Number(info.ratingsCount || 0),
+        };
+        const current = unique.get(identity);
+        if (!current || normalized.release_date < current.release_date) unique.set(identity, normalized);
+      });
+
+    return [...unique.values()].sort((a, b) =>
+      a.release_date.localeCompare(b.release_date) || b.popularity - a.popularity
+    );
   },
 };
 
@@ -444,6 +697,8 @@ function plainBookDescription(value) {
 
 async function fetchGoogleBookDetails({ title, author, isbn }) {
   if (!title && !isbn) return null;
+  const googleBooksKey = CONFIG?.googleBooks?.apiKey?.trim();
+  if (!googleBooksKey || googleBooksKey.includes("VOTRE_")) return null;
   const query = isbn
     ? `isbn:${isbn}`
     : [`intitle:\"${title}\"`, author ? `inauthor:\"${author}\"` : ""].filter(Boolean).join(" ");
@@ -455,8 +710,7 @@ async function fetchGoogleBookDetails({ title, author, isbn }) {
       projection: "full",
     });
     if (langRestrict) params.set("langRestrict", langRestrict);
-    const key = CONFIG?.googleBooks?.apiKey?.trim();
-    if (key) params.set("key", key);
+    params.set("key", googleBooksKey);
     return apiFetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
   };
 

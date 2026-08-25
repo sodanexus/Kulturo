@@ -3,7 +3,7 @@
 // ============================================================
 
 import { initSupabase, Auth, Media, Profiles, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -348,7 +348,7 @@ function renderApp() {
           <div>
             <span class="page-kicker">À surveiller</span>
             <h1>Sorties</h1>
-            <p>Films et nouvelles séries attendus en France dans les six prochains mois.</p>
+            <p>Films, séries, jeux vidéo et livres attendus en France dans les six prochains mois.</p>
           </div>
         </header>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
@@ -357,6 +357,8 @@ function renderApp() {
               <button class="upcoming-type-btn active" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')" aria-pressed="true">Tout</button>
               <button class="upcoming-type-btn" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')" aria-pressed="false">Films</button>
               <button class="upcoming-type-btn" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')" aria-pressed="false">Séries</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-game" onclick="UI.setUpcomingType('game')" aria-pressed="false">Jeux</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-book" onclick="UI.setUpcomingType('book')" aria-pressed="false">Livres</button>
             </div>
             <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" onclick="UI.refreshUpcoming()" title="Actualiser les sorties" aria-label="Actualiser les sorties">
               <span class="upcoming-refresh-icon" aria-hidden="true">↻</span>
@@ -2322,12 +2324,34 @@ const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="curr
 
 // ── Prochaines sorties ────────────────────────────────────────
 const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences";
+const UPCOMING_TYPES = ["all", "movie", "tv", "game", "book"];
+const UPCOMING_TYPE_META = {
+  movie: { label: "Film",  icon: "🎬", mediaType: "movie", badge: "movie" },
+  tv:    { label: "Série", icon: "📺", mediaType: "movie", badge: "movie" },
+  game:  { label: "Jeu",   icon: "🎮", mediaType: "game",  badge: "game" },
+  book:  { label: "Livre", icon: "📚", mediaType: "book",  badge: "book" },
+};
+
+function upcomingTypeOf(item) {
+  if (UPCOMING_TYPE_META[item?.upcoming_type]) return item.upcoming_type;
+  if (item?.media_type === "game" || item?.media_type === "book") return item.media_type;
+  return item?.subtype === "tv" ? "tv" : "movie";
+}
+
+function upcomingMediaTypeOf(item) {
+  return UPCOMING_TYPE_META[upcomingTypeOf(item)]?.mediaType || "movie";
+}
+
+function upcomingKeyOf(item) {
+  return item?.upcoming_id
+    || `${upcomingTypeOf(item)}:${item?.source_api || "manual"}:${item?.external_id || normalizeTitle(item?.title)}:${item?.release_date || ""}`;
+}
 
 function readUpcomingPreferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}");
     return {
-      type: ["all", "movie", "tv"].includes(saved.type) ? saved.type : "all",
+      type: UPCOMING_TYPES.includes(saved.type) ? saved.type : "all",
       genre: typeof saved.genre === "string" && saved.genre ? saved.genre : "all",
       hideAdded: Boolean(saved.hideAdded),
     };
@@ -2353,17 +2377,19 @@ const UpcomingState = {
   loading: false,
   loaded: false,
   adding: new Set(),
+  sourceStatus: {},
 };
 
-function formatReleaseDate(value) {
+function formatReleaseDate(value, precision = "day") {
   if (!value) return "Date à confirmer";
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric", month: "long", year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
+  const options = precision === "month"
+    ? { month: "long", year: "numeric" }
+    : { day: "numeric", month: "long", year: "numeric" };
+  return new Intl.DateTimeFormat("fr-FR", options).format(new Date(`${value}T12:00:00`));
 }
 
-function daysUntilRelease(value) {
-  if (!value) return null;
+function daysUntilRelease(value, precision = "day") {
+  if (!value || precision !== "day") return null;
   const today = new Date();
   const [year, month, day] = value.split("-").map(Number);
   const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
@@ -2373,7 +2399,7 @@ function daysUntilRelease(value) {
 }
 
 function isUpcomingInLibrary(it) {
-  return Boolean(findMatchingEntry({ ...it, media_type: "movie" }));
+  return Boolean(findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) }));
 }
 
 function upcomingGenresForItem(it) {
@@ -2387,13 +2413,13 @@ function upcomingGenresForItem(it) {
 function availableUpcomingGenres() {
   const items = UpcomingState.type === "all"
     ? UpcomingState.results
-    : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
+    : UpcomingState.results.filter(it => upcomingTypeOf(it) === UpcomingState.type);
   return [...new Set(items.flatMap(upcomingGenresForItem))]
     .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
 }
 
 function syncUpcomingTypeButtons() {
-  ["all", "movie", "tv"].forEach(type => {
+  UPCOMING_TYPES.forEach(type => {
     const btn = document.getElementById(`upcoming-filter-${type}`);
     if (!btn) return;
     const isActive = type === UpcomingState.type;
@@ -2436,7 +2462,7 @@ function renderUpcomingGenreFilter() {
 function filteredUpcomingResults() {
   let filtered = UpcomingState.type === "all"
     ? UpcomingState.results
-    : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
+    : UpcomingState.results.filter(it => upcomingTypeOf(it) === UpcomingState.type);
   if (UpcomingState.genre !== "all") {
     filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
   }
@@ -2445,7 +2471,32 @@ function filteredUpcomingResults() {
 }
 
 function visibleUpcomingResults() {
-  return filteredUpcomingResults().slice(0, UpcomingState.type === "all" ? 36 : 30);
+  const filtered = filteredUpcomingResults();
+  if (UpcomingState.type !== "all") return filtered.slice(0, 36);
+
+  // Le flux "Tout" doit rester culturellement varié : réserver d'abord une
+  // place équitable à chaque type, puis compléter avec les prochaines dates.
+  const selected = [];
+  const selectedKeys = new Set();
+  UPCOMING_TYPES.slice(1).forEach(type => {
+    filtered
+      .filter(item => upcomingTypeOf(item) === type)
+      .slice(0, 12)
+      .forEach(item => {
+        selected.push(item);
+        selectedKeys.add(upcomingKeyOf(item));
+      });
+  });
+  for (const item of filtered) {
+    if (selected.length >= 48) break;
+    const key = upcomingKeyOf(item);
+    if (selectedKeys.has(key)) continue;
+    selected.push(item);
+    selectedKeys.add(key);
+  }
+  return selected.sort((a, b) =>
+    a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
+  );
 }
 
 async function renderUpcoming(force = false) {
@@ -2462,16 +2513,47 @@ async function renderUpcoming(force = false) {
 
   UpcomingState.loading = true;
   syncUpcomingLoadingState();
-  grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement des prochaines sorties TMDB…</span></div>`;
+  grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement des prochaines sorties culturelles…</span></div>`;
   loadingStart();
 
   try {
-    UpcomingState.results = await TMDb.upcoming();
+    const sources = [
+      { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming() },
+      { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming() },
+      { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming() },
+    ];
+    const enabledSources = sources.filter(source => source.enabled);
+    const settled = await Promise.allSettled(enabledSources.map(source => source.load()));
+    UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
+      source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
+    ));
+    const merged = [];
+    enabledSources.forEach((source, index) => {
+      const result = settled[index];
+      const status = result.status === "fulfilled" ? "ok" : "error";
+      source.types.forEach(type => { UpcomingState.sourceStatus[type] = status; });
+      if (result.status === "fulfilled") merged.push(...(result.value || []));
+      else console.warn(`[Sorties/${source.key}]`, result.reason);
+    });
+    if (settled.length && settled.every(result => result.status === "rejected")) {
+      throw new Error("Toutes les sources sont indisponibles");
+    }
+
+    const unique = new Map();
+    merged.forEach(item => {
+      if (!item?.title || !item?.release_date) return;
+      const key = upcomingKeyOf(item);
+      const current = unique.get(key);
+      if (!current || Number(item.popularity || 0) > Number(current.popularity || 0)) unique.set(key, item);
+    });
+    UpcomingState.results = [...unique.values()].sort((a, b) =>
+      a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
+    );
     UpcomingState.loaded = true;
     renderUpcomingCards();
   } catch (err) {
-    console.error("[TMDB] Erreur prochaines sorties :", err);
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Sorties indisponibles</h3><p>Impossible de joindre TMDB pour le moment. Réessayez dans quelques instants.</p><button class="btn btn-secondary btn-sm" onclick="UI.refreshUpcoming()">Réessayer</button></div>`;
+    console.error("[Sorties] Erreur prochaines sorties :", err);
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Sorties indisponibles</h3><p>Impossible de joindre les catalogues pour le moment. Réessayez dans quelques instants.</p><button class="btn btn-secondary btn-sm" onclick="UI.refreshUpcoming()">Réessayer</button></div>`;
   } finally {
     UpcomingState.loading = false;
     syncUpcomingLoadingState();
@@ -2496,13 +2578,21 @@ function renderUpcomingCards() {
       : `${results.length} sortie${results.length > 1 ? "s" : ""}`;
   }
 
-  if (!TMDb.available()) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔑</div><h3>TMDB n'est pas configuré</h3><p>Ajoutez votre clé TMDB dans config.js pour afficher les prochaines sorties.</p></div>`;
-    return;
-  }
   if (!results.length) {
     const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Aucune sortie trouvée</h3><p>Aucune sortie ne correspond à ces filtres actuellement.</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
+    const sourceStatus = UpcomingState.type === "all" ? null : UpcomingState.sourceStatus[UpcomingState.type];
+    const unavailableMessages = {
+      movie: "Ajoutez une clé TMDb dans config.js pour charger les sorties cinéma.",
+      tv: "Ajoutez une clé TMDb dans config.js pour charger les nouvelles séries.",
+      game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
+      book: "Ajoutez une clé Google Books dans config.js pour charger les parutions françaises.",
+    };
+    const sourceMessage = sourceStatus === "error"
+      ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."
+      : sourceStatus === "unavailable"
+        ? (unavailableMessages[UpcomingState.type] || "La source nécessaire n’est pas configurée sur cette installation.")
+        : "Aucune sortie ne correspond à ces filtres actuellement.";
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>${sourceStatus === "error" ? "Catalogue indisponible" : "Aucune sortie trouvée"}</h3><p>${sourceMessage}</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
     return;
   }
 
@@ -2539,14 +2629,18 @@ function renderUpcomingCards() {
 
 function upcomingCardHTML(it, idx) {
   const inLibrary = isUpcomingInLibrary(it);
-  const days = daysUntilRelease(it.release_date);
-  const typeLabel = it.subtype === "tv" ? "Série" : "Film";
-  const typeIcon = it.subtype === "tv" ? "📺" : "🎬";
+  const days = daysUntilRelease(it.release_date, it.date_precision);
+  const type = upcomingTypeOf(it);
+  const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
+  const regionIcon = type === "game"
+    ? (it.availability_label === "Sortie Europe" ? "🇪🇺" : "🌍")
+    : "🇫🇷";
+  const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
     ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-       <div class="card-cover-placeholder" style="display:none">${typeIcon}</div>`
-    : `<div class="card-cover-placeholder">${typeIcon}</div>`;
+       <div class="card-cover-placeholder" style="display:none">${typeMeta.icon}</div>`
+    : `<div class="card-cover-placeholder">${typeMeta.icon}</div>`;
 
   return `
     <article class="media-card upcoming-card" data-upcoming-idx="${idx}" role="button" tabindex="0"
@@ -2559,9 +2653,11 @@ function upcomingCardHTML(it, idx) {
       <div class="card-body">
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-meta">
-          <span class="badge badge-movie">${typeIcon} ${typeLabel}</span>
+          <span class="badge badge-${typeMeta.badge}">${typeMeta.icon} ${typeMeta.label}</span>
+          ${it.availability_label ? `<span class="upcoming-region-label">${regionIcon} ${esc(it.availability_label)}</span>` : ""}
         </div>
-        <div class="release-date">${formatReleaseDate(it.release_date)}</div>
+        <div class="release-date">${formatReleaseDate(it.release_date, it.date_precision)}</div>
+        ${secondary ? `<div class="upcoming-secondary">${esc(secondary)}</div>` : ""}
         ${it.description ? `<div class="upcoming-desc">${esc(it.description)}</div>` : ""}
         <div class="upcoming-card-actions">
           <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="event.stopPropagation();UI.addUpcomingToWishlist(${idx})">
@@ -2575,26 +2671,28 @@ function upcomingCardHTML(it, idx) {
 async function addUpcomingToWishlist(idx, closeAfter = false) {
   const it = visibleUpcomingResults()[idx];
   if (!it || isUpcomingInLibrary(it)) return;
-  const addingKey = `${it.subtype}:${it.external_id}`;
+  const addingKey = upcomingKeyOf(it);
   if (UpcomingState.adding.has(addingKey)) return;
   UpcomingState.adding.add(addingKey);
+  const mediaType = upcomingMediaTypeOf(it);
   const payload = {
     title: it.title,
-    media_type: "movie",
-    subtype: it.subtype,
+    media_type: mediaType,
+    subtype: mediaType === "movie" ? (it.subtype || "movie") : null,
     status: "wishlist",
     cover_url: it.cover_url || null,
     description: it.description || null,
     release_year: it.release_year || null,
     genre: it.genre || null,
-    author: null,
+    author: it.author || null,
     external_id: it.external_id || null,
-    source_api: "tmdb",
+    source_api: it.source_api || "manual",
     is_favorite: false,
     rating: null,
     notes: null,
-    platform: null,
+    platform: it.platform || null,
   };
+  if (it.publisher) payload.publisher = it.publisher;
 
   try {
     const created = await Media.create(payload);
@@ -2615,7 +2713,8 @@ async function openUpcomingDetail(idx) {
   const it = visibleUpcomingResults()[idx];
   if (!it) return;
 
-  const existing = findMatchingEntry({ ...it, media_type: "movie" });
+  const mediaType = upcomingMediaTypeOf(it);
+  const existing = findMatchingEntry({ ...it, media_type: mediaType });
   if (existing) {
     if (!existing.release_date) existing.release_date = it.release_date;
     openDetailPanel(existing.id);
@@ -2624,8 +2723,8 @@ async function openUpcomingDetail(idx) {
 
   const preview = {
     ...it,
-    id: `upcoming-${it.subtype}-${it.external_id}`,
-    media_type: "movie",
+    id: `upcoming-${String(upcomingKeyOf(it)).replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+    media_type: mediaType,
     status: null,
     rating: null,
     is_favorite: false,
@@ -2635,7 +2734,14 @@ async function openUpcomingDetail(idx) {
   _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
-    const details = await TMDbDetails.fetch(preview.external_id, preview.subtype || "movie");
+    let details = null;
+    if (mediaType === "movie" && preview.external_id) {
+      details = await TMDbDetails.fetch(preview.external_id, preview.subtype || "movie");
+    } else if (mediaType === "game" && preview.external_id) {
+      details = await IGDBDetails.fetch(preview.external_id);
+    } else if (mediaType === "book") {
+      details = await OpenLibraryDetails.fetch(preview.external_id, preview);
+    }
     if (!details) return;
 
     Object.entries(details).forEach(([field, value]) => {
@@ -2653,7 +2759,7 @@ async function openUpcomingDetail(idx) {
 }
 
 function setUpcomingType(type) {
-  if (!["all", "movie", "tv"].includes(type)) return;
+  if (!UPCOMING_TYPES.includes(type)) return;
   UpcomingState.type = type;
   persistUpcomingPreferences();
   syncUpcomingTypeButtons();
@@ -2695,18 +2801,20 @@ function renderDetailPanel(e, options = {}) {
   const coverUrl = safeMediaUrl(e.cover_url);
 
   const externalUrl = (() => {
+    const directUrl = safeMediaUrl(e.external_url);
+    if (directUrl) return directUrl;
     if (!e.external_id && !e.title) return null;
     if (e.media_type === "game")  return `https://store.steampowered.com/search/?term=${encodeURIComponent(e.title)}`;
     if (e.media_type === "movie") return `https://www.imdb.com/find/?q=${encodeURIComponent(e.title)}`;
     if (e.media_type === "book")  return e.external_id ? `https://openlibrary.org/works/${e.external_id}` : `https://www.goodreads.com/search?q=${encodeURIComponent(e.title)}`;
     return null;
   })();
-  const externalLabel = e.media_type === "book" && e.external_id
+  const externalLabel = e.external_label || (e.media_type === "book" && e.external_id
     ? "Open Library"
-    : ({ game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien");
+    : ({ game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien"));
   const externalIcon  = { game:"🎮", movie:"🎬", book:"📚" }[e.media_type] || "🔗";
   const externalHTML  = externalUrl
-    ? `<a href="${externalUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} ${externalLabel}</a>`
+    ? `<a href="${esc(externalUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} ${esc(externalLabel)}</a>`
     : "";
 
   const youtubeQuery     = encodeURIComponent(`${e.title} ${e.media_type === "game" ? "trailer" : e.media_type === "movie" ? "bande annonce" : "book trailer"}`);
