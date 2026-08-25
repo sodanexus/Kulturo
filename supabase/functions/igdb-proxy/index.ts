@@ -15,7 +15,7 @@ async function translateWithGroq(text: string, groqKey: string): Promise<string>
       },
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
-        max_tokens: 300,
+        max_tokens: 700,
         temperature: 0.2,
         messages: [
           {

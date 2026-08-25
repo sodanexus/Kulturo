@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
                     CHECK (status IN ('wishlist', 'playing', 'finished', 'paused', 'dropped')),
   rating          SMALLINT CHECK (rating BETWEEN 1 AND 10),
   is_favorite     BOOLEAN NOT NULL DEFAULT FALSE,
+  repeat_count    SMALLINT NOT NULL DEFAULT 0
+                    CHECK (repeat_count BETWEEN 0 AND 999),
   notes           TEXT,
   cover_url       TEXT,
   date_started    DATE,
@@ -56,6 +58,7 @@ ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS developer TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS publisher TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS page_count INTEGER;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS isbn TEXT;
+ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS repeat_count SMALLINT NOT NULL DEFAULT 0;
 
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_source_api_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_source_api_check
@@ -63,6 +66,9 @@ ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_source_api_check
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_subtype_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_subtype_check
   CHECK (subtype IS NULL OR subtype IN ('movie', 'tv'));
+ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_repeat_count_check;
+ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_repeat_count_check
+  CHECK (repeat_count BETWEEN 0 AND 999);
 
 -- ── Profils publics minimaux ────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profiles (

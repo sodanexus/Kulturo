@@ -6,7 +6,7 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 
 - Bibliothèque personnelle : statuts, favoris, notes sur 10, dates et notes privées
 - Étagère **En cours** pour reprendre immédiatement un média
-- Actions rapides dans la fiche : statut, note et coup de cœur sans ouvrir le formulaire
+- Actions rapides dans la fiche : statut, note, coup de cœur et compteur de revisionnage sans ouvrir le formulaire
 - Grille mobile réglable sur deux ou trois colonnes
 - Ajout simplifié en deux étapes avec recherche simultanée dans toutes les catégories
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
@@ -16,11 +16,13 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
 - Dashboard personnel et fil d’activité partagé
-- Profil annuel visuel : statistiques, catégories et tops cliquables
+- Profil annuel ou mensuel, filtrable par type : statistiques, catégories et tops cliquables
 - Export JSON en un clic depuis le profil pour conserver une copie de sécurité
 - Interface responsive et PWA installable sur mobile
 - Bandeau **Mettre à jour** lorsqu'une nouvelle version de la PWA est prête
-- Traduction française des descriptions anglaises via Groq
+- Casting cliquable vers les fiches IMDb des acteurs
+- Résumés de livres enrichis par Open Library puis Google Books, avec traduction française via Groq
+- Résumés de jeux retraduits en français si une ancienne fonction IGDB renvoie encore l’anglais
 
 L’ancien onglet Discover et son système de recommandations ont été supprimés. Groq n’est utilisé que pour la traduction de descriptions.
 
@@ -33,7 +35,7 @@ L’ancien onglet Discover et son système de recommandations ont été supprim�
 | Fonctions serveur | Supabase Edge Functions (Deno) |
 | Films et séries | TMDb |
 | Jeux vidéo | IGDB / Twitch |
-| Livres | Open Library |
+| Livres | Open Library + secours Google Books |
 | Traduction | Groq |
 | Hébergement | GitHub Pages |
 
@@ -49,6 +51,7 @@ Kulturo/
 ├── config.js                  # Configuration publique du navigateur
 ├── schema.sql                 # Installation Supabase neuve
 ├── migration-v2.sql           # Mise à niveau d'une installation existante
+├── migration-repeat-count.sql # Ajout sûr du compteur de revisionnage
 ├── manifest.json
 ├── sw.js
 ├── icon.svg
@@ -61,11 +64,24 @@ Kulturo/
 
 ## Installation
 
-### Mise à jour vers Kulturo 2.3
+### Mise à jour vers Kulturo 2.4
 
-La version 2.3 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les nouveaux filtres annuels, préférences d’affichage, date de dernière sauvegarde et réglages des sorties restent locaux à l’appareil. Les actions rapides complètent `date_started` ou `date_finished` uniquement lorsque la date correspondante est vide ; l’historique existant n’est jamais effacé.
+La version 2.4 ajoute une seule colonne, `repeat_count`. Avant de remplacer les fichiers du site, exécuter dans **Supabase > SQL Editor** :
 
-Pour profiter de l’optimisation des recherches IGDB, redéployer uniquement `igdb-proxy`. Ce redéploiement ne touche pas la base de données.
+```text
+migration-repeat-count.sql
+```
+
+Cette migration est **additive, réexécutable et sans suppression** : elle ne modifie ni les titres, ni les notes, ni les dates, ni les médias existants. Chaque ligne reçoit simplement `repeat_count = 0`. Le compteur mémorise uniquement les visionnages, lectures ou parties terminées supplémentaires ; Kulturo affiche le total en ajoutant la première consommation déjà terminée.
+
+Redéployer ensuite les deux Edge Functions pour profiter des résumés français fiabilisés :
+
+```bash
+supabase functions deploy igdb-proxy
+supabase functions deploy groq-proxy
+```
+
+Enfin, remplacer les fichiers du site. Si le frontend est déployé avant la migration, le reste de l’application continue de fonctionner ; seule l’action de revisionnage affiche un rappel de migration.
 
 ### 1. Préparer Supabase
 
@@ -81,6 +97,12 @@ Pour un projet Kulturo déjà installé, exécuter :
 
 ```text
 migration-v2.sql
+```
+
+Puis, pour la version 2.4 :
+
+```text
+migration-repeat-count.sql
 ```
 
 La migration v2 est réexécutable et ne supprime pas les médias. Elle :
@@ -143,7 +165,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.3.0",
+    version: "2.4.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -178,6 +200,7 @@ https://sodanexus.github.io/Kulturo/
 - Choix de deux ou trois colonnes sur mobile depuis **Filtres > Affichage mobile**
 - Pastilles de filtres actifs retirables en un clic
 - Bouton de retour en haut après un long défilement
+- Filtre de période issu du profil, y compris un mois précis
 
 ### Copie de sécurité
 
@@ -193,7 +216,11 @@ Un clic sur une carte ouvre une modale. Elle affiche immédiatement les informat
 
 Les détails récupérés sont enregistrés dans `media_entries` afin d’être disponibles aux prochaines ouvertures. Si l’API échoue, la modale garde les données locales et pourra réessayer plus tard.
 
-Les actions rapides de la fiche permettent de passer entre **Wishlist**, **En cours** et **Terminé**, de changer la note et de marquer un coup de cœur. Chaque modification est envoyée à Supabase séparément ; l’interface locale n’est mise à jour qu’après confirmation de la base.
+Les actions rapides de la fiche permettent de passer entre **Wishlist**, **En cours** et **Terminé**, de changer la note, de marquer un coup de cœur et d’ajuster le nombre de revisionnages, relectures ou jeux terminés. Les boutons `−` et `+` évitent les erreurs de comptage. La date de fin d’origine n’est jamais remplacée par cette action. Chaque modification est envoyée à Supabase séparément ; l’interface locale n’est mise à jour qu’après confirmation de la base.
+
+Pour les films et séries, les noms du casting sont des liens. TMDb fournit l’identifiant de la personne puis Kulturo ouvre sa fiche IMDb exacte ; si IMDb ne renvoie pas d’identifiant, le lien utilise la recherche de personnes IMDb.
+
+Pour les livres, Kulturo cherche d’abord le résumé du livre et de ses éditions dans Open Library. S’il manque, Google Books sert de secours en privilégiant une édition française. Un texte encore anglais est envoyé à la fonction `groq-proxy`. Pour les jeux, la fiche repasse également par cette traduction si `igdb-proxy` a renvoyé le résumé original.
 
 Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche détaillée. Le bouton d’ajout place le titre dans la wishlist.
 
@@ -207,7 +234,7 @@ Les résultats sont regroupés par mois. Le choix **Tout / Films / Séries**, le
 
 ### Profil et activité
 
-Le profil présente un résumé de l’année sélectionnée, les statuts principaux, le top des médias notés et une répartition par catégorie. Les cartes et catégories ouvrent directement la bibliothèque avec les filtres correspondants. L’histogramme **Notes · toutes années** reste global.
+Le profil permet de passer de **Annuel** à **Mensuel**, de choisir l’année ou le mois, puis de filtrer par films, séries, jeux ou livres. Les statuts principaux et le top utilisent ce périmètre. Les cartes et catégories ouvrent directement la bibliothèque avec exactement la même période et le même type. L’histogramme **Notes · toutes années** reste volontairement global.
 
 Le fil d’activité peut afficher toute la communauté ou uniquement ses propres ajouts. Ses propres lignes sont cliquables et rouvrent la fiche correspondante.
 
@@ -231,6 +258,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 ## Vérifications avant mise en ligne
 
 - Exécuter `migration-v2.sql` si la base existait avant la v2
+- Exécuter `migration-repeat-count.sql` avant d’utiliser le compteur de revisionnage
 - Déployer les deux Edge Functions
 - Vérifier que `config.js` ne contient aucun secret serveur
 - Tester connexion, ajout, modification, suppression et détection de doublon
@@ -239,4 +267,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Tester les actions rapides et le choix de grille mobile
 - Tester la recherche universelle en deux étapes et la protection des saisies non enregistrées
 - Tester les filtres cliquables du profil et les groupes mensuels des sorties
+- Tester le switch annuel/mensuel et les filtres Films/Séries/Jeux/Livres du profil
+- Vérifier un lien acteur IMDb, un résumé de livre et un résumé de jeu en français
+- Vérifier les boutons `−` / `+` du compteur puis la présence de l’icône sur la carte
 - Tester l’installation et le rafraîchissement de la PWA sur mobile

@@ -48,6 +48,7 @@ const State = {
     search:   "",
     sort:     "created_at",
     year:     "all",
+    month:    "all",
   },
   editingId:  null,
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
@@ -103,6 +104,18 @@ function yearOf(value) {
 function entryActivityYear(entry) {
   if (entry.status === "finished") return yearOf(entry.date_finished) || yearOf(entry.created_at);
   return yearOf(entry.date_started) || yearOf(entry.created_at);
+}
+
+function entryActivityMonth(entry) {
+  const value = entry.status === "finished"
+    ? (entry.date_finished || entry.created_at)
+    : (entry.date_started || entry.created_at);
+  if (!value) return null;
+  const match = String(value).match(/^(\d{4})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}`;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // ── Labels ───────────────────────────────────────────────────
@@ -526,6 +539,7 @@ function navTo(key, options = {}) {
     State.filters.status   = "all";
     State.filters.favorite = false;
     State.filters.year     = "all";
+    State.filters.month    = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -536,6 +550,7 @@ function navTo(key, options = {}) {
     State.filters.subtype  = "all";
     State.filters.favorite = false;
     State.filters.year     = "all";
+    State.filters.month    = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -546,6 +561,7 @@ function navTo(key, options = {}) {
     State.filters.subtype  = "all";
     State.filters.status   = "all";
     State.filters.year     = "all";
+    State.filters.month    = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -557,6 +573,7 @@ function navTo(key, options = {}) {
     State.filters.status   = "all";
     State.filters.favorite = false;
     State.filters.year     = "all";
+    State.filters.month    = "all";
     if (!options.preserveSearch) {
       State.filters.search = "";
       const search = document.getElementById("global-search");
@@ -648,7 +665,7 @@ function _countActiveFilters() {
   if (State.filters.favorite) n++;
   if (State.filters.status !== "all") n++;
   if (State.filters.sort !== "created_at") n++;
-  if (State.filters.year !== "all") n++;
+  if (State.filters.year !== "all" || State.filters.month !== "all") n++;
   return n;
 }
 
@@ -702,7 +719,7 @@ function _updateFilterResultCount() {
 // ── Accès rapide aux médias en cours ─────────────────────────
 function isLibraryViewUnfiltered() {
   const f = State.filters;
-  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all";
+  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all" && f.month === "all";
 }
 
 function continueCardHTML(entry) {
@@ -782,7 +799,14 @@ function renderActiveFilters() {
   if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
   if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
   if (State.filters.search) filters.push(["search", `“${State.filters.search}”`]);
-  if (State.filters.year !== "all") filters.push(["year", String(State.filters.year)]);
+  if (State.filters.month !== "all") {
+    const [year, month] = String(State.filters.month).split("-").map(Number);
+    const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+      .format(new Date(year, Math.max(0, month - 1), 1));
+    filters.push(["period", label]);
+  } else if (State.filters.year !== "all") {
+    filters.push(["period", String(State.filters.year)]);
+  }
 
   container.hidden = filters.length === 0;
   container.innerHTML = filters.length ? `
@@ -810,7 +834,10 @@ function clearLibraryFilter(key) {
     State.filters.search = "";
     const search = document.getElementById("global-search");
     if (search) search.value = "";
-  } else if (key === "year") State.filters.year = "all";
+  } else if (key === "period" || key === "year" || key === "month") {
+    State.filters.year = "all";
+    State.filters.month = "all";
+  }
   syncFilterChips();
   updateCategoryTabs(State.filters.type, State.filters.favorite);
   renderCards({ resetScroll: true });
@@ -825,6 +852,7 @@ function clearAllLibraryFilters() {
   State.filters.search = "";
   State.filters.sort = "created_at";
   State.filters.year = "all";
+  State.filters.month = "all";
   localStorage.setItem("kulturo-sort", "created_at");
   const search = document.getElementById("global-search");
   if (search) search.value = "";
@@ -860,6 +888,7 @@ function renderCards(options = {}) {
     let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
     else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
+    else if (f.month !== "all")     emptyMsg = "Aucun média ne correspond à ce mois.";
     else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
     else if (f.subtype === "movie") emptyMsg = "Aucun film ne correspond à ces filtres.";
     else if (f.subtype === "tv")    emptyMsg = "Aucune série ne correspond à ces filtres.";
@@ -872,7 +901,7 @@ function renderCards(options = {}) {
         <div class="empty-icon">🎭</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all"
+        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all"
           ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
           : emptyBtn}
       </div>`;
@@ -890,6 +919,7 @@ function filterEntries(entries) {
   if (f.status  !== "all") res = res.filter(e => e.status    === f.status);
   if (f.favorite)          res = res.filter(e => e.is_favorite);
   if (f.year !== "all")   res = res.filter(e => entryActivityYear(e) === Number(f.year));
+  if (f.month !== "all")  res = res.filter(e => entryActivityMonth(e) === String(f.month));
   if (f.search)  res = res.filter(e => e.title.toLowerCase().includes(f.search.toLowerCase()));
   // Tri local
   res.sort((a, b) => {
@@ -912,8 +942,9 @@ function ratingStars(rating) {
   return `<span style="color:var(--accent)">${"★".repeat(full)}${half ? "½" : ""}</span>`;
 }
 
-function starsHTML(rating, is_favorite) {
-  if (!rating && !is_favorite) return "";
+function starsHTML(rating, is_favorite, repeatCount = 0) {
+  const repeats = Math.max(0, Number.parseInt(repeatCount, 10) || 0);
+  if (!rating && !is_favorite && !repeats) return "";
   let starsEl = "";
   if (rating) {
     const perfect = rating === 10;
@@ -925,7 +956,10 @@ function starsHTML(rating, is_favorite) {
       `</div>`;
   }
   const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
-  return `<div class="card-bottom">${starsEl}${heartEl}</div>`;
+  const repeatEl = repeats
+    ? `<span class="card-repeat" title="Vu, lu ou terminé ${repeats + 1} fois">${iconRepeat()}<strong>${repeats + 1}×</strong></span>`
+    : "";
+  return `<div class="card-bottom">${starsEl}<span class="card-markers">${heartEl}${repeatEl}</span></div>`;
 }
 
 function cardHTML(e, i = 0) {
@@ -958,7 +992,7 @@ function cardHTML(e, i = 0) {
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
-      ${starsHTML(e.rating, e.is_favorite)}
+      ${starsHTML(e.rating, e.is_favorite, e.repeat_count)}
     </article>`;
 }
 
@@ -986,11 +1020,50 @@ function updateBadges() {
 }
 
 // ── Dashboard / Profil ────────────────────────────────────────
-let _profileYear = new Date().getFullYear();
+const _profileToday = new Date();
+let _profileYear = _profileToday.getFullYear();
+let _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
+let _profilePeriod = "year";
+let _profileMedia = "all";
 const LAST_BACKUP_KEY = "kulturo-last-backup";
+const PROFILE_MEDIA_OPTIONS = [
+  ["all", "Tout"],
+  ["film", "Films"],
+  ["tv", "Séries"],
+  ["game", "Jeux"],
+  ["book", "Livres"],
+];
+
+function profileMediaMatches(entry, media = _profileMedia) {
+  if (media === "all") return true;
+  if (media === "film") return entry.media_type === "movie" && entry.subtype !== "tv";
+  if (media === "tv") return entry.media_type === "movie" && entry.subtype === "tv";
+  return entry.media_type === media;
+}
 
 function setProfileYear(y) {
-  _profileYear = parseInt(y);
+  const year = Number.parseInt(y, 10);
+  if (!Number.isFinite(year)) return;
+  _profileYear = year;
+  renderDashboard();
+}
+
+function setProfileMonth(month) {
+  const normalized = String(month).padStart(2, "0");
+  if (!/^(0[1-9]|1[0-2])$/.test(normalized)) return;
+  _profileMonth = normalized;
+  renderDashboard();
+}
+
+function setProfilePeriod(period) {
+  if (!['year', 'month'].includes(period) || period === _profilePeriod) return;
+  _profilePeriod = period;
+  renderDashboard();
+}
+
+function setProfileMedia(media) {
+  if (!PROFILE_MEDIA_OPTIONS.some(([value]) => value === media) || media === _profileMedia) return;
+  _profileMedia = media;
   renderDashboard();
 }
 
@@ -1006,7 +1079,7 @@ function formatLastBackup() {
   }
 }
 
-function openProfileCollection(kind, year) {
+function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
   navTo("library");
   State.filters.type = "all";
   State.filters.subtype = "all";
@@ -1014,12 +1087,30 @@ function openProfileCollection(kind, year) {
   State.filters.favorite = false;
   State.filters.search = "";
   State.filters.year = Number(year) || "all";
+  State.filters.month = /^(0[1-9]|1[0-2])$/.test(String(month)) && State.filters.year !== "all"
+    ? `${State.filters.year}-${month}`
+    : "all";
   const search = document.getElementById("global-search");
   if (search) search.value = "";
 
-  if (["finished", "playing", "wishlist"].includes(kind)) State.filters.status = kind;
-  else if (kind === "favorite") State.filters.favorite = true;
-  else if (kind === "game" || kind === "book") State.filters.type = kind;
+  const applyMedia = media => {
+    if (media === "game" || media === "book") State.filters.type = media;
+    else if (media === "film") {
+      State.filters.type = "movie";
+      State.filters.subtype = "movie";
+    } else if (media === "tv") {
+      State.filters.type = "movie";
+      State.filters.subtype = "tv";
+    }
+  };
+
+  if (["finished", "playing", "wishlist"].includes(kind)) {
+    State.filters.status = kind;
+    applyMedia(mediaFilter);
+  } else if (kind === "favorite") {
+    State.filters.favorite = true;
+    applyMedia(mediaFilter);
+  } else if (kind === "game" || kind === "book") State.filters.type = kind;
   else if (kind === "film") {
     State.filters.type = "movie";
     State.filters.subtype = "movie";
@@ -1053,18 +1144,31 @@ async function renderDashboard() {
   if (!years.includes(_profileYear)) years.unshift(_profileYear);
   const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
 
-  const yearEntries = all.filter(entry => entryActivityYear(entry) === _profileYear);
-  const yearFinished = yearEntries.filter(entry => entry.status === "finished");
-  const yearPlaying = yearEntries.filter(entry => entry.status === "playing");
-  const yearWishlist = yearEntries.filter(entry => entry.status === "wishlist");
-  const yearFavs = yearEntries.filter(entry => entry.is_favorite);
-  const yearRated = yearEntries.filter(entry => entry.rating);
-  const yearAverage = yearRated.length
-    ? (yearRated.reduce((sum, entry) => sum + entry.rating, 0) / yearRated.length).toFixed(1)
+  const monthOptions = Array.from({ length: 12 }, (_, index) => {
+    const value = String(index + 1).padStart(2, "0");
+    const label = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(new Date(2024, index, 1));
+    return `<option value="${value}" ${value === _profileMonth ? "selected" : ""}>${label[0].toUpperCase()}${label.slice(1)}</option>`;
+  }).join("");
+  const periodMonth = _profilePeriod === "month" ? _profileMonth : "all";
+  const periodLabel = _profilePeriod === "month"
+    ? new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(_profileYear, Number(_profileMonth) - 1, 1))
+    : String(_profileYear);
+  const dateScopedEntries = all.filter(entry => {
+    if (entryActivityYear(entry) !== _profileYear) return false;
+    return _profilePeriod === "year" || entryActivityMonth(entry) === `${_profileYear}-${_profileMonth}`;
+  });
+  const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
+  const scopedFinished = scopedEntries.filter(entry => entry.status === "finished");
+  const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
+  const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
+  const scopedFavs = scopedEntries.filter(entry => entry.is_favorite);
+  const scopedRated = scopedEntries.filter(entry => entry.rating);
+  const scopedAverage = scopedRated.length
+    ? (scopedRated.reduce((sum, entry) => sum + entry.rating, 0) / scopedRated.length).toFixed(1)
     : "—";
-  const topYear = [...yearRated].sort((a,b) => b.rating - a.rating).slice(0, 6);
-  const topHTML = topYear.length
-    ? topYear.map((entry, index) => {
+  const topScoped = [...scopedRated].sort((a,b) => b.rating - a.rating).slice(0, 6);
+  const topHTML = topScoped.length
+    ? topScoped.map((entry, index) => {
         const coverUrl = safeMediaUrl(entry.cover_url);
         return `
           <button type="button" class="profile-top-card" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
@@ -1076,17 +1180,17 @@ async function renderDashboard() {
             <small>${entry.rating}/10</small>
           </button>`;
       }).join("")
-    : `<div class="profile-inline-empty">Aucun média noté en ${_profileYear}.</div>`;
+    : `<div class="profile-inline-empty">Aucun média noté pour ${esc(periodLabel)} avec ce filtre.</div>`;
 
   const categories = [
-    { key: "film", label: "Films", icon: "🎬", color: "var(--movie)", count: yearEntries.filter(e => e.media_type === "movie" && e.subtype !== "tv").length },
-    { key: "tv", label: "Séries", icon: "▣", color: "var(--accent)", count: yearEntries.filter(e => e.media_type === "movie" && e.subtype === "tv").length },
-    { key: "game", label: "Jeux", icon: "🎮", color: "var(--game)", count: yearEntries.filter(e => e.media_type === "game").length },
-    { key: "book", label: "Livres", icon: "📚", color: "var(--book)", count: yearEntries.filter(e => e.media_type === "book").length },
+    { key: "film", label: "Films", icon: "🎬", color: "var(--movie)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
+    { key: "tv", label: "Séries", icon: "▣", color: "var(--accent)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
+    { key: "game", label: "Jeux", icon: "🎮", color: "var(--game)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
+    { key: "book", label: "Livres", icon: "📚", color: "var(--book)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
   ];
   const categoryMax = Math.max(...categories.map(category => category.count), 1);
   const categoryHTML = categories.map(category => `
-    <button type="button" class="profile-category-row" onclick="UI.openProfileCollection('${category.key}', ${_profileYear})">
+    <button type="button" class="profile-category-row" onclick="UI.openProfileCollection('${category.key}', ${_profileYear}, '${periodMonth}', '${category.key}')">
       <span class="profile-category-icon" aria-hidden="true">${category.icon}</span>
       <span class="profile-category-copy">
         <span><strong>${category.label}</strong><em>${category.count}</em></span>
@@ -1138,32 +1242,42 @@ async function renderDashboard() {
       <div class="profile-year-header">
         <div>
           <span class="section-eyebrow">En un coup d’œil</span>
-          <h2>Votre année ${_profileYear}</h2>
+          <h2>${_profilePeriod === "month" ? "Votre mois" : "Votre année"} · ${esc(periodLabel)}</h2>
         </div>
-        <select class="filter-select profile-year-inline" onchange="UI.setProfileYear(this.value)">
-          ${yearOptions}
-        </select>
+        <div class="profile-date-controls">
+          <select class="filter-select profile-year-inline" aria-label="Année" onchange="UI.setProfileYear(this.value)">${yearOptions}</select>
+          ${_profilePeriod === "month" ? `<select class="filter-select profile-month-inline" aria-label="Mois" onchange="UI.setProfileMonth(this.value)">${monthOptions}</select>` : ""}
+        </div>
+      </div>
+      <div class="profile-scope-toolbar">
+        <div class="profile-period-switch" role="group" aria-label="Période des statistiques">
+          <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" onclick="UI.setProfilePeriod('year')" aria-pressed="${_profilePeriod === "year"}">Annuel</button>
+          <button type="button" class="${_profilePeriod === "month" ? "active" : ""}" onclick="UI.setProfilePeriod('month')" aria-pressed="${_profilePeriod === "month"}">Mensuel</button>
+        </div>
+        <div class="profile-media-switch" role="group" aria-label="Type de média">
+          ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" onclick="UI.setProfileMedia('${value}')" aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
+        </div>
       </div>
       <div class="profile-year-summary">
         <div class="profile-year-primary">
-          <strong>${yearFinished.length}</strong>
-          <span>média${yearFinished.length > 1 ? "s" : ""} terminé${yearFinished.length > 1 ? "s" : ""}</span>
-          <small>${yearEntries.length} suivi${yearEntries.length > 1 ? "s" : ""} au total cette année</small>
+          <strong>${scopedFinished.length}</strong>
+          <span>média${scopedFinished.length > 1 ? "s" : ""} terminé${scopedFinished.length > 1 ? "s" : ""}</span>
+          <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""} au total sur cette période</small>
         </div>
         <div class="profile-year-secondary">
           <span>Note moyenne</span>
-          <strong>${yearAverage}${yearAverage !== "—" ? "/10" : ""}</strong>
-          <small>${yearRated.length} média${yearRated.length > 1 ? "s" : ""} noté${yearRated.length > 1 ? "s" : ""}</small>
+          <strong>${scopedAverage}${scopedAverage !== "—" ? "/10" : ""}</strong>
+          <small>${scopedRated.length} média${scopedRated.length > 1 ? "s" : ""} noté${scopedRated.length > 1 ? "s" : ""}</small>
         </div>
       </div>
       <div class="profile-action-grid">
         ${[
-          ["finished", "✓", yearFinished.length, "Terminés"],
-          ["playing", "▶", yearPlaying.length, "En cours"],
-          ["favorite", "♥", yearFavs.length, "Coups de cœur"],
-          ["wishlist", "＋", yearWishlist.length, "Wishlist"],
+          ["finished", "✓", scopedFinished.length, "Terminés"],
+          ["playing", "▶", scopedPlaying.length, "En cours"],
+          ["favorite", "♥", scopedFavs.length, "Coups de cœur"],
+          ["wishlist", "＋", scopedWishlist.length, "Wishlist"],
         ].map(([key, icon, value, label]) => `
-          <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear})">
+          <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear}, '${periodMonth}', '${_profileMedia}')">
             <span class="profile-action-icon" aria-hidden="true">${icon}</span>
             <strong>${value}</strong>
             <span>${label}</span>
@@ -1177,8 +1291,8 @@ async function renderDashboard() {
     <div class="profile-insights-grid">
       <section class="profile-dashboard-card profile-top-section">
         <div class="profile-card-heading">
-          <div><span class="section-eyebrow">Vos préférés</span><h3>Top ${_profileYear}</h3></div>
-          <span class="section-count">${topYear.length} média${topYear.length > 1 ? "s" : ""}</span>
+          <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
+          <span class="section-count">${topScoped.length} média${topScoped.length > 1 ? "s" : ""}</span>
         </div>
         <div class="profile-top-track">${topHTML}</div>
       </section>
@@ -1186,7 +1300,7 @@ async function renderDashboard() {
       <section class="profile-dashboard-card profile-categories-section">
         <div class="profile-card-heading">
           <div><span class="section-eyebrow">Répartition</span><h3>Par catégorie</h3></div>
-          <span class="section-count">${yearEntries.length} au total</span>
+          <span class="section-count">${dateScopedEntries.length} au total</span>
         </div>
         <div class="profile-category-list">${categoryHTML}</div>
       </section>
@@ -1355,7 +1469,7 @@ function _renderWizard() {
 
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal modal-wizard" role="dialog" aria-modal="true">
+      <div class="modal modal-wizard" data-step="${s.step}" role="dialog" aria-modal="true">
         <div class="modal-header">
           <h3>Ajouter à ma bibliothèque</h3>
           <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
@@ -2147,7 +2261,8 @@ const iconX       = () => `<svg width="16" height="16" fill="none" stroke="curre
 const iconGrid    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
 const iconPlay    = () => `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg>`;
 const iconEdit    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-const iconTrash   = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>`;
+const iconTrash   = () => `<svg class="icon-trash" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>`;
+const iconRepeat  = () => `<svg class="icon-repeat" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>`;
 const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`;
 
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
@@ -2570,7 +2685,8 @@ function renderDetailPanel(e, options = {}) {
                 ${e.status
                   ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${STATUS_LABELS[e.status]}</span>`
                   : `<span class="badge badge-upcoming">📅 À venir</span>`}
-                ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" aria-hidden="true">♥</span>` : ""}
+                ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
+                ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
               </div>
             </div>
           </div>
@@ -2584,7 +2700,7 @@ function renderDetailPanel(e, options = {}) {
               ${externalHTML}${youtubeHTML}
               <button class="btn btn-primary btn-sm" onclick="UI.addUpcomingToWishlistFromModal(${options.upcomingIdx})">+ Wishlist</button>
             </div>` : `
-            <button class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer" aria-label="Supprimer" onclick="UI.deleteEntry('${e.id}')">${iconTrash()}</button>
+            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer ce média" aria-label="Supprimer ce média" onclick="UI.deleteEntry('${e.id}')"><span class="detail-delete-icon">${iconTrash()}</span></button>
             <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
               <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">${iconEdit()} Modifier</button>
@@ -2654,12 +2770,43 @@ function quickActionsHTML(entry) {
           <span class="quick-actions-label">Votre note</span>
           ${quickRatingHTML(entry)}
         </div>
-        <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}">
-          <span aria-hidden="true">♥</span>
-          <span>Coup de cœur</span>
-        </button>
+        <div class="quick-personal-actions">
+          <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}">
+            <span aria-hidden="true">♥</span>
+            <span>Coup de cœur</span>
+          </button>
+          ${quickRepeatHTML(entry)}
+        </div>
       </div>
     </section>`;
+}
+
+function repeatInfo(entry) {
+  const repeats = Math.max(0, Number.parseInt(entry.repeat_count, 10) || 0);
+  const hasFirstCompletion = Boolean(entry.date_finished || entry.status === "finished" || repeats > 0);
+  const total = hasFirstCompletion ? repeats + 1 : 0;
+  if (entry.media_type === "book") return { repeats, total, noun: "lecture", done: "Lu", action: "Relire" };
+  if (entry.media_type === "game") return { repeats, total, noun: "partie terminée", done: "Terminé", action: "Rejouer" };
+  return { repeats, total, noun: "visionnage", done: "Vu", action: "Revoir" };
+}
+
+function detailRepeatIndicatorHTML(entry) {
+  const info = repeatInfo(entry);
+  const active = info.repeats > 0;
+  const label = active ? `${info.done} ${info.total} fois` : "Aucun revisionnage";
+  return `<span class="detail-repeat ${active ? "is-active" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
+}
+
+function quickRepeatHTML(entry) {
+  const info = repeatInfo(entry);
+  const canAdd = Boolean(entry.status === "finished" || entry.date_finished || info.repeats > 0);
+  const countLabel = info.total ? `${info.done} ${info.total} fois` : "Pas encore terminé";
+  return `
+    <div class="quick-repeat-stepper ${canAdd ? "" : "is-disabled"}" role="group" aria-label="Nombre de ${info.noun}s">
+      <button type="button" class="quick-repeat-adjust" onclick="UI.quickAdjustRepeat('${entry.id}', -1)" ${info.repeats > 0 ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
+      <span class="quick-repeat-value" title="${esc(countLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
+      <button type="button" class="quick-repeat-adjust quick-repeat-add" onclick="UI.quickAdjustRepeat('${entry.id}', 1)" ${canAdd ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${canAdd ? info.action : "Disponible une fois terminé"}">+</button>
+    </div>`;
 }
 
 function renderDetailBody(e) {
@@ -2674,6 +2821,16 @@ function renderDetailBody(e) {
     </div>`;
 
   const chip = (txt) => `<span class="detail-chip">${esc(txt)}</span>`;
+  const castChip = (name) => {
+    const person = Array.isArray(e.cast_people)
+      ? e.cast_people.find(candidate => normalizeTitle(candidate?.name) === normalizeTitle(name))
+      : null;
+    const url = person?.imdb_id
+      ? `https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/`
+      : `https://www.imdb.com/find/?q=${encodeURIComponent(name)}&s=nm`;
+    const title = person?.imdb_id ? `Voir ${name} sur IMDb` : `Rechercher ${name} sur IMDb`;
+    return `<a class="detail-chip detail-cast-link" href="${url}" target="_blank" rel="noopener" title="${esc(title)}">${esc(name)}<span aria-hidden="true">↗</span></a>`;
+  };
 
   let html = "";
 
@@ -2716,7 +2873,10 @@ function renderDetailBody(e) {
     if (filmMeta) html += `<div class="detail-meta">${filmMeta}</div>`;
 
     if (e.cast_members) {
-      const cast = e.cast_members.split(",").map(n => chip(n.trim())).join("");
+      const castNames = Array.isArray(e.cast_people) && e.cast_people.length
+        ? e.cast_people.map(person => person.name).filter(Boolean)
+        : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
+      const cast = castNames.map(castChip).join("");
       html += section("Casting", `<div class="detail-chips">${cast}</div>`);
     }
 
@@ -2765,6 +2925,9 @@ function syncOpenDetail(entry, feedback = "") {
   const favorite = document.getElementById(`detail-fav-${entry.id}`);
   if (favorite) favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
 
+  const repeat = document.getElementById(`detail-repeat-${entry.id}`);
+  if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
+
   const stars = document.getElementById(`detail-stars-${entry.id}`);
   if (stars) stars.innerHTML = ratingStars(entry.rating);
 
@@ -2802,7 +2965,14 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     syncOpenDetail(entry, feedback);
     return entry;
   } catch (error) {
-    toast("Modification impossible : " + error.message, "error");
+    const migrationMissing = Object.prototype.hasOwnProperty.call(changes, "repeat_count") &&
+      /repeat_count|schema cache/i.test(String(error?.message || ""));
+    toast(
+      migrationMissing
+        ? "Active d’abord migration-repeat-count.sql dans Supabase, puis réessaie."
+        : "Modification impossible : " + error.message,
+      "error"
+    );
     panel?.classList.remove("is-saving");
     panel?.querySelectorAll("button").forEach(button => { button.disabled = false; });
     if (savingLabel) savingLabel.textContent = "";
@@ -2842,6 +3012,26 @@ async function quickToggleFavorite(id) {
   if (!entry) return;
   const favorite = !entry.is_favorite;
   await persistQuickEntryChange(id, { is_favorite: favorite }, favorite ? "Ajouté aux favoris" : "Retiré des favoris");
+}
+
+async function quickAdjustRepeat(id, delta) {
+  const direction = Number(delta);
+  if (![1, -1].includes(direction)) return;
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry) return;
+  const info = repeatInfo(entry);
+  if (direction > 0 && !entry.date_finished && entry.status !== "finished" && info.repeats === 0) {
+    toast("Marquez d’abord ce média comme terminé.", "info");
+    return;
+  }
+  const repeatCount = Math.max(0, Math.min(999, info.repeats + direction));
+  if (repeatCount === info.repeats) return;
+  const nextInfo = repeatInfo({ ...entry, repeat_count: repeatCount });
+  await persistQuickEntryChange(
+    id,
+    { repeat_count: repeatCount },
+    `${nextInfo.done} ${nextInfo.total} fois`
+  );
 }
 
 function _checkSynopsisOverflow(entryId) {
@@ -2983,20 +3173,21 @@ async function openDetailPanel(id) {
       details = await TMDbDetails.fetch(e.external_id, e.subtype || "movie");
     } else if (e.media_type === "game" && e.external_id) {
       details = await IGDBDetails.fetch(e.external_id);
-    } else if (e.media_type === "book" && e.external_id) {
-      details = await OpenLibraryDetails.fetch(e.external_id);
+    } else if (e.media_type === "book") {
+      details = await OpenLibraryDetails.fetch(e.external_id, e);
     }
 
     if (!details) return;
+    if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = {};
     const fields = ["backdrop_url","description","directors","cast_members","duration",
                     "seasons_count","episodes_count","air_status","watch_providers",
                     "developer","publisher","page_count","isbn","platform"];
     for (const f of fields) {
-      const richerBookDescription = f === "description" && e.source_api === "openlibrary" &&
-        details[f] && details[f] !== e[f];
-      if (details[f] != null && (!e[f] || richerBookDescription)) {
+      const richerTranslatedDescription = f === "description" &&
+        ["openlibrary", "igdb"].includes(e.source_api) && details[f] && details[f] !== e[f];
+      if (details[f] != null && (!e[f] || richerTranslatedDescription)) {
         e[f] = details[f];
         toSave[f] = details[f];
       }
@@ -3465,6 +3656,7 @@ window.UI = {
   quickSetStatus,
   quickRate,
   quickToggleFavorite,
+  quickAdjustRepeat,
   fillFromApi,
   setRating,
   previewRating,
@@ -3607,12 +3799,16 @@ window.UI = {
     State.filters.sort = "created_at";
     State.filters.favorite = false;
     State.filters.year = "all";
+    State.filters.month = "all";
     localStorage.setItem("kulturo-sort", "created_at");
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },
   setSort,
   setProfileYear,
+  setProfileMonth,
+  setProfilePeriod,
+  setProfileMedia,
   openProfileCollection,
   setUpcomingType,
   setUpcomingGenre,

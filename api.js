@@ -293,8 +293,20 @@ export const TMDbDetails = {
       directors = d.created_by.map(x => x.name).slice(0, 2).join(", ") || null;
     }
 
-    // Casting top 4
-    const cast_members = c?.cast?.slice(0, 4).map(x => x.name).join(", ") || null;
+    // Casting top 4. Les identifiants IMDb restent transitoires : ils servent
+    // uniquement à produire des liens exacts et ne modifient pas le schéma SQL.
+    const topCast = c?.cast?.slice(0, 4) || [];
+    const cast_members = topCast.map(x => x.name).join(", ") || null;
+    const castExternalIds = await Promise.allSettled(topCast.map(person =>
+      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`)
+    ));
+    const cast_people = topCast.map((person, index) => ({
+      id: person.id,
+      name: person.name,
+      imdb_id: castExternalIds[index]?.status === "fulfilled"
+        ? (castExternalIds[index].value?.imdb_id || null)
+        : null,
+    }));
 
     // Durée / saisons / épisodes
     const duration       = ep === "movie" ? (d.runtime || null) : null;
@@ -323,7 +335,7 @@ export const TMDbDetails = {
 
     const description = d.overview || null;
 
-    return { backdrop_url, description, directors, cast_members, duration, seasons_count, episodes_count, air_status, watch_providers };
+    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers };
   },
 };
 
@@ -342,7 +354,9 @@ export const IGDBDetails = {
     const developer  = g.involved_companies?.find(c => c.developer)?.company?.name || null;
     const publisher  = g.involved_companies?.find(c => c.publisher)?.company?.name || null;
     const platform   = g.platforms?.map(x => x.name).join(", ") || null;
-    const description = g.summary || null;
+    // Le proxy IGDB traduit normalement déjà le résumé. Ce second passage
+    // couvre une ancienne version du proxy encore déployée ou un texte resté anglais.
+    const description = g.summary ? await translateViaProxy(g.summary) : null;
 
     return { developer, publisher, platform, description };
   },
@@ -350,9 +364,11 @@ export const IGDBDetails = {
 
 async function translateViaProxy(text) {
   if (!text || !CONFIG?.supabase?.url) return text;
-  // Détection basique — si c'est déjà en français on ne translate pas
-  const frWords = [" le ", " la ", " les ", " un ", " une ", " des ", " est ", " dans ", " que ", " qui "];
-  const looksFrench = frWords.some(w => text.toLowerCase().includes(w));
+  // Détection légère : suffisamment stricte pour ne pas conserver par erreur
+  // un résumé IGDB anglais, mais évite une requête si le texte est déjà français.
+  const sample = ` ${String(text).toLocaleLowerCase("fr-FR")} `;
+  const frenchSignals = sample.match(/\b(le|la|les|un|une|des|du|de|dans|avec|pour|qui|que|est|sont|sur|aux)\b/g) || [];
+  const looksFrench = /[àâçéèêëîïôùûüÿœ]/i.test(sample) || frenchSignals.length >= 3;
   if (looksFrench) return text;
   try {
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
@@ -369,29 +385,119 @@ async function translateViaProxy(text) {
 }
 
 export const OpenLibraryDetails = {
-  async fetch(externalId) {
-    if (!externalId) return null;
-    try {
-      const data = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`);
-      const rawDescription = typeof data.description === "string"
-        ? data.description
-        : data.description?.value || null;
+  async fetch(externalId, fallback = {}) {
+    const [workResult, editionsResult] = await Promise.allSettled([
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`) : Promise.resolve(null),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`) : Promise.resolve({ entries: [] }),
+    ]);
+    const work = workResult.status === "fulfilled" ? workResult.value : null;
+    const editions = editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
+    const descriptionValue = value => typeof value === "string" ? value : value?.value || null;
+    const editionWithDescription = editions.find(edition => descriptionValue(edition.description));
+    const editionWithPages = editions.find(edition => edition.number_of_pages);
+    const editionWithIsbn = editions.find(edition => edition.isbn_13?.[0] || edition.isbn_10?.[0]);
+    const editionWithPublisher = editions.find(edition => edition.publishers?.[0]);
 
-      const description = rawDescription
-        ? await translateViaProxy(rawDescription)
-        : null;
+    let rawDescription = descriptionValue(work?.description)
+      || descriptionValue(editionWithDescription?.description)
+      || null;
+    let page_count = editionWithPages?.number_of_pages || null;
+    let isbn = editionWithIsbn?.isbn_13?.[0] || editionWithIsbn?.isbn_10?.[0] || fallback.isbn || null;
+    let publisher = editionWithPublisher?.publishers?.[0] || null;
 
-      // Éditions pour pages + ISBN
-      const edData = await apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=1`);
-      const ed = edData?.entries?.[0];
-      const page_count = ed?.number_of_pages || null;
-      const isbn = ed?.isbn_13?.[0] || ed?.isbn_10?.[0] || null;
-      const publisher = ed?.publishers?.[0] || null;
+    // Open Library ne possède pas de résumé pour toutes les œuvres. Google
+    // Books sert uniquement de secours, en privilégiant une édition française.
+    if (!rawDescription) {
+      const google = await fetchGoogleBookDetails({
+        title: fallback.title,
+        author: fallback.author,
+        isbn,
+      });
+      rawDescription = google?.description || null;
+      page_count ||= google?.page_count || null;
+      isbn ||= google?.isbn || null;
+      publisher ||= google?.publisher || null;
+    }
 
-      return { description, page_count, isbn, publisher };
-    } catch { return null; }
+    if (!work && !editions.length && !rawDescription) return null;
+    const cleanDescription = plainBookDescription(rawDescription);
+    const description = cleanDescription ? await translateViaProxy(cleanDescription) : null;
+    return { description, page_count, isbn, publisher };
   },
 };
+
+function normalizeBookText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr-FR")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function plainBookDescription(value) {
+  if (!value) return null;
+  const element = document.createElement("textarea");
+  element.innerHTML = String(value).replace(/<[^>]*>/g, " ");
+  return element.value.replace(/\s+/g, " ").trim() || null;
+}
+
+async function fetchGoogleBookDetails({ title, author, isbn }) {
+  if (!title && !isbn) return null;
+  const query = isbn
+    ? `isbn:${isbn}`
+    : [`intitle:\"${title}\"`, author ? `inauthor:\"${author}\"` : ""].filter(Boolean).join(" ");
+  const request = async langRestrict => {
+    const params = new URLSearchParams({
+      q: query,
+      maxResults: "10",
+      printType: "books",
+      projection: "full",
+    });
+    if (langRestrict) params.set("langRestrict", langRestrict);
+    const key = CONFIG?.googleBooks?.apiKey?.trim();
+    if (key) params.set("key", key);
+    return apiFetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
+  };
+
+  try {
+    let data = await request("fr");
+    let items = data?.items || [];
+    if (!items.some(item => item.volumeInfo?.description)) {
+      data = await request("");
+      items = data?.items || items;
+    }
+    const expectedTitle = normalizeBookText(title);
+    const expectedAuthor = normalizeBookText(author);
+    const candidates = items
+      .filter(item => item.volumeInfo?.description)
+      .map(item => {
+        const info = item.volumeInfo;
+        const candidateTitle = normalizeBookText(info.title);
+        const candidateAuthors = normalizeBookText((info.authors || []).join(" "));
+        const score = (expectedTitle && candidateTitle === expectedTitle ? 6 : 0)
+          + (expectedTitle && candidateTitle.includes(expectedTitle) ? 3 : 0)
+          + (expectedAuthor && candidateAuthors.includes(expectedAuthor) ? 3 : 0)
+          + (info.language === "fr" ? 2 : 0);
+        return { info, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    const best = candidates[0];
+    if (!best?.info || (!isbn && best.score < 3)) return null;
+    const info = best.info;
+    const identifiers = info.industryIdentifiers || [];
+    return {
+      description: plainBookDescription(info.description),
+      page_count: info.pageCount || null,
+      publisher: info.publisher || null,
+      isbn: identifiers.find(item => item.type === "ISBN_13")?.identifier
+        || identifiers.find(item => item.type === "ISBN_10")?.identifier
+        || null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // ── Dispatcher selon le type de média ───────────────────────
 export async function searchMedia(query, mediaType) {

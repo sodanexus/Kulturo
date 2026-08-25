@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v10";
+const STATIC_CACHE = "kulturo-static-v11";
 const IMAGE_CACHE = "kulturo-images-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
 const MAX_IMAGE_ENTRIES = 120;
@@ -62,6 +62,7 @@ self.addEventListener("fetch", e => {
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("api.themoviedb.org") ||
     url.hostname.includes("openlibrary.org") ||
+    url.hostname.includes("googleapis.com") ||
     url.hostname.includes("api.groq.com") ||
     url.hostname.includes("twitch.tv") ||
     url.hostname.includes("igdb.com")
