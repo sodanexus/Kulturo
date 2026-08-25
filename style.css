@@ -1144,10 +1144,12 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .upcoming-card {
   cursor: pointer;
+  height: 100%;
 }
 .upcoming-card .card-body {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   padding: .15rem .1rem 0;
 }
@@ -1225,10 +1227,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.upcoming-wishlist-btn {
-  width: 100%;
-  margin-top: .75rem;
-}
+.upcoming-card-actions { margin-top: auto; padding-top: .75rem; }
+.upcoming-wishlist-btn { width: 100%; }
 .upcoming-wishlist-btn:disabled {
   cursor: default;
   opacity: .65;
@@ -2470,19 +2470,20 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .activity-row {
   display: flex;
   align-items: center;
-  gap: .85rem;
-  padding: .75rem 0;
-  border-bottom: 1px solid var(--border);
+  gap: 1rem;
+  min-height: 110px;
+  padding: .85rem;
+  border: 1px solid transparent;
   transition: background var(--transition);
   border-radius: var(--radius);
 }
-.activity-row:last-child { border-bottom: none; }
+.activity-row + .activity-row { margin-top: .45rem; }
 
 .activity-cover {
-  width: 44px;
-  height: 60px;
+  width: 62px;
+  height: 92px;
   object-fit: cover;
-  border-radius: var(--radius);
+  border-radius: 10px;
   flex-shrink: 0;
   background: var(--bg-3);
 }
@@ -2496,7 +2497,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .activity-info { flex: 1; min-width: 0; }
 
 .activity-line {
-  font-size: .82rem;
+  font-size: .86rem;
   color: var(--text-2);
   margin-bottom: .2rem;
   display: flex;
@@ -2525,8 +2526,8 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 
 .activity-title {
-  font-size: .92rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -2556,6 +2557,30 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   align-self: flex-start;
   padding-top: .2rem;
 }
+
+.activity-detail-notice {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: .78rem;
+}
+.activity-detail-notice strong { color: var(--text-1); }
+.activity-detail-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+.detail-footer-actions-readonly { width: 100%; justify-content: flex-end; }
 
 /* ── Page Profil ─────────────────────────────────────────────── */
 
@@ -4534,14 +4559,22 @@ input, textarea, select { border-radius: 12px; }
    d'être rogné par la zone défilable de la modale. */
 @media (min-width: 601px) {
   .modal-wizard[data-step="1"] { overflow: visible; }
-  .modal-wizard[data-step="1"] .modal-body { overflow: visible; }
+  .modal-wizard[data-step="1"] .modal-body {
+    position: relative;
+    z-index: 3;
+    overflow: visible;
+  }
   .modal-wizard[data-step="1"] .wz-universal-search { z-index: 80; }
   .modal-wizard[data-step="1"] .wz-universal-results {
     z-index: 200;
     max-height: min(46vh, 360px);
     box-shadow: 0 22px 55px rgba(0,0,0,.48);
   }
-  .modal-wizard[data-step="1"] .modal-footer { position: relative; z-index: 2; }
+  .modal-wizard[data-step="1"] .modal-footer {
+    position: relative;
+    z-index: 1;
+    background: var(--bg-2);
+  }
 }
 
 @media (max-width: 680px) {
@@ -4583,4 +4616,25 @@ input, textarea, select { border-radius: 12px; }
 @media (max-width: 390px) {
   .profile-year-header { flex-direction: column; }
   .profile-date-controls { width: 100%; justify-content: flex-start; }
+}
+
+/* Même respiration sous le séparateur de chaque page. */
+.page-heading { margin-bottom: 0; }
+#dashboard-content,
+.upcoming-toolbar,
+.activity-toolbar { margin-top: 1.15rem; }
+
+@media (max-width: 680px) {
+  #dashboard-content,
+  .upcoming-toolbar,
+  .activity-toolbar { margin-top: .9rem; }
+
+  .activity-row {
+    gap: .8rem;
+    min-height: 98px;
+    padding: .7rem;
+  }
+  .activity-cover { width: 54px; height: 81px; }
+  .activity-title { font-size: .94rem; }
+  .activity-time { font-size: .66rem; }
 }

@@ -11,7 +11,7 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Ajout simplifié en deux étapes avec recherche simultanée dans toutes les catégories
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
-- Fiche détaillée au clic depuis la bibliothèque **et** les prochaines sorties
+- Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** l’activité
 - Prochaines sorties françaises sur six mois, filtrables par films ou séries
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
@@ -63,6 +63,10 @@ Kulturo/
 ```
 
 ## Installation
+
+### Correctif Kulturo 2.4.1
+
+Cette révision corrige uniquement l’interface : superposition de la recherche dans la fenêtre d’ajout desktop, espacement uniforme sous les en-têtes, activité plus lisible et cliquable, et alignement des boutons dans les cartes Sorties. **Aucune migration SQL ni aucune modification des données n’est nécessaire.**
 
 ### Mise à jour vers Kulturo 2.4
 
@@ -165,7 +169,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.4.0",
+    version: "2.4.1",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

@@ -2513,9 +2513,11 @@ function upcomingCardHTML(it, idx) {
         </div>
         <div class="release-date">${formatReleaseDate(it.release_date)}</div>
         ${it.description ? `<div class="upcoming-desc">${esc(it.description)}</div>` : ""}
-        <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="event.stopPropagation();UI.addUpcomingToWishlist(${idx})">
-          ${inLibrary ? "✓ Dans la bibliothèque" : "+ Wishlist"}
-        </button>
+        <div class="upcoming-card-actions">
+          <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="event.stopPropagation();UI.addUpcomingToWishlist(${idx})">
+            ${inLibrary ? "✓ Dans la bibliothèque" : "+ Wishlist"}
+          </button>
+        </div>
       </div>
     </article>`;
 }
@@ -2637,6 +2639,7 @@ function resetUpcomingFilters() {
 function renderDetailPanel(e, options = {}) {
   _modalDirty = false;
   const isPreview = options.preview === true;
+  const isReadOnly = options.readOnly === true;
   const stars = isPreview ? "" : ratingStars(e.rating);
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
@@ -2644,7 +2647,7 @@ function renderDetailPanel(e, options = {}) {
   const externalUrl = (() => {
     if (!e.external_id && !e.title) return null;
     if (e.media_type === "game")  return `https://store.steampowered.com/search/?term=${encodeURIComponent(e.title)}`;
-    if (e.media_type === "movie") return e.external_id ? `https://www.imdb.com/find/?q=${encodeURIComponent(e.title)}` : null;
+    if (e.media_type === "movie") return `https://www.imdb.com/find/?q=${encodeURIComponent(e.title)}`;
     if (e.media_type === "book")  return e.external_id ? `https://openlibrary.org/works/${e.external_id}` : `https://www.goodreads.com/search?q=${encodeURIComponent(e.title)}`;
     return null;
   })();
@@ -2686,16 +2689,20 @@ function renderDetailPanel(e, options = {}) {
                   ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${STATUS_LABELS[e.status]}</span>`
                   : `<span class="badge badge-upcoming">📅 À venir</span>`}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
-                ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
+                ${!isPreview && !isReadOnly ? detailRepeatIndicatorHTML(e) : ""}
               </div>
             </div>
           </div>
         </div>
 
-        <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e)}</div>
+        <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e, { readOnly: isReadOnly })}</div>
 
         <div class="modal-footer">
-          ${isPreview ? `
+          ${isReadOnly ? `
+            <div class="detail-footer-actions detail-footer-actions-readonly">
+              ${externalHTML}${youtubeHTML}
+              <button class="btn btn-primary btn-sm" onclick="UI.closeModal()">Fermer</button>
+            </div>` : isPreview ? `
             <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
               <button class="btn btn-primary btn-sm" onclick="UI.addUpcomingToWishlistFromModal(${options.upcomingIdx})">+ Wishlist</button>
@@ -2809,7 +2816,7 @@ function quickRepeatHTML(entry) {
     </div>`;
 }
 
-function renderDetailBody(e) {
+function renderDetailBody(e, options = {}) {
   const metaRow = (label, value) => value
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
     : "";
@@ -2834,7 +2841,11 @@ function renderDetailBody(e) {
 
   let html = "";
 
-  if (e.status) html += quickActionsHTML(e);
+  if (options.readOnly && e.username) {
+    html += `<div class="activity-detail-notice"><span class="activity-detail-avatar" aria-hidden="true">${iconActivity()}</span><span>Ajouté par <strong>${esc(e.username)}</strong> dans l’activité Kulturo.</span></div>`;
+  }
+
+  if (e.status && !options.readOnly) html += quickActionsHTML(e);
 
   // ── Méta de base ──
   const baseMeta = [
@@ -3607,11 +3618,8 @@ function activityRowHTML(e) {
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
 
   const meLabel = e.isMe ? `<span class="activity-me-badge">moi</span>` : "";
-  const ownEntryExists = e.isMe && State.entries.some(entry => entry.id === e.id);
-  const rowClass = `activity-row${ownEntryExists ? " is-clickable" : ""}`;
-  const rowAttributes = ownEntryExists
-    ? ` role="button" tabindex="0" onclick="UI.openEditModal('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openEditModal('${e.id}')}"`
-    : "";
+  const rowClass = "activity-row is-clickable";
+  const rowAttributes = ` role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(e.title)}" onclick="UI.openActivityMedia('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openActivityMedia('${e.id}')}"`;
 
   return `
     <div class="${rowClass}"${rowAttributes}>
@@ -3633,6 +3641,29 @@ function activityRowHTML(e) {
     </div>`;
 }
 
+function openActivityMedia(id) {
+  const ownEntry = State.entries.find(entry => entry.id === id);
+  if (ownEntry) {
+    openDetailPanel(ownEntry.id);
+    return;
+  }
+
+  const activityEntry = _activityEntries.find(entry => entry.id === id);
+  if (!activityEntry) {
+    toast("Ce média n’est plus disponible dans le fil d’activité.", "error");
+    return;
+  }
+
+  // Le fil public ne contient volontairement que les informations partageables.
+  // La fiche reste donc en lecture seule pour les médias des autres membres.
+  renderDetailPanel({
+    ...activityEntry,
+    subtype: activityEntry.subtype || null,
+    external_id: null,
+    source_api: "activity",
+  }, { readOnly: true });
+}
+
 
 
 window.UI = {
@@ -3640,6 +3671,7 @@ window.UI = {
   quickAdd,
   quickAddFromResult,
   openEditModal:   (id) => { openDetailPanel(id); },
+  openActivityMedia,
   closeModal,
   openEditFromDetail: (id) => {
     const e = State.entries.find(x => x.id === id);
