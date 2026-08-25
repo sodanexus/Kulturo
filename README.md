@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.7
+
+La version 2.5.7 maintient entièrement le curseur de **Masquer les titres ajoutés** à l'intérieur de son switch, y compris sur Safari iOS. Elle fiabilise aussi les quatre destinations principales — Bibliothèque, Sorties, Activité et Profil — en resynchronisant les navigations desktop/mobile à chaque appui et en autorisant un nouvel appui sur **Sorties** pendant ou après son chargement. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
+
 ### Correctif Kulturo 2.5.6
 
 La version 2.5.6 fixe la hiérarchie typographique de Kulturo. Newsreader est réservée au logo, aux grands titres de pages, aux titres des médias dans leur fiche et au texte des synopsis. Manrope structure tout le reste de l'interface : titres fonctionnels, cartes, sections, boutons, filtres, navigation, informations et statistiques. Le libellé **Synopsis** reste en Manrope pour distinguer clairement l'interface du contenu éditorial. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
@@ -250,7 +254,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.6",
+    version: "2.5.7",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

@@ -285,24 +285,24 @@ function renderApp() {
     <nav id="sidebar">
       <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
       <div class="nav-items-group">
-        <button class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" onclick="UI.navTo('library')">
+        <button type="button" class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" aria-current="page" onclick="UI.navTo('library')">
           <span class="nav-icon">${iconGrid()}</span>
           <span class="nav-label">Bibliothèque</span>
         </button>
-        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
+        <button type="button" class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
           <span class="nav-icon">${iconCalendar()}</span>
           <span class="nav-label">Sorties</span>
         </button>
-        <button class="nav-item" data-nav="activity" data-tooltip="Activité" aria-label="Activité" onclick="UI.navTo('activity')">
+        <button type="button" class="nav-item" data-nav="activity" data-tooltip="Activité" aria-label="Activité" onclick="UI.navTo('activity')">
           <span class="nav-icon">${iconActivity()}</span>
           <span class="nav-label">Activité</span>
         </button>
-        <button class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
+        <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
           <span class="nav-icon">${iconChart()}</span>
           <span class="nav-label">Profil</span>
         </button>
       </div>
-      <button class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" onclick="UI.openAddModal()">
+      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" onclick="UI.openAddModal()">
         ${iconPlus()}
       </button>
     </nav>
@@ -423,23 +423,23 @@ function renderApp() {
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
-      <button class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" aria-label="Bibliothèque">
+      <button type="button" class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" aria-label="Bibliothèque" aria-current="page">
         ${iconGrid()}
         <span>Bibliothèque</span>
       </button>
-      <button class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" aria-label="Sorties">
+      <button type="button" class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" aria-label="Sorties">
         ${iconCalendar()}
         <span>Sorties</span>
       </button>
-      <button class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" aria-label="Ajouter un média">
+      <button type="button" class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" aria-label="Ajouter un média">
         ${iconPlus()}
         <span class="sr-only">Ajouter</span>
       </button>
-      <button class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" aria-label="Activité">
+      <button type="button" class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" aria-label="Activité">
         ${iconActivity()}
         <span>Activité</span>
       </button>
-      <button class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" aria-label="Mon profil">
+      <button type="button" class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" aria-label="Mon profil">
         ${iconUser()}
         <span>Profil</span>
       </button>
@@ -496,31 +496,35 @@ async function loadEntries() {
 
 // ── Navigation unifiée ───────────────────────────────────────
 function navTo(key, options = {}) {
-  // ne rejoue pas l'animation si on clique exactement sur la même destination
-  if (key !== "library" && (key === _currentPage || (key === "profile" && _currentPage === "dashboard"))) return;
+  // L'ancien alias reste accepté, mais toute la navigation utilise une seule clé.
+  if (key === "profile") key = "dashboard";
 
   // #2 — sauvegarde le scroll de la page courante
   const main = document.getElementById("main");
   if (main) State.scrollPos[_currentPage] = main.scrollTop;
 
-  // Désactive tous les nav-items
-  document.querySelectorAll(".nav-item[data-nav]").forEach(b => b.classList.remove("active"));
-  const btn = document.querySelector(`.nav-item[data-nav="${key}"]`);
+  // Les raccourcis de collection appartiennent tous à la Bibliothèque.
+  const primaryKey = ["dashboard", "upcoming", "activity"].includes(key) ? key : "library";
+
+  // Synchronise systématiquement les deux navigations. Cela rend aussi un clic
+  // répété utile si une page a été interrompue pendant son chargement.
+  document.querySelectorAll(".nav-item[data-nav], .bottom-nav-item[data-nav]").forEach(b => {
+    const isActive = b.dataset.nav === primaryKey;
+    b.classList.toggle("active", isActive);
+    if (isActive) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  const btn = document.querySelector(`.nav-item[data-nav="${primaryKey}"]`);
   if (btn) {
-    btn.classList.add("active");
     const indicator = document.getElementById("nav-indicator");
     if (indicator) {
       indicator.style.top  = btn.offsetTop + "px";
       indicator.style.opacity = "1";
     }
   }
-  // Sync bottom nav
-  document.querySelectorAll(".bottom-nav-item[data-nav]").forEach(b => {
-    b.classList.toggle("active", b.dataset.nav === key);
-  });
 
   // Sauvegarde la nav active
-  localStorage.setItem("kulturo-nav", key);
+  localStorage.setItem("kulturo-nav", primaryKey);
 
   if (key === "dashboard") {
     showPage("dashboard");
@@ -528,9 +532,6 @@ function navTo(key, options = {}) {
     showPage("upcoming");
   } else if (key === "activity") {
     showPage("activity");
-  } else if (key === "profile") {
-    showPage("dashboard");
-    key = "dashboard";
   } else if (key.startsWith("type-")) {
     State.filters.type     = key.replace("type-", "");
     State.filters.subtype  = "all";

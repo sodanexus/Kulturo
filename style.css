@@ -273,7 +273,11 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   width: 100%;
   min-height: 40px;
   position: relative;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
+.nav-item > .nav-icon,
+.nav-item > .nav-label { pointer-events: none; }
 .nav-item:hover { background: var(--bg-3); color: var(--text); }
 .nav-item.active { background: var(--accent-glow); color: var(--accent); }
 
@@ -2272,6 +2276,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     justify-content: space-around;
     gap: .25rem;
     min-height: calc(58px + var(--safe-bottom));
+    isolation: isolate;
   }
   /* Si WebKit peint momentanément la barre trop haut au lancement, son fond
      continue jusqu'au bord inférieur au lieu de laisser apparaître une bande. */
@@ -2303,13 +2308,21 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
     font-weight: 600;
     letter-spacing: .02em;
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    position: relative;
+    z-index: 1;
+    min-width: 0;
   }
+  .bottom-nav-item > svg,
+  .bottom-nav-item > span { pointer-events: none; }
   .bottom-nav-item svg {
     width: 22px;
     height: 22px;
     stroke-width: 1.8;
   }
-  .bottom-nav-item:active { transform: scale(.85); }
+  .bottom-nav-item:active { transform: scale(.96); }
   .bottom-nav-item { transition: color .2s ease, transform .15s ease; }
   .bottom-nav-item.active { color: var(--accent); }
   .bottom-nav-item.active svg { stroke: var(--accent); }
@@ -4062,16 +4075,23 @@ input, textarea, select { border-radius: 12px; }
   pointer-events: none;
 }
 .compact-toggle-track {
+  position: relative;
   display: block;
-  width: 32px;
-  height: 18px;
-  padding: 2px;
+  box-sizing: border-box;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-pill);
   background: var(--bg-3);
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 .compact-toggle-track span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
   display: block;
   width: 12px;
   height: 12px;
@@ -4085,7 +4105,7 @@ input, textarea, select { border-radius: 12px; }
 }
 .compact-toggle input:checked + .compact-toggle-track span {
   background: var(--accent);
-  transform: translateX(14px);
+  transform: translate3d(16px, 0, 0);
 }
 .compact-toggle input:focus-visible + .compact-toggle-track { outline: 2px solid var(--accent); outline-offset: 3px; }
 .upcoming-months { display: flex; flex-direction: column; gap: 1.25rem; }
