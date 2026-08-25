@@ -1364,13 +1364,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .detail-title {
   font-size: 1.4rem;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1.16;
-  letter-spacing: -.015em;
+  letter-spacing: -.025em;
   overflow-wrap: anywhere;
   text-wrap: balance;
   margin-bottom: .3rem;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   color: #fff;
   text-shadow: 0 1px 8px rgba(0,0,0,.8);
 }
@@ -3370,7 +3370,6 @@ h1, h2, h3 { color: var(--text-1); }
 }
 .topbar-logo,
 .auth-card .logo,
-.detail-title,
 .stat-card .stat-value { font-weight: 700; }
 .page-heading p {
   max-width: 620px;

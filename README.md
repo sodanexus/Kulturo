@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.5
+
+La version 2.5.5 utilise **Manrope ExtraBold** pour les titres des fiches média. Newsreader reste réservée aux grands titres de pages afin de conserver l'identité éditoriale de Kulturo, tandis que les modales gagnent en lisibilité et en modernité. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
+
 ### Correctif Kulturo 2.5.4
 
 La version 2.5.4 augmente légèrement la taille des titres dans toutes les fiches média, sur mobile comme sur ordinateur. Les titres longs continuent de revenir proprement à la ligne. **Aucune migration SQL n'est nécessaire et aucune donnée de la bibliothèque n'est modifiée.**
@@ -242,7 +246,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.4",
+    version: "2.5.5",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
