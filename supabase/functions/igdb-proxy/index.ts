@@ -107,7 +107,12 @@ async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[
       `fields ${fields}; where ${where}; sort date asc; limit 500; offset ${offset};`,
       headers,
     );
-    return (await Promise.all([page(0), page(500)])).flat();
+    const first = await page(0);
+    if (first.length < 500) return first;
+    // IGDB limite les appels rapprochés. La seconde page n'est demandée que
+    // lorsqu'elle peut réellement contenir des résultats supplémentaires.
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [...first, ...await page(500)];
   };
 
   // IGDB fait migrer l'ancien enum `region` vers la relation
@@ -187,6 +192,50 @@ async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[
     }
     if (timestamp === existing.release_timestamp && datePrecision === "day") existing.date_precision = "day";
     if (regionLabel === "Europe") existing.release_region = "Europe";
+  }
+
+  // Certains jours, les deux index régionaux IGDB répondent correctement mais
+  // sans aucune ligne, alors que les jeux possèdent bien une
+  // `first_release_date` (GTA VI en est un exemple actuel). Ce troisième filet
+  // évite un onglet vide : il ne prétend pas connaître une date française et
+  // présente explicitement la date comme internationale.
+  if (!grouped.size) {
+    const fields = [
+      "id",
+      "name",
+      "cover.image_id",
+      "genres.name",
+      "involved_companies.company.name",
+      "involved_companies.developer",
+      "involved_companies.publisher",
+      "platforms.name",
+      "game_type.type",
+      "hypes",
+      "version_parent",
+      "first_release_date",
+    ].join(",");
+    const games = await igdbRequest(
+      "games",
+      `fields ${fields}; where first_release_date >= ${startUnix} & first_release_date <= ${endUnix}; sort first_release_date asc; limit 500;`,
+      headers,
+    );
+
+    for (const game of games) {
+      const gameId = Number(game?.id);
+      const timestamp = Number(game?.first_release_date);
+      if (!Number.isSafeInteger(gameId) || !game?.name || !Number.isFinite(timestamp)) continue;
+      if (game.version_parent) continue;
+      const gameType = normalizeIgdbLabel(game.game_type?.type);
+      if (gameType && !allowedTypes.has(gameType)) continue;
+      grouped.set(gameId, {
+        ...game,
+        release_timestamp: timestamp,
+        release_date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+        date_precision: "day",
+        release_region: "International",
+        platforms: Array.isArray(game.platforms) ? game.platforms : [],
+      });
+    }
   }
 
   // Éviter que des centaines de micro-sorties noient les jeux attendus : on

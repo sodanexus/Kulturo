@@ -2593,13 +2593,13 @@ function renderUpcomingCards() {
       movie: "Ajoutez une clé TMDb dans config.js pour charger les sorties cinéma.",
       tv: "Ajoutez une clé TMDb dans config.js pour charger les nouvelles séries.",
       game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
-      book: "Ajoutez une clé Google Books dans config.js pour charger les parutions françaises.",
+      book: "Configurez le secret Google Books puis déployez la fonction google-books-proxy.",
     };
     const emptyMessages = {
       movie: "Aucune sortie cinéma française vérifiable n’a été trouvée sur cette période.",
       tv: "Aucune nouvelle série diffusée en France n’a été trouvée sur cette période.",
-      game: "IGDB n’a renvoyé aucune sortie Europe ou Monde vérifiable sur cette période.",
-      book: "La clé fonctionne, mais Google Books ne fournit actuellement aucune parution française future avec une date assez fiable. Kulturo préfère ne rien afficher plutôt que proposer des livres déjà sortis ou des éditions étrangères.",
+      game: "IGDB n’a renvoyé aucune sortie Europe, Monde ou internationale vérifiable sur cette période.",
+      book: "Google Books ne fournit actuellement aucune parution française future avec une date assez fiable. Kulturo préfère ne rien afficher plutôt que proposer des livres déjà sortis ou des éditions étrangères.",
     };
     const sourceMessage = sourceStatus === "error"
       ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."

@@ -321,6 +321,11 @@ export const IGDB = {
     return (Array.isArray(data) ? data : []).map(g => {
       const genres = (g.genres || []).map(item => localizeGenre(item.name)).filter(Boolean);
       const releaseDate = typeof g.release_date === "string" ? g.release_date : null;
+      const availabilityLabel = g.release_region === "Europe"
+        ? "Sortie Europe"
+        : g.release_region === "International"
+          ? "Date internationale"
+          : "Sortie mondiale";
       return {
         external_id:  String(g.id),
         title:        g.name,
@@ -342,7 +347,7 @@ export const IGDB = {
         media_type:   "game",
         subtype:      null,
         upcoming_type:"game",
-        availability_label: g.release_region === "Europe" ? "Sortie Europe" : "Sortie mondiale",
+        availability_label: availabilityLabel,
         popularity:   Number(g.hypes || 0),
       };
     }).filter(item => item.title && item.release_date);
@@ -379,10 +384,22 @@ export const OpenLibrary = {
 // aucun résultat lorsqu'aucune parution fiable n'est fournie. Lors de l'ajout,
 // le livre reste enregistré avec la source "manual", déjà autorisée par le
 // schéma Kulturo : aucune migration n'est nécessaire.
+async function googleBooksProxy(payload, timeoutMs = 20000) {
+  const functionName = CONFIG?.googleBooks?.proxyFunction || "google-books-proxy";
+  const proxyUrl = `${CONFIG.supabase.url}/functions/v1/${functionName}`;
+  const data = await apiFetch(proxyUrl, {
+    method: "POST",
+    headers: await edgeFunctionHeaders(),
+    body: JSON.stringify(payload),
+    timeoutMs,
+  });
+  if (data?.error) throw new Error(data.error);
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
 export const GoogleBooks = {
   available() {
-    const key = CONFIG?.googleBooks?.apiKey?.trim();
-    return Boolean(key && !key.includes("VOTRE_"));
+    return Boolean(CONFIG?.supabase?.url);
   },
 
   async upcoming() {
@@ -397,34 +414,7 @@ export const GoogleBooks = {
     ].join("-");
     const startDate = isoDate(today);
     const endDate = isoDate(end);
-    const queries = [
-      "subject:fiction",
-      "subject:comics",
-      "subject:juvenile",
-      "subject:biography",
-      "subject:history",
-      "subject:science",
-      "subject:self-help",
-    ];
-    const request = query => {
-      const params = new URLSearchParams({
-        q: query,
-        orderBy: "newest",
-        printType: "books",
-        projection: "full",
-        langRestrict: "fr",
-        showPreorders: "true",
-        maxResults: "40",
-      });
-      const key = CONFIG?.googleBooks?.apiKey?.trim();
-      if (key) params.set("key", key);
-      return apiFetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
-    };
-
-    const pages = await Promise.allSettled(queries.map(request));
-    if (pages.every(page => page.status === "rejected")) {
-      throw new Error("Google Books indisponible");
-    }
+    const items = await googleBooksProxy({ action: "upcoming" });
 
     const normalizePublishedDate = value => {
       const raw = String(value || "").trim();
@@ -465,52 +455,47 @@ export const GoogleBooks = {
       .map(part => bookGenreLabels[part.toLocaleLowerCase("en-US")] || part)
       .join(" · ");
     const unique = new Map();
-    pages
-      .filter(page => page.status === "fulfilled")
-      .flatMap(page => page.value?.items || [])
-      .forEach(item => {
-        const info = item.volumeInfo || {};
-        const publication = normalizePublishedDate(info.publishedDate);
-        const country = String(item.accessInfo?.country || "").toUpperCase();
-        const image = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
-        if (!publication || publication.date < startDate || publication.date > endDate) return;
-        if (String(info.language || "").toLowerCase() !== "fr") return;
-        if (country && country !== "FR") return;
-        if (!info.title || !image) return;
+    items.forEach(item => {
+      const info = item.volumeInfo || {};
+      const publication = normalizePublishedDate(info.publishedDate);
+      const image = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
+      if (!publication || publication.date < startDate || publication.date > endDate) return;
+      if (String(info.language || "").toLowerCase() !== "fr") return;
+      if (!info.title || !image) return;
 
-        const authors = (info.authors || []).filter(Boolean);
-        const categories = [...new Set((info.categories || [])
-          .map(localizeBookCategory)
-          .filter(Boolean))].slice(0, 3);
-        const identity = `${normalizeBookText(info.title)}|${normalizeBookText(authors.join(" "))}`;
-        const normalized = {
-          // L'identifiant Google reste transitoire. Les doublons en base sont
-          // détectés par titre, sans introduire une nouvelle valeur source_api.
-          external_id:  null,
-          upcoming_id:  `googlebooks:${item.id}`,
-          title:        info.title,
-          cover_url:    String(image).replace(/^http:/, "https:"),
-          description:  plainBookDescription(info.description),
-          release_year: Number.parseInt(publication.date.slice(0, 4), 10),
-          release_date: publication.date,
-          date_precision: publication.precision,
-          genres:       categories,
-          genre:        categories.join(", ") || null,
-          author:       authors.join(", ") || null,
-          platform:     null,
-          publisher:    info.publisher || null,
-          source_api:   "manual",
-          media_type:   "book",
-          subtype:      null,
-          upcoming_type:"book",
-          availability_label: "Édition française",
-          external_url: info.infoLink || `https://books.google.com/books?id=${encodeURIComponent(item.id)}`,
-          external_label: "Google Books",
-          popularity:   Number(info.ratingsCount || 0),
-        };
-        const current = unique.get(identity);
-        if (!current || normalized.release_date < current.release_date) unique.set(identity, normalized);
-      });
+      const authors = (info.authors || []).filter(Boolean);
+      const categories = [...new Set((info.categories || [])
+        .map(localizeBookCategory)
+        .filter(Boolean))].slice(0, 3);
+      const identity = `${normalizeBookText(info.title)}|${normalizeBookText(authors.join(" "))}`;
+      const normalized = {
+        // L'identifiant Google reste transitoire. Les doublons en base sont
+        // détectés par titre, sans introduire une nouvelle valeur source_api.
+        external_id:  null,
+        upcoming_id:  `googlebooks:${item.id}`,
+        title:        info.title,
+        cover_url:    String(image).replace(/^http:/, "https:"),
+        description:  plainBookDescription(info.description),
+        release_year: Number.parseInt(publication.date.slice(0, 4), 10),
+        release_date: publication.date,
+        date_precision: publication.precision,
+        genres:       categories,
+        genre:        categories.join(", ") || null,
+        author:       authors.join(", ") || null,
+        platform:     null,
+        publisher:    info.publisher || null,
+        source_api:   "manual",
+        media_type:   "book",
+        subtype:      null,
+        upcoming_type:"book",
+        availability_label: "Édition française",
+        external_url: info.infoLink || `https://books.google.com/books?id=${encodeURIComponent(item.id)}`,
+        external_label: "Google Books",
+        popularity:   Number(info.ratingsCount || 0),
+      };
+      const current = unique.get(identity);
+      if (!current || normalized.release_date < current.release_date) unique.set(identity, normalized);
+    });
 
     return [...unique.values()].sort((a, b) =>
       a.release_date.localeCompare(b.release_date) || b.popularity - a.popularity
@@ -699,30 +684,9 @@ function plainBookDescription(value) {
 
 async function fetchGoogleBookDetails({ title, author, isbn }) {
   if (!title && !isbn) return null;
-  const googleBooksKey = CONFIG?.googleBooks?.apiKey?.trim();
-  if (!googleBooksKey || googleBooksKey.includes("VOTRE_")) return null;
-  const query = isbn
-    ? `isbn:${isbn}`
-    : [`intitle:\"${title}\"`, author ? `inauthor:\"${author}\"` : ""].filter(Boolean).join(" ");
-  const request = async langRestrict => {
-    const params = new URLSearchParams({
-      q: query,
-      maxResults: "10",
-      printType: "books",
-      projection: "full",
-    });
-    if (langRestrict) params.set("langRestrict", langRestrict);
-    params.set("key", googleBooksKey);
-    return apiFetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`);
-  };
 
   try {
-    let data = await request("fr");
-    let items = data?.items || [];
-    if (!items.some(item => item.volumeInfo?.description)) {
-      data = await request("");
-      items = data?.items || items;
-    }
+    const items = await googleBooksProxy({ action: "details", title, author, isbn });
     const expectedTitle = normalizeBookText(title);
     const expectedAuthor = normalizeBookText(author);
     const candidates = items

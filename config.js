@@ -29,16 +29,16 @@ const CONFIG = {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
 
-  // ── Google Books — clé publique restreinte au domaine GitHub Pages.
-  // Utilisée pour les parutions disponibles et l'enrichissement des fiches.
+  // ── Google Books — la clé reste dans les secrets Supabase.
+  // Le navigateur appelle uniquement la fonction google-books-proxy.
   googleBooks: {
-    apiKey: "AIzaSyBvNeVv8Ukp6-RXUo3DpvGFP3M21bdfUzk",
+    proxyFunction: "google-books-proxy",
   },
 
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "2.5.1",
+    version: "2.5.2",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
   },

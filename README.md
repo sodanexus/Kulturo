@@ -60,10 +60,29 @@ Kulturo/
 ├── icon-512.png
 └── supabase/functions/
     ├── igdb-proxy/index.ts     # Requêtes IGDB + traduction des résumés
+    ├── google-books-proxy/index.ts # Google Books sans exposer la clé
     └── groq-proxy/index.ts     # Traduction des descriptions de livres
 ```
 
 ## Installation
+
+### Correctif Kulturo 2.5.2
+
+La version 2.5.2 retire la clé Google Books du navigateur et de GitHub. Toutes les requêtes Livres passent désormais par `google-books-proxy`, avec la clé stockée dans les secrets Supabase. Cela évite les alertes GitHub/Google et les erreurs réseau `503` masquées par le service worker.
+
+Le catalogue Jeux possède aussi un troisième filet : si les deux index régionaux d’IGDB sont vides, Kulturo utilise `first_release_date` et affiche honnêtement **Date internationale** au lieu de laisser l’onglet vide.
+
+**Aucune migration SQL n’est nécessaire et aucune donnée de la bibliothèque n’est modifiée.** Une ancienne clé Google publiée doit être révoquée, même après sa suppression du dernier commit, car elle reste visible dans l’historique Git.
+
+Révoquer d’abord l’ancienne clé publiée, puis créer de préférence un projet Google Cloud dédié à Kulturo. Pour la nouvelle clé, choisir **Restrictions relatives aux applications : Aucune** (l’appel part de Supabase, pas du navigateur) et **Restrictions relatives aux API : Books API**. La stocker ensuite uniquement dans Supabase :
+
+```bash
+supabase secrets set GOOGLE_BOOKS_API_KEY="VOTRE_NOUVELLE_CLE"
+supabase functions deploy google-books-proxy
+supabase functions deploy igdb-proxy
+```
+
+Il n’est pas nécessaire de redéployer `groq-proxy` pour ce correctif.
 
 ### Correctif Kulturo 2.5.1
 
@@ -87,15 +106,14 @@ Après avoir remplacé les fichiers du site, redéployer uniquement la fonction 
 supabase functions deploy igdb-proxy
 ```
 
-Pour afficher les parutions que Google référence avec une date française exploitable et compléter les résumés absents d’Open Library, activer **Books API** dans Google Cloud, créer une clé d’API puis la restreindre à l’API Google Books et au référent `https://sodanexus.github.io/*`. Renseigner ensuite la clé publique dans `config.js` :
+Depuis la version 2.5.2, la clé Google Books ne doit plus être renseignée dans `config.js`. Elle est stockée sous le secret Supabase `GOOGLE_BOOKS_API_KEY` et utilisée uniquement par `google-books-proxy` :
 
-```js
-googleBooks: {
-  apiKey: "VOTRE_CLE_GOOGLE_BOOKS",
-},
+```bash
+supabase secrets set GOOGLE_BOOKS_API_KEY="VOTRE_NOUVELLE_CLE"
+supabase functions deploy google-books-proxy
 ```
 
-Sans cette clé, le reste de Kulturo fonctionne normalement ; seul le filtre **Livres** indique que sa source n’est pas configurée.
+Sans ce secret, le reste de Kulturo fonctionne normalement ; seul le catalogue Google Books est indisponible.
 
 ### Correctif Kulturo 2.4.2
 
@@ -115,6 +133,7 @@ Redéployer ensuite les deux Edge Functions pour profiter des résumés françai
 
 ```bash
 supabase functions deploy igdb-proxy
+supabase functions deploy google-books-proxy
 supabase functions deploy groq-proxy
 ```
 
@@ -167,6 +186,7 @@ Configurer ensuite les secrets dans **Supabase > Edge Functions > Secrets**, ou 
 ```bash
 supabase secrets set IGDB_CLIENT_ID="..."
 supabase secrets set IGDB_CLIENT_SECRET="..."
+supabase secrets set GOOGLE_BOOKS_API_KEY="..."
 supabase secrets set GROQ_API_KEY="..."
 ```
 
@@ -174,9 +194,10 @@ supabase secrets set GROQ_API_KEY="..."
 |---|---|
 | `IGDB_CLIENT_ID` | [Console développeur Twitch](https://dev.twitch.tv/console) |
 | `IGDB_CLIENT_SECRET` | Console développeur Twitch |
+| `GOOGLE_BOOKS_API_KEY` | Google Cloud, limitée à Books API |
 | `GROQ_API_KEY` | [Console Groq](https://console.groq.com) |
 
-Les fonctions autorisent actuellement l’origine `https://sodanexus.github.io`. En cas de changement de domaine, modifier `Access-Control-Allow-Origin` dans les deux fichiers `index.ts`, puis les redéployer.
+Les fonctions autorisent actuellement l’origine `https://sodanexus.github.io`. En cas de changement de domaine, modifier `Access-Control-Allow-Origin` dans les trois fichiers `index.ts`, puis les redéployer.
 
 ### 3. Configurer le navigateur
 
@@ -201,18 +222,18 @@ const CONFIG = {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
   googleBooks: {
-    apiKey: "VOTRE_CLE_GOOGLE_BOOKS",
+    proxyFunction: "google-books-proxy",
   },
   app: {
     name: "Kulturo",
-    version: "2.5.1",
+    version: "2.5.2",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
 };
 ```
 
-Ne jamais placer `IGDB_CLIENT_SECRET`, `GROQ_API_KEY`, une clé Supabase `service_role` ou tout autre secret dans `config.js`.
+Ne jamais placer `IGDB_CLIENT_SECRET`, `GOOGLE_BOOKS_API_KEY`, `GROQ_API_KEY`, une clé Supabase `service_role` ou tout autre secret dans `config.js`.
 
 ### 4. Déployer sur GitHub Pages
 
@@ -299,7 +320,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 
 - Exécuter `migration-v2.sql` si la base existait avant la v2
 - Exécuter `migration-repeat-count.sql` avant d’utiliser le compteur de revisionnage
-- Déployer les deux Edge Functions
+- Déployer les trois Edge Functions
 - Vérifier que `config.js` ne contient aucun secret serveur
 - Tester connexion, ajout, modification, suppression et détection de doublon
 - Vérifier l’export JSON depuis le profil
