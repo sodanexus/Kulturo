@@ -5,6 +5,9 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 ## Fonctionnalités
 
 - Bibliothèque personnelle : statuts, favoris, notes sur 10, dates et notes privées
+- Étagère **En cours** pour reprendre immédiatement un média
+- Actions rapides dans la fiche : statut, note et coup de cœur sans ouvrir le formulaire
+- Grille mobile réglable sur deux ou trois colonnes
 - Recherche enrichie via TMDb, IGDB et Open Library
 - Fiche détaillée au clic depuis la bibliothèque **et** les prochaines sorties
 - Prochaines sorties françaises sur six mois, filtrables par films ou séries
@@ -12,6 +15,7 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Dashboard personnel et fil d’activité partagé
 - Export JSON en un clic depuis le profil pour conserver une copie de sécurité
 - Interface responsive et PWA installable sur mobile
+- Bandeau **Mettre à jour** lorsqu'une nouvelle version de la PWA est prête
 - Traduction française des descriptions anglaises via Groq
 
 L’ancien onglet Discover et son système de recommandations ont été supprimés. Groq n’est utilisé que pour la traduction de descriptions.
@@ -53,9 +57,9 @@ Kulturo/
 
 ## Installation
 
-### Mise à jour depuis Kulturo 2.0
+### Mise à jour vers Kulturo 2.2
 
-La version 2.1 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les colonnes `date_started` et `date_finished`, déjà présentes dans le schéma, sont renseignées uniquement pour un nouvel ajout ou un futur changement vers **En cours** / **Terminé** ; l’historique ancien reste intact.
+La version 2.2 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les actions rapides utilisent les champs déjà présents. Elles complètent `date_started` ou `date_finished` uniquement lorsque la date correspondante est vide ; l’historique existant n’est jamais effacé.
 
 Pour profiter de l’optimisation des recherches IGDB, redéployer uniquement `igdb-proxy`. Ce redéploiement ne touche pas la base de données.
 
@@ -135,7 +139,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.1.0",
+    version: "2.2.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -166,6 +170,8 @@ https://sodanexus.github.io/Kulturo/
 - Recherche globale et ajout rapide via les APIs
 - Détection des doublons par API/identifiant, type et titre normalisé
 - Dates de début et de fin ajoutées lors des futurs changements de statut, sans rétroactivité
+- Étagère **En cours** visible en haut lorsque les filtres sont désactivés
+- Choix de deux ou trois colonnes sur mobile depuis **Filtres > Affichage mobile**
 
 ### Copie de sécurité
 
@@ -181,6 +187,8 @@ Un clic sur une carte ouvre une modale. Elle affiche immédiatement les informat
 
 Les détails récupérés sont enregistrés dans `media_entries` afin d’être disponibles aux prochaines ouvertures. Si l’API échoue, la modale garde les données locales et pourra réessayer plus tard.
 
+Les actions rapides de la fiche permettent de passer entre **Wishlist**, **En cours** et **Terminé**, de changer la note et de marquer un coup de cœur. Chaque modification est envoyée à Supabase séparément ; l’interface locale n’est mise à jour qu’après confirmation de la base.
+
 Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche détaillée. Le bouton d’ajout place le titre dans la wishlist.
 
 ### Prochaines sorties
@@ -193,7 +201,7 @@ Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régi
 
 Le service worker utilise une stratégie network-first pour l’application et un cache limité pour les images. Après une première connexion réussie, la dernière bibliothèque chargée peut être affichée hors ligne en lecture seule. Supabase reste la source de vérité : ce cache local n’est jamais renvoyé vers la base. Les recherches externes, les modifications et les prochaines sorties nécessitent le réseau.
 
-Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : barre d’état et Dynamic Island en haut, indicateur d’accueil en bas, ainsi que les marges latérales en orientation paysage. Après une mise à jour, fermer puis rouvrir la web app permet au nouveau service worker de remplacer l’ancien cache.
+Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : barre d’état et Dynamic Island en haut, indicateur d’accueil en bas, ainsi que les marges latérales en orientation paysage. Lorsqu’une nouvelle version est prête, un bandeau propose **Mettre à jour** ; Kulturo recharge ensuite l’interface sans modifier les données Supabase.
 
 ## Base de données et sécurité
 
@@ -214,4 +222,5 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Tester connexion, ajout, modification, suppression et détection de doublon
 - Vérifier l’export JSON depuis le profil
 - Tester les filtres Films/Séries et la modale depuis Prochaines sorties
+- Tester les actions rapides et le choix de grille mobile
 - Tester l’installation et le rafraîchissement de la PWA sur mobile

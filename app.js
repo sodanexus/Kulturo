@@ -14,6 +14,27 @@ const IS_STANDALONE_DISPLAY = Boolean(
 );
 document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
 
+const MOBILE_COLUMNS_KEY = "kulturo-mobile-columns";
+function readMobileColumns() {
+  try {
+    return localStorage.getItem(MOBILE_COLUMNS_KEY) === "2" ? 2 : 3;
+  } catch {
+    return 3;
+  }
+}
+function applyMobileColumns(value = readMobileColumns()) {
+  const columns = Number(value) === 2 ? 2 : 3;
+  document.documentElement.dataset.mobileColumns = String(columns);
+  return columns;
+}
+applyMobileColumns();
+
+let _updateBannerDismissed = false;
+window.addEventListener("kulturo:update-ready", () => {
+  _updateBannerDismissed = false;
+  syncUpdateBanner();
+});
+
 // ── État global ──────────────────────────────────────────────
 const State = {
   user:       null,
@@ -270,23 +291,49 @@ function renderApp() {
     <main id="main">
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
+        <header class="page-heading">
+          <div>
+            <span class="page-kicker">Votre collection</span>
+            <h1>Bibliothèque</h1>
+            <p id="library-summary">Tous vos films, séries, jeux et livres au même endroit.</p>
+          </div>
+        </header>
+        <section id="continue-section" class="continue-section" aria-labelledby="continue-title" hidden></section>
+        <div class="section-heading library-list-heading">
+          <h2 id="library-list-title">Toute la bibliothèque</h2>
+          <span id="library-result-count" class="section-count"></span>
+        </div>
         <div id="cards-grid"></div>
 
       </section>
 
       <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
+        <header class="page-heading">
+          <div>
+            <span class="page-kicker">Votre année culturelle</span>
+            <h1>Profil</h1>
+            <p>Vos habitudes, vos favoris et vos meilleurs souvenirs.</p>
+          </div>
+        </header>
         <div id="dashboard-content"></div>
       </section>
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
+        <header class="page-heading">
+          <div>
+            <span class="page-kicker">À surveiller</span>
+            <h1>Sorties</h1>
+            <p>Films et nouvelles séries attendus en France dans les six prochains mois.</p>
+          </div>
+        </header>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
             <div class="upcoming-type-switch" role="group" aria-label="Type de sortie">
               <button class="upcoming-type-btn active" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')" aria-pressed="true">Tout</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')" aria-pressed="false">🎬 Films</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')" aria-pressed="false">📺 Séries</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')" aria-pressed="false">Films</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')" aria-pressed="false">Séries</button>
             </div>
             <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" onclick="UI.refreshUpcoming()" title="Actualiser les sorties" aria-label="Actualiser les sorties">
               <span class="upcoming-refresh-icon" aria-hidden="true">↻</span>
@@ -300,13 +347,18 @@ function renderApp() {
             </select>
           </label>
         </div>
-        <p class="upcoming-intro">Films et nouvelles séries attendus en France au cours des six prochains mois.</p>
         <div id="upcoming-grid" class="upcoming-grid"></div>
       </section>
 
       <!-- Page Activité partagée -->
       <section id="page-activity" class="page">
-        <p style="color:var(--text-3);font-size:.85rem;margin-bottom:1.5rem">Les derniers médias ajoutés par la communauté.</p>
+        <header class="page-heading">
+          <div>
+            <span class="page-kicker">La communauté</span>
+            <h1>Activité</h1>
+            <p>Les derniers médias ajoutés par les membres de Kulturo.</p>
+          </div>
+        </header>
         <div id="activity-feed"></div>
       </section>
     </main>
@@ -316,6 +368,17 @@ function renderApp() {
 
     <!-- Modal container -->
     <div id="modal-root"></div>
+
+    <!-- Nouvelle version PWA -->
+    <aside id="update-banner" class="update-banner" role="status" aria-live="polite" hidden>
+      <div class="update-banner-icon" aria-hidden="true">↻</div>
+      <div class="update-banner-copy">
+        <strong>Nouvelle version disponible</strong>
+        <span>Quelques secondes suffisent pour l’installer.</span>
+      </div>
+      <button class="btn btn-primary btn-sm" id="apply-update-btn" onclick="UI.applyAppUpdate()">Mettre à jour</button>
+      <button class="update-banner-close" onclick="UI.dismissUpdateBanner()" aria-label="Masquer">${iconX()}</button>
+    </aside>
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
@@ -347,9 +410,11 @@ function renderApp() {
   const savedSort = localStorage.getItem("kulturo-sort");
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
   State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
+  applyMobileColumns();
   buildFilterBar();
   renderCards();
   updateBadges();
+  syncUpdateBanner();
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
@@ -473,37 +538,26 @@ function setTypeFilter(type) {
   _updateFilterResultCount();
 }
 
-const PAGE_ORDER = ["library","dashboard","upcoming","activity"];
 let _currentPage = "library";
 function showPage(name) {
-  const oldPage = document.getElementById(`page-${_currentPage}`);
   const newPage = document.getElementById(`page-${name}`);
   if (!newPage) return;
 
-  const oldIdx = PAGE_ORDER.indexOf(_currentPage);
-  const newIdx = PAGE_ORDER.indexOf(name);
-  const dir    = newIdx >= oldIdx ? 1 : -1;
-
-  // Cache toutes les pages explicitement
+  // Une animation unique évite que chaque onglet ait un mouvement différent.
   document.querySelectorAll(".page").forEach(p => {
-    p.classList.remove("active","slide-left","slide-right");
+    p.classList.remove("active", "slide-left", "slide-right");
     p.style.animation = "";
-    p.style.display   = "";
+    p.style.display = "";
   });
-
-  if (oldPage && oldPage !== newPage) {
-    oldPage.style.animation = `pageSlideOut${dir>0?"Left":"Right"} .2s ease forwards`;
-    setTimeout(() => {
-      oldPage.style.animation = "";
-      oldPage.style.display   = "";
-    }, 220);
-  }
-
-  newPage.style.animation = `pageSlideIn${dir>0?"Right":"Left"} .28s var(--ease-spring) forwards`;
   newPage.classList.add("active");
   _currentPage = name;
   const filterBtn = document.getElementById("btn-filter-toggle");
-  if (filterBtn) filterBtn.hidden = name !== "library";
+  if (filterBtn) {
+    const inactive = name !== "library";
+    filterBtn.classList.toggle("is-inactive", inactive);
+    filterBtn.setAttribute("aria-hidden", String(inactive));
+    filterBtn.tabIndex = inactive ? -1 : 0;
+  }
 
   // #1 — restaure la position de scroll
   const main = document.getElementById("main");
@@ -589,6 +643,70 @@ function _updateFilterResultCount() {
   btn.textContent = `Voir ${count} résultat${count > 1 ? "s" : ""}`;
 }
 
+// ── Accès rapide aux médias en cours ─────────────────────────
+function isLibraryViewUnfiltered() {
+  const f = State.filters;
+  return f.type === "all" && f.status === "all" && !f.favorite && !f.search;
+}
+
+function continueCardHTML(entry) {
+  const coverUrl = safeMediaUrl(entry.cover_url);
+  const cover = coverUrl
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <span class="continue-cover-placeholder" style="display:none">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`
+    : `<span class="continue-cover-placeholder">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
+
+  return `
+    <button type="button" class="continue-card" onclick="UI.openEditModal('${entry.id}')" aria-label="Reprendre ${esc(entry.title)}">
+      <span class="continue-cover">${cover}<span class="continue-play" aria-hidden="true">${iconPlay()}</span></span>
+      <span class="continue-card-copy">
+        <strong>${esc(entry.title)}</strong>
+        <small>${esc(getTypeLabel(entry))}</small>
+      </span>
+    </button>`;
+}
+
+function renderContinueSection() {
+  const section = document.getElementById("continue-section");
+  if (!section) return;
+
+  const items = State.entries
+    .filter(entry => entry.status === "playing")
+    .sort((a, b) => new Date(b.date_started || b.created_at || 0) - new Date(a.date_started || a.created_at || 0))
+    .slice(0, 8);
+
+  if (!items.length || !isLibraryViewUnfiltered()) {
+    section.hidden = true;
+    section.innerHTML = "";
+    return;
+  }
+
+  section.hidden = false;
+  section.innerHTML = `
+    <div class="section-heading continue-heading">
+      <div>
+        <span class="section-eyebrow">À reprendre</span>
+        <h2 id="continue-title">En cours</h2>
+      </div>
+      <button class="section-link" onclick="UI.navTo('status-playing')">Voir tout <span aria-hidden="true">→</span></button>
+    </div>
+    <div class="continue-track">${items.map(continueCardHTML).join("")}</div>`;
+}
+
+function updateLibraryHeading(entries) {
+  const summary = document.getElementById("library-summary");
+  const title = document.getElementById("library-list-title");
+  const count = document.getElementById("library-result-count");
+  if (summary) {
+    const total = State.entries.length;
+    summary.textContent = total
+      ? `${total} média${total > 1 ? "s" : ""} sauvegardé${total > 1 ? "s" : ""}, toujours à portée de main.`
+      : "Tous vos films, séries, jeux et livres au même endroit.";
+  }
+  if (title) title.textContent = isLibraryViewUnfiltered() ? "Toute la bibliothèque" : "Résultats";
+  if (count) count.textContent = `${entries.length} média${entries.length > 1 ? "s" : ""}`;
+}
+
 // ── Rendu grille ──────────────────────────────────────────────
 function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
@@ -605,6 +723,8 @@ function renderCards(options = {}) {
   }
 
   let entries = filterEntries(State.entries);
+  renderContinueSection();
+  updateLibraryHeading(entries);
 
   if (!entries.length) {
     const f = State.filters;
@@ -756,7 +876,7 @@ async function renderDashboard() {
   // Section identité
   const profileTopHTML = `
     <div class="profile-identity-bar">
-      <div class="profile-avatar-circle">👤</div>
+      <div class="profile-avatar-circle">${iconUser()}</div>
       <div class="profile-identity-meta">
         <div class="profile-identity-email">${esc(State.user?.email||"")}</div>
         <div class="profile-username-row">
@@ -1710,6 +1830,45 @@ function toast(msg, type = "info") {
   }, 2800);
 }
 
+// ── Mise à jour de la PWA ────────────────────────────────────
+function syncUpdateBanner() {
+  const banner = document.getElementById("update-banner");
+  if (!banner) return;
+  const ready = Boolean(window.__kulturoUpdateRegistration?.waiting);
+  banner.hidden = !ready || _updateBannerDismissed;
+}
+
+function dismissUpdateBanner() {
+  _updateBannerDismissed = true;
+  syncUpdateBanner();
+}
+
+function applyAppUpdate() {
+  const registration = window.__kulturoUpdateRegistration;
+  if (!registration?.waiting) {
+    window.location.reload();
+    return;
+  }
+  if (document.getElementById("modal-overlay") || document.getElementById("filter-modal-overlay")) {
+    toast("Enregistre ou ferme d’abord la fenêtre ouverte.", "info");
+    return;
+  }
+
+  const button = document.getElementById("apply-update-btn");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Mise à jour…";
+  }
+  window.__kulturoUpdateAccepted = true;
+  registration.waiting.postMessage({ type: "SKIP_WAITING" });
+
+  // Secours pour les anciennes versions de WebKit qui omettent parfois
+  // l'événement controllerchange en mode installé.
+  setTimeout(() => {
+    if (!window.__kulturoReloading) window.location.reload();
+  }, 3500);
+}
+
 // ── Escape HTML ───────────────────────────────────────────────
 function esc(str) {
   if (!str) return "";
@@ -1722,6 +1881,9 @@ const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="curre
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
 const iconGrid    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
+const iconPlay    = () => `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg>`;
+const iconEdit    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const iconTrash   = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>`;
 const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`;
 
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
@@ -2055,13 +2217,13 @@ function renderDetailPanel(e, options = {}) {
             ${posterHTML}
             <div class="detail-backdrop-info">
               <h2 class="detail-title">${esc(e.title)}</h2>
-              ${stars ? `<div class="detail-stars">${stars}</div>` : ""}
+              ${stars ? `<div class="detail-stars" id="detail-stars-${e.id}">${stars}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
                 ${e.status
-                  ? `<span class="badge badge-${e.status}">${STATUS_LABELS[e.status]}</span>`
+                  ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${STATUS_LABELS[e.status]}</span>`
                   : `<span class="badge badge-upcoming">📅 À venir</span>`}
-                ${e.is_favorite ? `<span class="detail-fav">♥</span>` : ""}
+                ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" aria-hidden="true">♥</span>` : ""}
               </div>
             </div>
           </div>
@@ -2071,14 +2233,14 @@ function renderDetailPanel(e, options = {}) {
 
         <div class="modal-footer">
           ${isPreview ? `
-            <div style="display:flex;gap:.5rem;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+            <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
               <button class="btn btn-primary btn-sm" onclick="UI.addUpcomingToWishlistFromModal(${options.upcomingIdx})">+ Wishlist</button>
             </div>` : `
-            <button class="btn btn-danger btn-icon-only" title="Supprimer" onclick="UI.deleteEntry('${e.id}')">🗑</button>
-            <div style="display:flex;gap:.5rem;margin-left:auto">
+            <button class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer" aria-label="Supprimer" onclick="UI.deleteEntry('${e.id}')">${iconTrash()}</button>
+            <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">✏ Modifier</button>
+              <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">${iconEdit()} Modifier</button>
             </div>`}
         </div>
       </div>
@@ -2093,6 +2255,66 @@ function renderDetailPanel(e, options = {}) {
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
+function quickRatingHTML(entry) {
+  const current = Number(entry.rating) || 0;
+  const safeId = String(entry.id).replace(/[^a-zA-Z0-9_-]/g, "");
+  const stars = Array.from({ length: 5 }, (_, index) => {
+    const full = (index + 1) * 2;
+    const half = full - 1;
+    const fullActive = current >= full;
+    const halfActive = current >= half && !fullActive;
+    const clipId = `quick-half-${safeId}-${index}`;
+    return `
+      <span class="quick-star-wrap">
+        <svg class="quick-star-svg" viewBox="0 0 20 20" aria-hidden="true">
+          <defs><clipPath id="${clipId}"><rect x="0" y="0" width="10" height="20"/></clipPath></defs>
+          <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${fullActive ? "var(--accent)" : "var(--border-2)"}"/>
+          <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${halfActive ? "var(--accent)" : "none"}" clip-path="url(#${clipId})"/>
+        </svg>
+        <button type="button" class="quick-star-zone quick-star-half" onclick="UI.quickRate('${entry.id}', ${half})" aria-label="Noter ${half} sur 10" aria-pressed="${current === half}"></button>
+        <button type="button" class="quick-star-zone quick-star-full" onclick="UI.quickRate('${entry.id}', ${full})" aria-label="Noter ${full} sur 10" aria-pressed="${current === full}"></button>
+      </span>`;
+  }).join("");
+
+  return `
+    <div class="quick-rating" role="group" aria-label="Votre note">
+      <div class="quick-rating-stars">${stars}</div>
+      <span class="quick-rating-value">${current ? `${current}/10` : "Non noté"}</span>
+      ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
+    </div>`;
+}
+
+function quickActionsHTML(entry) {
+  const statusOptions = [
+    ["wishlist", "♡", "Wishlist"],
+    ["playing", "▶", "En cours"],
+    ["finished", "✓", "Terminé"],
+  ];
+  return `
+    <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
+      <div class="quick-actions-header">
+        <span>Actions rapides</span>
+        <span class="quick-actions-feedback" id="quick-feedback-${entry.id}" aria-live="polite"></span>
+      </div>
+      <div class="quick-status-control" role="group" aria-label="Statut">
+        ${statusOptions.map(([value, icon, label]) => `
+          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" onclick="UI.quickSetStatus('${entry.id}', '${value}')" aria-pressed="${entry.status === value}">
+            <span aria-hidden="true">${icon}</span>${label}
+          </button>`).join("")}
+      </div>
+      <div class="quick-actions-row">
+        <div class="quick-rating-group">
+          <span class="quick-actions-label">Votre note</span>
+          ${quickRatingHTML(entry)}
+        </div>
+        <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}">
+          <span aria-hidden="true">♥</span>
+          <span>Coup de cœur</span>
+        </button>
+      </div>
+    </section>`;
+}
+
 function renderDetailBody(e) {
   const metaRow = (label, value) => value
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
@@ -2107,6 +2329,8 @@ function renderDetailBody(e) {
   const chip = (txt) => `<span class="detail-chip">${esc(txt)}</span>`;
 
   let html = "";
+
+  if (e.status) html += quickActionsHTML(e);
 
   // ── Méta de base ──
   const baseMeta = [
@@ -2179,6 +2403,98 @@ function renderDetailBody(e) {
   }
 
   return html || "";
+}
+
+function syncOpenDetail(entry, feedback = "") {
+  const quickActions = document.getElementById(`detail-quick-actions-${entry.id}`);
+  if (quickActions) quickActions.outerHTML = quickActionsHTML(entry);
+
+  const statusBadge = document.getElementById(`detail-status-${entry.id}`);
+  if (statusBadge) {
+    statusBadge.className = `badge badge-${entry.status}`;
+    statusBadge.textContent = STATUS_LABELS[entry.status] || entry.status;
+  }
+
+  const favorite = document.getElementById(`detail-fav-${entry.id}`);
+  if (favorite) favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
+
+  const stars = document.getElementById(`detail-stars-${entry.id}`);
+  if (stars) stars.innerHTML = ratingStars(entry.rating);
+
+  if (feedback) {
+    const feedbackEl = document.getElementById(`quick-feedback-${entry.id}`);
+    if (feedbackEl) {
+      feedbackEl.textContent = feedback;
+      feedbackEl.classList.add("is-visible");
+      setTimeout(() => {
+        if (!feedbackEl.isConnected) return;
+        feedbackEl.classList.remove("is-visible");
+        setTimeout(() => { if (feedbackEl.isConnected) feedbackEl.textContent = ""; }, 180);
+      }, 1200);
+    }
+  }
+}
+
+async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry || entry._quickSaving) return null;
+  entry._quickSaving = true;
+
+  const panel = document.getElementById(`detail-quick-actions-${id}`);
+  panel?.classList.add("is-saving");
+  panel?.querySelectorAll("button").forEach(button => { button.disabled = true; });
+  const savingLabel = document.getElementById(`quick-feedback-${id}`);
+  if (savingLabel) savingLabel.textContent = "Enregistrement…";
+
+  try {
+    const updated = await Media.update(id, changes);
+    Object.assign(entry, updated);
+    cacheEntriesLocally();
+    renderCards();
+    updateBadges();
+    syncOpenDetail(entry, feedback);
+    return entry;
+  } catch (error) {
+    toast("Modification impossible : " + error.message, "error");
+    panel?.classList.remove("is-saving");
+    panel?.querySelectorAll("button").forEach(button => { button.disabled = false; });
+    if (savingLabel) savingLabel.textContent = "";
+    return null;
+  } finally {
+    delete entry._quickSaving;
+  }
+}
+
+async function quickSetStatus(id, status) {
+  if (!["wishlist", "playing", "finished"].includes(status)) return;
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry || entry.status === status) return;
+
+  const previousStatus = entry.status;
+  const changes = { status };
+  const today = localISODate();
+  // On complète uniquement les dates manquantes : aucun historique existant
+  // n'est effacé par une action rapide.
+  if (status === "playing" && !entry.date_started) changes.date_started = today;
+  if (status === "finished" && !entry.date_finished) changes.date_finished = today;
+
+  const updated = await persistQuickEntryChange(id, changes, STATUS_LABELS[status]);
+  if (updated && status === "finished" && previousStatus !== "finished") launchConfetti();
+}
+
+async function quickRate(id, value) {
+  const rating = Number(value);
+  if (!Number.isInteger(rating) || rating < 0 || rating > 10) return;
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry || Number(entry.rating || 0) === rating) return;
+  await persistQuickEntryChange(id, { rating: rating || null }, rating ? `${rating}/10 enregistré` : "Note effacée");
+}
+
+async function quickToggleFavorite(id) {
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry) return;
+  const favorite = !entry.is_favorite;
+  await persistQuickEntryChange(id, { is_favorite: favorite }, favorite ? "Ajouté aux favoris" : "Retiré des favoris");
 }
 
 function _checkSynopsisOverflow(entryId) {
@@ -2417,7 +2733,7 @@ function loadingDone() {
 
 // ── Confetti ──────────────────────────────────────────────────
 function launchConfetti() {
-  const colors = ["#c8a96e","#e8c98e","#5b8dee","#e05b7f","#5bbf8d","#fff"];
+  const colors = ["#d8b46a","#efcf8c","#7ea6ff","#ff7f96","#69d4a2","#fff"];
   const container = document.body;
   for (let i = 0; i < 60; i++) {
     const el = document.createElement("div");
@@ -2637,6 +2953,16 @@ function exportLibrary() {
   toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} exporté${cleanEntries.length > 1 ? "s" : ""} ✓`, "success");
 }
 
+function setMobileColumns(value) {
+  const columns = applyMobileColumns(value);
+  try { localStorage.setItem(MOBILE_COLUMNS_KEY, String(columns)); } catch {}
+  document.querySelectorAll(".mobile-columns-btn").forEach(button => {
+    const active = Number(button.dataset.columns) === columns;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
 // ── Fil d'activité partagé ────────────────────────────────────
 async function renderActivity() {
   const container = document.getElementById("activity-feed");
@@ -2736,6 +3062,9 @@ window.UI = {
   saveEntry,
   deleteEntry,
   toggleFav,
+  quickSetStatus,
+  quickRate,
+  quickToggleFavorite,
   fillFromApi,
   setRating,
   previewRating,
@@ -2753,6 +3082,7 @@ window.UI = {
       const statuses = ["all","wishlist","playing","finished","paused","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
       const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
+      const mobileColumns = readMobileColumns();
       const typeChips = types.map(([v,l]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
           onclick="UI.setTypeFilter('${v}')">${l}</button>`
@@ -2802,6 +3132,19 @@ window.UI = {
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Trier par</div>
                 <div class="filter-modal-chips" id="fm-sort-chips">${sortChips}</div>
+              </div>
+              <div class="filter-modal-section mobile-display-setting">
+                <div class="filter-modal-label">Affichage mobile</div>
+                <div class="mobile-columns-control" role="group" aria-label="Nombre de colonnes">
+                  <button type="button" class="mobile-columns-btn ${mobileColumns === 2 ? "active" : ""}" data-columns="2" aria-pressed="${mobileColumns === 2}" onclick="UI.setMobileColumns(2)">
+                    <span class="columns-preview columns-preview-2" aria-hidden="true"><i></i><i></i></span>
+                    2 colonnes
+                  </button>
+                  <button type="button" class="mobile-columns-btn ${mobileColumns === 3 ? "active" : ""}" data-columns="3" aria-pressed="${mobileColumns === 3}" onclick="UI.setMobileColumns(3)">
+                    <span class="columns-preview columns-preview-3" aria-hidden="true"><i></i><i></i><i></i></span>
+                    3 colonnes
+                  </button>
+                </div>
               </div>
             </div>
             <div class="modal-footer">
@@ -2878,6 +3221,9 @@ window.UI = {
   openUpcomingDetail,
   saveUsername,
   exportLibrary,
+  setMobileColumns,
+  applyAppUpdate,
+  dismissUpdateBanner,
   showRatingLabel,
   hideRatingLabel,
   setModalType: (type) => {

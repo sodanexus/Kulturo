@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v8";
+const STATIC_CACHE = "kulturo-static-v9";
 const IMAGE_CACHE = "kulturo-images-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
 const MAX_IMAGE_ENTRIES = 120;
@@ -21,8 +21,12 @@ self.addEventListener("install", e => {
       // Une ressource momentanément indisponible ne doit pas annuler
       // l'installation complète du service worker.
       .then(cache => Promise.allSettled(STATIC_ASSETS.map(asset => cache.add(asset))))
-      .then(() => self.skipWaiting())
   );
+});
+
+// L'utilisateur choisit le moment du rechargement depuis le bandeau Kulturo.
+self.addEventListener("message", e => {
+  if (e.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 // Activate — supprime uniquement les anciens caches appartenant à Kulturo.
