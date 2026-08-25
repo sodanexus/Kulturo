@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.6
+
+La version 2.5.6 fixe la hiérarchie typographique de Kulturo. Newsreader est réservée au logo, aux grands titres de pages, aux titres des médias dans leur fiche et au texte des synopsis. Manrope structure tout le reste de l'interface : titres fonctionnels, cartes, sections, boutons, filtres, navigation, informations et statistiques. Le libellé **Synopsis** reste en Manrope pour distinguer clairement l'interface du contenu éditorial. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
+
 ### Correctif Kulturo 2.5.5
 
 La version 2.5.5 utilise **Manrope ExtraBold** pour les titres des fiches média. Newsreader reste réservée aux grands titres de pages afin de conserver l'identité éditoriale de Kulturo, tandis que les modales gagnent en lisibilité et en modernité. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
@@ -246,7 +250,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.5",
+    version: "2.5.6",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
