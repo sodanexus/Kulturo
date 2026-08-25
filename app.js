@@ -2530,10 +2530,18 @@ async function renderUpcoming(force = false) {
     const merged = [];
     enabledSources.forEach((source, index) => {
       const result = settled[index];
-      const status = result.status === "fulfilled" ? "ok" : "error";
-      source.types.forEach(type => { UpcomingState.sourceStatus[type] = status; });
-      if (result.status === "fulfilled") merged.push(...(result.value || []));
-      else console.warn(`[Sorties/${source.key}]`, result.reason);
+      if (result.status === "fulfilled") {
+        const sourceItems = Array.isArray(result.value) ? result.value : [];
+        source.types.forEach(type => {
+          UpcomingState.sourceStatus[type] = sourceItems.some(item => upcomingTypeOf(item) === type)
+            ? "ok"
+            : "empty";
+        });
+        merged.push(...sourceItems);
+      } else {
+        source.types.forEach(type => { UpcomingState.sourceStatus[type] = "error"; });
+        console.warn(`[Sorties/${source.key}]`, result.reason);
+      }
     });
     if (settled.length && settled.every(result => result.status === "rejected")) {
       throw new Error("Toutes les sources sont indisponibles");
@@ -2587,12 +2595,25 @@ function renderUpcomingCards() {
       game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
       book: "Ajoutez une clé Google Books dans config.js pour charger les parutions françaises.",
     };
+    const emptyMessages = {
+      movie: "Aucune sortie cinéma française vérifiable n’a été trouvée sur cette période.",
+      tv: "Aucune nouvelle série diffusée en France n’a été trouvée sur cette période.",
+      game: "IGDB n’a renvoyé aucune sortie Europe ou Monde vérifiable sur cette période.",
+      book: "La clé fonctionne, mais Google Books ne fournit actuellement aucune parution française future avec une date assez fiable. Kulturo préfère ne rien afficher plutôt que proposer des livres déjà sortis ou des éditions étrangères.",
+    };
     const sourceMessage = sourceStatus === "error"
       ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."
       : sourceStatus === "unavailable"
         ? (unavailableMessages[UpcomingState.type] || "La source nécessaire n’est pas configurée sur cette installation.")
+        : sourceStatus === "empty"
+          ? (emptyMessages[UpcomingState.type] || "Aucune sortie vérifiable n’est disponible pour cette période.")
         : "Aucune sortie ne correspond à ces filtres actuellement.";
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>${sourceStatus === "error" ? "Catalogue indisponible" : "Aucune sortie trouvée"}</h3><p>${sourceMessage}</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
+    const emptyTitle = sourceStatus === "error"
+      ? "Catalogue indisponible"
+      : sourceStatus === "empty" && UpcomingState.type === "book"
+        ? "Aucune date française fiable"
+        : "Aucune sortie trouvée";
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>${emptyTitle}</h3><p>${sourceMessage}</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
     return;
   }
 

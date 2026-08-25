@@ -65,6 +65,18 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.1
+
+La version 2.5.1 corrige le catalogue **Jeux** pendant la migration régionale d’IGDB. La fonction utilise le nouveau champ `release_region`, puis retombe automatiquement sur les anciennes régions Europe/Monde si le nouveau catalogue ne contient encore aucune date.
+
+Google Books reste utile pour enrichir les fiches et peut fournir quelques parutions futures, mais son moteur de recherche ne constitue pas un calendrier exhaustif des sorties françaises. Lorsque la clé est valide mais qu’aucune date future suffisamment précise n’est renvoyée, Kulturo l’indique désormais explicitement au lieu de présenter la source comme mal configurée. Aucune édition étrangère ou date ancienne n’est ajoutée pour remplir artificiellement l’onglet.
+
+**Aucune migration SQL n’est nécessaire et aucun média existant n’est lu, modifié ou supprimé par ce correctif.** Après avoir remplacé les fichiers du site, redéployer uniquement :
+
+```bash
+supabase functions deploy igdb-proxy
+```
+
 ### Mise à jour vers Kulturo 2.5
 
 La version 2.5 étend **Sorties** aux jeux vidéo et aux livres, et retire la majorité des séries sans diffusion française identifiable. **Aucune migration SQL n’est nécessaire et aucun média existant n’est modifié.**
@@ -75,7 +87,7 @@ Après avoir remplacé les fichiers du site, redéployer uniquement la fonction 
 supabase functions deploy igdb-proxy
 ```
 
-Pour afficher les parutions de livres et compléter les résumés absents d’Open Library, activer **Books API** dans Google Cloud, créer une clé d’API puis la restreindre à l’API Google Books et au référent `https://sodanexus.github.io/*`. Renseigner ensuite la clé publique dans `config.js` :
+Pour afficher les parutions que Google référence avec une date française exploitable et compléter les résumés absents d’Open Library, activer **Books API** dans Google Cloud, créer une clé d’API puis la restreindre à l’API Google Books et au référent `https://sodanexus.github.io/*`. Renseigner ensuite la clé publique dans `config.js` :
 
 ```js
 googleBooks: {
@@ -193,7 +205,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.0",
+    version: "2.5.1",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

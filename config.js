@@ -30,7 +30,7 @@ const CONFIG = {
   },
 
   // ── Google Books — clé publique restreinte au domaine GitHub Pages.
-  // Nécessaire uniquement pour le catalogue des prochaines parutions.
+  // Utilisée pour les parutions disponibles et l'enrichissement des fiches.
   googleBooks: {
     apiKey: "AIzaSyBvNeVv8Ukp6-RXUo3DpvGFP3M21bdfUzk",
   },
@@ -38,7 +38,7 @@ const CONFIG = {
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "2.5.0",
+    version: "2.5.1",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
   },

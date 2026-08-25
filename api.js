@@ -374,7 +374,9 @@ export const OpenLibrary = {
 };
 
 // ── Parutions françaises — Google Books ─────────────────────
-// Google Books est utilisé ici comme catalogue de parutions. Lors de l'ajout,
+// Google Books est une source opportuniste : Kulturo conserve uniquement les
+// éditions françaises futures dotées d'une date assez précise et n'invente
+// aucun résultat lorsqu'aucune parution fiable n'est fournie. Lors de l'ajout,
 // le livre reste enregistré avec la source "manual", déjà autorisée par le
 // schéma Kulturo : aucune migration n'est nécessaire.
 export const GoogleBooks = {

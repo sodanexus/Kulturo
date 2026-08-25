@@ -80,29 +80,14 @@ function normalizeIgdbLabel(value: unknown): string {
 }
 
 async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[]> {
-  // IGDB a remplacé l'ancien enum numérique de région par des entités
-  // release_date_regions. Résoudre leurs IDs dynamiquement évite de dépendre
-  // d'identifiants amenés à disparaître.
-  const regions = await igdbRequest(
-    "release_date_regions",
-    "fields id,region; limit 100;",
-    headers,
-  );
-  const acceptedRegionIds = regions
-    .filter(region => ["europe", "worldwide", "monde"].includes(normalizeIgdbLabel(region.region)))
-    .map(region => Number(region.id))
-    .filter(Number.isSafeInteger);
-  if (!acceptedRegionIds.length) throw new Error("Régions Europe/Monde introuvables dans IGDB");
-
   const now = new Date();
   const end = new Date(now);
   end.setUTCDate(end.getUTCDate() + 183);
   const startUnix = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000);
   const endUnix = Math.floor(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59) / 1000);
-  const fields = [
+  const sharedFields = [
     "date",
     "date_format.format",
-    "release_region.region",
     "platform.name",
     "game.id",
     "game.name",
@@ -115,13 +100,49 @@ async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[
     "game.hypes",
     "game.version_parent",
   ].join(",");
-  const where = `date >= ${startUnix} & date <= ${endUnix} & release_region = (${acceptedRegionIds.join(",")})`;
-  const page = (offset: number) => igdbRequest(
-    "release_dates",
-    `fields ${fields}; where ${where}; sort date asc; limit 500; offset ${offset};`,
-    headers,
-  );
-  const releases = (await Promise.all([page(0), page(500)])).flat();
+  const dateWhere = `date >= ${startUnix} & date <= ${endUnix}`;
+  const fetchPages = async (fields: string, where: string): Promise<any[]> => {
+    const page = (offset: number) => igdbRequest(
+      "release_dates",
+      `fields ${fields}; where ${where}; sort date asc; limit 500; offset ${offset};`,
+      headers,
+    );
+    return (await Promise.all([page(0), page(500)])).flat();
+  };
+
+  // IGDB fait migrer l'ancien enum `region` vers la relation
+  // `release_region`. Pendant la transition, certaines dates n'existent que
+  // dans l'un des deux formats. On privilégie le nouveau modèle, puis on
+  // retombe sur Europe=1 / Worldwide=8 uniquement s'il ne renvoie rien.
+  // Les champs sont séparés afin que la suppression future de `region` ne
+  // puisse pas casser la requête moderne.
+  let releases: any[] = [];
+  try {
+    const regions = await igdbRequest(
+      "release_date_regions",
+      "fields id,region; limit 100;",
+      headers,
+    );
+    const acceptedRegionIds = regions
+      .filter(region => ["europe", "worldwide", "monde"].includes(normalizeIgdbLabel(region.region)))
+      .map(region => Number(region.id))
+      .filter(Number.isSafeInteger);
+    if (acceptedRegionIds.length) {
+      releases = await fetchPages(
+        `${sharedFields},release_region.region`,
+        `${dateWhere} & release_region = (${acceptedRegionIds.join(",")})`,
+      );
+    }
+  } catch (error) {
+    console.warn("[IGDB] Nouveau filtre régional indisponible, essai du format historique", error);
+  }
+
+  if (!releases.length) {
+    releases = await fetchPages(
+      `${sharedFields},region`,
+      `${dateWhere} & region = (1,8)`,
+    );
+  }
   const allowedTypes = new Set([
     "main game",
     "remake",
@@ -143,7 +164,9 @@ async function fetchUpcomingGames(headers: Record<string, string>): Promise<any[
     const gameType = normalizeIgdbLabel(game.game_type?.type);
     if (gameType && !allowedTypes.has(gameType)) continue;
 
-    const regionLabel = normalizeIgdbLabel(release.release_region?.region) === "europe"
+    const modernRegion = normalizeIgdbLabel(release.release_region?.region);
+    const legacyRegion = Number(release.region);
+    const regionLabel = modernRegion === "europe" || legacyRegion === 1
       ? "Europe"
       : "Worldwide";
     const existing = grouped.get(gameId);
