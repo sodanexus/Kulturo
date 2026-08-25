@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, Auth, Media, computeStats, Profiles, Activity } from "./supabase.js";
+import { initSupabase, Auth, Media, Profiles, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -42,10 +42,12 @@ const State = {
   entries:    [],
   filters: {
     type:     "all",
+    subtype:  "all",
     status:   "all",
     favorite: false,
     search:   "",
     sort:     "created_at",
+    year:     "all",
   },
   editingId:  null,
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
@@ -96,6 +98,11 @@ function yearOf(value) {
   if (!value) return null;
   const year = new Date(`${String(value).slice(0, 10)}T12:00:00`).getFullYear();
   return Number.isFinite(year) ? year : null;
+}
+
+function entryActivityYear(entry) {
+  if (entry.status === "finished") return yearOf(entry.date_finished) || yearOf(entry.created_at);
+  return yearOf(entry.date_started) || yearOf(entry.created_at);
 }
 
 // ── Labels ───────────────────────────────────────────────────
@@ -272,19 +279,22 @@ function renderApp() {
           <span class="nav-icon">${iconGrid()}</span>
           <span class="nav-label">Bibliothèque</span>
         </button>
-        <button class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
-          <span class="nav-icon">${iconChart()}</span>
-          <span class="nav-label">Profil</span>
+        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
+          <span class="nav-icon">${iconCalendar()}</span>
+          <span class="nav-label">Sorties</span>
         </button>
         <button class="nav-item" data-nav="activity" data-tooltip="Activité" aria-label="Activité" onclick="UI.navTo('activity')">
           <span class="nav-icon">${iconActivity()}</span>
           <span class="nav-label">Activité</span>
         </button>
-        <button class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
-          <span class="nav-icon">${iconCalendar()}</span>
-          <span class="nav-label">Sorties</span>
+        <button class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
+          <span class="nav-icon">${iconChart()}</span>
+          <span class="nav-label">Profil</span>
         </button>
       </div>
+      <button class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" onclick="UI.openAddModal()">
+        ${iconPlus()}
+      </button>
     </nav>
 
     <!-- Main -->
@@ -298,6 +308,7 @@ function renderApp() {
             <p id="library-summary">Tous vos films, séries, jeux et livres au même endroit.</p>
           </div>
         </header>
+        <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
         <section id="continue-section" class="continue-section" aria-labelledby="continue-title" hidden></section>
         <div class="section-heading library-list-heading">
           <h2 id="library-list-title">Toute la bibliothèque</h2>
@@ -346,8 +357,16 @@ function renderApp() {
               <option value="all">Tous les genres</option>
             </select>
           </label>
+          <div class="upcoming-toolbar-meta">
+            <label class="compact-toggle">
+              <input type="checkbox" id="upcoming-hide-added" onchange="UI.setUpcomingHideAdded(this.checked)" />
+              <span class="compact-toggle-track" aria-hidden="true"><span></span></span>
+              <span>Masquer les titres ajoutés</span>
+            </label>
+            <span id="upcoming-result-count" class="section-count"></span>
+          </div>
         </div>
-        <div id="upcoming-grid" class="upcoming-grid"></div>
+        <div id="upcoming-grid" class="upcoming-months"></div>
       </section>
 
       <!-- Page Activité partagée -->
@@ -359,6 +378,13 @@ function renderApp() {
             <p>Les derniers médias ajoutés par les membres de Kulturo.</p>
           </div>
         </header>
+        <div class="activity-toolbar">
+          <div class="activity-view-switch" role="group" aria-label="Filtrer l’activité">
+            <button class="activity-view-btn active" id="activity-view-all" onclick="UI.setActivityView('all')" aria-pressed="true">Tout</button>
+            <button class="activity-view-btn" id="activity-view-me" onclick="UI.setActivityView('me')" aria-pressed="false">Moi</button>
+          </div>
+          <span id="activity-result-count" class="section-count"></span>
+        </div>
         <div id="activity-feed"></div>
       </section>
     </main>
@@ -379,6 +405,10 @@ function renderApp() {
       <button class="btn btn-primary btn-sm" id="apply-update-btn" onclick="UI.applyAppUpdate()">Mettre à jour</button>
       <button class="update-banner-close" onclick="UI.dismissUpdateBanner()" aria-label="Masquer">${iconX()}</button>
     </aside>
+
+    <button id="back-to-top" class="back-to-top" onclick="UI.scrollToTop()" aria-label="Revenir en haut" title="Revenir en haut" hidden>
+      <span aria-hidden="true">↑</span>
+    </button>
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
@@ -415,6 +445,8 @@ function renderApp() {
   renderCards();
   updateBadges();
   syncUpdateBanner();
+  document.getElementById("main")?.addEventListener("scroll", syncBackToTop, { passive: true });
+  syncBackToTop();
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
@@ -490,8 +522,10 @@ function navTo(key, options = {}) {
     key = "dashboard";
   } else if (key.startsWith("type-")) {
     State.filters.type     = key.replace("type-", "");
+    State.filters.subtype  = "all";
     State.filters.status   = "all";
     State.filters.favorite = false;
+    State.filters.year     = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -499,7 +533,9 @@ function navTo(key, options = {}) {
   } else if (key.startsWith("status-")) {
     State.filters.status   = key.replace("status-", "");
     State.filters.type     = "all";
+    State.filters.subtype  = "all";
     State.filters.favorite = false;
+    State.filters.year     = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -507,7 +543,9 @@ function navTo(key, options = {}) {
   } else if (key === "fav") {
     State.filters.favorite = true;
     State.filters.type     = "all";
+    State.filters.subtype  = "all";
     State.filters.status   = "all";
+    State.filters.year     = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -515,8 +553,10 @@ function navTo(key, options = {}) {
   } else {
     // "library" → reset complet
     State.filters.type     = "all";
+    State.filters.subtype  = "all";
     State.filters.status   = "all";
     State.filters.favorite = false;
+    State.filters.year     = "all";
     if (!options.preserveSearch) {
       State.filters.search = "";
       const search = document.getElementById("global-search");
@@ -532,6 +572,7 @@ function navTo(key, options = {}) {
 // ── Filtre type depuis les category-tabs (conserve le status) ─
 function setTypeFilter(type) {
   State.filters.type     = type;
+  State.filters.subtype  = "all";
   syncFilterChips();
   renderCards({ resetScroll: true });
   updateCategoryTabs(type);
@@ -569,6 +610,20 @@ function showPage(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "upcoming")  renderUpcoming();
   if (name === "activity")  renderActivity();
+  requestAnimationFrame(syncBackToTop);
+}
+
+function syncBackToTop() {
+  const main = document.getElementById("main");
+  const button = document.getElementById("back-to-top");
+  if (!main || !button) return;
+  button.hidden = main.scrollTop < 560;
+}
+
+function scrollToTop() {
+  const main = document.getElementById("main");
+  if (!main) return;
+  main.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ── Filter bar ────────────────────────────────────────────────
@@ -589,10 +644,11 @@ function buildFilterBar() {
 
 function _countActiveFilters() {
   let n = 0;
-  if (State.filters.type !== "all") n++;
+  if (State.filters.subtype !== "all" || State.filters.type !== "all") n++;
   if (State.filters.favorite) n++;
   if (State.filters.status !== "all") n++;
   if (State.filters.sort !== "created_at") n++;
+  if (State.filters.year !== "all") n++;
   return n;
 }
 
@@ -646,7 +702,7 @@ function _updateFilterResultCount() {
 // ── Accès rapide aux médias en cours ─────────────────────────
 function isLibraryViewUnfiltered() {
   const f = State.filters;
-  return f.type === "all" && f.status === "all" && !f.favorite && !f.search;
+  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all";
 }
 
 function continueCardHTML(entry) {
@@ -707,6 +763,77 @@ function updateLibraryHeading(entries) {
   if (count) count.textContent = `${entries.length} média${entries.length > 1 ? "s" : ""}`;
 }
 
+function renderActiveFilters() {
+  const container = document.getElementById("active-filter-summary");
+  if (!container) return;
+
+  const typeLabels = { game: "Jeux", movie: "Films / Séries", book: "Livres" };
+  const subtypeLabels = { movie: "Films", tv: "Séries" };
+  const sortLabels = {
+    date_finished: "Date de fin",
+    rating_desc: "Meilleures notes",
+    rating_asc: "Notes croissantes",
+    title: "Titre",
+  };
+  const filters = [];
+  if (State.filters.subtype !== "all") filters.push(["subtype", subtypeLabels[State.filters.subtype] || State.filters.subtype]);
+  else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
+  if (State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
+  if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
+  if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
+  if (State.filters.search) filters.push(["search", `“${State.filters.search}”`]);
+  if (State.filters.year !== "all") filters.push(["year", String(State.filters.year)]);
+
+  container.hidden = filters.length === 0;
+  container.innerHTML = filters.length ? `
+    <span class="active-filter-label">Filtres actifs</span>
+    <div class="active-filter-chips">
+      ${filters.map(([key, label]) => `
+        <button type="button" class="active-filter-chip" onclick="UI.clearLibraryFilter('${key}')" aria-label="Retirer le filtre ${esc(label)}">
+          ${esc(label)} <span aria-hidden="true">×</span>
+        </button>`).join("")}
+    </div>
+    <button type="button" class="active-filter-reset" onclick="UI.clearAllLibraryFilters()">Tout effacer</button>` : "";
+}
+
+function clearLibraryFilter(key) {
+  if (key === "type" || key === "subtype") {
+    State.filters.type = "all";
+    State.filters.subtype = "all";
+  }
+  else if (key === "status") State.filters.status = "all";
+  else if (key === "favorite") State.filters.favorite = false;
+  else if (key === "sort") {
+    State.filters.sort = "created_at";
+    localStorage.setItem("kulturo-sort", "created_at");
+  } else if (key === "search") {
+    State.filters.search = "";
+    const search = document.getElementById("global-search");
+    if (search) search.value = "";
+  } else if (key === "year") State.filters.year = "all";
+  syncFilterChips();
+  updateCategoryTabs(State.filters.type, State.filters.favorite);
+  renderCards({ resetScroll: true });
+  _updateFilterResultCount();
+}
+
+function clearAllLibraryFilters() {
+  State.filters.type = "all";
+  State.filters.subtype = "all";
+  State.filters.status = "all";
+  State.filters.favorite = false;
+  State.filters.search = "";
+  State.filters.sort = "created_at";
+  State.filters.year = "all";
+  localStorage.setItem("kulturo-sort", "created_at");
+  const search = document.getElementById("global-search");
+  if (search) search.value = "";
+  syncFilterChips();
+  updateCategoryTabs("all");
+  renderCards({ resetScroll: true });
+  _updateFilterResultCount();
+}
+
 // ── Rendu grille ──────────────────────────────────────────────
 function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
@@ -723,6 +850,7 @@ function renderCards(options = {}) {
   }
 
   let entries = filterEntries(State.entries);
+  renderActiveFilters();
   renderContinueSection();
   updateLibraryHeading(entries);
 
@@ -732,6 +860,9 @@ function renderCards(options = {}) {
     let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
     else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
+    else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
+    else if (f.subtype === "movie") emptyMsg = "Aucun film ne correspond à ces filtres.";
+    else if (f.subtype === "tv")    emptyMsg = "Aucune série ne correspond à ces filtres.";
     else if (f.status !== "all")     emptyMsg = `Aucun média avec le statut "<strong>${STATUS_LABELS[f.status]}</strong>".`;
     else if (f.type === "game")      emptyMsg = "Aucun jeu dans votre bibliothèque.";
     else if (f.type === "movie")     emptyMsg = "Aucun film ou série dans votre bibliothèque.";
@@ -741,7 +872,7 @@ function renderCards(options = {}) {
         <div class="empty-icon">🎭</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.status !== "all" || f.type !== "all"
+        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all"
           ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
           : emptyBtn}
       </div>`;
@@ -755,8 +886,10 @@ function filterEntries(entries) {
   let res = [...entries];
   const f = State.filters;
   if (f.type    !== "all") res = res.filter(e => e.media_type === f.type);
+  if (f.subtype !== "all") res = res.filter(e => e.media_type === "movie" && (e.subtype === "tv" ? "tv" : "movie") === f.subtype);
   if (f.status  !== "all") res = res.filter(e => e.status    === f.status);
   if (f.favorite)          res = res.filter(e => e.is_favorite);
+  if (f.year !== "all")   res = res.filter(e => entryActivityYear(e) === Number(f.year));
   if (f.search)  res = res.filter(e => e.title.toLowerCase().includes(f.search.toLowerCase()));
   // Tri local
   res.sort((a, b) => {
@@ -854,10 +987,51 @@ function updateBadges() {
 
 // ── Dashboard / Profil ────────────────────────────────────────
 let _profileYear = new Date().getFullYear();
+const LAST_BACKUP_KEY = "kulturo-last-backup";
 
 function setProfileYear(y) {
   _profileYear = parseInt(y);
   renderDashboard();
+}
+
+function formatLastBackup() {
+  try {
+    const raw = localStorage.getItem(LAST_BACKUP_KEY);
+    if (!raw) return "Aucune sauvegarde récente sur cet appareil";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "Aucune sauvegarde récente sur cet appareil";
+    return `Dernière sauvegarde : ${date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  } catch {
+    return "Historique local indisponible";
+  }
+}
+
+function openProfileCollection(kind, year) {
+  navTo("library");
+  State.filters.type = "all";
+  State.filters.subtype = "all";
+  State.filters.status = "all";
+  State.filters.favorite = false;
+  State.filters.search = "";
+  State.filters.year = Number(year) || "all";
+  const search = document.getElementById("global-search");
+  if (search) search.value = "";
+
+  if (["finished", "playing", "wishlist"].includes(kind)) State.filters.status = kind;
+  else if (kind === "favorite") State.filters.favorite = true;
+  else if (kind === "game" || kind === "book") State.filters.type = kind;
+  else if (kind === "film") {
+    State.filters.type = "movie";
+    State.filters.subtype = "movie";
+  } else if (kind === "tv") {
+    State.filters.type = "movie";
+    State.filters.subtype = "tv";
+  }
+
+  syncFilterChips();
+  updateCategoryTabs(State.filters.type, State.filters.favorite);
+  renderCards({ resetScroll: true });
+  _updateFilterToggleLabel();
 }
 
 async function renderDashboard() {
@@ -873,63 +1047,53 @@ async function renderDashboard() {
   }
   const cachedUsername = State.username || "";
 
-  // Section identité
-  const profileTopHTML = `
-    <div class="profile-identity-bar">
-      <div class="profile-avatar-circle">${iconUser()}</div>
-      <div class="profile-identity-meta">
-        <div class="profile-identity-email">${esc(State.user?.email||"")}</div>
-        <div class="profile-username-row">
-          <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30"
-            value="${esc(cachedUsername)}"
-            aria-label="Pseudo" />
-          <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
-        </div>
-      </div>
-      <div class="profile-identity-actions">
-        <button class="btn btn-secondary btn-sm" onclick="UI.exportLibrary()" title="Télécharger une copie de sécurité">↓ Sauvegarde</button>
-        <button class="btn btn-ghost btn-sm" onclick="UI.signOut()" title="Déconnexion" aria-label="Se déconnecter">↩</button>
-      </div>
-    </div>`;
-
-  // Populate year selector (inline dans le header Résumé)
   const all   = State.entries;
-  const years = [...new Set(all.flatMap(e => [yearOf(e.created_at), yearOf(e.date_finished)]).filter(Boolean))]
+  const years = [...new Set(all.map(entryActivityYear).filter(Boolean))]
     .sort((a,b)=>b-a);
   if (!years.includes(_profileYear)) years.unshift(_profileYear);
   const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
 
-  // Stats globales
-  const stats = computeStats(all);
-  const total = stats.total || 1;
-
-  // Stats année sélectionnée
-  const yearEntries  = all.filter(e => yearOf(e.created_at) === _profileYear);
-  // Les anciennes entrées n'ont pas forcément date_finished : created_at reste
-  // alors un fallback d'affichage, sans modifier la ligne en base.
-  const yearFinished = all.filter(e =>
-    yearOf(e.date_finished) === _profileYear ||
-    (!e.date_finished && e.status === "finished" && yearOf(e.created_at) === _profileYear)
-  );
-  const yearFavs     = yearEntries.filter(e => e.is_favorite);
-
-  // Top médias de l'année (notés)
-  const topYear = [...yearFinished].filter(e => e.rating).sort((a,b) => b.rating - a.rating).slice(0, 5);
+  const yearEntries = all.filter(entry => entryActivityYear(entry) === _profileYear);
+  const yearFinished = yearEntries.filter(entry => entry.status === "finished");
+  const yearPlaying = yearEntries.filter(entry => entry.status === "playing");
+  const yearWishlist = yearEntries.filter(entry => entry.status === "wishlist");
+  const yearFavs = yearEntries.filter(entry => entry.is_favorite);
+  const yearRated = yearEntries.filter(entry => entry.rating);
+  const yearAverage = yearRated.length
+    ? (yearRated.reduce((sum, entry) => sum + entry.rating, 0) / yearRated.length).toFixed(1)
+    : "—";
+  const topYear = [...yearRated].sort((a,b) => b.rating - a.rating).slice(0, 6);
   const topHTML = topYear.length
-    ? topYear.map((e,i) => `
-        <div class="top-row" onclick="UI.openEditModal('${e.id}')">
-          <span class="top-rank">${i+1}</span>
-          ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="top-cover" alt="" loading="lazy">` : `<div class="top-cover top-cover-placeholder">${TYPE_ICONS[e.media_type]}</div>`}
-          <span class="top-title">${esc(e.title)}</span>
-          <span class="top-rating">${ratingStars(e.rating)}</span>
-        </div>`).join("")
-    : `<p style="color:var(--text-3);font-size:.82rem;padding:.5rem 0">Aucun média noté en ${_profileYear}.</p>`;
+    ? topYear.map((entry, index) => {
+        const coverUrl = safeMediaUrl(entry.cover_url);
+        return `
+          <button type="button" class="profile-top-card" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
+            <span class="profile-top-rank">${index + 1}</span>
+            <span class="profile-top-cover">
+              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy">` : `<span>${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+            </span>
+            <strong>${esc(entry.title)}</strong>
+            <small>${entry.rating}/10</small>
+          </button>`;
+      }).join("")
+    : `<div class="profile-inline-empty">Aucun média noté en ${_profileYear}.</div>`;
 
-  const barHTML = (label, value, tot, color) => `
-    <div class="bar-item">
-      <div class="bar-item-label"><span>${label}</span><span>${value}</span></div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(value/tot*100)}%;background:${color}"></div></div>
-    </div>`;
+  const categories = [
+    { key: "film", label: "Films", icon: "🎬", color: "var(--movie)", count: yearEntries.filter(e => e.media_type === "movie" && e.subtype !== "tv").length },
+    { key: "tv", label: "Séries", icon: "▣", color: "var(--accent)", count: yearEntries.filter(e => e.media_type === "movie" && e.subtype === "tv").length },
+    { key: "game", label: "Jeux", icon: "🎮", color: "var(--game)", count: yearEntries.filter(e => e.media_type === "game").length },
+    { key: "book", label: "Livres", icon: "📚", color: "var(--book)", count: yearEntries.filter(e => e.media_type === "book").length },
+  ];
+  const categoryMax = Math.max(...categories.map(category => category.count), 1);
+  const categoryHTML = categories.map(category => `
+    <button type="button" class="profile-category-row" onclick="UI.openProfileCollection('${category.key}', ${_profileYear})">
+      <span class="profile-category-icon" aria-hidden="true">${category.icon}</span>
+      <span class="profile-category-copy">
+        <span><strong>${category.label}</strong><em>${category.count}</em></span>
+        <span class="profile-category-track"><i style="width:${Math.round(category.count / categoryMax * 100)}%;background:${category.color}"></i></span>
+      </span>
+      <span class="profile-category-arrow" aria-hidden="true">→</span>
+    </button>`).join("");
 
   // Histogramme des notes (toutes années)
   const ratedAll      = all.filter(e => e.rating);
@@ -954,7 +1118,7 @@ async function renderDashboard() {
   }).join("");
 
   const ratingsHTML = totalRated > 0 ? `
-    <div class="profile-section">
+    <section class="profile-dashboard-card profile-ratings-card">
       <div class="rating-hist-header">
         <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
         <div class="rating-hist-meta">
@@ -967,83 +1131,99 @@ async function renderDashboard() {
         <span>1★</span>
         <span>5★★★★★</span>
       </div>
-    </div>` : "";
+    </section>` : "";
 
   container.innerHTML = `
-    ${profileTopHTML}
-
-    <!-- Notes en haut, juste après l'identité -->
-    ${ratingsHTML}
-
-    <!-- Résumé annuel avec sélecteur d'année intégré -->
-    <div class="profile-section">
+    <section class="profile-year-overview">
       <div class="profile-year-header">
-        <span class="profile-year-label">Résumé</span>
+        <div>
+          <span class="section-eyebrow">En un coup d’œil</span>
+          <h2>Votre année ${_profileYear}</h2>
+        </div>
         <select class="filter-select profile-year-inline" onchange="UI.setProfileYear(this.value)">
           ${yearOptions}
         </select>
       </div>
-      <div class="stats-grid">
-        <div class="stat-card accent">
-          <div class="stat-value">${yearEntries.length}</div>
-          <div class="stat-label">Ajoutés</div>
+      <div class="profile-year-summary">
+        <div class="profile-year-primary">
+          <strong>${yearFinished.length}</strong>
+          <span>média${yearFinished.length > 1 ? "s" : ""} terminé${yearFinished.length > 1 ? "s" : ""}</span>
+          <small>${yearEntries.length} suivi${yearEntries.length > 1 ? "s" : ""} au total cette année</small>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">${yearFinished.length}</div>
-          <div class="stat-label">Terminés</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${yearFavs.length}</div>
-          <div class="stat-label">❤ Favoris</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="game").length}</div>
-          <div class="stat-label">🎮 Jeux</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="movie").length}</div>
-          <div class="stat-label">🎬 Films / Séries</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${yearEntries.filter(e=>e.media_type==="book").length}</div>
-          <div class="stat-label">📚 Livres</div>
+        <div class="profile-year-secondary">
+          <span>Note moyenne</span>
+          <strong>${yearAverage}${yearAverage !== "—" ? "/10" : ""}</strong>
+          <small>${yearRated.length} média${yearRated.length > 1 ? "s" : ""} noté${yearRated.length > 1 ? "s" : ""}</small>
         </div>
       </div>
+      <div class="profile-action-grid">
+        ${[
+          ["finished", "✓", yearFinished.length, "Terminés"],
+          ["playing", "▶", yearPlaying.length, "En cours"],
+          ["favorite", "♥", yearFavs.length, "Coups de cœur"],
+          ["wishlist", "＋", yearWishlist.length, "Wishlist"],
+        ].map(([key, icon, value, label]) => `
+          <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear})">
+            <span class="profile-action-icon" aria-hidden="true">${icon}</span>
+            <strong>${value}</strong>
+            <span>${label}</span>
+            <i aria-hidden="true">→</i>
+          </button>`).join("")}
+      </div>
+    </section>
+
+    ${ratingsHTML}
+
+    <div class="profile-insights-grid">
+      <section class="profile-dashboard-card profile-top-section">
+        <div class="profile-card-heading">
+          <div><span class="section-eyebrow">Vos préférés</span><h3>Top ${_profileYear}</h3></div>
+          <span class="section-count">${topYear.length} média${topYear.length > 1 ? "s" : ""}</span>
+        </div>
+        <div class="profile-top-track">${topHTML}</div>
+      </section>
+
+      <section class="profile-dashboard-card profile-categories-section">
+        <div class="profile-card-heading">
+          <div><span class="section-eyebrow">Répartition</span><h3>Par catégorie</h3></div>
+          <span class="section-count">${yearEntries.length} au total</span>
+        </div>
+        <div class="profile-category-list">${categoryHTML}</div>
+      </section>
     </div>
 
-    <!-- Section fusionnée : Top de l'année + Stats globales -->
-    <div class="chart-card">
-      <div class="merged-stats-layout">
-        <!-- Colonne gauche : Top année -->
-        <div class="merged-col merged-col-top">
-          <h3 class="profile-section-title">Top ${_profileYear}</h3>
-          <div class="top-list">${topHTML}</div>
+    <details class="profile-account-details">
+      <summary>
+        <span><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
+        <span aria-hidden="true">⌄</span>
+      </summary>
+      <div class="profile-account-body">
+        <div class="profile-account-main">
+          <div class="profile-avatar-circle">${iconUser()}</div>
+          <div class="profile-identity-meta">
+            <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
+            <div class="profile-username-row">
+              <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
+              <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
+            </div>
+          </div>
         </div>
-        <!-- Séparateur vertical -->
-        <div class="merged-divider"></div>
-        <!-- Colonne droite : Global -->
-        <div class="merged-col merged-col-global">
-          <h3 class="profile-section-title">Global · ${stats.total} médias</h3>
-          <div class="bar-chart">
-            ${barHTML("🎮 Jeux",   stats.byType.game,  total, "var(--game)")}
-            ${barHTML("🎬 Films / Séries", stats.byType.movie, total, "var(--movie)")}
-            ${barHTML("📚 Livres", stats.byType.book,  total, "var(--book)")}
-          </div>
-          <div class="bar-chart" style="margin-top:.875rem">
-            ${barHTML("Terminés",  stats.byStatus.finished, total, "var(--success)")}
-            ${barHTML("En cours",  stats.byStatus.playing,  total, "var(--game)")}
-            ${barHTML("Wishlist",  stats.byStatus.wishlist, total, "var(--text-3)")}
-            ${barHTML("En pause",  stats.byStatus.paused,   total, "var(--warn)")}
-            ${barHTML("Abandonnés",stats.byStatus.dropped,  total, "var(--danger)")}
-          </div>
+        <div class="profile-backup-panel">
+          <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
+          <button class="btn btn-secondary btn-sm" onclick="UI.exportLibrary()">↓ Sauvegarder</button>
+        </div>
+        <div class="profile-account-footer">
+          <span>Kulturo ${esc(CONFIG?.app?.version || "")}</span>
+          <button class="btn btn-ghost btn-sm" onclick="UI.signOut()">Se déconnecter</button>
         </div>
       </div>
-    </div>
+    </details>
   `;
 
 }
 
 function openModal(entry = null, prefillTitle = null) {
+  _modalDirty = false;
   const isEdit = !!entry;
   State.editingId = isEdit ? entry.id : null;
 
@@ -1054,7 +1234,7 @@ function openModal(entry = null, prefillTitle = null) {
     return;
   }
 
-  // Nouveau : wizard 3 étapes
+  // Nouveau : recherche universelle, puis avis en deux étapes.
   _wizardState = {
     step: 1,
     type: "movie",
@@ -1071,9 +1251,15 @@ function openModal(entry = null, prefillTitle = null) {
 }
 
 let _wizardState = null;
+let _modalDirty = false;
+let _modalClosePromptOpen = false;
+
+function markModalDirty() {
+  if (document.getElementById("modal-overlay") && (_wizardState || State.editingId)) _modalDirty = true;
+}
 
 function _captureWizardOpinion() {
-  if (!_wizardState || _wizardState.step !== 3) return;
+  if (!_wizardState || _wizardState.step !== 2) return;
   _wizardState.rating = _currentRating;
   _wizardState.notes = document.getElementById("f-notes")?.value || "";
   _wizardState.favorite = document.getElementById("f-favorite")?.checked || false;
@@ -1084,7 +1270,7 @@ function _renderWizard() {
   const s = _wizardState;
   const root = document.getElementById("modal-root");
 
-  const steps = ["C\'est quoi ?", "On cherche", "Ton avis"];
+  const steps = ["Rechercher", "Votre avis"];
   const progressHTML = steps.map((label, i) => `
     <div class="wz-step ${i + 1 === s.step ? "active" : i + 1 < s.step ? "done" : ""}">
       <div class="wz-dot">${i + 1 < s.step ? "✓" : i + 1}</div>
@@ -1096,52 +1282,35 @@ function _renderWizard() {
 
   if (s.step === 1) {
     bodyHTML = `
-      <p class="wz-hint">Qu'est-ce que tu veux ajouter ?</p>
-      <div class="wz-type-grid">
-        <button type="button" class="wz-type-btn ${s.type === "movie" ? "active" : ""}" onclick="UI.wzSetType('movie')">
-          <span class="wz-type-icon">🎬</span>
-          <span class="wz-type-label">Film ou Série</span>
-        </button>
-        <button type="button" class="wz-type-btn ${s.type === "game" ? "active" : ""}" onclick="UI.wzSetType('game')">
-          <span class="wz-type-icon">🎮</span>
-          <span class="wz-type-label">Jeu vidéo</span>
-        </button>
-        <button type="button" class="wz-type-btn ${s.type === "book" ? "active" : ""}" onclick="UI.wzSetType('book')">
-          <span class="wz-type-icon">📚</span>
-          <span class="wz-type-label">Livre</span>
-        </button>
-      </div>`;
-    footerHTML = `
-      <button class="btn btn-secondary" onclick="UI.closeModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="UI.wzNext()">C'est parti →</button>`;
-  }
-
-  else if (s.step === 2) {
-    const icon = { movie: "🎬", game: "🎮", book: "📚" }[s.type];
-    const label = { movie: "film ou série", game: "jeu vidéo", book: "livre" }[s.type];
-    bodyHTML = `
-      <p class="wz-hint">Quel ${label} tu veux ajouter ? ${icon}</p>
-      <div class="api-search-wrap">
-        <input type="text" id="f-api-search" placeholder="Tape le titre…" autocomplete="off" value="${esc(s.title)}" />
-        <div class="api-results" id="api-results" style="display:none"></div>
+      <p class="wz-hint">Recherchez directement un film, une série, un jeu ou un livre.</p>
+      <div class="api-search-wrap wz-universal-search">
+        <span class="wz-search-icon" aria-hidden="true">${iconSearch()}</span>
+        <input type="text" id="f-api-search" placeholder="Ex. The Brutalist, Dune, Elden Ring…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
+        <div class="api-results wz-universal-results" id="api-results" style="display:none"></div>
       </div>
       <div id="wz-selected-preview" class="wz-selected-preview" style="display:${s.apiSelected ? "flex" : "none"}">
         ${s.apiSelected ? `
           ${s.apiSelected.cover_url ? `<img src="${esc(s.apiSelected.cover_url)}" class="wz-preview-cover" alt="">` : ""}
           <div>
             <div class="wz-preview-title">${esc(s.apiSelected.title)}</div>
-            <div class="wz-preview-sub">${s.apiSelected.release_year || ""}</div>
+            <div class="wz-preview-sub">${esc(getTypeLabel(s.apiSelected))}${s.apiSelected.release_year ? ` · ${esc(s.apiSelected.release_year)}` : ""}</div>
           </div>
           <button type="button" class="wz-clear-btn" onclick="UI.wzClearSelected()">✕</button>
         ` : ""}
       </div>
-      <p class="wz-skip-hint">Pas dans les résultats ? Tape juste le titre et continue.</p>`;
+      <div class="wz-manual-choice">
+        <span>Pas dans les résultats ? Choisissez son type et continuez.</span>
+        <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
+          ${[["movie","🎬","Film / Série"],["game","🎮","Jeu"],["book","📚","Livre"]].map(([value, icon, label]) => `
+            <button type="button" class="wz-manual-type-btn ${s.type === value ? "active" : ""}" data-type="${value}" onclick="UI.wzSetType('${value}')">${icon} ${label}</button>`).join("")}
+        </div>
+      </div>`;
     footerHTML = `
-      <button class="btn btn-secondary" onclick="UI.wzBack()">← Retour</button>
-      <button class="btn btn-primary" onclick="UI.wzNext()">Suivant →</button>`;
+      <button class="btn btn-secondary" onclick="UI.closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="UI.wzNext()">Continuer →</button>`;
   }
 
-  else if (s.step === 3) {
+  else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
     const cover = s.apiSelected?.cover_url;
     bodyHTML = `
@@ -1197,18 +1366,12 @@ function _renderWizard() {
       </div>
     </div>`;
 
-  if (s.step === 2) {
-    const hiddenType = document.createElement("input");
-    hiddenType.type = "hidden"; hiddenType.id = "f-type"; hiddenType.value = s.type;
-    const hiddenTitle = document.createElement("input");
-    hiddenTitle.type = "hidden"; hiddenTitle.id = "f-title"; hiddenTitle.value = s.apiSelected?.title || s.title;
-    document.querySelector(".modal-body").appendChild(hiddenType);
-    document.querySelector(".modal-body").appendChild(hiddenTitle);
-    setupApiSearch();
+  if (s.step === 1) {
+    setupWizardUniversalSearch();
     setTimeout(() => document.getElementById("f-api-search")?.focus(), 100);
   }
 
-  if (s.step === 3) {
+  if (s.step === 2) {
     // Hidden fields for saveEntry
     const body = document.querySelector(".modal-body");
     [
@@ -1388,7 +1551,8 @@ function buildRatingStars(current) {
 let _currentRating = 0;
 function setRating(n) {
   _currentRating = n;
-  if (_wizardState?.step === 3) _wizardState.rating = n;
+  if (_wizardState?.step === 2) _wizardState.rating = n;
+  markModalDirty();
   buildRatingStars(n);
   showRatingLabel(n);
 }
@@ -1425,6 +1589,75 @@ function updateApiAvailLabel(type) {
   const ok = avail[type];
   label.textContent = ok ? "(API disponible)" : "(API non configurée — manuel uniquement)";
   label.style.color = ok ? "var(--success)" : "var(--text-3)";
+}
+
+function setupWizardUniversalSearch() {
+  const input = document.getElementById("f-api-search");
+  const results = document.getElementById("api-results");
+  if (!input || !results) return;
+  let timer;
+  let requestSeq = 0;
+
+  const clearSelectedIfNeeded = (query) => {
+    if (!_wizardState?.apiSelected || normalizeTitle(query) === normalizeTitle(_wizardState.apiSelected.title)) return;
+    _wizardState.apiSelected = null;
+    window._apiSelected = null;
+    const preview = document.getElementById("wz-selected-preview");
+    if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+  };
+
+  const scheduleSearch = (immediate = false) => {
+    clearTimeout(timer);
+    const query = input.value.trim();
+    if (_wizardState) _wizardState.title = query;
+    clearSelectedIfNeeded(query);
+    if (query.length < 2) {
+      requestSeq++;
+      results.style.display = "none";
+      results.innerHTML = "";
+      return;
+    }
+
+    timer = setTimeout(async () => {
+      const seq = ++requestSeq;
+      results.style.display = "block";
+      results.innerHTML = `<div class="wz-search-loading"><div class="spinner"></div><span>Recherche dans toutes les catégories…</span></div>`;
+
+      const requests = ["movie", "game", "book"].map(async type => {
+        try {
+          const items = await searchMedia(query, type);
+          return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
+        } catch {
+          return [];
+        }
+      });
+      const grouped = await Promise.all(requests);
+      if (seq !== requestSeq || input.value.trim() !== query) return;
+
+      const items = grouped.flat().filter(item => !findMatchingEntry(item));
+      window._apiResults = items;
+      if (!items.length) {
+        results.innerHTML = `<div class="wz-search-empty">Aucun résultat précis. Vous pouvez continuer avec ce titre et le type choisi ci-dessous.</div>`;
+        return;
+      }
+
+      results.innerHTML = items.map((item, index) => {
+        const coverUrl = safeMediaUrl(item.cover_url);
+        return `
+          <button type="button" class="api-result-item wz-universal-result" onclick="UI.fillFromApi(${index})">
+            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${TYPE_ICONS[item.media_type] || "🎭"}</div>`}
+            <span class="api-result-info">
+              <strong class="api-result-title">${esc(item.title)}</strong>
+              <small class="api-result-sub">${esc(getTypeLabel(item))}${item.release_year ? ` · ${esc(item.release_year)}` : ""}${item.author ? ` · ${esc(item.author)}` : ""}</small>
+            </span>
+          </button>`;
+      }).join("");
+    }, immediate ? 0 : 320);
+  };
+
+  input.addEventListener("input", () => scheduleSearch(false));
+  input._kulturoSearch = () => scheduleSearch(true);
+  if (input.value.trim().length >= 2 && !_wizardState?.apiSelected) scheduleSearch(true);
 }
 
 function setupApiSearch() {
@@ -1477,11 +1710,13 @@ function setupApiSearch() {
 function fillFromApi(idx) {
   const it = window._apiResults?.[idx];
   if (!it) return;
+  markModalDirty();
 
-  // Wizard actif étape 2 : stocker et afficher preview
-  if (_wizardState && _wizardState.step === 2) {
+  // Wizard actif étape 1 : stocker le résultat, puis passer à l'avis.
+  if (_wizardState && _wizardState.step === 1) {
     _wizardState.apiSelected = it;
     _wizardState.title = it.title;
+    _wizardState.type = it.media_type || _wizardState.type;
     window._apiSelected = it;
     const input = document.getElementById("f-api-search");
     if (input) input.value = it.title;
@@ -1493,9 +1728,12 @@ function fillFromApi(idx) {
       preview.innerHTML =
         (it.cover_url ? `<img src="${esc(it.cover_url)}" class="wz-preview-cover" alt="">` : "") +
         `<div style="flex:1"><div class="wz-preview-title">${esc(it.title)}</div>` +
-        `<div class="wz-preview-sub">${it.release_year || ""}</div></div>` +
+        `<div class="wz-preview-sub">${esc(getTypeLabel(it))}${it.release_year ? ` · ${esc(it.release_year)}` : ""}</div></div>` +
         `<button type="button" class="wz-clear-btn" onclick="UI.wzClearSelected()">✕</button>`;
     }
+    document.querySelectorAll(".wz-manual-type-btn").forEach(button => {
+      button.classList.toggle("active", button.dataset.type === _wizardState.type);
+    });
     return;
   }
 
@@ -1601,6 +1839,7 @@ async function saveEntry() {
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
     const justFinished = payload.status === "finished";
+    _modalDirty = false;
     closeModal();
     // #13 — State.entries déjà mis à jour localement, pas besoin de refetch
     renderCards();
@@ -1628,6 +1867,7 @@ async function deleteEntry(id) {
     await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     cacheEntriesLocally();
+    _modalDirty = false;
     closeModal();
     renderCards();
     updateBadges();
@@ -1661,7 +1901,19 @@ async function toggleFav(id) {
 }
 
 // ── Modal helpers ─────────────────────────────────────────────
-function closeModal() {
+async function closeModal(force = false) {
+  if (_modalDirty && !force) {
+    if (_modalClosePromptOpen) return;
+    _modalClosePromptOpen = true;
+    const discard = await confirmDialog(
+      "Quitter sans enregistrer ?",
+      "Les modifications saisies dans cette fenêtre seront perdues.",
+      "Quitter",
+      "danger"
+    );
+    _modalClosePromptOpen = false;
+    if (!discard) return;
+  }
   const overlay = document.getElementById("modal-overlay");
   const cleanup = () => {
     const root = document.getElementById("modal-root");
@@ -1671,6 +1923,8 @@ function closeModal() {
     State.editingId = null;
     window._apiSelected = null;
     window._apiResults = [];
+    _modalDirty = false;
+    _modalClosePromptOpen = false;
   };
   if (!overlay) { cleanup(); return; }
   if (overlay.classList.contains("is-closing")) return;
@@ -1771,6 +2025,7 @@ function bindGlobalEvents() {
   });
 
   document.addEventListener("input", e => {
+    if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
       State.filters.search = q;
@@ -1779,6 +2034,14 @@ function bindGlobalEvents() {
       else if (_currentPage === "library") renderCards({ resetScroll: true });
       updateQuickAdd(q);
     }
+  });
+  document.addEventListener("change", e => {
+    if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
+  });
+  window.addEventListener("beforeunload", e => {
+    if (!_modalDirty) return;
+    e.preventDefault();
+    e.returnValue = "";
   });
   document.addEventListener("focusout", e => {
     if (e.target.id === "global-search") {
@@ -1836,6 +2099,7 @@ function syncUpdateBanner() {
   if (!banner) return;
   const ready = Boolean(window.__kulturoUpdateRegistration?.waiting);
   banner.hidden = !ready || _updateBannerDismissed;
+  document.getElementById("back-to-top")?.classList.toggle("is-obscured", !banner.hidden);
 }
 
 function dismissUpdateBanner() {
@@ -1892,7 +2156,39 @@ const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="curr
 
 
 // ── Prochaines sorties ────────────────────────────────────────
-const UpcomingState = { type: "all", genre: "all", results: [], loading: false, loaded: false, adding: new Set() };
+const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences";
+
+function readUpcomingPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}");
+    return {
+      type: ["all", "movie", "tv"].includes(saved.type) ? saved.type : "all",
+      genre: typeof saved.genre === "string" && saved.genre ? saved.genre : "all",
+      hideAdded: Boolean(saved.hideAdded),
+    };
+  } catch {
+    return { type: "all", genre: "all", hideAdded: false };
+  }
+}
+
+function persistUpcomingPreferences() {
+  try {
+    localStorage.setItem(UPCOMING_PREFS_KEY, JSON.stringify({
+      type: UpcomingState.type,
+      genre: UpcomingState.genre,
+      hideAdded: UpcomingState.hideAdded,
+    }));
+  } catch {}
+}
+
+const _upcomingPreferences = readUpcomingPreferences();
+const UpcomingState = {
+  ..._upcomingPreferences,
+  results: [],
+  loading: false,
+  loaded: false,
+  adding: new Set(),
+};
 
 function formatReleaseDate(value) {
   if (!value) return "Date à confirmer";
@@ -1944,7 +2240,9 @@ function syncUpcomingTypeButtons() {
 function syncUpcomingLoadingState() {
   const toolbar = document.querySelector(".upcoming-toolbar");
   const refreshBtn = document.getElementById("upcoming-refresh-btn");
+  const hideAdded = document.getElementById("upcoming-hide-added");
   toolbar?.setAttribute("aria-busy", String(UpcomingState.loading));
+  if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   if (refreshBtn) {
     refreshBtn.disabled = UpcomingState.loading;
     refreshBtn.classList.toggle("is-loading", UpcomingState.loading);
@@ -1959,6 +2257,7 @@ function renderUpcomingGenreFilter() {
   const genres = availableUpcomingGenres();
   if (UpcomingState.genre !== "all" && !genres.includes(UpcomingState.genre)) {
     UpcomingState.genre = "all";
+    persistUpcomingPreferences();
   }
   select.innerHTML = [
     `<option value="all">Tous les genres</option>`,
@@ -1969,14 +2268,19 @@ function renderUpcomingGenreFilter() {
   wrap?.classList.toggle("has-filter", UpcomingState.genre !== "all");
 }
 
-function visibleUpcomingResults() {
+function filteredUpcomingResults() {
   let filtered = UpcomingState.type === "all"
     ? UpcomingState.results
     : UpcomingState.results.filter(it => it.subtype === UpcomingState.type);
   if (UpcomingState.genre !== "all") {
     filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
   }
-  return filtered.slice(0, UpcomingState.type === "all" ? 36 : 30);
+  if (UpcomingState.hideAdded) filtered = filtered.filter(it => !isUpcomingInLibrary(it));
+  return filtered;
+}
+
+function visibleUpcomingResults() {
+  return filteredUpcomingResults().slice(0, UpcomingState.type === "all" ? 36 : 30);
 }
 
 async function renderUpcoming(force = false) {
@@ -2016,19 +2320,51 @@ function renderUpcomingCards() {
   if (!grid) return;
   syncUpcomingTypeButtons();
   renderUpcomingGenreFilter();
+  const allResults = filteredUpcomingResults();
   const results = visibleUpcomingResults();
+  const hideAdded = document.getElementById("upcoming-hide-added");
+  if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
+  const resultCount = document.getElementById("upcoming-result-count");
+  if (resultCount) {
+    resultCount.textContent = allResults.length > results.length
+      ? `${results.length} affichés sur ${allResults.length}`
+      : `${results.length} sortie${results.length > 1 ? "s" : ""}`;
+  }
 
   if (!TMDb.available()) {
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔑</div><h3>TMDB n'est pas configuré</h3><p>Ajoutez votre clé TMDB dans config.js pour afficher les prochaines sorties.</p></div>`;
     return;
   }
   if (!results.length) {
-    const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all";
+    const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Aucune sortie trouvée</h3><p>Aucune sortie ne correspond à ces filtres actuellement.</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
     return;
   }
 
-  grid.innerHTML = results.map((it, idx) => upcomingCardHTML(it, idx)).join("");
+  const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
+  const groups = new Map();
+  results.forEach((it, idx) => {
+    const date = it.release_date ? new Date(`${it.release_date}T12:00:00`) : null;
+    const key = date && !Number.isNaN(date.getTime())
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+      : "unknown";
+    const label = date && !Number.isNaN(date.getTime())
+      ? monthFormatter.format(date)
+      : "Date à confirmer";
+    if (!groups.has(key)) groups.set(key, { label, items: [] });
+    groups.get(key).items.push({ it, idx });
+  });
+
+  grid.innerHTML = [...groups.values()].map(group => `
+    <section class="upcoming-month-section">
+      <div class="upcoming-month-heading">
+        <h2>${esc(group.label)}</h2>
+        <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
+      </div>
+      <div class="upcoming-grid">
+        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx)).join("")}
+      </div>
+    </section>`).join("");
   requestAnimationFrame(() => {
     grid.querySelectorAll(".upcoming-card").forEach((card, i) => {
       card.style.animationDelay = `${Math.min(i * 40, 480)}ms`;
@@ -2152,6 +2488,7 @@ async function openUpcomingDetail(idx) {
 function setUpcomingType(type) {
   if (!["all", "movie", "tv"].includes(type)) return;
   UpcomingState.type = type;
+  persistUpcomingPreferences();
   syncUpcomingTypeButtons();
   if (UpcomingState.loading && !UpcomingState.results.length) return;
   renderUpcomingCards();
@@ -2161,12 +2498,21 @@ function setUpcomingGenre(genre) {
   const allowed = new Set(["all", ...availableUpcomingGenres()]);
   if (!allowed.has(genre)) return;
   UpcomingState.genre = genre;
+  persistUpcomingPreferences();
+  renderUpcomingCards();
+}
+
+function setUpcomingHideAdded(value) {
+  UpcomingState.hideAdded = Boolean(value);
+  persistUpcomingPreferences();
   renderUpcomingCards();
 }
 
 function resetUpcomingFilters() {
   UpcomingState.type = "all";
   UpcomingState.genre = "all";
+  UpcomingState.hideAdded = false;
+  persistUpcomingPreferences();
   syncUpcomingTypeButtons();
   renderUpcomingCards();
 }
@@ -2174,6 +2520,7 @@ function resetUpcomingFilters() {
 
 // ── Fiche détaillée ───────────────────────────────────────────
 function renderDetailPanel(e, options = {}) {
+  _modalDirty = false;
   const isPreview = options.preview === true;
   const stars = isPreview ? "" : ratingStars(e.rating);
   const backdropUrl = safeMediaUrl(e.backdrop_url);
@@ -2895,14 +3242,19 @@ function quickAddFromResult(idx) {
   if (searchEl) searchEl.value = "";
   State.filters.search = "";
 
-  // Ouvre le wizard directement à l'étape 3 avec tout pré-rempli
+  // Ouvre directement l'étape « Votre avis » avec le résultat sélectionné.
   _currentRating = 0;
+  _modalDirty = false;
+  State.editingId = null;
   window._apiSelected = result;
   _wizardState = {
-    step: 3,
+    step: 2,
     type: result.media_type || "movie",
     title: result.title,
     apiSelected: result,
+    rating: 0,
+    notes: "",
+    favorite: false,
     _status: "finished",
   };
   _renderWizard();
@@ -2950,6 +3302,9 @@ function exportLibrary() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  try { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); } catch {}
+  const backupLabel = document.getElementById("last-backup-label");
+  if (backupLabel) backupLabel.textContent = formatLastBackup();
   toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} exporté${cleanEntries.length > 1 ? "s" : ""} ✓`, "success");
 }
 
@@ -2964,16 +3319,53 @@ function setMobileColumns(value) {
 }
 
 // ── Fil d'activité partagé ────────────────────────────────────
+let _activityEntries = [];
+let _activityView = (() => {
+  try { return localStorage.getItem("kulturo-activity-view") === "me" ? "me" : "all"; }
+  catch { return "all"; }
+})();
+
+function syncActivityViewButtons() {
+  ["all", "me"].forEach(view => {
+    const button = document.getElementById(`activity-view-${view}`);
+    const active = _activityView === view;
+    button?.classList.toggle("active", active);
+    button?.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function renderCurrentActivityView() {
+  const container = document.getElementById("activity-feed");
+  if (!container) return;
+  syncActivityViewButtons();
+  const visible = _activityView === "me"
+    ? _activityEntries.filter(entry => entry.isMe)
+    : _activityEntries;
+  const count = document.getElementById("activity-result-count");
+  if (count) count.textContent = `${visible.length} activité${visible.length > 1 ? "s" : ""}`;
+  container.innerHTML = renderActivityFeed(visible);
+}
+
+function setActivityView(view) {
+  if (!["all", "me"].includes(view)) return;
+  _activityView = view;
+  try { localStorage.setItem("kulturo-activity-view", view); } catch {}
+  renderCurrentActivityView();
+}
+
 async function renderActivity() {
   const container = document.getElementById("activity-feed");
   if (!container) return;
 
+  syncActivityViewButtons();
+  const count = document.getElementById("activity-result-count");
+  if (count) count.textContent = "";
   container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
 
   try {
     const enriched = await Activity.getFeed(50);
-    const withMe = enriched.map(e => ({ ...e, isMe: e.user_id === State.user?.id }));
-    container.innerHTML = renderActivityFeed(withMe);
+    _activityEntries = enriched.map(e => ({ ...e, isMe: e.user_id === State.user?.id }));
+    renderCurrentActivityView();
   } catch (e) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur de chargement</h3><p>${esc(e.message)}</p></div>`;
   }
@@ -2981,7 +3373,10 @@ async function renderActivity() {
 
 function renderActivityFeed(entries) {
   if (!entries.length) {
-    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>Ajoutez des médias pour voir l'activité ici.</p></div>`;
+    const message = _activityView === "me"
+      ? "Vos prochains ajouts apparaîtront ici."
+      : "Ajoutez des médias pour voir l'activité ici.";
+    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>${message}</p></div>`;
   }
 
   // Groupe par date
@@ -3021,9 +3416,14 @@ function activityRowHTML(e) {
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
 
   const meLabel = e.isMe ? `<span class="activity-me-badge">moi</span>` : "";
+  const ownEntryExists = e.isMe && State.entries.some(entry => entry.id === e.id);
+  const rowClass = `activity-row${ownEntryExists ? " is-clickable" : ""}`;
+  const rowAttributes = ownEntryExists
+    ? ` role="button" tabindex="0" onclick="UI.openEditModal('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openEditModal('${e.id}')}"`
+    : "";
 
   return `
-    <div class="activity-row">
+    <div class="${rowClass}"${rowAttributes}>
       ${coverHTML}
       <div class="activity-info">
         <div class="activity-line">
@@ -3070,6 +3470,9 @@ window.UI = {
   previewRating,
   clearPreview,
   navTo,
+  scrollToTop,
+  clearLibraryFilter,
+  clearAllLibraryFilters,
 
   setTypeFilter,
   setStatusChip,
@@ -3199,17 +3602,21 @@ window.UI = {
 
   resetFilters: () => {
     State.filters.type = "all";
+    State.filters.subtype = "all";
     State.filters.status = "all";
     State.filters.sort = "created_at";
     State.filters.favorite = false;
+    State.filters.year = "all";
     localStorage.setItem("kulturo-sort", "created_at");
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },
   setSort,
   setProfileYear,
+  openProfileCollection,
   setUpcomingType,
   setUpcomingGenre,
+  setUpcomingHideAdded,
   resetUpcomingFilters,
   refreshUpcoming: () => {
     UpcomingState.loaded = false;
@@ -3219,6 +3626,7 @@ window.UI = {
   addUpcomingToWishlist,
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
+  setActivityView,
   saveUsername,
   exportLibrary,
   setMobileColumns,
@@ -3227,6 +3635,7 @@ window.UI = {
   showRatingLabel,
   hideRatingLabel,
   setModalType: (type) => {
+    markModalDirty();
     const hidden = document.getElementById("f-type");
     if (hidden) hidden.value = type;
     document.querySelectorAll(".modal-type-tab").forEach(btn => {
@@ -3243,20 +3652,24 @@ window.UI = {
   // ── Wizard ───────────────────────────────────────────────
   wzSetType: (type) => {
     if (!_wizardState) return;
+    markModalDirty();
+    const typed = document.getElementById("f-api-search")?.value?.trim() || _wizardState.title;
     if (_wizardState.type !== type) {
       _wizardState.apiSelected = null;
-      _wizardState.title = "";
       window._apiSelected = null;
-      window._apiResults = [];
+      const preview = document.getElementById("wz-selected-preview");
+      if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
     }
     _wizardState.type = type;
-    document.querySelectorAll(".wz-type-btn").forEach(b => {
-      b.classList.toggle("active", b.getAttribute("onclick").includes(type));
+    _wizardState.title = typed;
+    document.querySelectorAll(".wz-manual-type-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.type === type);
     });
   },
 
   wzSetStatus: (status) => {
     if (!_wizardState) return;
+    markModalDirty();
     _wizardState._status = status;
     document.querySelectorAll(".wz-status-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.status === status);
@@ -3268,6 +3681,7 @@ window.UI = {
 
   wzClearSelected: () => {
     if (!_wizardState) return;
+    markModalDirty();
     _wizardState.apiSelected = null;
     window._apiSelected = null;
     const preview = document.getElementById("wz-selected-preview");
@@ -3279,16 +3693,13 @@ window.UI = {
   wzNext: () => {
     if (!_wizardState) return;
     if (_wizardState.step === 1) {
-      _wizardState.step = 2;
-      _renderWizard();
-    } else if (_wizardState.step === 2) {
-      // Récupère le titre tapé ou sélectionné
       const typed = document.getElementById("f-api-search")?.value?.trim();
       if (!typed && !_wizardState.apiSelected) {
         toast("Tape au moins un titre 😊", "error"); return;
       }
       if (!_wizardState.apiSelected) _wizardState.title = typed;
-      _wizardState.step = 3;
+      else _wizardState.type = _wizardState.apiSelected.media_type || _wizardState.type;
+      _wizardState.step = 2;
       _renderWizard();
     }
   },

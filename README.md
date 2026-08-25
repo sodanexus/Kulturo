@@ -8,11 +8,15 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Étagère **En cours** pour reprendre immédiatement un média
 - Actions rapides dans la fiche : statut, note et coup de cœur sans ouvrir le formulaire
 - Grille mobile réglable sur deux ou trois colonnes
+- Ajout simplifié en deux étapes avec recherche simultanée dans toutes les catégories
+- Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
 - Fiche détaillée au clic depuis la bibliothèque **et** les prochaines sorties
 - Prochaines sorties françaises sur six mois, filtrables par films ou séries
+- Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
 - Dashboard personnel et fil d’activité partagé
+- Profil annuel visuel : statistiques, catégories et tops cliquables
 - Export JSON en un clic depuis le profil pour conserver une copie de sécurité
 - Interface responsive et PWA installable sur mobile
 - Bandeau **Mettre à jour** lorsqu'une nouvelle version de la PWA est prête
@@ -57,9 +61,9 @@ Kulturo/
 
 ## Installation
 
-### Mise à jour vers Kulturo 2.2
+### Mise à jour vers Kulturo 2.3
 
-La version 2.2 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les actions rapides utilisent les champs déjà présents. Elles complètent `date_started` ou `date_finished` uniquement lorsque la date correspondante est vide ; l’historique existant n’est jamais effacé.
+La version 2.3 ne nécessite **aucune migration SQL**. Remplacer les fichiers du site suffit : les tables, colonnes et médias existants ne sont ni supprimés ni réécrits. Les nouveaux filtres annuels, préférences d’affichage, date de dernière sauvegarde et réglages des sorties restent locaux à l’appareil. Les actions rapides complètent `date_started` ou `date_finished` uniquement lorsque la date correspondante est vide ; l’historique existant n’est jamais effacé.
 
 Pour profiter de l’optimisation des recherches IGDB, redéployer uniquement `igdb-proxy`. Ce redéploiement ne touche pas la base de données.
 
@@ -139,7 +143,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.2.0",
+    version: "2.3.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -172,6 +176,8 @@ https://sodanexus.github.io/Kulturo/
 - Dates de début et de fin ajoutées lors des futurs changements de statut, sans rétroactivité
 - Étagère **En cours** visible en haut lorsque les filtres sont désactivés
 - Choix de deux ou trois colonnes sur mobile depuis **Filtres > Affichage mobile**
+- Pastilles de filtres actifs retirables en un clic
+- Bouton de retour en haut après un long défilement
 
 ### Copie de sécurité
 
@@ -196,6 +202,14 @@ Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche dét
 TMDb fournit les films et premières diffusions de séries attendus en France pendant environ six mois. Les boutons **Tout**, **Films** et **Séries** changent uniquement l’affichage ; ils ne modifient pas la bibliothèque.
 
 Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régionale sont écartées : l’onglet conserve uniquement les dates réellement comprises entre aujourd’hui et la fin de la période affichée.
+
+Les résultats sont regroupés par mois. Le choix **Tout / Films / Séries**, le genre et l’option de masquage des titres déjà ajoutés sont mémorisés localement.
+
+### Profil et activité
+
+Le profil présente un résumé de l’année sélectionnée, les statuts principaux, le top des médias notés et une répartition par catégorie. Les cartes et catégories ouvrent directement la bibliothèque avec les filtres correspondants. L’histogramme **Notes · toutes années** reste global.
+
+Le fil d’activité peut afficher toute la communauté ou uniquement ses propres ajouts. Ses propres lignes sont cliquables et rouvrent la fiche correspondante.
 
 ### PWA
 
@@ -223,4 +237,6 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Vérifier l’export JSON depuis le profil
 - Tester les filtres Films/Séries et la modale depuis Prochaines sorties
 - Tester les actions rapides et le choix de grille mobile
+- Tester la recherche universelle en deux étapes et la protection des saisies non enregistrées
+- Tester les filtres cliquables du profil et les groupes mensuels des sorties
 - Tester l’installation et le rafraîchissement de la PWA sur mobile
