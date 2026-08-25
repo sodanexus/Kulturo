@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 2.5.4
+
+La version 2.5.4 augmente légèrement la taille des titres dans toutes les fiches média, sur mobile comme sur ordinateur. Les titres longs continuent de revenir proprement à la ligne. **Aucune migration SQL n'est nécessaire et aucune donnée de la bibliothèque n'est modifiée.**
+
 ### Correctif Kulturo 2.5.3
 
 La version 2.5.3 remplace Google Books par les flux **BnF Nouveautés Éditeurs** pour les livres à paraître. La fonction interroge les flux Livres et Jeunesse à la volée, conserve au maximum 40 annonces comprises dans les six prochains mois et les met en cache en mémoire pendant dix minutes. Ce fonctionnement est prévu pour cette installation personnelle : le flux n'est ni copié dans Supabase, ni enregistré dans la bibliothèque tant que vous ne cliquez pas vous-même sur **Wishlist**.
@@ -238,7 +242,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.3",
+    version: "2.5.4",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

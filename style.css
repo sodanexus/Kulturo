@@ -1363,9 +1363,12 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   min-width: 0;
 }
 .detail-title {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 900;
-  line-height: 1.2;
+  line-height: 1.16;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
   margin-bottom: .3rem;
   font-family: var(--font-display);
   color: #fff;
@@ -4431,7 +4434,7 @@ input, textarea, select { border-radius: 12px; }
   .detail-backdrop-content { gap: .75rem; padding: .75rem 1rem; }
   .detail-poster,
   .detail-poster-placeholder { width: 62px; min-width: 62px; height: 92px; }
-  .detail-title { font-size: 1.05rem; }
+  .detail-title { font-size: clamp(1.16rem, 4.5vw, 1.28rem); }
   .detail-stars { margin-bottom: .25rem; }
   .detail-body { max-height: calc(92dvh - 220px); }
 }
