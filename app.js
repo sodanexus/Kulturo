@@ -241,10 +241,7 @@ function renderAuthPage() {
       <div class="auth-card">
         <div class="logo">Kulturo</div>
         <p class="tagline">Votre journal culturel personnel</p>
-        <div class="auth-tabs">
-          <button class="auth-tab active" id="tab-login"  onclick="UI.switchAuthTab('login')">Connexion</button>
-          <button class="auth-tab"        id="tab-signup" onclick="UI.switchAuthTab('signup')">Inscription</button>
-        </div>
+        <h1 class="auth-title">Connexion</h1>
         <form class="auth-form" id="auth-form" onsubmit="event.preventDefault(); UI.handleAuth()">
           <div class="form-group">
             <label for="auth-email">Email</label>
@@ -2374,6 +2371,7 @@ const _upcomingPreferences = readUpcomingPreferences();
 const UpcomingState = {
   ..._upcomingPreferences,
   results: [],
+  sourceResults: {},
   loading: false,
   loaded: false,
   adding: new Set(),
@@ -2430,9 +2428,11 @@ function syncUpcomingTypeButtons() {
 
 function syncUpcomingLoadingState() {
   const toolbar = document.querySelector(".upcoming-toolbar");
+  const grid = document.getElementById("upcoming-grid");
   const refreshBtn = document.getElementById("upcoming-refresh-btn");
   const hideAdded = document.getElementById("upcoming-hide-added");
   toolbar?.setAttribute("aria-busy", String(UpcomingState.loading));
+  grid?.setAttribute("aria-busy", String(UpcomingState.loading));
   if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   if (refreshBtn) {
     refreshBtn.disabled = UpcomingState.loading;
@@ -2455,8 +2455,34 @@ function renderUpcomingGenreFilter() {
     ...genres.map(genre => `<option value="${esc(genre)}">${esc(genre)}</option>`),
   ].join("");
   select.value = UpcomingState.genre;
-  select.disabled = genres.length === 0 || UpcomingState.loading;
+  select.disabled = genres.length === 0;
   wrap?.classList.toggle("has-filter", UpcomingState.genre !== "all");
+}
+
+function rebuildUpcomingResults() {
+  const unique = new Map();
+  Object.values(UpcomingState.sourceResults).flat().forEach(item => {
+    if (!item?.title || !item?.release_date) return;
+    const key = upcomingKeyOf(item);
+    const current = unique.get(key);
+    if (!current || Number(item.popularity || 0) > Number(current.popularity || 0)) unique.set(key, item);
+  });
+  UpcomingState.results = [...unique.values()].sort((a, b) =>
+    a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
+  );
+}
+
+function pendingUpcomingSourceLabels(forCurrentView = false) {
+  const pending = [];
+  const type = UpcomingState.type;
+  const include = sourceType => !forCurrentView || type === "all" || type === sourceType
+    || (sourceType === "movie" && type === "tv");
+  if (include("movie") && (UpcomingState.sourceStatus.movie === "loading" || UpcomingState.sourceStatus.tv === "loading")) {
+    pending.push("films et séries");
+  }
+  if (include("game") && UpcomingState.sourceStatus.game === "loading") pending.push("jeux");
+  if (include("book") && UpcomingState.sourceStatus.book === "loading") pending.push("livres");
+  return pending;
 }
 
 function filteredUpcomingResults() {
@@ -2512,60 +2538,48 @@ async function renderUpcoming(force = false) {
   if (UpcomingState.loading) return;
 
   UpcomingState.loading = true;
+  UpcomingState.loaded = false;
+  const sources = [
+    { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming() },
+    { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming() },
+    { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming() },
+  ];
+  UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
+    source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
+  ));
+  sources.filter(source => !source.enabled).forEach(source => { delete UpcomingState.sourceResults[source.key]; });
+  rebuildUpcomingResults();
   syncUpcomingLoadingState();
-  grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement des prochaines sorties culturelles…</span></div>`;
+  renderUpcomingCards();
   loadingStart();
 
-  try {
-    const sources = [
-      { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming() },
-      { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming() },
-      { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming() },
-    ];
-    const enabledSources = sources.filter(source => source.enabled);
-    const settled = await Promise.allSettled(enabledSources.map(source => source.load()));
-    UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
-      source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
-    ));
-    const merged = [];
-    enabledSources.forEach((source, index) => {
-      const result = settled[index];
-      if (result.status === "fulfilled") {
-        const sourceItems = Array.isArray(result.value) ? result.value : [];
-        source.types.forEach(type => {
-          UpcomingState.sourceStatus[type] = sourceItems.some(item => upcomingTypeOf(item) === type)
-            ? "ok"
-            : "empty";
-        });
-        merged.push(...sourceItems);
-      } else {
-        source.types.forEach(type => { UpcomingState.sourceStatus[type] = "error"; });
-        console.warn(`[Sorties/${source.key}]`, result.reason);
-      }
-    });
-    if (settled.length && settled.every(result => result.status === "rejected")) {
-      throw new Error("Toutes les sources sont indisponibles");
+  const loadSource = async source => {
+    try {
+      const value = await source.load();
+      const sourceItems = Array.isArray(value) ? value : [];
+      UpcomingState.sourceResults[source.key] = sourceItems;
+      source.types.forEach(type => {
+        UpcomingState.sourceStatus[type] = sourceItems.some(item => upcomingTypeOf(item) === type)
+          ? "ok"
+          : "empty";
+      });
+    } catch (error) {
+      source.types.forEach(type => { UpcomingState.sourceStatus[type] = "error"; });
+      if (!Array.isArray(UpcomingState.sourceResults[source.key])) UpcomingState.sourceResults[source.key] = [];
+      console.warn(`[Sorties/${source.key}]`, error);
+    } finally {
+      rebuildUpcomingResults();
+      renderUpcomingCards();
     }
+  };
 
-    const unique = new Map();
-    merged.forEach(item => {
-      if (!item?.title || !item?.release_date) return;
-      const key = upcomingKeyOf(item);
-      const current = unique.get(key);
-      if (!current || Number(item.popularity || 0) > Number(current.popularity || 0)) unique.set(key, item);
-    });
-    UpcomingState.results = [...unique.values()].sort((a, b) =>
-      a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
-    );
-    UpcomingState.loaded = true;
-    renderUpcomingCards();
-  } catch (err) {
-    console.error("[Sorties] Erreur prochaines sorties :", err);
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>Sorties indisponibles</h3><p>Impossible de joindre les catalogues pour le moment. Réessayez dans quelques instants.</p><button class="btn btn-secondary btn-sm" onclick="UI.refreshUpcoming()">Réessayer</button></div>`;
+  try {
+    await Promise.all(sources.filter(source => source.enabled).map(loadSource));
   } finally {
     UpcomingState.loading = false;
+    UpcomingState.loaded = true;
     syncUpcomingLoadingState();
-    renderUpcomingGenreFilter();
+    renderUpcomingCards();
     loadingDone();
   }
 }
@@ -2581,25 +2595,40 @@ function renderUpcomingCards() {
   if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   const resultCount = document.getElementById("upcoming-result-count");
   if (resultCount) {
-    resultCount.textContent = allResults.length > results.length
+    const count = allResults.length > results.length
       ? `${results.length} affichés sur ${allResults.length}`
       : `${results.length} sortie${results.length > 1 ? "s" : ""}`;
+    resultCount.textContent = UpcomingState.loading && pendingUpcomingSourceLabels(true).length
+      ? `${count} · chargement…`
+      : count;
   }
 
   if (!results.length) {
     const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
-    const sourceStatus = UpcomingState.type === "all" ? null : UpcomingState.sourceStatus[UpcomingState.type];
+    const pendingLabels = pendingUpcomingSourceLabels(true);
+    if (pendingLabels.length) {
+      grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement en cours : ${esc(pendingLabels.join(", "))}…</span></div>`;
+      return;
+    }
+    const statuses = UpcomingState.type === "all"
+      ? ["movie", "tv", "game", "book"].map(type => UpcomingState.sourceStatus[type]).filter(Boolean)
+      : [UpcomingState.sourceStatus[UpcomingState.type]].filter(Boolean);
+    const sourceStatus = UpcomingState.type === "all"
+      ? (statuses.length && statuses.every(status => status === "error" || status === "unavailable")
+          ? "error"
+          : statuses.length && statuses.every(status => status === "empty" || status === "unavailable") ? "empty" : null)
+      : statuses[0];
     const unavailableMessages = {
       movie: "Ajoutez une clé TMDb dans config.js pour charger les sorties cinéma.",
       tv: "Ajoutez une clé TMDb dans config.js pour charger les nouvelles séries.",
       game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
-      book: "Configurez le secret Google Books puis déployez la fonction google-books-proxy.",
+      book: "Déployez la dernière fonction google-books-proxy pour charger les annonces de livres de la BnF.",
     };
     const emptyMessages = {
       movie: "Aucune sortie cinéma française vérifiable n’a été trouvée sur cette période.",
       tv: "Aucune nouvelle série diffusée en France n’a été trouvée sur cette période.",
       game: "IGDB n’a renvoyé aucune sortie Europe, Monde ou internationale vérifiable sur cette période.",
-      book: "Google Books ne fournit actuellement aucune parution française future avec une date assez fiable. Kulturo préfère ne rien afficher plutôt que proposer des livres déjà sortis ou des éditions étrangères.",
+      book: "La BnF n’a annoncé aucune parution future exploitable dans ses flux Livres et Jeunesse pour cette période.",
     };
     const sourceMessage = sourceStatus === "error"
       ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."
@@ -2631,7 +2660,11 @@ function renderUpcomingCards() {
     groups.get(key).items.push({ it, idx });
   });
 
-  grid.innerHTML = [...groups.values()].map(group => `
+  const pendingLabels = pendingUpcomingSourceLabels(true);
+  const progress = pendingLabels.length
+    ? `<div class="upcoming-progress" role="status"><div class="spinner"></div><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
+    : "";
+  grid.innerHTML = progress + [...groups.values()].map(group => `
     <section class="upcoming-month-section">
       <div class="upcoming-month-heading">
         <h2>${esc(group.label)}</h2>
@@ -2784,7 +2817,6 @@ function setUpcomingType(type) {
   UpcomingState.type = type;
   persistUpcomingPreferences();
   syncUpcomingTypeButtons();
-  if (UpcomingState.loading && !UpcomingState.results.length) return;
   renderUpcomingCards();
 }
 
@@ -4120,34 +4152,21 @@ window.UI = {
       _renderWizard();
     }
   },
-  switchAuthTab:   (tab) => {
-    document.querySelectorAll(".auth-tab").forEach(b => b.classList.toggle("active", b.id === `tab-${tab}`));
-    const btn = document.getElementById("auth-submit");
-    const password = document.getElementById("auth-password");
-    if (btn) btn.textContent = tab === "login" ? "Se connecter" : "S'inscrire";
-    if (password) password.autocomplete = tab === "login" ? "current-password" : "new-password";
-  },
   handleAuth: async () => {
     const email    = document.getElementById("auth-email")?.value?.trim();
     const password = document.getElementById("auth-password")?.value;
-    const isSignup = document.getElementById("tab-signup")?.classList.contains("active");
     const btn = document.getElementById("auth-submit");
     if (!email || !password) { toast("Renseigne ton email et ton mot de passe.", "error"); return; }
     if (password.length < 6) { toast("Le mot de passe doit contenir au moins 6 caractères.", "error"); return; }
     try {
       if (btn) { btn.disabled = true; btn.textContent = "…"; }
-      if (isSignup) {
-        const result = await Auth.signUp(email, password);
-        if (!result.session) toast("Compte créé. Vérifie ton email pour confirmer l'inscription.", "success");
-      } else {
-        await Auth.signIn(email, password);
-      }
+      await Auth.signIn(email, password);
     } catch (e) {
       toast(e.message, "error");
     } finally {
       if (btn?.isConnected) {
         btn.disabled = false;
-        btn.textContent = isSignup ? "S'inscrire" : "Se connecter";
+        btn.textContent = "Se connecter";
       }
     }
   },

@@ -873,27 +873,14 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   color: var(--text-3);
   margin-bottom: 2rem;
 }
-.auth-tabs {
-  display: flex;
-  gap: .5rem;
-  margin-bottom: 1.5rem;
-  background: var(--bg-3);
-  border-radius: var(--radius);
-  padding: .25rem;
+.auth-title {
+  margin: 0 0 1.25rem;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 750;
+  text-align: center;
 }
-.auth-tab {
-  flex: 1;
-  padding: .5rem;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  font-size: .875rem;
-  font-weight: 600;
-  border-radius: calc(var(--radius) - 2px);
-  transition: all var(--transition);
-  cursor: pointer;
-}
-.auth-tab.active { background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
 .auth-form { display: flex; flex-direction: column; gap: 1rem; }
 .auth-divider {
   text-align: center;
@@ -1211,6 +1198,24 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   padding: 4rem 2rem;
   color: var(--text-3);
   font-size: .875rem;
+}
+.upcoming-progress {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem .85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  color: var(--text-3);
+  font-size: .72rem;
+  animation: upcomingIn var(--motion-fast) var(--ease-out) both;
+}
+.upcoming-progress .spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  flex: 0 0 auto;
 }
 .upcoming-intro {
   color: var(--text-3);

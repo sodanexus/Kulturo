@@ -378,12 +378,11 @@ export const OpenLibrary = {
   },
 };
 
-// ── Parutions françaises — Google Books ─────────────────────
-// Google Books est une source opportuniste : Kulturo conserve uniquement les
-// éditions françaises futures dotées d'une date assez précise et n'invente
-// aucun résultat lorsqu'aucune parution fiable n'est fournie. Lors de l'ajout,
-// le livre reste enregistré avec la source "manual", déjà autorisée par le
-// schéma Kulturo : aucune migration n'est nécessaire.
+// ── Livres — BnF pour les parutions, Google pour les détails ─
+// La fonction Supabase consulte à la volée les flux Nouveautés Éditeurs de la
+// BnF pour cette installation personnelle. Rien n'est stocké en base. Google
+// Books reste uniquement utilisé pour enrichir une fiche ouverte lorsqu'un
+// résumé est disponible.
 async function googleBooksProxy(payload, timeoutMs = 20000) {
   const functionName = CONFIG?.googleBooks?.proxyFunction || "google-books-proxy";
   const proxyUrl = `${CONFIG.supabase.url}/functions/v1/${functionName}`;
@@ -415,86 +414,22 @@ export const GoogleBooks = {
     const startDate = isoDate(today);
     const endDate = isoDate(end);
     const items = await googleBooksProxy({ action: "upcoming" });
-
-    const normalizePublishedDate = value => {
-      const raw = String(value || "").trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { date: raw, precision: "day" };
-      if (/^\d{4}-\d{2}$/.test(raw)) return { date: `${raw}-01`, precision: "month" };
-      return null;
-    };
-    const bookGenreLabels = {
-      "art": "Arts",
-      "biography & autobiography": "Biographie",
-      "business & economics": "Économie",
-      "comics & graphic novels": "BD & romans graphiques",
-      "contemporary": "Contemporain",
-      "fantasy": "Fantasy",
-      "fantasy & magic": "Fantasy & magie",
-      "fiction": "Fiction",
-      "historical": "Historique",
-      "history": "Histoire",
-      "juvenile fiction": "Jeunesse",
-      "juvenile nonfiction": "Jeunesse",
-      "literary criticism": "Critique littéraire",
-      "mystery & detective": "Mystère & policier",
-      "poetry": "Poésie",
-      "psychology": "Psychologie",
-      "religion": "Religion",
-      "romance": "Romance",
-      "science": "Sciences",
-      "science fiction": "Science-fiction",
-      "self-help": "Développement personnel",
-      "social science": "Sciences humaines",
-      "thrillers": "Thriller",
-    };
-    const localizeBookCategory = value => String(value || "")
-      .split("/")
-      .map(part => part.trim())
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => bookGenreLabels[part.toLocaleLowerCase("en-US")] || part)
-      .join(" · ");
     const unique = new Map();
     items.forEach(item => {
-      const info = item.volumeInfo || {};
-      const publication = normalizePublishedDate(info.publishedDate);
-      const image = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
-      if (!publication || publication.date < startDate || publication.date > endDate) return;
-      if (String(info.language || "").toLowerCase() !== "fr") return;
-      if (!info.title || !image) return;
-
-      const authors = (info.authors || []).filter(Boolean);
-      const categories = [...new Set((info.categories || [])
-        .map(localizeBookCategory)
-        .filter(Boolean))].slice(0, 3);
-      const identity = `${normalizeBookText(info.title)}|${normalizeBookText(authors.join(" "))}`;
+      const releaseDate = String(item?.release_date || "");
+      if (!item?.title || !/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) return;
+      if (releaseDate < startDate || releaseDate > endDate) return;
       const normalized = {
-        // L'identifiant Google reste transitoire. Les doublons en base sont
-        // détectés par titre, sans introduire une nouvelle valeur source_api.
-        external_id:  null,
-        upcoming_id:  `googlebooks:${item.id}`,
-        title:        info.title,
-        cover_url:    String(image).replace(/^http:/, "https:"),
-        description:  plainBookDescription(info.description),
-        release_year: Number.parseInt(publication.date.slice(0, 4), 10),
-        release_date: publication.date,
-        date_precision: publication.precision,
-        genres:       categories,
-        genre:        categories.join(", ") || null,
-        author:       authors.join(", ") || null,
-        platform:     null,
-        publisher:    info.publisher || null,
-        source_api:   "manual",
-        media_type:   "book",
-        subtype:      null,
-        upcoming_type:"book",
-        availability_label: "Édition française",
-        external_url: info.infoLink || `https://books.google.com/books?id=${encodeURIComponent(item.id)}`,
-        external_label: "Google Books",
-        popularity:   Number(info.ratingsCount || 0),
+        ...item,
+        external_id: null,
+        source_api: "manual",
+        media_type: "book",
+        subtype: null,
+        upcoming_type: "book",
+        date_precision: "day",
       };
-      const current = unique.get(identity);
-      if (!current || normalized.release_date < current.release_date) unique.set(identity, normalized);
+      const identity = item.upcoming_id || `${normalizeBookText(item.title)}|${normalizeBookText(item.author)}|${releaseDate}`;
+      if (!unique.has(identity)) unique.set(identity, normalized);
     });
 
     return [...unique.values()].sort((a, b) =>

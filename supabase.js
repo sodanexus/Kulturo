@@ -21,12 +21,6 @@ export function initSupabase() {
 
 // ── Auth ─────────────────────────────────────────────────────
 export const Auth = {
-  async signUp(email, password) {
-    const { data, error } = await _client.auth.signUp({ email, password });
-    if (error) throw error;
-    return data;
-  },
-
   async signIn(email, password) {
     const { data, error } = await _client.auth.signInWithPassword({ email, password });
     if (error) throw error;

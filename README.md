@@ -12,7 +12,7 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
 - Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** l’activité
-- Prochaines sorties sur six mois, filtrables par films, séries, jeux vidéo ou livres
+- Prochaines sorties sur six mois, filtrables par films, séries, jeux vidéo ou livres, affichées progressivement dès qu'une source répond
 - Sélection France renforcée : dates cinéma françaises, diffuseurs TV présents en France, jeux Europe/monde et éditions françaises
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
@@ -36,7 +36,7 @@ L’ancien onglet Discover et son système de recommandations ont été supprim�
 | Fonctions serveur | Supabase Edge Functions (Deno) |
 | Films et séries | TMDb |
 | Jeux vidéo | IGDB / Twitch |
-| Livres | Open Library + Google Books |
+| Livres | BnF Nouveautés Éditeurs + Open Library + Google Books |
 | Traduction | Groq |
 | Hébergement | GitHub Pages |
 
@@ -60,11 +60,23 @@ Kulturo/
 ├── icon-512.png
 └── supabase/functions/
     ├── igdb-proxy/index.ts     # Requêtes IGDB + traduction des résumés
-    ├── google-books-proxy/index.ts # Google Books sans exposer la clé
+    ├── google-books-proxy/index.ts # Parutions BnF + détails Google Books
     └── groq-proxy/index.ts     # Traduction des descriptions de livres
 ```
 
 ## Installation
+
+### Correctif Kulturo 2.5.3
+
+La version 2.5.3 remplace Google Books par les flux **BnF Nouveautés Éditeurs** pour les livres à paraître. La fonction interroge les flux Livres et Jeunesse à la volée, conserve au maximum 40 annonces comprises dans les six prochains mois et les met en cache en mémoire pendant dix minutes. Ce fonctionnement est prévu pour cette installation personnelle : le flux n'est ni copié dans Supabase, ni enregistré dans la bibliothèque tant que vous ne cliquez pas vous-même sur **Wishlist**.
+
+La page **Sorties** charge maintenant TMDb, IGDB et la BnF en parallèle. Les films/séries, jeux ou livres apparaissent dès que leur propre source répond ; un indicateur discret précise ce qui continue de charger. Une source lente ne bloque donc plus les autres.
+
+Enfin, l'écran d'authentification ne propose plus d'inscription : il affiche uniquement **Connexion**. La désactivation des inscriptions reste gérée dans Supabase, comme sur votre projet.
+
+**Aucune migration SQL n'est nécessaire et aucune donnée existante n'est lue, modifiée ou supprimée par cette mise à jour.** Dans le tableau de bord Supabase, il suffit d'ouvrir **Edge Functions > google-books-proxy**, de remplacer son code par `supabase/functions/google-books-proxy/index.ts`, puis de cliquer sur **Deploy updates**. Les fonctions IGDB et Groq n'ont pas besoin d'être redéployées.
+
+Le secret `GOOGLE_BOOKS_API_KEY` reste utile uniquement pour enrichir les fiches de livres qui n'ont pas de résumé dans Open Library. Il n'est plus nécessaire pour afficher les parutions BnF.
 
 ### Correctif Kulturo 2.5.2
 
@@ -226,7 +238,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.2",
+    version: "2.5.3",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -287,11 +299,13 @@ Depuis **Prochaines sorties**, un clic sur l’affiche ouvre la même fiche dét
 
 ### Prochaines sorties
 
-TMDb fournit les films et premières diffusions de séries attendus en France pendant environ six mois. Les boutons **Tout**, **Films** et **Séries** changent uniquement l’affichage ; ils ne modifient pas la bibliothèque.
+TMDb fournit les films et premières diffusions de séries attendus en France pendant environ six mois, IGDB les jeux datés pour l'Europe ou à défaut à l'international, et les flux BnF Nouveautés Éditeurs les annonces françaises de livres, bandes dessinées et mangas déclarées par les éditeurs. Les boutons **Tout**, **Films**, **Séries**, **Jeux** et **Livres** changent uniquement l’affichage ; ils ne modifient pas la bibliothèque.
+
+Les trois catalogues sont interrogés en parallèle. Chaque famille de médias apparaît dès que sa source répond, sans attendre les deux autres. Les annonces BnF sont seulement consultées à la volée et mises en cache brièvement par la fonction serveur ; elles ne sont pas enregistrées dans la base de données.
 
 Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régionale sont écartées : l’onglet conserve uniquement les dates réellement comprises entre aujourd’hui et la fin de la période affichée.
 
-Les résultats sont regroupés par mois. Le choix **Tout / Films / Séries**, le genre et l’option de masquage des titres déjà ajoutés sont mémorisés localement.
+Les résultats sont regroupés par mois. Le choix du type, le genre et l’option de masquage des titres déjà ajoutés sont mémorisés localement.
 
 ### Profil et activité
 
