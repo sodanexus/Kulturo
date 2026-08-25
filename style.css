@@ -1005,6 +1005,15 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 }
 
 /* ── Details / advanced section ──────────────────────────── */
+.edit-primary-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.edit-modal .modal-header h3 { flex: 1; }
+.edit-details-back,
+.edit-title-details,
+.edit-details-trigger { display: none; }
 .advanced-details {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -3363,7 +3372,7 @@ h1, h2, h3 { color: var(--text-1); }
   font-size: .75rem;
   font-weight: 600;
 }
-.library-list-heading { margin-top: 1.35rem; }
+.library-list-heading { justify-content: flex-end; margin-top: 1rem; }
 
 /* Contrôles, panneaux et rayons cohérents. */
 input, textarea, select { border-radius: 12px; }
@@ -3804,7 +3813,7 @@ input, textarea, select { border-radius: 12px; }
   }
   .continue-card { flex-basis: 112px; }
   .continue-track { margin-right: -.85rem; padding-right: .85rem; }
-  .library-list-heading { margin-top: 1.1rem; }
+  .library-list-heading { margin-top: .85rem; }
 
   html[data-mobile-columns="2"] #cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4324,9 +4333,17 @@ input, textarea, select { border-radius: 12px; }
 
   /* En-têtes mobiles plus courts : le contenu utile arrive plus vite. */
   .page-heading { min-height: 66px; padding: .65rem 0 .6rem; }
+  .page-heading > div { display: flex; flex-direction: column; justify-content: flex-end; }
   .page-heading h1 { margin: 0; font-size: 1.42rem; line-height: 1.05; }
-  .page-heading p,
-  .page-heading .page-kicker { display: none; }
+  .page-heading p { display: none; }
+  .page-heading .page-kicker {
+    display: block;
+    margin: 0 0 .12rem;
+    font-size: .48rem;
+    line-height: 1;
+    letter-spacing: .095em;
+    white-space: nowrap;
+  }
   .active-filter-summary { margin-top: .55rem; padding: .4rem; }
   .active-filter-label { display: none; }
   .active-filter-reset { padding-right: .2rem; }
@@ -4611,6 +4628,64 @@ input, textarea, select { border-radius: 12px; }
   }
   .profile-media-switch::-webkit-scrollbar { display: none; }
   .profile-media-switch button { flex: 1 0 auto; }
+
+  /* Les détails d’édition restent facultatifs et n’allongent pas la vue principale. */
+  .edit-modal .modal-header { gap: .55rem; }
+  .edit-details-trigger {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    width: 100%;
+    min-height: 58px;
+    padding: .65rem .75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-3);
+    color: var(--text);
+    text-align: left;
+    transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+  }
+  .edit-details-trigger:active { background: var(--bg-4); }
+  .edit-details-trigger.has-details { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .edit-details-trigger-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-size: .9rem;
+    font-weight: 800;
+  }
+  .edit-details-trigger-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+  .edit-details-trigger-copy strong { color: var(--text-1); font-size: .78rem; }
+  .edit-details-trigger-copy small {
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: .65rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .edit-details-trigger-arrow { color: var(--text-3); font-size: .9rem; }
+  .edit-modal[data-edit-view="main"] .edit-details-panel { display: none; }
+  .edit-modal[data-edit-view="details"] .edit-primary-view { display: none; }
+  .edit-modal[data-edit-view="details"] .edit-details-panel {
+    display: block;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+  .edit-modal[data-edit-view="details"] .advanced-summary { display: none; }
+  .edit-modal[data-edit-view="details"] .advanced-body {
+    padding: 0;
+    border-top: 0;
+  }
+  .edit-modal[data-edit-view="details"] .edit-details-back { display: grid; }
+  .edit-modal[data-edit-view="details"] .edit-title-main { display: none; }
+  .edit-modal[data-edit-view="details"] .edit-title-details { display: inline; }
 }
 
 @media (max-width: 390px) {

@@ -64,9 +64,9 @@ Kulturo/
 
 ## Installation
 
-### Correctif Kulturo 2.4.1
+### Correctif Kulturo 2.4.2
 
-Cette révision corrige uniquement l’interface : superposition de la recherche dans la fenêtre d’ajout desktop, espacement uniforme sous les en-têtes, activité plus lisible et cliquable, et alignement des boutons dans les cartes Sorties. **Aucune migration SQL ni aucune modification des données n’est nécessaire.**
+Cette révision corrige uniquement l’interface : superposition de la recherche dans la fenêtre d’ajout desktop, espacement uniforme sous les en-têtes, activité plus lisible et cliquable, alignement des boutons dans les cartes Sorties, détails facultatifs séparés dans la modification mobile et accroches de pages visibles sur mobile. **Aucune migration SQL ni aucune modification des données n’est nécessaire.**
 
 ### Mise à jour vers Kulturo 2.4
 
@@ -169,7 +169,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.4.1",
+    version: "2.4.2",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

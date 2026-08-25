@@ -323,8 +323,7 @@ function renderApp() {
         </header>
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
         <section id="continue-section" class="continue-section" aria-labelledby="continue-title" hidden></section>
-        <div class="section-heading library-list-heading">
-          <h2 id="library-list-title">Toute la bibliothèque</h2>
+        <div class="section-heading library-list-heading" aria-live="polite">
           <span id="library-result-count" class="section-count"></span>
         </div>
         <div id="cards-grid"></div>
@@ -768,7 +767,6 @@ function renderContinueSection() {
 
 function updateLibraryHeading(entries) {
   const summary = document.getElementById("library-summary");
-  const title = document.getElementById("library-list-title");
   const count = document.getElementById("library-result-count");
   if (summary) {
     const total = State.entries.length;
@@ -776,7 +774,6 @@ function updateLibraryHeading(entries) {
       ? `${total} média${total > 1 ? "s" : ""} sauvegardé${total > 1 ? "s" : ""}, toujours à portée de main.`
       : "Tous vos films, séries, jeux et livres au même endroit.";
   }
-  if (title) title.textContent = isLibraryViewUnfiltered() ? "Toute la bibliothèque" : "Résultats";
   if (count) count.textContent = `${entries.length} média${entries.length > 1 ? "s" : ""}`;
 }
 
@@ -1514,41 +1511,63 @@ function _openModalClassic(entry) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal edit-modal" data-edit-view="main" role="dialog" aria-modal="true">
         <div class="modal-header">
-          <h3>Modifier</h3>
+          <button type="button" class="btn-icon edit-details-back" onclick="UI.setEditDetailsView(false)" aria-label="Revenir à la modification principale">←</button>
+          <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
           <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
         </div>
         <div class="modal-body">
-          <div class="form-group modal-search-unified">
-            <div class="modal-type-tabs">
-              <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">🎬 Film / Série</button>
-              <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">🎮 Jeu</button>
-              <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">📚 Livre</button>
+          <div class="edit-primary-view">
+            <div class="form-group modal-search-unified">
+              <div class="modal-type-tabs">
+                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">🎬 Film / Série</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">🎮 Jeu</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">📚 Livre</button>
+              </div>
+              <div class="api-search-wrap">
+                <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
+                <div class="api-results" id="api-results" style="display:none"></div>
+              </div>
+              <input type="hidden" id="f-type" value="${entry.media_type || "movie"}" />
+              <input type="hidden" id="f-title" value="${esc(entry.title||"")}" />
             </div>
-            <div class="api-search-wrap">
-              <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
-              <div class="api-results" id="api-results" style="display:none"></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Statut</label>
+                <select id="f-status">
+                  ${["wishlist","playing","finished","paused","dropped"].map(s =>
+                    `<option value="${s}" ${entry.status===s?"selected":""}>${STATUS_LABELS[s]}</option>`
+                  ).join("")}
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Note <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
+                <div class="rating-stars" id="rating-stars"></div>
+              </div>
             </div>
-            <input type="hidden" id="f-type" value="${entry.media_type || "movie"}" />
-            <input type="hidden" id="f-title" value="${esc(entry.title||"")}" />
-          </div>
-          <div class="form-row">
             <div class="form-group">
-              <label>Statut</label>
-              <select id="f-status">
-                ${["wishlist","playing","finished","paused","dropped"].map(s =>
-                  `<option value="${s}" ${entry.status===s?"selected":""}>${STATUS_LABELS[s]}</option>`
-                ).join("")}
-              </select>
+              <label>Notes personnelles</label>
+              <textarea id="f-notes" placeholder="Ton avis, tes impressions…">${esc(entry.notes||"")}</textarea>
             </div>
-            <div class="form-group">
-              <label>Note <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
-              <div class="rating-stars" id="rating-stars"></div>
-            </div>
+            <label class="toggle-row">
+              <span class="toggle-label">♥ Coup de cœur</span>
+              <span class="toggle-switch">
+                <input type="checkbox" id="f-favorite" ${entry.is_favorite?"checked":""} />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </span>
+            </label>
+            <button type="button" class="edit-details-trigger" onclick="UI.setEditDetailsView(true)">
+              <span class="edit-details-trigger-icon" aria-hidden="true">＋</span>
+              <span class="edit-details-trigger-copy">
+                <strong>Détails facultatifs</strong>
+                <small id="edit-details-summary">Genre, auteur, plateforme, couverture</small>
+              </span>
+              <span class="edit-details-trigger-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
-          <details class="advanced-details" ${entry.genre||entry.author||entry.platform||entry.cover_url ? "open" : ""}>
-            <summary class="advanced-summary">Infos supplémentaires <span class="advanced-hint">genre, auteur, image…</span></summary>
+          <details class="advanced-details edit-details-panel">
+            <summary class="advanced-summary">Détails facultatifs <span class="advanced-hint" id="edit-details-desktop-summary">genre, auteur, plateforme, couverture</span></summary>
             <div class="advanced-body">
               <div class="form-row">
                 <div class="form-group">
@@ -1570,17 +1589,6 @@ function _openModalClassic(entry) {
               </div>
             </div>
           </details>
-          <div class="form-group">
-            <label>Notes personnelles</label>
-            <textarea id="f-notes" placeholder="Ton avis, tes impressions…">${esc(entry.notes||"")}</textarea>
-          </div>
-          <label class="toggle-row">
-            <span class="toggle-label">♥ Coup de cœur</span>
-            <span class="toggle-switch">
-              <input type="checkbox" id="f-favorite" ${entry.is_favorite?"checked":""} />
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </span>
-          </label>
         </div>
         <div class="modal-footer">
           <button class="btn btn-danger btn-sm" onclick="UI.deleteEntry('${entry.id}')">Supprimer</button>
@@ -1593,7 +1601,48 @@ function _openModalClassic(entry) {
   buildRatingStars(entry.rating || 0);
   updateApiAvailLabel(entry.media_type || "movie");
   setupApiSearch();
-  setTimeout(() => document.getElementById("f-api-search")?.focus(), 100);
+  syncEditDetailsSummary();
+  ["f-genre", "f-author", "f-platform", "f-cover"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
+  });
+  // Sur mobile, ne pas ouvrir le clavier dès l’arrivée : la fiche reste entière.
+  if (!window.matchMedia?.("(max-width: 680px)")?.matches) {
+    setTimeout(() => document.getElementById("f-api-search")?.focus(), 100);
+  }
+}
+
+function syncEditDetailsSummary() {
+  const labels = [
+    ["f-genre", "Genre"],
+    ["f-author", "Auteur / réalisation"],
+    ["f-platform", "Plateforme"],
+    ["f-cover", "Couverture"],
+  ].filter(([id]) => document.getElementById(id)?.value?.trim()).map(([, label]) => label);
+  const text = labels.length ? labels.join(" · ") : "Genre, auteur, plateforme, couverture";
+  const mobileSummary = document.getElementById("edit-details-summary");
+  const desktopSummary = document.getElementById("edit-details-desktop-summary");
+  if (mobileSummary) mobileSummary.textContent = text;
+  if (desktopSummary) desktopSummary.textContent = text.toLowerCase();
+  const trigger = document.querySelector(".edit-details-trigger");
+  trigger?.classList.toggle("has-details", labels.length > 0);
+  const icon = trigger?.querySelector(".edit-details-trigger-icon");
+  if (icon) icon.textContent = labels.length ? "✓" : "＋";
+}
+
+function setEditDetailsView(showDetails) {
+  const modal = document.querySelector(".edit-modal");
+  const details = modal?.querySelector(".edit-details-panel");
+  if (!modal || !details) return;
+  modal.dataset.editView = showDetails ? "details" : "main";
+  details.open = Boolean(showDetails);
+  const body = modal.querySelector(".modal-body");
+  if (body) body.scrollTop = 0;
+  requestAnimationFrame(() => {
+    const target = showDetails
+      ? modal.querySelector(".edit-details-back")
+      : modal.querySelector(".edit-details-trigger");
+    target?.focus({ preventScroll: true });
+  });
 }
 
 const RATING_LABELS = {
@@ -1861,9 +1910,10 @@ function fillFromApi(idx) {
   set("f-platform", it.platform);
   window._apiSelected = it;
   document.getElementById("api-results").style.display = "none";
+  syncEditDetailsSummary();
   if (it.cover_url || it.genre) {
     const details = document.querySelector(".advanced-details");
-    if (details) details.open = true;
+    if (details && !window.matchMedia?.("(max-width: 680px)")?.matches) details.open = true;
   }
 }
 
@@ -3672,6 +3722,7 @@ window.UI = {
   quickAddFromResult,
   openEditModal:   (id) => { openDetailPanel(id); },
   openActivityMedia,
+  setEditDetailsView,
   closeModal,
   openEditFromDetail: (id) => {
     const e = State.entries.find(x => x.id === id);
