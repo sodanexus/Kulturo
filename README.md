@@ -11,13 +11,14 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Ajout simplifié en deux étapes avec recherche simultanée dans toutes les catégories
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
-- Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** l’activité
+- Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** le Journal
 - Prochaines sorties sur six mois, filtrables par films, séries, jeux vidéo ou livres, affichées progressivement dès qu'une source répond
 - Sélection France renforcée : dates cinéma françaises, diffuseurs TV présents en France, jeux Europe/monde et éditions françaises
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
-- Dashboard personnel et fil d’activité partagé
+- Journal personnel daté : ajouts, débuts, achèvements, nouvelles parties et notes
 - Profil annuel ou mensuel, filtrable par type : statistiques, catégories et tops cliquables
+- Histogramme des notes cliquable vers les médias correspondant à chaque note
 - Export JSON en un clic depuis le profil pour conserver une copie de sécurité
 - Interface responsive et PWA installable sur mobile
 - Bandeau **Mettre à jour** lorsqu'une nouvelle version de la PWA est prête
@@ -46,6 +47,7 @@ L’ancien onglet Discover et son système de recommandations ont été supprim�
 Kulturo/
 ├── index.html
 ├── app.js
+├── domain.js                 # Règles métier pures et testables
 ├── api.js
 ├── supabase.js
 ├── style.css
@@ -53,6 +55,9 @@ Kulturo/
 ├── schema.sql                 # Installation Supabase neuve
 ├── migration-v2.sql           # Mise à niveau d'une installation existante
 ├── migration-repeat-count.sql # Ajout sûr du compteur de revisionnage
+├── migration-journal.sql     # Journal daté et événements automatiques
+├── package.json              # Commande des tests sans dépendance
+├── tests/domain.test.mjs     # Non-régressions dates, mois et revisionnages
 ├── manifest.json
 ├── sw.js
 ├── icon.svg
@@ -65,6 +70,28 @@ Kulturo/
 ```
 
 ## Installation
+
+### Mise à jour vers Kulturo 3.0
+
+Kulturo 3.0 remplace l'ancien fil **Activité** par un **Journal personnel**. Supabase enregistre automatiquement les ajouts, débuts, achèvements, nouvelles parties et changements de note dans la même transaction que le média concerné.
+
+Avant d'envoyer les fichiers du site, exécuter dans **Supabase > SQL Editor** :
+
+```text
+migration-journal.sql
+```
+
+Cette migration est additive pour les données et réexécutable. Elle crée `media_events`, ajoute ses règles RLS, installe un déclencheur sur `media_entries` et retire uniquement l'ancienne fonction communautaire devenue inutile. Aucun média, statut, compteur, avis ou note existante n'est supprimé ou réinitialisé. Les médias existants reçoivent un seul événement initial fondé sur leur date réellement connue ; une date d'ajout ne remplace plus une date de fin manquante dans les statistiques.
+
+Le Profil utilise ensuite le Journal pour calculer les achèvements mensuels. Un mois courant sans média noté bascule automatiquement vers le dernier mois antérieur permettant d'afficher un Top, tandis qu'un mois choisi manuellement reste respecté. Chaque barre de l'histogramme des notes ouvre désormais les médias portant exactement cette note.
+
+La logique des dates, périodes et revisionnages a été extraite dans `domain.js` et couverte par des tests exécutables avec :
+
+```bash
+node --test tests/*.test.mjs
+```
+
+Aucune Edge Function ne doit être redéployée.
 
 ### Ajustement Kulturo 2.5.9
 
@@ -262,7 +289,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.9",
+    version: "3.0.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -301,7 +328,7 @@ https://sodanexus.github.io/Kulturo/
 
 ### Copie de sécurité
 
-Le bouton **Sauvegarde** du profil télécharge un fichier JSON contenant la bibliothèque et les notes personnelles. Ce fichier reste sur l’appareil de l’utilisateur et aucune donnée n’est envoyée à un service supplémentaire.
+Le bouton **Sauvegarde** du profil télécharge un fichier JSON contenant la bibliothèque, les notes personnelles et les événements du Journal. Ce fichier reste sur l’appareil de l’utilisateur et aucune donnée n’est envoyée à un service supplémentaire.
 
 ### Fiche détaillée
 
@@ -331,11 +358,11 @@ Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régi
 
 Les résultats sont regroupés par mois. Le choix du type, le genre et l’option de masquage des titres déjà ajoutés sont mémorisés localement.
 
-### Profil et activité
+### Profil et Journal
 
-Le profil permet de passer de **Annuel** à **Mensuel**, de choisir l’année ou le mois, puis de filtrer par films, séries, jeux ou livres. Les statuts principaux et le top utilisent ce périmètre. Les cartes et catégories ouvrent directement la bibliothèque avec exactement la même période et le même type. L’histogramme **Notes · toutes années** reste volontairement global.
+Le profil permet de passer de **Annuel** à **Mensuel**, de choisir l’année ou le mois, puis de filtrer par films, séries, jeux ou livres. Les statuts principaux et le top utilisent ce périmètre. Les cartes et catégories ouvrent directement la bibliothèque avec exactement la même période et le même type. L’histogramme **Notes · toutes années** reste volontairement global, mais chaque barre ouvre les médias correspondant exactement à la note choisie.
 
-Le fil d’activité peut afficher toute la communauté ou uniquement ses propres ajouts. Ses propres lignes sont cliquables et rouvrent la fiche correspondante.
+Le Journal regroupe chronologiquement les ajouts, débuts, achèvements, revisionnages, nouvelles parties et notes. Ses vues **Tout**, **Terminés** et **Notes** restent strictement personnelles ; chaque ligne rouvre la fiche correspondante.
 
 ### PWA
 
@@ -350,7 +377,7 @@ Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : 
 - `subtype = 'movie'` pour un film ;
 - `subtype = 'tv'` pour une série.
 
-Les données personnelles restent protégées par Row Level Security : chaque utilisateur ne peut lire et modifier que ses propres lignes. Le fil partagé passe par `get_activity_feed`, une fonction qui ne renvoie que les champs nécessaires à l’activité publique. Les notes textuelles privées, dates personnelles et métadonnées détaillées n’y sont pas exposées.
+Les données personnelles restent protégées par Row Level Security : chaque utilisateur ne peut lire et modifier que ses propres médias, et ne peut lire que ses propres événements du Journal. Le déclencheur `capture_media_event` écrit l’historique dans la même transaction que la modification du média.
 
 Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishable Supabase est conçue pour le client ; la sécurité des données repose sur les policies RLS, pas sur la dissimulation de cette clé.
 
@@ -358,6 +385,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 
 - Exécuter `migration-v2.sql` si la base existait avant la v2
 - Exécuter `migration-repeat-count.sql` avant d’utiliser le compteur de revisionnage
+- Exécuter `migration-journal.sql` avant d’ouvrir le Journal
 - Déployer les trois Edge Functions
 - Vérifier que `config.js` ne contient aucun secret serveur
 - Tester connexion, ajout, modification, suppression et détection de doublon
@@ -366,6 +394,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Tester les actions rapides et le choix de grille mobile
 - Tester la recherche universelle en deux étapes et la protection des saisies non enregistrées
 - Tester les filtres cliquables du profil et les groupes mensuels des sorties
+- Exécuter `node --test tests/*.test.mjs`
 - Tester le switch annuel/mensuel et les filtres Films/Séries/Jeux/Livres du profil
 - Vérifier un lien acteur IMDb, un résumé de livre et un résumé de jeu en français
 - Vérifier les boutons `−` / `+` du compteur puis la présence de l’icône sur la carte

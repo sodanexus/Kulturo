@@ -163,14 +163,26 @@ export const Profiles = {
   },
 };
 
-// ── Activité partagée ─────────────────────────────────────────
-export const Activity = {
-  async getFeed(limit = 50) {
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
-    const { data, error } = await _client
-      .rpc("get_activity_feed", { p_limit: safeLimit });
-    if (error) throw error;
-    return data || [];
+// ── Journal personnel ────────────────────────────────────────
+export const Journal = {
+  async getAll() {
+    const user = await requireCurrentUser();
+    const pageSize = 1000;
+    const events = [];
+
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await _client
+        .from("media_events")
+        .select("id, media_id, event_type, occurred_at, metadata")
+        .eq("user_id", user.id)
+        .order("occurred_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      events.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+
+    return events;
   },
 };
 

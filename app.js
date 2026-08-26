@@ -2,8 +2,24 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, Auth, Media, Profiles, Activity } from "./supabase.js";
+import { initSupabase, Auth, Media, Profiles, Journal } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
+import {
+  entryActivityMonth,
+  entryActivityYear,
+  eventsForPeriod,
+  isCompletionEvent,
+  journalEventPresentation,
+  latestEventMonth,
+  localISODate,
+  normalizeTitle,
+  normalizedSubtype,
+  repeatInfo,
+  repeatProgressLabel,
+  statusTransitionChanges,
+  uniqueEntriesForEvents,
+  yearMonthOf,
+} from "./domain.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -40,6 +56,10 @@ const State = {
   user:       null,
   username:   null,
   entries:    [],
+  events:     [],
+  journalAvailable: false,
+  journalError: null,
+  journalDirty: true,
   filters: {
     type:     "all",
     subtype:  "all",
@@ -49,6 +69,7 @@ const State = {
     sort:     "created_at",
     year:     "all",
     month:    "all",
+    rating:   "all",
   },
   editingId:  null,
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
@@ -86,38 +107,6 @@ function readCachedEntries() {
   }
 }
 
-function localISODate() {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function yearOf(value) {
-  if (!value) return null;
-  const year = new Date(`${String(value).slice(0, 10)}T12:00:00`).getFullYear();
-  return Number.isFinite(year) ? year : null;
-}
-
-function entryActivityYear(entry) {
-  if (entry.status === "finished") return yearOf(entry.date_finished) || yearOf(entry.created_at);
-  return yearOf(entry.date_started) || yearOf(entry.created_at);
-}
-
-function entryActivityMonth(entry) {
-  const value = entry.status === "finished"
-    ? (entry.date_finished || entry.created_at)
-    : (entry.date_started || entry.created_at);
-  if (!value) return null;
-  const match = String(value).match(/^(\d{4})-(\d{2})/);
-  if (match) return `${match[1]}-${match[2]}`;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
 const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
@@ -129,10 +118,6 @@ function getTypeLabel(e) {
 }
 const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
-function normalizeTitle(value) {
-  return String(value || "").trim().toLocaleLowerCase("fr-FR");
-}
-
 function safeMediaUrl(value) {
   if (!value) return "";
   try {
@@ -141,12 +126,6 @@ function safeMediaUrl(value) {
   } catch {
     return "";
   }
-}
-
-function normalizedSubtype(item) {
-  return item?.media_type === "movie" || item?.subtype
-    ? (item?.subtype === "tv" ? "tv" : "movie")
-    : null;
 }
 
 function findMatchingEntry(candidate, excludeId = null) {
@@ -202,6 +181,10 @@ async function init() {
         restoreNavigation();
       } else if (event === "SIGNED_OUT") {
         State.entries = [];
+        State.events = [];
+        State.journalAvailable = false;
+        State.journalError = null;
+        State.journalDirty = true;
         State.username = null;
         renderAuthPage();
       }
@@ -227,8 +210,9 @@ function applyTheme(t) {
 
 function restoreNavigation() {
   const saved = localStorage.getItem("kulturo-nav") || "library";
-  const allowed = new Set(["library", "dashboard", "upcoming", "activity"]);
-  navTo(saved === "discover" ? "upcoming" : (allowed.has(saved) ? saved : "library"));
+  const allowed = new Set(["library", "dashboard", "upcoming", "journal"]);
+  const normalized = saved === "activity" ? "journal" : saved === "discover" ? "upcoming" : saved;
+  navTo(allowed.has(normalized) ? normalized : "library");
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -293,9 +277,9 @@ function renderApp() {
           <span class="nav-icon">${iconCalendar()}</span>
           <span class="nav-label">Sorties</span>
         </button>
-        <button type="button" class="nav-item" data-nav="activity" data-tooltip="Activité" aria-label="Activité" onclick="UI.navTo('activity')">
-          <span class="nav-icon">${iconActivity()}</span>
-          <span class="nav-label">Activité</span>
+        <button type="button" class="nav-item" data-nav="journal" data-tooltip="Journal" aria-label="Journal" onclick="UI.navTo('journal')">
+          <span class="nav-icon">${iconJournal()}</span>
+          <span class="nav-label">Journal</span>
         </button>
         <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
           <span class="nav-icon">${iconChart()}</span>
@@ -380,23 +364,24 @@ function renderApp() {
         <div id="upcoming-grid" class="upcoming-months"></div>
       </section>
 
-      <!-- Page Activité partagée -->
-      <section id="page-activity" class="page">
+      <!-- Page Journal personnel -->
+      <section id="page-journal" class="page">
         <header class="page-heading">
           <div>
-            <span class="page-kicker">La communauté</span>
-            <h1>Activité</h1>
-            <p>Les derniers médias ajoutés par les membres de Kulturo.</p>
+            <span class="page-kicker">Votre parcours</span>
+            <h1>Journal</h1>
+            <p>Vos ajouts, débuts, achèvements, nouvelles parties et notes au fil du temps.</p>
           </div>
         </header>
-        <div class="activity-toolbar">
-          <div class="activity-view-switch" role="group" aria-label="Filtrer l’activité">
-            <button class="activity-view-btn active" id="activity-view-all" onclick="UI.setActivityView('all')" aria-pressed="true">Tout</button>
-            <button class="activity-view-btn" id="activity-view-me" onclick="UI.setActivityView('me')" aria-pressed="false">Moi</button>
+        <div class="journal-toolbar">
+          <div class="journal-view-switch" role="group" aria-label="Filtrer le journal">
+            <button class="journal-view-btn active" id="journal-view-all" onclick="UI.setJournalView('all')" aria-pressed="true">Tout</button>
+            <button class="journal-view-btn" id="journal-view-completions" onclick="UI.setJournalView('completions')" aria-pressed="false">Terminés</button>
+            <button class="journal-view-btn" id="journal-view-ratings" onclick="UI.setJournalView('ratings')" aria-pressed="false">Notes</button>
           </div>
-          <span id="activity-result-count" class="section-count"></span>
+          <span id="journal-result-count" class="section-count"></span>
         </div>
-        <div id="activity-feed"></div>
+        <div id="journal-feed"></div>
       </section>
     </main>
 
@@ -435,9 +420,9 @@ function renderApp() {
         ${iconPlus()}
         <span class="sr-only">Ajouter</span>
       </button>
-      <button type="button" class="bottom-nav-item" data-nav="activity" onclick="UI.navTo('activity')" aria-label="Activité">
-        ${iconActivity()}
-        <span>Activité</span>
+      <button type="button" class="bottom-nav-item" data-nav="journal" onclick="UI.navTo('journal')" aria-label="Journal">
+        ${iconJournal()}
+        <span>Journal</span>
       </button>
       <button type="button" class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" aria-label="Mon profil">
         ${iconUser()}
@@ -461,6 +446,31 @@ function renderApp() {
 }
 
 // ── Chargement depuis Supabase ───────────────────────────────
+async function refreshJournalEvents({ silent = false } = {}) {
+  try {
+    State.events = await Journal.getAll();
+    State.journalAvailable = true;
+    State.journalError = null;
+    State.journalDirty = false;
+    return State.events;
+  } catch (error) {
+    State.events = [];
+    State.journalAvailable = false;
+    State.journalError = error;
+    State.journalDirty = false;
+    if (!silent) toast("Journal indisponible : activez migration-journal.sql dans Supabase.", "error");
+    return [];
+  }
+}
+
+function markJournalDirty() {
+  State.journalDirty = true;
+  setTimeout(() => {
+    if (_currentPage === "journal") renderJournal();
+    else if (_currentPage === "dashboard") renderDashboard();
+  }, 0);
+}
+
 async function loadEntries() {
   // Show skeletons while loading
   const grid = document.getElementById("cards-grid");
@@ -492,6 +502,7 @@ async function loadEntries() {
       toast("Erreur de chargement : " + e.message, "error");
     }
   }
+  await refreshJournalEvents({ silent: true });
 }
 
 // ── Navigation unifiée ───────────────────────────────────────
@@ -504,7 +515,7 @@ function navTo(key, options = {}) {
   if (main) State.scrollPos[_currentPage] = main.scrollTop;
 
   // Les raccourcis de collection appartiennent tous à la Bibliothèque.
-  const primaryKey = ["dashboard", "upcoming", "activity"].includes(key) ? key : "library";
+  const primaryKey = ["dashboard", "upcoming", "journal"].includes(key) ? key : "library";
 
   // Synchronise systématiquement les deux navigations. Cela rend aussi un clic
   // répété utile si une page a été interrompue pendant son chargement.
@@ -530,8 +541,8 @@ function navTo(key, options = {}) {
     showPage("dashboard");
   } else if (key === "upcoming") {
     showPage("upcoming");
-  } else if (key === "activity") {
-    showPage("activity");
+  } else if (key === "journal") {
+    showPage("journal");
   } else if (key.startsWith("type-")) {
     State.filters.type     = key.replace("type-", "");
     State.filters.subtype  = "all";
@@ -539,6 +550,7 @@ function navTo(key, options = {}) {
     State.filters.favorite = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
+    State.filters.rating   = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -550,6 +562,7 @@ function navTo(key, options = {}) {
     State.filters.favorite = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
+    State.filters.rating   = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -561,6 +574,7 @@ function navTo(key, options = {}) {
     State.filters.status   = "all";
     State.filters.year     = "all";
     State.filters.month    = "all";
+    State.filters.rating   = "all";
     syncFilterChips();
     if (_currentPage !== "library") showPage("library");
     renderCards();
@@ -573,6 +587,7 @@ function navTo(key, options = {}) {
     State.filters.favorite = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
+    State.filters.rating   = "all";
     if (!options.preserveSearch) {
       State.filters.search = "";
       const search = document.getElementById("global-search");
@@ -625,7 +640,7 @@ function showPage(name) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "upcoming")  renderUpcoming();
-  if (name === "activity")  renderActivity();
+  if (name === "journal")   renderJournal();
   requestAnimationFrame(syncBackToTop);
 }
 
@@ -665,6 +680,7 @@ function _countActiveFilters() {
   if (State.filters.status !== "all") n++;
   if (State.filters.sort !== "created_at") n++;
   if (State.filters.year !== "all" || State.filters.month !== "all") n++;
+  if (State.filters.rating !== "all") n++;
   return n;
 }
 
@@ -718,7 +734,7 @@ function _updateFilterResultCount() {
 // ── Accès rapide aux médias en cours ─────────────────────────
 function isLibraryViewUnfiltered() {
   const f = State.filters;
-  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all" && f.month === "all";
+  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
 }
 
 function continueCardHTML(entry) {
@@ -795,6 +811,7 @@ function renderActiveFilters() {
   if (State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
   if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
   if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
+  if (State.filters.rating !== "all") filters.push(["rating", `Note ${State.filters.rating}/10`]);
   if (State.filters.search) filters.push(["search", `“${State.filters.search}”`]);
   if (State.filters.month !== "all") {
     const [year, month] = String(State.filters.month).split("-").map(Number);
@@ -827,7 +844,8 @@ function clearLibraryFilter(key) {
   else if (key === "sort") {
     State.filters.sort = "created_at";
     localStorage.setItem("kulturo-sort", "created_at");
-  } else if (key === "search") {
+  } else if (key === "rating") State.filters.rating = "all";
+  else if (key === "search") {
     State.filters.search = "";
     const search = document.getElementById("global-search");
     if (search) search.value = "";
@@ -847,6 +865,7 @@ function clearAllLibraryFilters() {
   State.filters.status = "all";
   State.filters.favorite = false;
   State.filters.search = "";
+  State.filters.rating = "all";
   State.filters.sort = "created_at";
   State.filters.year = "all";
   State.filters.month = "all";
@@ -884,6 +903,7 @@ function renderCards(options = {}) {
     let emptyMsg = "Ajoutez votre premier film, jeu ou livre pour commencer.";
     let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
+    else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>${f.rating}/10</strong>.`;
     else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
     else if (f.month !== "all")     emptyMsg = "Aucun média ne correspond à ce mois.";
     else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
@@ -898,7 +918,7 @@ function renderCards(options = {}) {
         <div class="empty-icon">🎭</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all"
+        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
           ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
           : emptyBtn}
       </div>`;
@@ -917,6 +937,7 @@ function filterEntries(entries) {
   if (f.favorite)          res = res.filter(e => e.is_favorite);
   if (f.year !== "all")   res = res.filter(e => entryActivityYear(e) === Number(f.year));
   if (f.month !== "all")  res = res.filter(e => entryActivityMonth(e) === String(f.month));
+  if (f.rating !== "all") res = res.filter(e => Number(e.rating) === Number(f.rating));
   if (f.search)  res = res.filter(e => e.title.toLowerCase().includes(f.search.toLowerCase()));
   // Tri local
   res.sort((a, b) => {
@@ -1020,8 +1041,9 @@ function updateBadges() {
 const _profileToday = new Date();
 let _profileYear = _profileToday.getFullYear();
 let _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
-let _profilePeriod = "year";
+let _profilePeriod = "month";
 let _profileMedia = "all";
+let _profileMonthAutoResolve = true;
 const LAST_BACKUP_KEY = "kulturo-last-backup";
 const PROFILE_MEDIA_OPTIONS = [
   ["all", "Tout"],
@@ -1038,10 +1060,32 @@ function profileMediaMatches(entry, media = _profileMedia) {
   return entry.media_type === media;
 }
 
+function profileEntriesForPeriod(entries, year, month = "all") {
+  if (State.journalAvailable) {
+    return uniqueEntriesForEvents(entries, eventsForPeriod(State.events, year, month));
+  }
+  return entries.filter(entry => {
+    if (entryActivityYear(entry) !== Number(year)) return false;
+    return month === "all" || entryActivityMonth(entry) === `${year}-${String(month).padStart(2, "0")}`;
+  });
+}
+
+function latestProfileMonthBefore(entries, anchorMonth) {
+  if (State.journalAvailable) {
+    return latestEventMonth(State.events, entries, anchorMonth, entry => profileMediaMatches(entry) && Boolean(entry.rating));
+  }
+  return entries
+    .filter(entry => profileMediaMatches(entry) && entry.rating)
+    .map(entryActivityMonth)
+    .filter(month => month && month < anchorMonth)
+    .sort((a, b) => b.localeCompare(a))[0] || null;
+}
+
 function setProfileYear(y) {
   const year = Number.parseInt(y, 10);
   if (!Number.isFinite(year)) return;
   _profileYear = year;
+  _profileMonthAutoResolve = false;
   renderDashboard();
 }
 
@@ -1049,12 +1093,14 @@ function setProfileMonth(month) {
   const normalized = String(month).padStart(2, "0");
   if (!/^(0[1-9]|1[0-2])$/.test(normalized)) return;
   _profileMonth = normalized;
+  _profileMonthAutoResolve = false;
   renderDashboard();
 }
 
 function setProfilePeriod(period) {
   if (!['year', 'month'].includes(period) || period === _profilePeriod) return;
   _profilePeriod = period;
+  if (period === "month") _profileMonthAutoResolve = true;
   renderDashboard();
 }
 
@@ -1083,6 +1129,7 @@ function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
   State.filters.status = "all";
   State.filters.favorite = false;
   State.filters.search = "";
+  State.filters.rating = "all";
   State.filters.year = Number(year) || "all";
   State.filters.month = /^(0[1-9]|1[0-2])$/.test(String(month)) && State.filters.year !== "all"
     ? `${State.filters.year}-${month}`
@@ -1122,9 +1169,21 @@ function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
   _updateFilterToggleLabel();
 }
 
+function openRatingCollection(value) {
+  const rating = Number.parseInt(value, 10);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 10) return;
+  navTo("library");
+  State.filters.rating = rating;
+  syncFilterChips();
+  renderCards({ resetScroll: true });
+  _updateFilterToggleLabel();
+}
+
 async function renderDashboard() {
   const container = document.getElementById("dashboard-content");
   if (!container) return;
+
+  if (State.journalDirty) await refreshJournalEvents({ silent: true });
 
   // Charge le username AVANT le rendu pour éviter le flash
   if (State.user && State.username === null) {
@@ -1135,8 +1194,28 @@ async function renderDashboard() {
   }
   const cachedUsername = State.username || "";
 
-  const all   = State.entries;
-  const years = [...new Set(all.map(entryActivityYear).filter(Boolean))]
+  const all = State.entries;
+
+  // À l'ouverture de la vue mensuelle, un mois courant vide bascule vers le
+  // dernier mois réellement renseigné. Un choix manuel vide reste respecté.
+  if (_profilePeriod === "month" && _profileMonthAutoResolve) {
+    const anchorMonth = `${_profileYear}-${_profileMonth}`;
+    const currentEntries = profileEntriesForPeriod(all, _profileYear, _profileMonth)
+      .filter(entry => profileMediaMatches(entry) && entry.rating);
+    if (!currentEntries.length) {
+      const fallbackMonth = latestProfileMonthBefore(all, anchorMonth);
+      if (fallbackMonth) {
+        _profileYear = Number(fallbackMonth.slice(0, 4));
+        _profileMonth = fallbackMonth.slice(5, 7);
+      }
+    }
+    _profileMonthAutoResolve = false;
+  }
+
+  const eventYears = State.journalAvailable
+    ? State.events.map(event => Number(yearMonthOf(event.occurred_at)?.slice(0, 4))).filter(Number.isFinite)
+    : [];
+  const years = [...new Set([...all.map(entryActivityYear).filter(Boolean), ...eventYears])]
     .sort((a,b)=>b-a);
   if (!years.includes(_profileYear)) years.unshift(_profileYear);
   const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
@@ -1150,12 +1229,13 @@ async function renderDashboard() {
   const periodLabel = _profilePeriod === "month"
     ? new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(_profileYear, Number(_profileMonth) - 1, 1))
     : String(_profileYear);
-  const dateScopedEntries = all.filter(entry => {
-    if (entryActivityYear(entry) !== _profileYear) return false;
-    return _profilePeriod === "year" || entryActivityMonth(entry) === `${_profileYear}-${_profileMonth}`;
-  });
+  const dateScopedEntries = profileEntriesForPeriod(all, _profileYear, periodMonth);
   const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
-  const scopedFinished = scopedEntries.filter(entry => entry.status === "finished");
+  const scopedIds = new Set(scopedEntries.map(entry => entry.id));
+  const periodEvents = State.journalAvailable ? eventsForPeriod(State.events, _profileYear, periodMonth) : [];
+  const scopedFinished = State.journalAvailable
+    ? periodEvents.filter(event => scopedIds.has(event.media_id) && isCompletionEvent(event))
+    : scopedEntries.filter(entry => entry.status === "finished" && entry.date_finished);
   const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
   const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
   const scopedFavs = scopedEntries.filter(entry => entry.is_favorite);
@@ -1212,10 +1292,10 @@ async function renderDashboard() {
     const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
     const isPeak = n > 0 && n === Math.max(...ratingCounts);
     return `
-      <div class="rating-hist-col" title="${n} média${n !== 1 ? "s" : ""} · ${note}/10">
+      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ${note}/10" ${n ? `onclick="UI.openRatingCollection(${note})" aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
         <div class="rating-hist-count">${n || ""}</div>
         <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
-      </div>`;
+      </button>`;
   }).join("");
 
   const ratingsHTML = totalRated > 0 ? `
@@ -2000,6 +2080,7 @@ async function saveEntry() {
       State.entries.unshift(created);
     }
     cacheEntriesLocally();
+    markJournalDirty();
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
     const justFinished = payload.status === "finished";
@@ -2031,6 +2112,7 @@ async function deleteEntry(id) {
     await Media.delete(id);
     State.entries = State.entries.filter(e => e.id !== id);
     cacheEntriesLocally();
+    markJournalDirty();
     _modalDirty = false;
     closeModal();
     renderCards();
@@ -2314,9 +2396,9 @@ const iconEdit    = () => `<svg width="15" height="15" fill="none" stroke="curre
 const iconTrash   = () => `<svg class="icon-trash" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>`;
 const iconRepeat  = () => `<svg class="icon-repeat" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>`;
 const iconChart   = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`;
+const iconJournal = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v16H7a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2Z"/><path d="M7 17h13M8 7h8M8 11h6"/></svg>`;
 
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
-const iconActivity = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
 const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 
 
@@ -2753,6 +2835,7 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
     const created = await Media.create(payload);
     State.entries.unshift(created);
     cacheEntriesLocally();
+    markJournalDirty();
     updateBadges();
     renderUpcomingCards();
     toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
@@ -3000,48 +3083,6 @@ function quickActionsHTML(entry) {
     </section>`;
 }
 
-function repeatInfo(entry) {
-  const repeats = Math.max(0, Number.parseInt(entry.repeat_count, 10) || 0);
-  const hasFirstCompletion = Boolean(entry.date_finished || entry.status === "finished" || repeats > 0);
-  const total = hasFirstCompletion ? repeats + 1 : 0;
-  if (entry.media_type === "book") return { repeats, total, noun: "lecture", done: "Lu", action: "Relire" };
-  if (entry.media_type === "game") return { repeats, total, noun: "partie terminée", done: "Terminé", action: "Rejouer" };
-  return { repeats, total, noun: "visionnage", done: "Vu", action: "Revoir" };
-}
-
-function repeatProgressLabel(entry, info = repeatInfo(entry)) {
-  if (entry.status !== "playing" || info.total < 1) return "";
-  if (entry.media_type === "book") return "Relecture en cours";
-  if (entry.media_type === "game") return "Nouvelle partie en cours";
-  return "Revisionnage en cours";
-}
-
-// Un statut "En cours" associé à un achèvement antérieur suffit à mémoriser
-// qu'il s'agit d'une nouvelle lecture/partie/visionnage. Aucune colonne ni
-// migration supplémentaire n'est nécessaire.
-function statusTransitionChanges(entry, nextStatus, today = localISODate()) {
-  const previousStatus = entry?.status || null;
-  const info = repeatInfo(entry || {});
-  const hasPreviousCompletion = Boolean(entry && info.total > 0);
-  const repeatStarted = nextStatus === "playing" && previousStatus !== "playing" && hasPreviousCompletion;
-  const repeatCompleted = nextStatus === "finished" && previousStatus === "playing" && hasPreviousCompletion;
-  const changes = { status: nextStatus };
-
-  if (nextStatus === "playing" && !entry?.date_started && previousStatus !== "playing") {
-    changes.date_started = today;
-  }
-  // Compatibilité avec un ancien média déjà terminé mais sans date enregistrée :
-  // on conserve une preuve du premier achèvement avant de passer à En cours.
-  if (repeatStarted && !entry?.date_finished) changes.date_finished = today;
-
-  if (nextStatus === "finished") {
-    if (repeatCompleted) changes.repeat_count = Math.min(999, info.repeats + 1);
-    else if (!entry?.date_finished && previousStatus !== "finished") changes.date_finished = today;
-  }
-
-  return { changes, repeatStarted, repeatCompleted };
-}
-
 function detailRepeatIndicatorHTML(entry) {
   const info = repeatInfo(entry);
   const progress = repeatProgressLabel(entry, info);
@@ -3095,10 +3136,6 @@ function renderDetailBody(e, options = {}) {
   };
 
   let html = "";
-
-  if (options.readOnly && e.username) {
-    html += `<div class="activity-detail-notice"><span class="activity-detail-avatar" aria-hidden="true">${iconActivity()}</span><span>Ajouté par <strong>${esc(e.username)}</strong> dans l’activité Kulturo.</span></div>`;
-  }
 
   if (e.status && !options.readOnly) html += quickActionsHTML(e);
 
@@ -3226,6 +3263,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     const updated = await Media.update(id, changes);
     Object.assign(entry, updated);
     cacheEntriesLocally();
+    markJournalDirty();
     renderCards();
     updateBadges();
     syncOpenDetail(entry, feedback);
@@ -3751,6 +3789,13 @@ function exportLibrary() {
     version: CONFIG?.app?.version || null,
     exported_at: new Date().toISOString(),
     entries: cleanEntries,
+    events: State.events.map(event => ({
+      id: event.id,
+      media_id: event.media_id,
+      event_type: event.event_type,
+      occurred_at: event.occurred_at,
+      metadata: event.metadata || {},
+    })),
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -3764,7 +3809,7 @@ function exportLibrary() {
   try { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); } catch {}
   const backupLabel = document.getElementById("last-backup-label");
   if (backupLabel) backupLabel.textContent = formatLastBackup();
-  toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} exporté${cleanEntries.length > 1 ? "s" : ""} ✓`, "success");
+  toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
 }
 
 function setMobileColumns(value) {
@@ -3777,148 +3822,150 @@ function setMobileColumns(value) {
   });
 }
 
-// ── Fil d'activité partagé ────────────────────────────────────
-let _activityEntries = [];
-let _activityView = (() => {
-  try { return localStorage.getItem("kulturo-activity-view") === "me" ? "me" : "all"; }
-  catch { return "all"; }
+// ── Journal culturel personnel ────────────────────────────────
+let _journalView = (() => {
+  try {
+    const saved = localStorage.getItem("kulturo-journal-view");
+    return ["all", "completions", "ratings"].includes(saved) ? saved : "all";
+  } catch {
+    return "all";
+  }
 })();
 
-function syncActivityViewButtons() {
-  ["all", "me"].forEach(view => {
-    const button = document.getElementById(`activity-view-${view}`);
-    const active = _activityView === view;
+function syncJournalViewButtons() {
+  ["all", "completions", "ratings"].forEach(view => {
+    const button = document.getElementById(`journal-view-${view}`);
+    const active = _journalView === view;
     button?.classList.toggle("active", active);
     button?.setAttribute("aria-pressed", String(active));
   });
 }
 
-function renderCurrentActivityView() {
-  const container = document.getElementById("activity-feed");
+function visibleJournalEvents() {
+  const existingIds = new Set(State.entries.map(entry => entry.id));
+  return State.events.filter(event => {
+    if (!existingIds.has(event.media_id)) return false;
+    if (_journalView === "completions") return isCompletionEvent(event);
+    if (_journalView === "ratings") {
+      const rating = Number.parseInt(event?.metadata?.rating, 10);
+      return event.event_type === "rated" || (Number.isInteger(rating) && rating >= 1);
+    }
+    return true;
+  });
+}
+
+function setJournalView(view) {
+  if (!["all", "completions", "ratings"].includes(view)) return;
+  _journalView = view;
+  try { localStorage.setItem("kulturo-journal-view", view); } catch {}
+  renderCurrentJournalView();
+}
+
+async function renderJournal() {
+  const container = document.getElementById("journal-feed");
   if (!container) return;
-  syncActivityViewButtons();
-  const visible = _activityView === "me"
-    ? _activityEntries.filter(entry => entry.isMe)
-    : _activityEntries;
-  const count = document.getElementById("activity-result-count");
-  if (count) count.textContent = `${visible.length} activité${visible.length > 1 ? "s" : ""}`;
-  container.innerHTML = renderActivityFeed(visible);
-}
+  syncJournalViewButtons();
 
-function setActivityView(view) {
-  if (!["all", "me"].includes(view)) return;
-  _activityView = view;
-  try { localStorage.setItem("kulturo-activity-view", view); } catch {}
-  renderCurrentActivityView();
-}
-
-async function renderActivity() {
-  const container = document.getElementById("activity-feed");
-  if (!container) return;
-
-  syncActivityViewButtons();
-  const count = document.getElementById("activity-result-count");
-  if (count) count.textContent = "";
-  container.innerHTML = `<div style="display:flex;align-items:center;gap:.75rem;padding:2rem;color:var(--text-3)"><div class="spinner"></div><span>Chargement de l'activité…</span></div>`;
-
-  try {
-    const enriched = await Activity.getFeed(50);
-    _activityEntries = enriched.map(e => ({ ...e, isMe: e.user_id === State.user?.id }));
-    renderCurrentActivityView();
-  } catch (e) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erreur de chargement</h3><p>${esc(e.message)}</p></div>`;
-  }
-}
-
-function renderActivityFeed(entries) {
-  if (!entries.length) {
-    const message = _activityView === "me"
-      ? "Vos prochains ajouts apparaîtront ici."
-      : "Ajoutez des médias pour voir l'activité ici.";
-    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>${message}</p></div>`;
+  if (State.journalDirty) {
+    container.innerHTML = `<div class="journal-loading"><div class="spinner"></div><span>Chargement du journal…</span></div>`;
+    await refreshJournalEvents({ silent: true });
   }
 
-  // Groupe par date
-  const groups = {};
-  entries.forEach(e => {
-    const d = new Date(e.created_at);
-    const today    = new Date();
-    const yesterday= new Date(); yesterday.setDate(today.getDate() - 1);
-    let label;
-    if (d.toDateString() === today.toDateString())     label = "Aujourd'hui";
-    else if (d.toDateString() === yesterday.toDateString()) label = "Hier";
-    else label = d.toLocaleDateString("fr-FR", { day:"numeric", month:"long", year:"numeric" });
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(e);
+  if (!State.journalAvailable) {
+    const count = document.getElementById("journal-result-count");
+    if (count) count.textContent = "";
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal à activer</h3><p>Exécutez <strong>migration-journal.sql</strong> dans Supabase pour créer votre historique personnel.</p></div>`;
+    return;
+  }
+  renderCurrentJournalView();
+}
+
+function renderCurrentJournalView() {
+  const container = document.getElementById("journal-feed");
+  if (!container || !State.journalAvailable) return;
+  syncJournalViewButtons();
+  const visible = visibleJournalEvents();
+  const count = document.getElementById("journal-result-count");
+  if (count) count.textContent = `${visible.length} événement${visible.length > 1 ? "s" : ""}`;
+  container.innerHTML = renderJournalFeed(visible);
+}
+
+function journalDateLabel(value) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "Aujourd’hui";
+  if (date.toDateString() === yesterday.toDateString()) return "Hier";
+  return date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+function renderJournalFeed(events) {
+  if (!events.length) {
+    const message = _journalView === "completions"
+      ? "Vos prochains achèvements apparaîtront ici."
+      : _journalView === "ratings"
+        ? "Vos prochaines notes apparaîtront ici."
+        : "Vos prochaines actions apparaîtront ici.";
+    return `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal vide</h3><p>${message}</p></div>`;
+  }
+
+  const groups = new Map();
+  events.forEach(event => {
+    const label = journalDateLabel(event.occurred_at);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(event);
   });
 
-  return Object.entries(groups).map(([date, items]) => `
-    <div class="activity-date-group">
-      <div class="activity-date-label">${date}</div>
-      ${items.map(e => activityRowHTML(e)).join("")}
-    </div>
+  return [...groups.entries()].map(([date, items]) => `
+    <section class="activity-date-group journal-date-group">
+      <div class="activity-date-label">${esc(date)}</div>
+      ${items.map(journalRowHTML).join("")}
+    </section>
   `).join("");
 }
 
-function activityRowHTML(e) {
-  const icon   = TYPE_ICONS[e.media_type] || "🎭";
-  const type   = e.media_type === "movie" && !e.subtype ? "Film / Série" : getTypeLabel(e);
-  const status = STATUS_LABELS[e.status] || "Ajouté";
-
-  const starsHTML  = e.rating
-    ? `<span class="activity-stars">${ratingStars(e.rating)}</span>`
+function journalRowHTML(event) {
+  const entry = State.entries.find(item => item.id === event.media_id);
+  if (!entry) return "";
+  const presentation = journalEventPresentation(event, entry);
+  const mediaIcon = TYPE_ICONS[entry.media_type] || "🎭";
+  const coverUrl = safeMediaUrl(entry.cover_url);
+  const coverHTML = coverUrl
+    ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="activity-cover activity-cover-ph">${mediaIcon}</div>`;
+  const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
+  const eventRating = Number.parseInt(metadata.rating, 10);
+  const ratingBadge = Number.isInteger(eventRating) && eventRating >= 1
+    ? `<span class="journal-rating-badge">★ ${eventRating}/10</span>`
     : "";
-
-  const activityCoverUrl = safeMediaUrl(e.cover_url);
-  const coverHTML = activityCoverUrl
-    ? `<img src="${esc(activityCoverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
-    : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
-
-  const meLabel = e.isMe ? `<span class="activity-me-badge">moi</span>` : "";
-  const rowClass = "activity-row is-clickable";
-  const rowAttributes = ` role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(e.title)}" onclick="UI.openActivityMedia('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openActivityMedia('${e.id}')}"`;
+  const type = getTypeLabel(entry);
+  const dateOnly = Boolean(metadata.date_only || metadata.legacy);
+  const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openJournalMedia('${entry.id}')}"`;
 
   return `
-    <div class="${rowClass}"${rowAttributes}>
+    <article class="activity-row is-clickable journal-event-row" ${attributes}>
       ${coverHTML}
       <div class="activity-info">
-        <div class="activity-line">
-          <span class="activity-username">${esc(e.username)}${meLabel}</span>
-          <span class="activity-verb">a ajouté</span>
-        </div>
-        <div class="activity-title">${icon} ${esc(e.title)}</div>
+        <div class="journal-event-label"><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</div>
+        <div class="activity-title">${esc(entry.title)}</div>
         <div class="activity-meta">
-          <span class="badge badge-${e.media_type}" style="font-size:.7rem">${type}</span>
-          <span class="badge badge-${e.status}" style="font-size:.7rem">${status}</span>
-          ${starsHTML}
-          ${e.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
+          <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
+          ${ratingBadge}
         </div>
       </div>
-      <div class="activity-time">${new Date(e.created_at).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })}</div>
-    </div>`;
+      ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
+    </article>`;
 }
 
-function openActivityMedia(id) {
-  const ownEntry = State.entries.find(entry => entry.id === id);
-  if (ownEntry) {
-    openDetailPanel(ownEntry.id);
+function openJournalMedia(id) {
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry) {
+    toast("Ce média n’est plus disponible.", "error");
     return;
   }
-
-  const activityEntry = _activityEntries.find(entry => entry.id === id);
-  if (!activityEntry) {
-    toast("Ce média n’est plus disponible dans le fil d’activité.", "error");
-    return;
-  }
-
-  // Le fil public ne contient volontairement que les informations partageables.
-  // La fiche reste donc en lecture seule pour les médias des autres membres.
-  renderDetailPanel({
-    ...activityEntry,
-    subtype: activityEntry.subtype || null,
-    external_id: null,
-    source_api: "activity",
-  }, { readOnly: true });
+  openDetailPanel(entry.id);
 }
 
 
@@ -3928,7 +3975,7 @@ window.UI = {
   quickAdd,
   quickAddFromResult,
   openEditModal:   (id) => { openDetailPanel(id); },
-  openActivityMedia,
+  openJournalMedia,
   setEditDetailsView,
   closeModal,
   openEditFromDetail: (id) => {
@@ -4090,6 +4137,7 @@ window.UI = {
     State.filters.favorite = false;
     State.filters.year = "all";
     State.filters.month = "all";
+    State.filters.rating = "all";
     localStorage.setItem("kulturo-sort", "created_at");
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
@@ -4100,6 +4148,7 @@ window.UI = {
   setProfilePeriod,
   setProfileMedia,
   openProfileCollection,
+  openRatingCollection,
   setUpcomingType,
   setUpcomingGenre,
   setUpcomingHideAdded,
@@ -4112,7 +4161,7 @@ window.UI = {
   addUpcomingToWishlist,
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
-  setActivityView,
+  setJournalView,
   saveUsername,
   exportLibrary,
   setMobileColumns,

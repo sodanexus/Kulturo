@@ -70,6 +70,21 @@ ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_repeat_
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_repeat_count_check
   CHECK (repeat_count BETWEEN 0 AND 999);
 
+-- ── Journal personnel ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.media_events (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  media_id     UUID NOT NULL REFERENCES public.media_entries(id) ON DELETE CASCADE,
+  event_type   TEXT NOT NULL CHECK (event_type IN (
+                 'added', 'started', 'repeat_started', 'finished',
+                 'repeat_finished', 'rated', 'status_changed'
+               )),
+  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  metadata     JSONB NOT NULL DEFAULT '{}'::jsonb,
+  dedupe_key   TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ── Profils publics minimaux ────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profiles (
   id         UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -98,6 +113,11 @@ CREATE INDEX IF NOT EXISTS idx_media_favorite  ON public.media_entries (is_favor
 CREATE INDEX IF NOT EXISTS idx_media_rating    ON public.media_entries (rating);
 CREATE INDEX IF NOT EXISTS idx_media_created   ON public.media_entries (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_finished  ON public.media_entries (date_finished DESC);
+CREATE INDEX IF NOT EXISTS idx_media_events_user_date ON public.media_events (user_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_events_media_date ON public.media_events (media_id, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_events_dedupe
+  ON public.media_events (user_id, dedupe_key)
+  WHERE dedupe_key IS NOT NULL;
 
 -- ── updated_at automatique ─────────────────────────────────
 CREATE OR REPLACE FUNCTION public.update_updated_at()
@@ -121,9 +141,97 @@ CREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
+-- Journal automatique : la base enregistre les événements dans la même
+-- transaction que la modification du média.
+CREATE OR REPLACE FUNCTION public.capture_media_event()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_event_type TEXT;
+  v_occurred_at TIMESTAMPTZ := NOW();
+  v_metadata JSONB := '{}'::jsonb;
+  v_occurrence INTEGER := 1;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status = 'finished' AND NEW.date_finished IS NOT NULL THEN
+      v_event_type := 'finished';
+      v_occurred_at := (NEW.date_finished::timestamp + interval '12 hours') AT TIME ZONE 'Europe/Paris';
+    ELSIF NEW.status = 'playing' AND NEW.date_started IS NOT NULL THEN
+      v_event_type := 'started';
+      v_occurred_at := (NEW.date_started::timestamp + interval '12 hours') AT TIME ZONE 'Europe/Paris';
+    ELSE
+      v_event_type := 'added';
+      v_occurred_at := COALESCE(NEW.created_at, NOW());
+    END IF;
+    v_metadata := jsonb_build_object(
+      'status', NEW.status,
+      'rating', NEW.rating,
+      'date_only', v_event_type IN ('finished', 'started'),
+      'occurrence', CASE WHEN v_event_type = 'finished' THEN 1 ELSE NULL END
+    );
+    INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
+    VALUES (NEW.user_id, NEW.id, v_event_type, v_occurred_at, v_metadata);
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    IF NEW.status = 'playing' THEN
+      IF OLD.date_finished IS NOT NULL OR OLD.status = 'finished' OR COALESCE(OLD.repeat_count, 0) > 0 THEN
+        v_event_type := 'repeat_started';
+        v_occurrence := COALESCE(OLD.repeat_count, 0) + 2;
+      ELSE
+        v_event_type := 'started';
+        v_occurrence := 1;
+      END IF;
+    ELSIF NEW.status = 'finished' THEN
+      IF COALESCE(NEW.repeat_count, 0) > COALESCE(OLD.repeat_count, 0) THEN
+        v_event_type := 'repeat_finished';
+        v_occurrence := COALESCE(NEW.repeat_count, 0) + 1;
+      ELSE
+        v_event_type := 'finished';
+        v_occurrence := 1;
+      END IF;
+    ELSE
+      v_event_type := 'status_changed';
+      v_occurrence := 0;
+    END IF;
+    v_metadata := jsonb_build_object(
+      'from', OLD.status,
+      'to', NEW.status,
+      'rating', NEW.rating,
+      'occurrence', NULLIF(v_occurrence, 0)
+    );
+    INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
+    VALUES (NEW.user_id, NEW.id, v_event_type, NOW(), v_metadata);
+  END IF;
+
+  IF NEW.rating IS DISTINCT FROM OLD.rating THEN
+    INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
+    VALUES (
+      NEW.user_id,
+      NEW.id,
+      'rated',
+      NOW(),
+      jsonb_build_object('previous_rating', OLD.rating, 'rating', NEW.rating)
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_capture_media_event ON public.media_entries;
+CREATE TRIGGER trg_capture_media_event
+  AFTER INSERT OR UPDATE ON public.media_entries
+  FOR EACH ROW EXECUTE FUNCTION public.capture_media_event();
+REVOKE ALL ON FUNCTION public.capture_media_event() FROM PUBLIC;
+
 -- ── Sécurité ligne par ligne ────────────────────────────────
 ALTER TABLE public.media_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.media_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "user_select" ON public.media_entries;
 DROP POLICY IF EXISTS "user_insert" ON public.media_entries;
@@ -138,50 +246,14 @@ DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_insert" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_delete" ON public.profiles;
-CREATE POLICY "profiles_select" ON public.profiles FOR SELECT TO authenticated USING (TRUE);
+CREATE POLICY "profiles_select" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_delete" ON public.profiles FOR DELETE TO authenticated USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "events_select_own" ON public.media_events;
+CREATE POLICY "events_select_own" ON public.media_events FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.media_entries TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
-
--- ── Activité partagée sans exposer les notes personnelles ──
-CREATE OR REPLACE FUNCTION public.get_activity_feed(p_limit INTEGER DEFAULT 50)
-RETURNS TABLE (
-  id UUID,
-  user_id UUID,
-  title TEXT,
-  media_type TEXT,
-  status TEXT,
-  rating SMALLINT,
-  is_favorite BOOLEAN,
-  cover_url TEXT,
-  created_at TIMESTAMPTZ,
-  username TEXT
-)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-  SELECT
-    media.id,
-    media.user_id,
-    media.title,
-    media.media_type,
-    media.status,
-    media.rating,
-    media.is_favorite,
-    media.cover_url,
-    media.created_at,
-    COALESCE(NULLIF(profile.username, ''), 'Utilisateur') AS username
-  FROM public.media_entries AS media
-  LEFT JOIN public.profiles AS profile ON profile.id = media.user_id
-  ORDER BY media.created_at DESC
-  LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 100));
-$$;
-
-REVOKE ALL ON FUNCTION public.get_activity_feed(INTEGER) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_activity_feed(INTEGER) FROM anon;
-GRANT EXECUTE ON FUNCTION public.get_activity_feed(INTEGER) TO authenticated;
+GRANT SELECT ON public.media_events TO authenticated;

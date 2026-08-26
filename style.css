@@ -2514,7 +2514,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 .quick-add-fallback:hover { background: var(--bg-3); color: var(--accent); }
 .quick-add-fallback strong { color: var(--text-1); }
 
-/* ── Activité partagée ───────────────────────────────────────── */
+/* ── Chronologie du Journal ─────────────────────────────────── */
 .activity-date-group { margin-bottom: 1.5rem; }
 
 .activity-date-label {
@@ -2557,35 +2557,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 .activity-info { flex: 1; min-width: 0; }
 
-.activity-line {
-  font-size: .86rem;
-  color: var(--text-2);
-  margin-bottom: .2rem;
-  display: flex;
-  align-items: center;
-  gap: .3rem;
-  flex-wrap: wrap;
-}
-.activity-username {
-  font-weight: 700;
-  color: var(--text-1);
-  display: flex;
-  align-items: center;
-  gap: .3rem;
-}
-.activity-verb { color: var(--text-3); }
-
-.activity-me-badge {
-  font-size: .62rem;
-  font-weight: 600;
-  background: var(--accent);
-  color: var(--bg-1);
-  padding: .1rem .35rem;
-  border-radius: 99px;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-
 .activity-title {
   font-size: 1rem;
   font-weight: 700;
@@ -2603,14 +2574,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   flex-wrap: wrap;
 }
 
-.activity-stars {
-  font-size: .82rem;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  gap: .2rem;
-}
-
 .activity-time {
   font-size: .72rem;
   color: var(--text-3);
@@ -2619,28 +2582,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   padding-top: .2rem;
 }
 
-.activity-detail-notice {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  padding: .7rem .8rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-3);
-  color: var(--text-2);
-  font-size: .78rem;
-}
-.activity-detail-notice strong { color: var(--text-1); }
-.activity-detail-avatar {
-  display: grid;
-  place-items: center;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--accent-glow);
-  color: var(--accent);
-}
 .detail-footer-actions-readonly { width: 100%; justify-content: flex-end; }
 
 /* ── Page Profil ─────────────────────────────────────────────── */
@@ -4134,35 +4075,6 @@ input, textarea, select { border-radius: 12px; }
 }
 .upcoming-month-heading span { color: var(--text-3); font-size: .68rem; font-weight: 650; }
 
-/* Activité : un filtre local simple, sans couche sociale supplémentaire. */
-.activity-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: .8rem 0 1rem;
-}
-.activity-view-switch {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .2rem;
-  padding: .2rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-2);
-}
-.activity-view-btn {
-  min-width: 72px;
-  min-height: 34px;
-  padding: .35rem .7rem;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: .74rem;
-  font-weight: 750;
-}
-.activity-view-btn.active { background: var(--bg-4); color: var(--accent-2); box-shadow: 0 3px 12px rgba(0,0,0,.16); }
 .activity-row.is-clickable { cursor: pointer; }
 .activity-row.is-clickable:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 .activity-row.is-clickable:active { transform: scale(.995); }
@@ -4426,8 +4338,6 @@ input, textarea, select { border-radius: 12px; }
   .upcoming-toolbar-meta .section-count { display: none; }
   .compact-toggle { max-width: 142px; white-space: normal; line-height: 1.2; }
   .upcoming-month-heading { top: 112px; padding-left: .1rem; padding-right: .1rem; }
-
-  .activity-toolbar { margin-top: .6rem; }
 
   .profile-year-overview,
   .profile-dashboard-card { padding: .8rem; border-radius: var(--radius-lg); }
@@ -4768,13 +4678,11 @@ input, textarea, select { border-radius: 12px; }
 /* Même respiration sous le séparateur de chaque page. */
 .page-heading { margin-bottom: 0; }
 #dashboard-content,
-.upcoming-toolbar,
-.activity-toolbar { margin-top: 1.15rem; }
+.upcoming-toolbar { margin-top: 1.15rem; }
 
 @media (max-width: 680px) {
   #dashboard-content,
-  .upcoming-toolbar,
-  .activity-toolbar { margin-top: .9rem; }
+  .upcoming-toolbar { margin-top: .9rem; }
 
   .activity-row {
     gap: .8rem;
@@ -4809,4 +4717,109 @@ input, textarea, select { border-radius: 12px; }
    ============================================================ */
 @media (max-width: 680px) {
   .page > .page-heading { display: none; }
+}
+
+/* ============================================================
+   KULTURO 3.0 — JOURNAL, PROFIL INTERACTIF ET COHÉRENCE MOBILE
+   ============================================================ */
+.journal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.15rem 0 1rem;
+}
+.journal-view-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .2rem;
+  padding: .2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-2);
+}
+.journal-view-btn {
+  min-width: 78px;
+  min-height: 34px;
+  padding: .35rem .7rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: .74rem;
+  font-weight: 750;
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+.journal-view-btn.active {
+  background: var(--bg-4);
+  color: var(--accent-2);
+  box-shadow: 0 3px 12px rgba(0,0,0,.16);
+}
+.journal-loading {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 2rem;
+  color: var(--text-3);
+}
+.journal-event-row { min-height: 100px; }
+.journal-event-label {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin-bottom: .22rem;
+  color: var(--accent-2);
+  font-size: .76rem;
+  font-weight: 750;
+}
+.journal-event-label > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+.journal-rating-badge {
+  color: var(--accent);
+  font-size: .72rem;
+  font-weight: 750;
+}
+.journal-date-group .activity-date-label { text-transform: capitalize; }
+
+/* Les barres de notes sont de vrais boutons accessibles. */
+.rating-hist-col {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.rating-hist-col.is-clickable { cursor: pointer; }
+.rating-hist-col.is-clickable:hover .rating-hist-bar,
+.rating-hist-col.is-clickable:focus-visible .rating-hist-bar {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.rating-hist-col.is-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rating-hist-col:disabled { cursor: default; }
+
+@media (max-width: 680px) {
+  /* .7rem de padding interne + .2rem de marge = le même départ visuel
+     de .9rem que Profil, Journal et Bibliothèque. */
+  #page-upcoming .upcoming-toolbar { margin-top: .2rem; }
+  .journal-toolbar { margin-top: .9rem; }
+  .journal-view-switch { width: 100%; }
+  .journal-view-btn { min-width: 0; padding-inline: .4rem; }
+  .journal-toolbar .section-count { display: none; }
+  .journal-event-row { min-height: 94px; }
+}
+
+@media (max-width: 390px) {
+  .journal-view-btn { font-size: .68rem; padding-inline: .2rem; }
 }
