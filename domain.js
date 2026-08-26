@@ -150,7 +150,7 @@ export function journalEventPresentation(event, entry) {
       return { icon: "↻", label: `${repeatFinished} · ${occurrence}e fois` };
     case "rated":
       return Number.isInteger(rating) && rating >= 1
-        ? { icon: "★", label: `Noté ${rating}/10` }
+        ? { icon: "★", label: "Note enregistrée" }
         : { icon: "☆", label: "Note retirée" };
     case "status_changed": {
       const labels = { wishlist: "Ajouté à la wishlist", paused: "Mis en pause", dropped: "Abandonné" };

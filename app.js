@@ -833,7 +833,7 @@ function renderActiveFilters() {
   if (State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
   if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
   if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
-  if (State.filters.rating !== "all") filters.push(["rating", `Note ${State.filters.rating}/10`]);
+  if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
   if (State.filters.search) filters.push(["search", `“${State.filters.search}”`]);
   if (State.filters.month !== "all") {
     const [year, month] = String(State.filters.month).split("-").map(Number);
@@ -925,7 +925,7 @@ function renderCards(options = {}) {
     let emptyMsg = "Ajoutez votre premier film, jeu ou livre pour commencer.";
     let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
-    else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>${f.rating}/10</strong>.`;
+    else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>★ ${f.rating}/10</strong>.`;
     else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
     else if (f.month !== "all")     emptyMsg = "Aucun média ne correspond à ce mois.";
     else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
@@ -974,32 +974,24 @@ function filterEntries(entries) {
   return res;
 }
 
-// ── Helper notation 5 étoiles avec demies ─────────────────────
-function ratingStars(rating) {
-  if (!rating) return "<span style='color:var(--text-3);font-size:.85rem'>Non noté</span>";
-  const full = Math.floor(rating / 2);
-  const half = rating % 2 === 1;
-  return `<span style="color:var(--accent)">${"★".repeat(full)}${half ? "½" : ""}</span>`;
+// ── Affichage numérique uniforme des notes ───────────────────
+function ratingScoreHTML(rating, className = "") {
+  const value = Number(rating);
+  if (!Number.isFinite(value) || value <= 0) return `<span class="rating-unrated">Non noté</span>`;
+  const display = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+  const classes = ["rating-score", className, value === 10 ? "is-perfect" : ""].filter(Boolean).join(" ");
+  return `<span class="${classes}" aria-label="Note ${display} sur 10">★ ${display}/10</span>`;
 }
 
-function starsHTML(rating, is_favorite, repeatCount = 0) {
+function cardMetaHTML(rating, is_favorite, repeatCount = 0) {
   const repeats = Math.max(0, Number.parseInt(repeatCount, 10) || 0);
   if (!rating && !is_favorite && !repeats) return "";
-  let starsEl = "";
-  if (rating) {
-    const perfect = rating === 10;
-    const full    = Math.floor(rating / 2);
-    const half    = rating % 2 === 1;
-    starsEl = `<div class="card-stars${perfect ? " perfect" : ""}">` +
-      "★".repeat(full) +
-      (half ? `<span class="card-star-half">½</span>` : "") +
-      `</div>`;
-  }
+  const ratingEl = rating ? ratingScoreHTML(rating, "card-rating") : "";
   const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
   const repeatEl = repeats
     ? `<span class="card-repeat" title="Vu, lu ou terminé ${repeats + 1} fois">${iconRepeat()}<strong>${repeats + 1}×</strong></span>`
     : "";
-  return `<div class="card-bottom">${starsEl}<span class="card-markers">${heartEl}${repeatEl}</span></div>`;
+  return `<div class="card-bottom">${ratingEl}<span class="card-markers">${heartEl}${repeatEl}</span></div>`;
 }
 
 function cardHTML(e, i = 0) {
@@ -1032,7 +1024,7 @@ function cardHTML(e, i = 0) {
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
-      ${starsHTML(e.rating, e.is_favorite, e.repeat_count)}
+      ${cardMetaHTML(e.rating, e.is_favorite, e.repeat_count)}
     </article>`;
 }
 
@@ -1276,7 +1268,7 @@ async function renderDashboard() {
               ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy">` : `<span>${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
             </span>
             <strong>${esc(entry.title)}</strong>
-            <small>${entry.rating}/10</small>
+            <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
           </button>`;
       }).join("")
     : `<div class="profile-inline-empty">Aucun média noté pour ${esc(periodLabel)} avec ce filtre.</div>`;
@@ -1314,7 +1306,7 @@ async function renderDashboard() {
     const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
     const isPeak = n > 0 && n === Math.max(...ratingCounts);
     return `
-      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ${note}/10" ${n ? `onclick="UI.openRatingCollection(${note})" aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
+      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `onclick="UI.openRatingCollection(${note})" aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
         <div class="rating-hist-count">${n || ""}</div>
         <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
       </button>`;
@@ -1326,13 +1318,13 @@ async function renderDashboard() {
         <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
         <div class="rating-hist-meta">
           <span class="rating-hist-total">${totalRated} notés</span>
-          ${avgRating ? `<span class="rating-hist-avg">moy. <strong>${avgRating}</strong>/10</span>` : ""}
+          ${avgRating ? `<span class="rating-hist-avg">moy. ${ratingScoreHTML(avgRating, "rating-average")}</span>` : ""}
         </div>
       </div>
       <div class="rating-hist">${ratingBars}</div>
       <div class="rating-hist-legend">
-        <span>1★</span>
-        <span>5★★★★★</span>
+        <span>★ 1/10</span>
+        <span>★ 10/10</span>
       </div>
     </section>` : "";
 
@@ -1365,7 +1357,7 @@ async function renderDashboard() {
         </div>
         <div class="profile-year-secondary">
           <span>Note moyenne</span>
-          <strong>${scopedAverage}${scopedAverage !== "—" ? "/10" : ""}</strong>
+          <strong>${scopedAverage === "—" ? "—" : `★ ${scopedAverage}/10`}</strong>
           <small>${scopedRated.length} média${scopedRated.length > 1 ? "s" : ""} noté${scopedRated.length > 1 ? "s" : ""}</small>
         </div>
       </div>
@@ -1840,7 +1832,7 @@ function clearPreview() {
 }
 function showRatingLabel(n) {
   const el = document.getElementById("rating-tooltip");
-  if (el) { el.textContent = `— ${RATING_LABELS[n]}`; el.style.opacity = "1"; }
+  if (el) { el.textContent = `★ ${n}/10 — ${RATING_LABELS[n]}`; el.style.opacity = "1"; }
 }
 function hideRatingLabel() {
   const el = document.getElementById("rating-tooltip");
@@ -2955,7 +2947,7 @@ function renderDetailPanel(e, options = {}) {
   _modalDirty = false;
   const isPreview = options.preview === true;
   const isReadOnly = options.readOnly === true;
-  const stars = isPreview ? "" : ratingStars(e.rating);
+  const ratingDisplay = isPreview ? "" : ratingScoreHTML(e.rating, "detail-rating-score");
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
 
@@ -2999,7 +2991,7 @@ function renderDetailPanel(e, options = {}) {
             ${posterHTML}
             <div class="detail-backdrop-info">
               <h2 class="detail-title">${esc(e.title)}</h2>
-              ${stars ? `<div class="detail-stars" id="detail-stars-${e.id}">${stars}</div>` : ""}
+              ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
                 ${e.status
@@ -3066,7 +3058,7 @@ function quickRatingHTML(entry) {
   return `
     <div class="quick-rating" role="group" aria-label="Votre note">
       <div class="quick-rating-stars">${stars}</div>
-      <span class="quick-rating-value">${current ? `${current}/10` : "Non noté"}</span>
+      <span class="quick-rating-value">${current ? `★ ${current}/10` : "Non noté"}</span>
       ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
     </div>`;
 }
@@ -3260,8 +3252,8 @@ function syncOpenDetail(entry, feedback = "") {
   const repeat = document.getElementById(`detail-repeat-${entry.id}`);
   if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
 
-  const stars = document.getElementById(`detail-stars-${entry.id}`);
-  if (stars) stars.innerHTML = ratingStars(entry.rating);
+  const ratingDisplay = document.getElementById(`detail-rating-${entry.id}`);
+  if (ratingDisplay) ratingDisplay.innerHTML = ratingScoreHTML(entry.rating, "detail-rating-score");
 
   if (feedback) {
     const feedbackEl = document.getElementById(`quick-feedback-${entry.id}`);
@@ -3339,7 +3331,7 @@ async function quickRate(id, value) {
   if (!Number.isInteger(rating) || rating < 0 || rating > 10) return;
   const entry = State.entries.find(item => item.id === id);
   if (!entry || Number(entry.rating || 0) === rating) return;
-  await persistQuickEntryChange(id, { rating: rating || null }, rating ? `${rating}/10 enregistré` : "Note effacée");
+  await persistQuickEntryChange(id, { rating: rating || null }, rating ? `★ ${rating}/10 enregistré` : "Note effacée");
 }
 
 async function quickToggleFavorite(id) {
@@ -4004,7 +3996,7 @@ function journalRowHTML(event) {
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
   const eventRating = Number.parseInt(metadata.rating, 10);
   const ratingBadge = Number.isInteger(eventRating) && eventRating >= 1
-    ? `<span class="journal-rating-badge">★ ${eventRating}/10</span>`
+    ? ratingScoreHTML(eventRating, "journal-rating-badge")
     : "";
   const type = getTypeLabel(entry);
   const dateOnly = Boolean(metadata.date_only || metadata.legacy);
@@ -4123,7 +4115,7 @@ function communityRowHTML(entry) {
     ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
   const meLabel = entry.isMe ? `<span class="activity-me-badge">moi</span>` : "";
-  const rating = entry.rating ? `<span class="activity-stars">${ratingStars(entry.rating)}</span>` : "";
+  const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
   const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}')}"`;
 
   return `

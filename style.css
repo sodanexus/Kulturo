@@ -543,7 +543,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   flex-shrink: 0;
 }
 
-/* ── Bas de carte : étoiles + cœur ───────────────────────── */
+/* ── Bas de carte : note + cœur ──────────────────────────── */
 .card-bottom {
   display: flex;
   align-items: center;
@@ -552,15 +552,29 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   padding: 0 .1rem;
   min-height: 1rem;
 }
-.card-stars {
-  font-size: .85rem;
+.rating-score {
+  display: inline-flex;
+  align-items: center;
   color: var(--accent);
-  letter-spacing: -.01em;
+  font-size: .82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
   line-height: 1;
+  white-space: nowrap;
+}
+.rating-unrated {
+  color: var(--text-3);
+  font-size: .8rem;
+  font-weight: 600;
+}
+.card-rating {
+  font-size: .75rem;
+  color: var(--accent);
 }
 
 /* Shimmer continu sur 10/10 */
-.card-stars.perfect {
+.card-rating.is-perfect {
   background: linear-gradient(90deg, var(--accent) 0%, #fff8e1 40%, var(--accent-2) 60%, var(--accent) 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
@@ -640,13 +654,6 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 }
 .star-half-zone { left: 0; width: 50%; }
 .star-full-zone { right: 0; width: 50%; }
-
-/* demi-étoile sur les cartes */
-.card-star-half {
-  font-size: .75em;
-  vertical-align: middle;
-  opacity: .85;
-}
 
 /* ── Favori ───────────────────────────────────────────────── */
 .fav-btn {
@@ -1385,11 +1392,10 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   color: #fff;
   text-shadow: 0 1px 8px rgba(0,0,0,.8);
 }
-.detail-stars {
-  font-size: 1rem;
-  letter-spacing: .05em;
+.detail-rating {
   margin-bottom: .4rem;
 }
+.detail-rating .rating-score { font-size: .9rem; }
 .detail-badges {
   display: flex;
   align-items: center;
@@ -4188,6 +4194,7 @@ input, textarea, select { border-radius: 12px; }
 .profile-top-card:hover .profile-top-cover img { transform: scale(1.025); }
 .profile-top-card strong { display: block; margin-top: .42rem; overflow: hidden; color: var(--text-1); font-size: .66rem; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .profile-top-card small { display: block; margin-top: .1rem; color: var(--accent); font-size: .62rem; font-weight: 750; }
+.profile-top-rating { font-size: inherit; }
 .profile-top-rank {
   position: absolute;
   top: .35rem;
@@ -4379,7 +4386,7 @@ input, textarea, select { border-radius: 12px; }
   .detail-poster,
   .detail-poster-placeholder { width: 62px; min-width: 62px; height: 92px; }
   .detail-title { font-size: clamp(1.16rem, 4.5vw, 1.28rem); }
-  .detail-stars { margin-bottom: .25rem; }
+  .detail-rating { margin-bottom: .25rem; }
   .detail-body { max-height: calc(92dvh - 220px); }
 }
 
@@ -4848,7 +4855,8 @@ input, textarea, select { border-radius: 12px; }
   letter-spacing: .05em;
   text-transform: uppercase;
 }
-.activity-stars { color: var(--accent); font-size: .82rem; }
+.community-rating { font-size: .72rem; }
+.rating-hist-avg .rating-score { font-size: inherit; }
 .activity-detail-notice {
   display: flex;
   align-items: center;

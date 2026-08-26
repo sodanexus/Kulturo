@@ -72,6 +72,10 @@ Kulturo/
 
 ## Installation
 
+### Ajustement Kulturo 3.0.2
+
+Tous les affichages de note utilisent désormais la notation numérique **★ 8/10** : cartes de la bibliothèque, fiches média, Top et moyennes du Profil, filtres, Journal et Communauté. Les cinq étoiles restent uniquement dans les contrôles interactifs servant à choisir ou modifier une note. **Aucune migration SQL ni aucun redéploiement de fonction Supabase n'est nécessaire.**
+
 ### Correctif Kulturo 3.0.1
 
 Kulturo 3.0.1 conserve le nouveau Journal personnel et rétablit l'activité des autres membres dans la même page. Deux onglets séparent désormais clairement **Mon journal** et **Communauté** sans ajouter de destination à la navigation mobile. La Communauté retrouve aussi ses filtres **Tout le monde** et **Moi** ; les fiches des autres restent en lecture seule.
@@ -304,7 +308,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.1",
+    version: "3.0.2",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
