@@ -382,23 +382,6 @@ function renderApp() {
             <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" onclick="UI.setJournalMode('personal')">Mon journal</button>
             <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" onclick="UI.setJournalMode('community')">Communauté</button>
           </div>
-
-          <div class="journal-toolbar" id="journal-personal-toolbar">
-            <div class="journal-view-switch" role="group" aria-label="Filtrer mon journal">
-              <button class="journal-view-btn active" id="journal-view-all" onclick="UI.setJournalView('all')" aria-pressed="true">Tout</button>
-              <button class="journal-view-btn" id="journal-view-completions" onclick="UI.setJournalView('completions')" aria-pressed="false">Terminés</button>
-              <button class="journal-view-btn" id="journal-view-ratings" onclick="UI.setJournalView('ratings')" aria-pressed="false">Notes</button>
-            </div>
-            <span id="journal-result-count" class="section-count"></span>
-          </div>
-
-          <div class="journal-toolbar community-toolbar" id="journal-community-toolbar" hidden>
-            <div class="journal-view-switch community-view-switch" role="group" aria-label="Filtrer l’activité communautaire">
-              <button class="journal-view-btn active" id="community-view-all" onclick="UI.setCommunityView('all')" aria-pressed="true">Tout le monde</button>
-              <button class="journal-view-btn" id="community-view-me" onclick="UI.setCommunityView('me')" aria-pressed="false">Moi</button>
-            </div>
-            <span id="community-result-count" class="section-count"></span>
-          </div>
         </div>
 
         <section class="journal-panel" id="journal-personal-panel" role="tabpanel" aria-labelledby="journal-mode-personal">
@@ -484,7 +467,7 @@ async function refreshJournalEvents({ silent = false } = {}) {
     State.journalAvailable = false;
     State.journalError = error;
     State.journalDirty = false;
-    if (!silent) toast("Journal indisponible : activez migration-journal.sql dans Supabase.", "error");
+    if (!silent) toast("Journal indisponible : vérifiez media_events dans Supabase.", "error");
     return [];
   }
 }
@@ -3331,7 +3314,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
       /repeat_count|schema cache/i.test(String(error?.message || ""));
     toast(
       migrationMissing
-        ? "Active d’abord migration-repeat-count.sql dans Supabase, puis réessaie."
+        ? "Le compteur de revisionnage n’est pas disponible dans Supabase."
         : "Modification impossible : " + error.message,
       "error"
     );
@@ -3885,32 +3868,22 @@ let _journalMode = (() => {
   try { return localStorage.getItem("kulturo-journal-mode") === "community" ? "community" : "personal"; }
   catch { return "personal"; }
 })();
-let _journalView = (() => {
-  try {
-    const saved = localStorage.getItem("kulturo-journal-view");
-    return ["all", "completions", "ratings"].includes(saved) ? saved : "all";
-  } catch {
-    return "all";
-  }
-})();
+try {
+  localStorage.removeItem("kulturo-journal-view");
+  localStorage.removeItem("kulturo-community-view");
+} catch {}
 let _communityEntries = [];
 let _communityLoaded = false;
-let _communityView = (() => {
-  try { return localStorage.getItem("kulturo-community-view") === "me" ? "me" : "all"; }
-  catch { return "all"; }
-})();
 
 function syncJournalMode() {
   ["personal", "community"].forEach(mode => {
     const button = document.getElementById(`journal-mode-${mode}`);
     const panel = document.getElementById(`journal-${mode}-panel`);
-    const toolbar = document.getElementById(`journal-${mode}-toolbar`);
     const active = _journalMode === mode;
     button?.classList.toggle("active", active);
     button?.setAttribute("aria-selected", String(active));
     if (button) button.tabIndex = active ? 0 : -1;
     if (panel) panel.hidden = !active;
-    if (toolbar) toolbar.hidden = !active;
   });
 }
 
@@ -3921,33 +3894,9 @@ function setJournalMode(mode) {
   renderJournal();
 }
 
-function syncJournalViewButtons() {
-  ["all", "completions", "ratings"].forEach(view => {
-    const button = document.getElementById(`journal-view-${view}`);
-    const active = _journalView === view;
-    button?.classList.toggle("active", active);
-    button?.setAttribute("aria-pressed", String(active));
-  });
-}
-
 function visibleJournalEvents() {
   const existingIds = new Set(State.entries.map(entry => entry.id));
-  return State.events.filter(event => {
-    if (!existingIds.has(event.media_id)) return false;
-    if (_journalView === "completions") return isCompletionEvent(event);
-    if (_journalView === "ratings") {
-      const rating = Number.parseInt(event?.metadata?.rating, 10);
-      return event.event_type === "rated" || (Number.isInteger(rating) && rating >= 1);
-    }
-    return true;
-  });
-}
-
-function setJournalView(view) {
-  if (!["all", "completions", "ratings"].includes(view)) return;
-  _journalView = view;
-  try { localStorage.setItem("kulturo-journal-view", view); } catch {}
-  renderCurrentJournalView();
+  return State.events.filter(event => existingIds.has(event.media_id));
 }
 
 async function renderJournal() {
@@ -3962,7 +3911,6 @@ async function renderJournal() {
 async function renderPersonalJournal() {
   const container = document.getElementById("journal-feed");
   if (!container) return;
-  syncJournalViewButtons();
 
   if (State.journalDirty) {
     container.innerHTML = `<div class="journal-loading"><div class="spinner"></div><span>Chargement du journal…</span></div>`;
@@ -3970,9 +3918,7 @@ async function renderPersonalJournal() {
   }
 
   if (!State.journalAvailable) {
-    const count = document.getElementById("journal-result-count");
-    if (count) count.textContent = "";
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal à activer</h3><p>Exécutez <strong>migration-journal.sql</strong> dans Supabase pour créer votre historique personnel.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal indisponible</h3><p>Vérifiez la table <strong>media_events</strong> dans Supabase.</p></div>`;
     return;
   }
   renderCurrentJournalView();
@@ -3981,10 +3927,7 @@ async function renderPersonalJournal() {
 function renderCurrentJournalView() {
   const container = document.getElementById("journal-feed");
   if (!container || !State.journalAvailable) return;
-  syncJournalViewButtons();
   const visible = visibleJournalEvents();
-  const count = document.getElementById("journal-result-count");
-  if (count) count.textContent = `${visible.length} événement${visible.length > 1 ? "s" : ""}`;
   container.innerHTML = renderJournalFeed(visible);
 }
 
@@ -4000,12 +3943,7 @@ function journalDateLabel(value) {
 
 function renderJournalFeed(events) {
   if (!events.length) {
-    const message = _journalView === "completions"
-      ? "Vos prochains achèvements apparaîtront ici."
-      : _journalView === "ratings"
-        ? "Vos prochaines notes apparaîtront ici."
-        : "Vos prochaines actions apparaîtront ici.";
-    return `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal vide</h3><p>${message}</p></div>`;
+    return `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal vide</h3><p>Vos prochaines actions apparaîtront ici.</p></div>`;
   }
 
   const groups = new Map();
@@ -4066,68 +4004,30 @@ function openJournalMedia(id) {
   openDetailPanel(entry.id);
 }
 
-function syncCommunityViewButtons() {
-  ["all", "me"].forEach(view => {
-    const button = document.getElementById(`community-view-${view}`);
-    const active = _communityView === view;
-    button?.classList.toggle("active", active);
-    button?.setAttribute("aria-pressed", String(active));
-  });
-}
-
-function visibleCommunityEntries() {
-  return _communityView === "me"
-    ? _communityEntries.filter(entry => entry.isMe)
-    : _communityEntries;
-}
-
-function setCommunityView(view) {
-  if (!["all", "me"].includes(view)) return;
-  _communityView = view;
-  try { localStorage.setItem("kulturo-community-view", view); } catch {}
-  renderCurrentCommunityView();
-}
-
 async function renderCommunity() {
   const container = document.getElementById("community-feed");
   if (!container) return;
-  syncCommunityViewButtons();
 
   if (_communityLoaded) {
-    renderCurrentCommunityView();
+    container.innerHTML = renderCommunityFeed(_communityEntries);
     return;
   }
 
-  const count = document.getElementById("community-result-count");
-  if (count) count.textContent = "";
   container.innerHTML = `<div class="journal-loading"><div class="spinner"></div><span>Chargement de la communauté…</span></div>`;
 
   try {
-    const entries = await Activity.getFeed(50);
-    _communityEntries = entries.map(entry => ({ ...entry, isMe: entry.user_id === State.user?.id }));
+    const entries = await Activity.getFeed(100);
+    _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
     _communityLoaded = true;
-    renderCurrentCommunityView();
+    container.innerHTML = renderCommunityFeed(_communityEntries);
   } catch {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Communauté à réactiver</h3><p>Exécutez <strong>migration-community-3.0.1.sql</strong> dans Supabase.</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Communauté indisponible</h3><p>Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase.</p></div>`;
   }
-}
-
-function renderCurrentCommunityView() {
-  const container = document.getElementById("community-feed");
-  if (!container) return;
-  syncCommunityViewButtons();
-  const visible = visibleCommunityEntries();
-  const count = document.getElementById("community-result-count");
-  if (count) count.textContent = `${visible.length} ajout${visible.length > 1 ? "s" : ""}`;
-  container.innerHTML = renderCommunityFeed(visible);
 }
 
 function renderCommunityFeed(entries) {
   if (!entries.length) {
-    const message = _communityView === "me"
-      ? "Vos prochains ajouts apparaîtront ici."
-      : "Les prochains ajouts des membres apparaîtront ici.";
-    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>${message}</p></div>`;
+    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>Les prochains ajouts des autres membres apparaîtront ici.</p></div>`;
   }
 
   const groups = new Map();
@@ -4153,7 +4053,6 @@ function communityRowHTML(entry) {
   const coverHTML = coverUrl
     ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
-  const meLabel = entry.isMe ? `<span class="activity-me-badge">moi</span>` : "";
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
   const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}')}"`;
 
@@ -4161,7 +4060,7 @@ function communityRowHTML(entry) {
     <article class="activity-row is-clickable community-event-row" ${attributes}>
       ${coverHTML}
       <div class="activity-info">
-        <div class="activity-line"><span class="activity-username">${esc(entry.username)}${meLabel}</span><span class="activity-verb">a ajouté</span></div>
+        <div class="activity-line"><span class="activity-username">${esc(entry.username)}</span><span class="activity-verb">a ajouté</span></div>
         <div class="activity-title">${icon} ${esc(entry.title)}</div>
         <div class="activity-meta">
           <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
@@ -4388,8 +4287,6 @@ window.UI = {
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
   setJournalMode,
-  setJournalView,
-  setCommunityView,
   saveUsername,
   exportLibrary,
   setMobileColumns,

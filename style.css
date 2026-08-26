@@ -4732,7 +4732,7 @@ input, textarea, select { border-radius: 12px; }
 /* ============================================================
    KULTURO 3.0 — JOURNAL, PROFIL INTERACTIF ET COHÉRENCE MOBILE
    ============================================================ */
-.journal-sticky-controls { margin-top: 1.15rem; }
+.journal-sticky-controls { margin: 1.15rem 0 1rem; }
 .journal-mode-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4764,41 +4764,6 @@ input, textarea, select { border-radius: 12px; }
 }
 .journal-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .journal-panel[hidden] { display: none !important; }
-.journal-toolbar[hidden] { display: none !important; }
-.journal-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 1.15rem 0 1rem;
-}
-.journal-sticky-controls .journal-toolbar { margin: .65rem 0 1rem; }
-.journal-view-switch {
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: .2rem;
-  padding: .2rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-2);
-}
-.journal-view-btn {
-  min-width: 78px;
-  min-height: 34px;
-  padding: .35rem .7rem;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: .74rem;
-  font-weight: 750;
-  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
-}
-.journal-view-btn.active {
-  background: var(--bg-4);
-  color: var(--accent-2);
-  box-shadow: 0 3px 12px rgba(0,0,0,.16);
-}
 .journal-loading {
   display: flex;
   align-items: center;
@@ -4832,7 +4797,6 @@ input, textarea, select { border-radius: 12px; }
   font-weight: 750;
 }
 .journal-date-group .activity-date-label { text-transform: capitalize; }
-.community-view-switch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .community-date-group .activity-date-label { text-transform: capitalize; }
 .activity-line {
   display: flex;
@@ -4851,16 +4815,6 @@ input, textarea, select { border-radius: 12px; }
   font-weight: 750;
 }
 .activity-verb { color: var(--text-3); }
-.activity-me-badge {
-  padding: .1rem .35rem;
-  border-radius: 99px;
-  background: var(--accent);
-  color: var(--bg-1);
-  font-size: .62rem;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
 .community-rating { font-size: .72rem; }
 .rating-hist-avg .rating-score { font-size: inherit; }
 .activity-detail-notice {
@@ -4924,14 +4878,6 @@ input, textarea, select { border-radius: 12px; }
     backdrop-filter: blur(16px);
   }
   .journal-mode-switch { width: 100%; margin: 0; }
-  .journal-sticky-controls .journal-toolbar { margin: .5rem 0 0; }
-  .journal-view-switch { width: 100%; }
-  .journal-view-btn { min-width: 0; padding-inline: .4rem; }
-  .journal-toolbar .section-count { display: none; }
   .journal-event-row { min-height: 94px; }
   .community-event-row { min-height: 98px; }
-}
-
-@media (max-width: 390px) {
-  .journal-view-btn { font-size: .68rem; padding-inline: .2rem; }
 }

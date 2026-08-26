@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.0.6**
+Version actuelle : **3.0.7**
 
 ## Fonctionnalités
 
@@ -13,8 +13,8 @@ Version actuelle : **3.0.6**
 - Fiches détaillées : synopsis, casting, durée, saisons, plateformes et bandes-annonces
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
-- Journal personnel daté : ajouts, débuts, achèvements et notes
-- Vue **Communauté** séparée, avec fiches des autres membres en lecture seule
+- Journal personnel chronologique : ajouts, débuts, achèvements et notes
+- Vue **Communauté** réservée aux autres membres, avec fiches en lecture seule
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
 - Histogramme des notes cliquable vers les médias concernés
 - Export JSON de la bibliothèque et du Journal
@@ -74,7 +74,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.0.6 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.0.7 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -124,7 +124,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.6",
+    version: "3.0.7",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -162,9 +162,9 @@ Lorsqu’un média déjà terminé repasse sur **En cours**, Kulturo conserve so
 
 ### Journal et Communauté
 
-**Mon journal** regroupe chronologiquement les actions personnelles. Les filtres **Tout**, **Terminés** et **Notes** permettent d’isoler les événements utiles, et chaque ligne rouvre la fiche concernée.
+**Mon journal** regroupe chronologiquement toutes les actions personnelles, sans sous-filtre intermédiaire. Chaque ligne rouvre la fiche concernée.
 
-**Communauté** affiche l’activité partageable des autres membres. Les notes textuelles, dates personnelles de suivi et autres informations privées ne sont pas exposées. Les fiches des autres restent en lecture seule.
+**Communauté** affiche uniquement l’activité partageable des autres membres. Le compte connecté n’y est jamais répété, puisqu’il possède déjà son Journal. Les notes textuelles, dates personnelles de suivi et autres informations privées ne sont pas exposées. Les fiches des autres restent en lecture seule.
 
 ### Profil
 

@@ -294,6 +294,7 @@ AS $$
   FROM public.media_entries AS media
   LEFT JOIN public.profiles AS profile ON profile.id = media.user_id
   WHERE auth.uid() IS NOT NULL
+    AND media.user_id <> auth.uid()
   ORDER BY media.created_at DESC
   LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 100));
 $$;
