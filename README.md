@@ -66,6 +66,10 @@ Kulturo/
 
 ## Installation
 
+### Ajustement Kulturo 2.5.9
+
+Sur mobile, les en-têtes de pages **Votre collection · Bibliothèque**, **À surveiller · Sorties**, **La communauté · Activité** et **Votre année culturelle · Profil** sont masqués. La barre de navigation basse nomme déjà chaque destination : leur retrait libère de la hauteur sans modifier la version ordinateur ni les titres internes utiles. **Aucune migration SQL n'est nécessaire et aucune donnée n'est modifiée.**
+
 ### Correctif Kulturo 2.5.8
 
 La version 2.5.8 automatise les revisionnages, relectures et nouvelles parties. Lorsqu'un média déjà terminé repasse sur **En cours**, sa fiche indique désormais **Revisionnage en cours**, **Relecture en cours** ou **Nouvelle partie en cours** sans augmenter le compteur. Le prochain passage sur **Terminé** ajoute automatiquement une occurrence — par exemple **Terminé 1 fois** devient **Terminé 2 fois** — tandis que les boutons − et + restent disponibles ensuite pour corriger manuellement l'historique. La date du premier achèvement est conservée. **Aucune migration SQL n'est nécessaire et aucune donnée existante n'est supprimée ou réinitialisée.**
@@ -258,7 +262,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "2.5.8",
+    version: "2.5.9",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

@@ -4802,3 +4802,11 @@ input, textarea, select { border-radius: 12px; }
   .upcoming-type-btn { font-size: .64rem; }
   .upcoming-region-label { font-size: .54rem; }
 }
+
+/* ============================================================
+   KULTURO 2.5.9 — EN-TÊTES MOBILES
+   La navigation basse nomme déjà chaque page sur téléphone.
+   ============================================================ */
+@media (max-width: 680px) {
+  .page > .page-heading { display: none; }
+}
