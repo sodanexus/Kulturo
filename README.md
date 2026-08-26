@@ -72,6 +72,10 @@ Kulturo/
 
 ## Installation
 
+### Ajustement Kulturo 3.0.3
+
+Sur mobile, le sélecteur **Mon journal / Communauté** et ses filtres restent désormais visibles ensemble pendant le défilement, avec le même comportement collant et le même fond translucide que le bloc supérieur de **Sorties**. Le changement de vue remplace le filtre à l'intérieur du bloc sans superposition. **Aucune migration SQL ni aucun redéploiement de fonction Supabase n'est nécessaire.**
+
 ### Ajustement Kulturo 3.0.2
 
 Tous les affichages de note utilisent désormais la notation numérique **★ 8/10** : cartes de la bibliothèque, fiches média, Top et moyennes du Profil, filtres, Journal et Communauté. Les cinq étoiles restent uniquement dans les contrôles interactifs servant à choisir ou modifier une note. **Aucune migration SQL ni aucun redéploiement de fonction Supabase n'est nécessaire.**
@@ -308,7 +312,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.2",
+    version: "3.0.3",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },

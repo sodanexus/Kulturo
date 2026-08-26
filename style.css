@@ -4729,12 +4729,13 @@ input, textarea, select { border-radius: 12px; }
 /* ============================================================
    KULTURO 3.0 — JOURNAL, PROFIL INTERACTIF ET COHÉRENCE MOBILE
    ============================================================ */
+.journal-sticky-controls { margin-top: 1.15rem; }
 .journal-mode-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: min(100%, 420px);
   gap: .25rem;
-  margin-top: 1.15rem;
+  margin-top: 0;
   padding: .25rem;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -4760,6 +4761,7 @@ input, textarea, select { border-radius: 12px; }
 }
 .journal-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .journal-panel[hidden] { display: none !important; }
+.journal-toolbar[hidden] { display: none !important; }
 .journal-toolbar {
   display: flex;
   align-items: center;
@@ -4767,6 +4769,7 @@ input, textarea, select { border-radius: 12px; }
   gap: 1rem;
   margin: 1.15rem 0 1rem;
 }
+.journal-sticky-controls .journal-toolbar { margin: .65rem 0 1rem; }
 .journal-view-switch {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4906,8 +4909,19 @@ input, textarea, select { border-radius: 12px; }
   /* .7rem de padding interne + .2rem de marge = le même départ visuel
      de .9rem que Profil, Journal et Bibliothèque. */
   #page-upcoming .upcoming-toolbar { margin-top: .2rem; }
-  .journal-mode-switch { width: 100%; margin-top: .9rem; }
-  .journal-toolbar { margin-top: .75rem; }
+  #page-journal .journal-sticky-controls {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    margin: .2rem 0 .8rem;
+    padding: .7rem 0 .65rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 95%, transparent);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+  .journal-mode-switch { width: 100%; margin: 0; }
+  .journal-sticky-controls .journal-toolbar { margin: .5rem 0 0; }
   .journal-view-switch { width: 100%; }
   .journal-view-btn { min-width: 0; padding-inline: .4rem; }
   .journal-toolbar .section-count { display: none; }

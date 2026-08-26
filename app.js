@@ -376,13 +376,13 @@ function renderApp() {
           </div>
         </header>
 
-        <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
-          <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" onclick="UI.setJournalMode('personal')">Mon journal</button>
-          <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" onclick="UI.setJournalMode('community')">Communauté</button>
-        </div>
+        <div class="journal-sticky-controls">
+          <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
+            <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" onclick="UI.setJournalMode('personal')">Mon journal</button>
+            <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" onclick="UI.setJournalMode('community')">Communauté</button>
+          </div>
 
-        <section class="journal-panel" id="journal-personal-panel" role="tabpanel" aria-labelledby="journal-mode-personal">
-          <div class="journal-toolbar">
+          <div class="journal-toolbar" id="journal-personal-toolbar">
             <div class="journal-view-switch" role="group" aria-label="Filtrer mon journal">
               <button class="journal-view-btn active" id="journal-view-all" onclick="UI.setJournalView('all')" aria-pressed="true">Tout</button>
               <button class="journal-view-btn" id="journal-view-completions" onclick="UI.setJournalView('completions')" aria-pressed="false">Terminés</button>
@@ -390,17 +390,21 @@ function renderApp() {
             </div>
             <span id="journal-result-count" class="section-count"></span>
           </div>
-          <div id="journal-feed"></div>
-        </section>
 
-        <section class="journal-panel" id="journal-community-panel" role="tabpanel" aria-labelledby="journal-mode-community" hidden>
-          <div class="journal-toolbar community-toolbar">
+          <div class="journal-toolbar community-toolbar" id="journal-community-toolbar" hidden>
             <div class="journal-view-switch community-view-switch" role="group" aria-label="Filtrer l’activité communautaire">
               <button class="journal-view-btn active" id="community-view-all" onclick="UI.setCommunityView('all')" aria-pressed="true">Tout le monde</button>
               <button class="journal-view-btn" id="community-view-me" onclick="UI.setCommunityView('me')" aria-pressed="false">Moi</button>
             </div>
             <span id="community-result-count" class="section-count"></span>
           </div>
+        </div>
+
+        <section class="journal-panel" id="journal-personal-panel" role="tabpanel" aria-labelledby="journal-mode-personal">
+          <div id="journal-feed"></div>
+        </section>
+
+        <section class="journal-panel" id="journal-community-panel" role="tabpanel" aria-labelledby="journal-mode-community" hidden>
           <div id="community-feed"></div>
         </section>
       </section>
@@ -3867,11 +3871,13 @@ function syncJournalMode() {
   ["personal", "community"].forEach(mode => {
     const button = document.getElementById(`journal-mode-${mode}`);
     const panel = document.getElementById(`journal-${mode}-panel`);
+    const toolbar = document.getElementById(`journal-${mode}-toolbar`);
     const active = _journalMode === mode;
     button?.classList.toggle("active", active);
     button?.setAttribute("aria-selected", String(active));
     if (button) button.tabIndex = active ? 0 : -1;
     if (panel) panel.hidden = !active;
+    if (toolbar) toolbar.hidden = !active;
   });
 }
 
