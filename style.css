@@ -636,12 +636,8 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 }
 .star-svg {
   pointer-events: none;
-  display: flex;
+  display: block;
 }
-.star-svg svg {
-  transition: transform .12s var(--ease-spring);
-}
-.star-wrap:hover .star-svg svg { transform: scale(1.2); }
 .star-half-zone, .star-full-zone {
   position: absolute;
   top: 0;
@@ -2765,12 +2761,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   margin-left: auto;
 }
 
-.star-wrap svg {
-  transition: transform .12s var(--ease-spring);
-  display: block;
-}
-.star-wrap:hover svg { transform: scale(1.2); }
-
 /* ── Star rating ──────────────────────────────────────────── */
 :root { --star-empty: var(--border-2); }
 #rating-stars { display: flex; gap: 4px; align-items: center; }
@@ -2781,8 +2771,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   height: 28px;
   cursor: pointer;
 }
-.star-svg { display: block; pointer-events: none; }
-.star-svg polygon { transition: fill .1s; }
+.star-svg {
+  display: block;
+  pointer-events: none;
+  transform: translateZ(0);
+  transition: transform .14s var(--ease-spring);
+}
+.star-svg polygon { transition: fill .12s ease; }
 .star-zone {
   position: absolute;
   top: 0; height: 100%;
@@ -2790,8 +2785,16 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .star-zone-half { left: 0; width: 50%; }
 .star-zone-full { right: 0; width: 50%; }
-.star-wrap:hover .star-svg { transform: scale(1.15); }
-.star-wrap { transition: transform .1s var(--ease-spring); }
+
+/* Le grossissement ne s'applique qu'aux véritables pointeurs de souris :
+   Safari iOS ne peut ainsi plus conserver une étoile agrandie après un tap. */
+@media (hover: hover) and (pointer: fine) {
+  .star-wrap:hover .star-svg { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .star-svg,
+  .star-svg polygon { transition: none; }
+}
 
 /* ── Modal type tabs ─────────────────────────────────────── */
 .modal-search-unified { gap: .75rem; }

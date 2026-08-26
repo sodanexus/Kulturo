@@ -1779,15 +1779,30 @@ function buildRatingStars(current) {
         <button type="button" class="star-zone star-zone-half"
           onclick="UI.setRating(${half})"
           onmouseenter="UI.previewRating(${half})"
-          onmouseleave="UI.clearPreview()"></button>
+          onfocus="UI.previewRating(${half})"
+          aria-label="Noter ${half} sur 10"
+          aria-pressed="${current === half}"></button>
         <button type="button" class="star-zone star-zone-full"
           onclick="UI.setRating(${full})"
           onmouseenter="UI.previewRating(${full})"
-          onmouseleave="UI.clearPreview()"></button>
+          onfocus="UI.previewRating(${full})"
+          aria-label="Noter ${full} sur 10"
+          aria-pressed="${current === full}"></button>
       </span>`;
   }).join("");
 
   if (current) showRatingLabel(current);
+
+  // L'aperçu est réinitialisé uniquement à la sortie de la rangée complète.
+  // Le faire sur chaque demi-étoile reconstruisait le DOM entre deux zones et
+  // provoquait le scintillement visible au survol.
+  if (!wrap.dataset.previewBound) {
+    wrap.dataset.previewBound = "true";
+    wrap.addEventListener("mouseleave", clearPreview);
+    wrap.addEventListener("focusout", event => {
+      if (!wrap.contains(event.relatedTarget)) clearPreview();
+    });
+  }
 
   if (!wrap.dataset.touchBound) {
     wrap.dataset.touchBound = "true";
@@ -1800,12 +1815,14 @@ function buildRatingStars(current) {
       previewRating(n);
     }, { passive: false });
     wrap.addEventListener("touchend", (e) => {
+      e.preventDefault();
       const touch = e.changedTouches[0];
       const rect = wrap.getBoundingClientRect();
       const x = Math.max(0, touch.clientX - rect.left);
       const n = Math.min(10, Math.max(1, Math.ceil((x / rect.width) * 10)));
       setRating(n);
-    });
+    }, { passive: false });
+    wrap.addEventListener("touchcancel", clearPreview);
   }
 }
 
