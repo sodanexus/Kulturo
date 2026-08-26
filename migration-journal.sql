@@ -32,9 +32,8 @@ CREATE POLICY "events_select_own"
   USING (auth.uid() = user_id);
 GRANT SELECT ON public.media_events TO authenticated;
 
--- L'ancien fil communautaire n'est plus utilisé. Le profil redevient lui aussi
--- strictement personnel, conformément à l'installation mono-utilisateur.
-DROP FUNCTION IF EXISTS public.get_activity_feed(INTEGER);
+-- Les profils restent lisibles directement par leur propriétaire uniquement.
+-- La vue Communauté utilise sa propre fonction à champs limités en 3.0.1.
 DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
 CREATE POLICY "profiles_select"
   ON public.profiles FOR SELECT TO authenticated

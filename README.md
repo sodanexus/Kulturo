@@ -11,12 +11,12 @@ Kulturo permet de suivre ses jeux, films, séries et livres, de les noter et de 
 - Ajout simplifié en deux étapes avec recherche simultanée dans toutes les catégories
 - Filtres actifs visibles et supprimables directement depuis la bibliothèque
 - Recherche enrichie via TMDb, IGDB et Open Library
-- Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties **et** le Journal
+- Fiche détaillée au clic depuis la bibliothèque, les prochaines sorties, le Journal **et** la Communauté
 - Prochaines sorties sur six mois, filtrables par films, séries, jeux vidéo ou livres, affichées progressivement dès qu'une source répond
 - Sélection France renforcée : dates cinéma françaises, diffuseurs TV présents en France, jeux Europe/monde et éditions françaises
 - Sorties regroupées par mois avec préférences mémorisées et masquage des titres déjà ajoutés
 - Synopsis, casting, durée, saisons, plateformes et bande-annonce selon les données disponibles
-- Journal personnel daté : ajouts, débuts, achèvements, nouvelles parties et notes
+- Page Journal à deux vues : parcours personnel daté et activité communautaire
 - Profil annuel ou mensuel, filtrable par type : statistiques, catégories et tops cliquables
 - Histogramme des notes cliquable vers les médias correspondant à chaque note
 - Export JSON en un clic depuis le profil pour conserver une copie de sécurité
@@ -56,6 +56,7 @@ Kulturo/
 ├── migration-v2.sql           # Mise à niveau d'une installation existante
 ├── migration-repeat-count.sql # Ajout sûr du compteur de revisionnage
 ├── migration-journal.sql     # Journal daté et événements automatiques
+├── migration-community-3.0.1.sql # Réactivation sûre de la Communauté
 ├── package.json              # Commande des tests sans dépendance
 ├── tests/domain.test.mjs     # Non-régressions dates, mois et revisionnages
 ├── manifest.json
@@ -71,9 +72,23 @@ Kulturo/
 
 ## Installation
 
+### Correctif Kulturo 3.0.1
+
+Kulturo 3.0.1 conserve le nouveau Journal personnel et rétablit l'activité des autres membres dans la même page. Deux onglets séparent désormais clairement **Mon journal** et **Communauté** sans ajouter de destination à la navigation mobile. La Communauté retrouve aussi ses filtres **Tout le monde** et **Moi** ; les fiches des autres restent en lecture seule.
+
+Si Kulturo 3.0 est déjà installé, exécuter uniquement dans **Supabase > SQL Editor** :
+
+```text
+migration-community-3.0.1.sql
+```
+
+Cette migration recrée la fonction à champs limités qui compose le fil à partir des médias existants. Elle ne modifie et ne supprime aucune ligne de `media_entries`, `media_events` ou `profiles`. Les profils restent directement lisibles par leur propriétaire uniquement ; la fonction Communauté n'expose ni notes textuelles, ni dates personnelles de suivi.
+
+Envoyer ensuite les fichiers du site sur GitHub. Aucune Edge Function ne doit être redéployée.
+
 ### Mise à jour vers Kulturo 3.0
 
-Kulturo 3.0 remplace l'ancien fil **Activité** par un **Journal personnel**. Supabase enregistre automatiquement les ajouts, débuts, achèvements, nouvelles parties et changements de note dans la même transaction que le média concerné.
+Kulturo 3.0 ajoute un **Journal personnel**. Supabase enregistre automatiquement les ajouts, débuts, achèvements, nouvelles parties et changements de note dans la même transaction que le média concerné.
 
 Avant d'envoyer les fichiers du site, exécuter dans **Supabase > SQL Editor** :
 
@@ -81,7 +96,7 @@ Avant d'envoyer les fichiers du site, exécuter dans **Supabase > SQL Editor** :
 migration-journal.sql
 ```
 
-Cette migration est additive pour les données et réexécutable. Elle crée `media_events`, ajoute ses règles RLS, installe un déclencheur sur `media_entries` et retire uniquement l'ancienne fonction communautaire devenue inutile. Aucun média, statut, compteur, avis ou note existante n'est supprimé ou réinitialisé. Les médias existants reçoivent un seul événement initial fondé sur leur date réellement connue ; une date d'ajout ne remplace plus une date de fin manquante dans les statistiques.
+Cette migration est additive pour les données et réexécutable. Elle crée `media_events`, ajoute ses règles RLS et installe un déclencheur sur `media_entries`. Aucun média, statut, compteur, avis ou note existante n'est supprimé ou réinitialisé. Les médias existants reçoivent un seul événement initial fondé sur leur date réellement connue ; une date d'ajout ne remplace plus une date de fin manquante dans les statistiques.
 
 Le Profil utilise ensuite le Journal pour calculer les achèvements mensuels. Un mois courant sans média noté bascule automatiquement vers le dernier mois antérieur permettant d'afficher un Top, tandis qu'un mois choisi manuellement reste respecté. Chaque barre de l'histogramme des notes ouvre désormais les médias portant exactement cette note.
 
@@ -289,7 +304,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.0",
+    version: "3.0.1",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -358,11 +373,11 @@ Les anciennes dates parfois renvoyées par TMDb à cause d’une ressortie régi
 
 Les résultats sont regroupés par mois. Le choix du type, le genre et l’option de masquage des titres déjà ajoutés sont mémorisés localement.
 
-### Profil et Journal
+### Profil, Journal et Communauté
 
 Le profil permet de passer de **Annuel** à **Mensuel**, de choisir l’année ou le mois, puis de filtrer par films, séries, jeux ou livres. Les statuts principaux et le top utilisent ce périmètre. Les cartes et catégories ouvrent directement la bibliothèque avec exactement la même période et le même type. L’histogramme **Notes · toutes années** reste volontairement global, mais chaque barre ouvre les médias correspondant exactement à la note choisie.
 
-Le Journal regroupe chronologiquement les ajouts, débuts, achèvements, revisionnages, nouvelles parties et notes. Ses vues **Tout**, **Terminés** et **Notes** restent strictement personnelles ; chaque ligne rouvre la fiche correspondante.
+**Mon journal** regroupe chronologiquement les ajouts, débuts, achèvements, revisionnages, nouvelles parties et notes. Ses vues **Tout**, **Terminés** et **Notes** restent strictement personnelles ; chaque ligne rouvre la fiche correspondante. **Communauté** affiche les derniers ajouts des membres et ouvre les fiches des autres en lecture seule.
 
 ### PWA
 
@@ -377,7 +392,7 @@ Sur iPhone et iPad, l’interface tient compte des safe areas en mode web app : 
 - `subtype = 'movie'` pour un film ;
 - `subtype = 'tv'` pour une série.
 
-Les données personnelles restent protégées par Row Level Security : chaque utilisateur ne peut lire et modifier que ses propres médias, et ne peut lire que ses propres événements du Journal. Le déclencheur `capture_media_event` écrit l’historique dans la même transaction que la modification du média.
+Les données personnelles restent protégées par Row Level Security : chaque utilisateur ne peut lire et modifier que ses propres médias, et ne peut lire que ses propres événements du Journal. La fonction Communauté expose uniquement le titre, le type, le statut, la note chiffrée, le favori, la couverture, la date d'ajout et le pseudo. Le déclencheur `capture_media_event` écrit l’historique dans la même transaction que la modification du média.
 
 Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishable Supabase est conçue pour le client ; la sécurité des données repose sur les policies RLS, pas sur la dissimulation de cette clé.
 
@@ -386,6 +401,7 @@ Les clés sensibles restent dans les secrets Supabase. La clé anonyme/publishab
 - Exécuter `migration-v2.sql` si la base existait avant la v2
 - Exécuter `migration-repeat-count.sql` avant d’utiliser le compteur de revisionnage
 - Exécuter `migration-journal.sql` avant d’ouvrir le Journal
+- Après une installation 3.0, exécuter `migration-community-3.0.1.sql` pour réactiver la Communauté
 - Déployer les trois Edge Functions
 - Vérifier que `config.js` ne contient aucun secret serveur
 - Tester connexion, ajout, modification, suppression et détection de doublon

@@ -186,6 +186,18 @@ export const Journal = {
   },
 };
 
+// ── Activité communautaire ──────────────────────────────────
+// La fonction SQL ne renvoie que les champs explicitement partageables.
+export const Activity = {
+  async getFeed(limit = 50) {
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
+    const { data, error } = await _client
+      .rpc("get_activity_feed", { p_limit: safeLimit });
+    if (error) throw error;
+    return data || [];
+  },
+};
+
 // ── Calcul des statistiques ──────────────────────────────────
 export function computeStats(entries) {
   const total = entries.length;
