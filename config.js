@@ -38,7 +38,7 @@ const CONFIG = {
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "3.0.5",
+    version: "3.0.6",
     defaultTheme: "dark", // "dark" | "light"
     itemsPerPage: 24,
   },

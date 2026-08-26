@@ -57,6 +57,7 @@ Kulturo/
 ├── migration-repeat-count.sql # Ajout sûr du compteur de revisionnage
 ├── migration-journal.sql     # Journal daté et événements automatiques
 ├── migration-community-3.0.1.sql # Réactivation sûre de la Communauté
+├── migration-legacy-finished-dates.sql # Réparation des anciennes dates de fin
 ├── package.json              # Commande des tests sans dépendance
 ├── tests/domain.test.mjs     # Non-régressions dates, mois et revisionnages
 ├── manifest.json
@@ -71,6 +72,16 @@ Kulturo/
 ```
 
 ## Installation
+
+### Correctif Kulturo 3.0.6
+
+Certains anciens médias étaient bien marqués **Terminé**, mais ne possédaient aucune `date_finished`. Le Journal ne pouvait donc pas inventer leur mois d'achèvement et les présentait comme simplement ajoutés. Exécuter une seule fois dans **Supabase > SQL Editor** :
+
+```text
+migration-legacy-finished-dates.sql
+```
+
+La migration utilise la première vraie date d'achèvement déjà disponible dans le Journal ; lorsqu'il n'en existe aucune, elle applique la règle choisie pour cette installation personnelle : **date de fin = date d'ajout**. Elle transforme ensuite l'ancien événement « Ajouté » en « Terminé », ou crée l'événement manquant. Elle ne cible que les médias actuellement terminés sans date de fin : les éléments en cours, en wishlist, abandonnés et toutes les dates existantes restent intacts. La migration est transactionnelle et réexécutable. Aucune Edge Function ne doit être redéployée.
 
 ### Ajustement Kulturo 3.0.5
 
