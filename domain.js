@@ -99,6 +99,25 @@ export function isCompletionEvent(event) {
   return COMPLETION_EVENT_TYPES.has(event?.event_type);
 }
 
+// Le Top mensuel doit refléter une note réellement donnée pendant la période,
+// pas la note actuelle d'un média qui aurait seulement été commencé ce mois-là.
+// Lors de la création d'un média, la migration 3.0 range toutefois la note
+// initiale dans l'événement principal (added/started/finished) : on la conserve.
+export function isRatingActivityEvent(event) {
+  const metadata = event?.metadata && typeof event.metadata === "object" ? event.metadata : {};
+  const rating = Number.parseInt(metadata.rating, 10);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 10) return false;
+  if (event?.event_type === "rated" || event?.event_type === "added") return true;
+  if (event?.event_type === "started" || event?.event_type === "finished") {
+    return !Object.prototype.hasOwnProperty.call(metadata, "from");
+  }
+  return false;
+}
+
+export function isProfileTopEvent(event) {
+  return isCompletionEvent(event) || isRatingActivityEvent(event);
+}
+
 export function eventsForPeriod(events, year, month = "all") {
   const expectedYear = Number(year);
   return (events || []).filter(event => {
@@ -113,13 +132,19 @@ export function uniqueEntriesForEvents(entries, events) {
   return (entries || []).filter(entry => ids.has(entry.id));
 }
 
-export function latestEventMonth(events, entries, anchorMonth, entryPredicate = () => true) {
+export function latestEventMonth(
+  events,
+  entries,
+  anchorMonth,
+  entryPredicate = () => true,
+  eventPredicate = () => true,
+) {
   const byId = new Map((entries || []).map(entry => [entry.id, entry]));
   const candidates = new Set();
   for (const event of events || []) {
     const entry = byId.get(event?.media_id);
     const key = yearMonthOf(event?.occurred_at);
-    if (!entry || !key || key >= anchorMonth || !entryPredicate(entry)) continue;
+    if (!entry || !key || key >= anchorMonth || !entryPredicate(entry) || !eventPredicate(event)) continue;
     candidates.add(key);
   }
   return [...candidates].sort((a, b) => b.localeCompare(a))[0] || null;

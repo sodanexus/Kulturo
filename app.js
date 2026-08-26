@@ -9,6 +9,7 @@ import {
   entryActivityYear,
   eventsForPeriod,
   isCompletionEvent,
+  isProfileTopEvent,
   journalEventPresentation,
   latestEventMonth,
   localISODate,
@@ -1088,9 +1089,25 @@ function profileEntriesForPeriod(entries, year, month = "all") {
   });
 }
 
+function profileTopEntriesForPeriod(entries, year, month = "all") {
+  if (State.journalAvailable) {
+    const topEvents = eventsForPeriod(State.events, year, month).filter(isProfileTopEvent);
+    return uniqueEntriesForEvents(entries, topEvents)
+      .filter(entry => profileMediaMatches(entry) && Boolean(entry.rating));
+  }
+  return profileEntriesForPeriod(entries, year, month)
+    .filter(entry => profileMediaMatches(entry) && Boolean(entry.rating));
+}
+
 function latestProfileMonthBefore(entries, anchorMonth) {
   if (State.journalAvailable) {
-    return latestEventMonth(State.events, entries, anchorMonth, entry => profileMediaMatches(entry) && Boolean(entry.rating));
+    return latestEventMonth(
+      State.events,
+      entries,
+      anchorMonth,
+      entry => profileMediaMatches(entry) && Boolean(entry.rating),
+      isProfileTopEvent,
+    );
   }
   return entries
     .filter(entry => profileMediaMatches(entry) && entry.rating)
@@ -1218,8 +1235,7 @@ async function renderDashboard() {
   // dernier mois réellement renseigné. Un choix manuel vide reste respecté.
   if (_profilePeriod === "month" && _profileMonthAutoResolve) {
     const anchorMonth = `${_profileYear}-${_profileMonth}`;
-    const currentEntries = profileEntriesForPeriod(all, _profileYear, _profileMonth)
-      .filter(entry => profileMediaMatches(entry) && entry.rating);
+    const currentEntries = profileTopEntriesForPeriod(all, _profileYear, _profileMonth);
     if (!currentEntries.length) {
       const fallbackMonth = latestProfileMonthBefore(all, anchorMonth);
       if (fallbackMonth) {
@@ -1257,7 +1273,7 @@ async function renderDashboard() {
   const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
   const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
   const scopedFavs = scopedEntries.filter(entry => entry.is_favorite);
-  const scopedRated = scopedEntries.filter(entry => entry.rating);
+  const scopedRated = profileTopEntriesForPeriod(all, _profileYear, periodMonth);
   const scopedAverage = scopedRated.length
     ? (scopedRated.reduce((sum, entry) => sum + entry.rating, 0) / scopedRated.length).toFixed(1)
     : "—";
@@ -1275,7 +1291,7 @@ async function renderDashboard() {
             <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
           </button>`;
       }).join("")
-    : `<div class="profile-inline-empty">Aucun média noté pour ${esc(periodLabel)} avec ce filtre.</div>`;
+    : `<div class="profile-inline-empty">Aucun média noté en ${esc(periodLabel)}.</div>`;
 
   const categories = [
     { key: "film", label: "Films", icon: "🎬", color: "var(--movie)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
@@ -1387,7 +1403,7 @@ async function renderDashboard() {
       <section class="profile-dashboard-card profile-top-section">
         <div class="profile-card-heading">
           <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
-          <span class="section-count">${topScoped.length} média${topScoped.length > 1 ? "s" : ""}</span>
+          <span class="section-count">${topScoped.length} média${topScoped.length !== 1 ? "s" : ""}</span>
         </div>
         <div class="profile-top-track">${topHTML}</div>
       </section>

@@ -72,6 +72,10 @@ Kulturo/
 
 ## Installation
 
+### Ajustement Kulturo 3.0.5
+
+Le Top mensuel du Profil retient désormais uniquement les médias **notés ou terminés pendant la période affichée**. Un média seulement ajouté ou commencé dans le mois n'y apparaît plus à cause d'une note donnée ultérieurement ; une note réellement enregistrée pendant ce mois reste bien éligible, même si le média est encore en cours. Lorsqu'aucun média ne correspond, **Vos préférés** affiche un message vide explicite. Le mois courant ne bascule automatiquement que vers le dernier mois antérieur possédant réellement un Top ; un mois choisi manuellement reste toujours affiché. **Aucune migration SQL ni aucun redéploiement de fonction Supabase n'est nécessaire.**
+
 ### Correctif Kulturo 3.0.4
 
 La sélection d'une note dans l'ajout ou la modification d'un média est désormais stable : le passage entre les deux moitiés d'une étoile ne reconstruit plus toute la rangée, le grossissement n'est appliqué qu'aux véritables pointeurs de souris et un tap mobile ne peut plus déclencher deux sélections successives. Les étoiles conservent un retour visuel léger, avec prise en charge de la préférence système de réduction des animations. **Aucune migration SQL ni aucun redéploiement de fonction Supabase n'est nécessaire.**
