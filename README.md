@@ -2,12 +2,12 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.0.7**
+Version actuelle : **3.0.8**
 
 ## Fonctionnalités
 
 - Bibliothèque personnelle avec statuts, favoris, notes sur 10 et avis privés
-- Étagère **En cours** pour reprendre rapidement un média
+- Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout guidé avec recherche TMDb, IGDB et Open Library
 - Fiches détaillées : synopsis, casting, durée, saisons, plateformes et bandes-annonces
@@ -19,6 +19,7 @@ Version actuelle : **3.0.7**
 - Histogramme des notes cliquable vers les médias concernés
 - Export JSON de la bibliothèque et du Journal
 - Interface responsive et PWA installable sur mobile
+- Animations courtes et cohérentes, adaptées au réglage système de réduction des mouvements
 
 ## Technologies
 
@@ -74,7 +75,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.0.7 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.0.8 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -124,7 +125,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.7",
+    version: "3.0.8",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -150,6 +151,8 @@ https://sodanexus.github.io/Kulturo/
 ### Bibliothèque et fiches
 
 La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
+
+L’étagère **À reprendre** est repliée par défaut sur mobile et ouverte sur ordinateur. Elle affiche un aperçu des médias en cours et mémorise son état séparément sur chaque appareil.
 
 Les actions rapides permettent de :
 

@@ -621,13 +621,21 @@ function setTypeFilter(type) {
 }
 
 let _currentPage = "library";
+function replayMotion(element, className) {
+  if (!element || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  element.classList.remove(className);
+  requestAnimationFrame(() => {
+    if (element.isConnected) element.classList.add(className);
+  });
+}
+
 function showPage(name) {
   const newPage = document.getElementById(`page-${name}`);
   if (!newPage) return;
 
   // Une animation unique évite que chaque onglet ait un mouvement différent.
   document.querySelectorAll(".page").forEach(p => {
-    p.classList.remove("active", "slide-left", "slide-right");
+    p.classList.remove("active");
     p.style.animation = "";
     p.style.display = "";
   });
@@ -742,9 +750,26 @@ function _updateFilterResultCount() {
 }
 
 // ── Accès rapide aux médias en cours ─────────────────────────
+const CONTINUE_EXPANDED_KEY = "kulturo-continue-expanded";
+
 function isLibraryViewUnfiltered() {
   const f = State.filters;
   return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
+}
+
+function readContinueExpanded() {
+  try {
+    const saved = localStorage.getItem(CONTINUE_EXPANDED_KEY);
+    if (saved === "true" || saved === "false") return saved === "true";
+  } catch {}
+  return !window.matchMedia?.("(max-width: 680px)").matches;
+}
+
+function continuePreviewHTML(entry) {
+  const coverUrl = safeMediaUrl(entry.cover_url);
+  return coverUrl
+    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" onerror="this.parentElement.textContent='${TYPE_ICONS[entry.media_type] || "🎭"}'"></span>`
+    : `<span class="continue-preview-cover">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
 }
 
 function continueCardHTML(entry) {
@@ -768,10 +793,10 @@ function renderContinueSection() {
   const section = document.getElementById("continue-section");
   if (!section) return;
 
-  const items = State.entries
+  const allItems = State.entries
     .filter(entry => entry.status === "playing")
-    .sort((a, b) => new Date(b.date_started || b.created_at || 0) - new Date(a.date_started || a.created_at || 0))
-    .slice(0, 8);
+    .sort((a, b) => new Date(b.date_started || b.created_at || 0) - new Date(a.date_started || a.created_at || 0));
+  const items = allItems.slice(0, 8);
 
   if (!items.length || !isLibraryViewUnfiltered()) {
     section.hidden = true;
@@ -779,16 +804,42 @@ function renderContinueSection() {
     return;
   }
 
+  const expanded = readContinueExpanded();
+  const countLabel = `${allItems.length} en cours`;
   section.hidden = false;
+  section.classList.toggle("is-expanded", expanded);
   section.innerHTML = `
-    <div class="section-heading continue-heading">
-      <div>
-        <span class="section-eyebrow">À reprendre</span>
-        <h2 id="continue-title">En cours</h2>
+    <button type="button" class="continue-toggle" onclick="UI.toggleContinueSection()" aria-expanded="${expanded}" aria-controls="continue-content">
+      <span class="continue-heading-copy">
+        <h2 id="continue-title">À reprendre</h2>
+        <span>${esc(countLabel)}</span>
+      </span>
+      <span class="continue-preview" aria-hidden="true">${items.slice(0, 3).map(continuePreviewHTML).join("")}</span>
+      <span class="continue-chevron" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+    </button>
+    <div class="continue-expand" id="continue-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
+      <div class="continue-expand-inner">
+        <div class="continue-expanded-head">
+          <span>Reprenez là où vous vous êtes arrêté.</span>
+          <button class="section-link" onclick="UI.navTo('status-playing')">Voir tout <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="continue-track">${items.map(continueCardHTML).join("")}</div>
       </div>
-      <button class="section-link" onclick="UI.navTo('status-playing')">Voir tout <span aria-hidden="true">→</span></button>
     </div>
-    <div class="continue-track">${items.map(continueCardHTML).join("")}</div>`;
+  `;
+}
+
+function toggleContinueSection() {
+  const section = document.getElementById("continue-section");
+  const toggle = section?.querySelector(".continue-toggle");
+  const content = section?.querySelector(".continue-expand");
+  if (!section || !toggle || !content) return;
+  const expanded = !section.classList.contains("is-expanded");
+  section.classList.toggle("is-expanded", expanded);
+  toggle.setAttribute("aria-expanded", String(expanded));
+  content.setAttribute("aria-hidden", String(!expanded));
+  content.inert = !expanded;
+  try { localStorage.setItem(CONTINUE_EXPANDED_KEY, String(expanded)); } catch {}
 }
 
 function updateLibraryHeading(entries) {
@@ -1427,7 +1478,7 @@ async function renderDashboard() {
       </div>
     </details>
   `;
-
+  replayMotion(container, "dashboard-refresh");
 }
 
 function openModal(entry = null, prefillTitle = null) {
@@ -1732,6 +1783,7 @@ function setEditDetailsView(showDetails) {
   if (!modal || !details) return;
   modal.dataset.editView = showDetails ? "details" : "main";
   details.open = Boolean(showDetails);
+  replayMotion(showDetails ? details : modal.querySelector(".edit-primary-view"), "edit-view-enter");
   const body = modal.querySelector(".modal-body");
   if (body) body.scrollTop = 0;
   requestAnimationFrame(() => {
@@ -3903,9 +3955,10 @@ async function renderJournal() {
   syncJournalMode();
   if (_journalMode === "community") {
     await renderCommunity();
-    return;
+  } else {
+    await renderPersonalJournal();
   }
-  await renderPersonalJournal();
+  replayMotion(document.getElementById(`journal-${_journalMode}-panel`), "journal-panel-enter");
 }
 
 async function renderPersonalJournal() {
@@ -4130,6 +4183,7 @@ window.UI = {
 
   setTypeFilter,
   setStatusChip,
+  toggleContinueSection,
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
     // Evite double ouverture
