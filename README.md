@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.0.8**
+Version actuelle : **3.0.9**
 
 ## Fonctionnalités
 
@@ -13,7 +13,7 @@ Version actuelle : **3.0.8**
 - Fiches détaillées : synopsis, casting, durée, saisons, plateformes et bandes-annonces
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
-- Journal personnel chronologique : ajouts, débuts, achèvements et notes
+- Journal personnel chronologique : ajouts, débuts, achèvements et changements de statut, avec la note actuelle
 - Vue **Communauté** réservée aux autres membres, avec fiches en lecture seule
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
 - Histogramme des notes cliquable vers les médias concernés
@@ -75,7 +75,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.0.8 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.0.9 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -125,7 +125,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.8",
+    version: "3.0.9",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -165,7 +165,9 @@ Lorsqu’un média déjà terminé repasse sur **En cours**, Kulturo conserve so
 
 ### Journal et Communauté
 
-**Mon journal** regroupe chronologiquement toutes les actions personnelles, sans sous-filtre intermédiaire. Chaque ligne rouvre la fiche concernée.
+**Mon journal** regroupe chronologiquement les étapes du suivi : ajout à la bibliothèque ou à la wishlist, début, achèvement, reprise et autres changements de statut. Il n’y a pas de sous-filtre intermédiaire. Chaque ligne rouvre la fiche concernée.
+
+La note affichée sur chaque ligne est toujours la note actuelle du média, au format **★ 8/10**. Ajouter, modifier ou effacer une note actualise ce badge sans créer de ligne visible, ni modifier les dates ou l’ordre des étapes. Les anciennes lignes de notation sont également masquées. Les événements de notation restent conservés pour les Tops mensuels et les sauvegardes ; aucune donnée n’est supprimée.
 
 **Communauté** affiche uniquement l’activité partageable des autres membres. Le compte connecté n’y est jamais répété, puisqu’il possède déjà son Journal. Les notes textuelles, dates personnelles de suivi et autres informations privées ne sont pas exposées. Les fiches des autres restent en lecture seule.
 
@@ -225,6 +227,7 @@ node --test tests/*.test.mjs
 - Vérifier que `config.js` ne contient aucun secret serveur.
 - Tester connexion, ajout, modification, suppression et détection des doublons.
 - Vérifier le Journal personnel et la Communauté.
+- Modifier puis effacer une note : le badge du Journal doit suivre la note actuelle, sans nouvelle ligne ni changement de date.
 - Tester le switch annuel/mensuel et les filtres du Profil.
 - Vérifier le Top mensuel et les compteurs d’achèvement.
 - Tester les prochaines sorties et leur chargement progressif.

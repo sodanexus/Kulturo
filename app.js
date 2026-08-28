@@ -3948,7 +3948,8 @@ function setJournalMode(mode) {
 
 function visibleJournalEvents() {
   const existingIds = new Set(State.entries.map(entry => entry.id));
-  return State.events.filter(event => existingIds.has(event.media_id));
+  // Les notations restent dans State.events pour les Tops et les sauvegardes.
+  return State.events.filter(event => event.event_type !== "rated" && existingIds.has(event.media_id));
 }
 
 async function renderJournal() {
@@ -4024,9 +4025,9 @@ function journalRowHTML(event) {
     ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${mediaIcon}</div>`;
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
-  const eventRating = Number.parseInt(metadata.rating, 10);
-  const ratingBadge = Number.isInteger(eventRating) && eventRating >= 1
-    ? ratingScoreHTML(eventRating, "journal-rating-badge")
+  const currentRating = Number(entry.rating);
+  const ratingBadge = Number.isInteger(currentRating) && currentRating >= 1 && currentRating <= 10
+    ? ratingScoreHTML(currentRating, "journal-rating-badge")
     : "";
   const type = getTypeLabel(entry);
   const dateOnly = Boolean(metadata.date_only || metadata.legacy);
