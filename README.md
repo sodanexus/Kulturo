@@ -2,16 +2,16 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.1.1**
+Version actuelle : **3.1.2**
 
 ## Fonctionnalités
 
-- Bibliothèque personnelle avec statuts, favoris, notes sur 10 et avis privés
+- Bibliothèque personnelle avec statuts, favoris, notes sur 10, avis privés et recherche locale
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout compact avec recherche universelle TMDb, IGDB et Open Library
-- Fiches détaillées : synopsis, casting, durée, saisons et bandes-annonces
-- Acteurs, réalisateurs, auteurs, genres, plateformes et studios reliés à la bibliothèque
+- Fiches détaillées : synopsis prioritaire, casting, informations essentielles et bandes-annonces
+- Acteurs, réalisateurs, auteurs, genres, éditeurs et studios reliés à la bibliothèque
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
 - Journal personnel chronologique : ajouts, débuts, achèvements et changements de statut, avec la note actuelle
@@ -83,7 +83,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.1.1 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.1.2 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -133,7 +133,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.1.1",
+    version: "3.1.2",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -158,7 +158,7 @@ https://sodanexus.github.io/Kulturo/
 
 ### Bibliothèque et fiches
 
-La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
+La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. La recherche située dans l’en-tête consulte uniquement les médias déjà présents dans cette bibliothèque ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
 
 L’étagère **À reprendre** est repliée par défaut sur mobile et ouverte sur ordinateur. Elle affiche un aperçu des médias en cours et mémorise son état séparément sur chaque appareil.
 
@@ -177,9 +177,9 @@ Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux
 
 ### Informations reliées
 
-Dans une fiche, les acteurs, réalisateurs, auteurs, développeurs, éditeurs, genres et plateformes de jeu sont cliquables. Le panneau obtenu affiche d’abord les médias correspondants déjà présents dans la bibliothèque. Lorsqu’il est pertinent, le lien externe IMDb, Goodreads ou Steam reste proposé dans ce même panneau. Les services de streaming ne sont pas affichés.
+Dans une fiche, le synopsis vient immédiatement après les actions rapides. Les informations essentielles suivent, puis les acteurs, réalisateurs, auteurs, développeurs, éditeurs et genres cliquables. Les dates **Terminé** et **Ajouté** ferment toujours la fiche. La durée, les plateformes de jeu et les services de streaming ne sont pas affichés. Le panneau d’une information cliquable montre les médias correspondants déjà présents dans la bibliothèque et conserve, lorsqu’il est pertinent, un lien IMDb, Goodreads ou Steam.
 
-Sur mobile, une fiche détaillée peut être refermée par un glissement vers le bas depuis son en-tête. Elle suit le doigt pendant le geste, puis reprend sa place si le seuil de fermeture n’est pas atteint. Le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
+Sur mobile, une fiche détaillée suit le doigt lors d’un glissement vers le bas depuis son en-tête, sans fondu, puis reprend sa place si le seuil de fermeture n’est pas atteint. La croix est masquée sur ce format ; le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
 
 ### Journal et Communauté
 

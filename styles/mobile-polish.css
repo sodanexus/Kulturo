@@ -124,48 +124,25 @@
 .metadata-sheet-footer { display: flex; justify-content: flex-end; padding: .75rem 1rem calc(.75rem + var(--safe-bottom)); border-top: 1px solid var(--border); }
 .metadata-sheet-footer .btn { text-decoration: none; }
 
-.detail-poster-flight {
-  position: fixed;
-  z-index: 700;
-  margin: 0;
-  object-fit: cover;
-  pointer-events: none;
-  box-shadow: 0 20px 50px rgba(0,0,0,.38);
-}
-.detail-poster.is-poster-arriving,
-.detail-poster-placeholder.is-poster-arriving { opacity: 0; }
-
-/* Avec une jaquette partagée, la modale ne se déplace pas en parallèle :
-   le point d'arrivée reste ainsi parfaitement stable. */
-.modal-overlay.is-poster-transition .detail-modal {
-  animation: detailModalPosterIn .22s var(--ease-smooth) both;
-}
-.modal-overlay.is-poster-transition.is-closing .detail-modal {
-  animation: modalOut .18s var(--ease-smooth) both;
-}
-@keyframes detailModalPosterIn {
-  from { opacity: .72; transform: none; }
-  to { opacity: 1; transform: none; }
-}
-
 .detail-swipe-handle { display: none; }
-.modal-overlay.is-swipe-settled:not(.is-closing),
 .modal-overlay.is-swipe-settled:not(.is-closing) .detail-modal {
   animation: none;
 }
-.modal-overlay.is-swipe-tracking,
-.modal-overlay.is-swipe-tracking .detail-modal { will-change: opacity, transform; }
+.modal-overlay.is-swipe-tracking .detail-modal { will-change: transform; }
+
+.modal-overlay.is-closing.is-swipe-dismiss { animation: none; }
 
 .modal-overlay.is-closing.is-swipe-dismiss .detail-modal {
   animation: detailSwipeOut .18s var(--ease-smooth) both;
 }
 @keyframes detailSwipeOut {
-  from { opacity: 1; transform: translateY(var(--swipe-start, 92px)); }
-  to { opacity: .3; transform: translateY(100%); }
+  from { transform: translateY(var(--swipe-start, 92px)); }
+  to { transform: translateY(100%); }
 }
 
 @media (max-width: 680px) {
   .detail-backdrop { touch-action: pan-x; }
+  .detail-close-btn { display: none; }
   .detail-swipe-handle {
     position: absolute;
     top: 7px;
@@ -209,5 +186,4 @@
   .metadata-sheet,
   .metadata-media-row,
   .detail-meta-link { transition: none; }
-  .detail-poster-flight { display: none; }
 }

@@ -1424,6 +1424,11 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   font-weight: 600;
 }
 .detail-meta-value { color: var(--text-2); }
+.detail-meta-history {
+  margin-top: .2rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--border);
+}
 .detail-notes {
   background: var(--bg-3);
   border-radius: var(--radius);
@@ -1965,11 +1970,11 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 
 /* ============================================================
-   MOBILE RESPONSIVE + QUICK SEARCH
+   MOBILE RESPONSIVE + RECHERCHE BIBLIOTHÈQUE
    ============================================================ */
 
-/* ── Quick search dropdown ────────────────────────────────── */
-.search-quick-add {
+/* ── Résultats de la bibliothèque ─────────────────────────── */
+.library-search-results {
   position: absolute;
   top: calc(100% + 6px);
   left: 0; right: 0;
@@ -1991,9 +1996,14 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   display: flex;
   align-items: center;
   gap: .75rem;
+  width: 100%;
   padding: .6rem .85rem;
-  cursor: pointer;
+  border: 0;
   border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
   transition: background .15s ease, transform .15s ease;
 }
 .quick-result:hover { background: var(--bg-3); transform: translateX(3px); }
@@ -2014,6 +2024,13 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .quick-sub { font-size: .72rem; color: var(--text-3); margin-top: .1rem; }
+.library-search-empty {
+  padding: 1rem;
+  color: var(--text-3);
+  font-size: .75rem;
+  line-height: 1.5;
+  text-align: center;
+}
 
 
 
@@ -2448,7 +2465,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 
 
-/* ── Quick search — résultats API ─────────────────────────── */
+/* ── Recherche bibliothèque ───────────────────────────────── */
 .quick-section-label {
   padding: .4rem .85rem .25rem;
   font-size: .68rem;
@@ -2460,36 +2477,6 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   align-items: center;
   gap: .4rem;
 }
-.quick-spinner {
-  display: inline-block;
-  width: 10px; height: 10px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-}
-.quick-result-api { border-top: none; }
-.quick-add-icon {
-  flex-shrink: 0;
-  color: var(--accent);
-  opacity: 0;
-  transition: opacity .15s;
-}
-.quick-result-api:hover .quick-add-icon { opacity: 1; }
-
-.quick-add-fallback {
-  padding: .55rem .85rem;
-  font-size: .82rem;
-  color: var(--text-2);
-  cursor: pointer;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  transition: background var(--transition);
-}
-.quick-add-fallback:hover { background: var(--bg-3); color: var(--accent); }
-.quick-add-fallback strong { color: var(--text-1); }
 
 /* ── Chronologie du Journal ─────────────────────────────────── */
 .activity-date-group { margin-bottom: 1.5rem; }

@@ -40,6 +40,20 @@ function journalHarness(entries, events) {
   return context;
 }
 
+function detailBodyHarness(entry) {
+  const match = app.match(/^function renderDetailBody\([\s\S]*?^\}/m);
+  assert.ok(match, "Fonction de fiche détaillée manquante");
+  const context = vm.createContext({
+    quickActionsHTML: () => '<div data-test="quick-actions">Actions rapides</div>',
+    metadataChipsHTML: (_entry, kind, value) => value ? `<button>${kind}:${value}</button>` : "",
+    metadataChipHTML: (_entry, kind, value) => `<button>${kind}:${value}</button>`,
+    formatReleaseDate: value => String(value),
+    esc: value => String(value ?? ""),
+  });
+  vm.runInContext(match[0], context);
+  return context.renderDetailBody(entry);
+}
+
 test("le Profil s'ouvre sur le mois courant", () => {
   assert.match(app, /let _profilePeriod = "month";/);
 });
@@ -248,15 +262,53 @@ test("les services de streaming restent masqués dans les fiches", () => {
   assert.doesNotMatch(metadataFeature, /provider:/);
 });
 
-test("les fiches mobiles se ferment par un geste contrôlé et gardent une animation de jaquette", () => {
+test("les fiches suivent une hiérarchie commune et terminent par les dates personnelles", () => {
+  const common = {
+    id: "media", status: "finished", description: "Synopsis test", release_year: 1999,
+    genre: "Drame", date_finished: "2026-08-28", created_at: "2026-08-29T12:00:00Z",
+  };
+  const movie = detailBodyHarness({
+    ...common, media_type: "movie", directors: "Jane Doe", cast_members: "Alice, Bob", duration: 180,
+  });
+  const game = detailBodyHarness({
+    ...common, media_type: "game", developer: "Studio", publisher: "Éditeur", platform: "PC",
+  });
+  const book = detailBodyHarness({
+    ...common, media_type: "book", author: "Autrice", publisher: "Maison", page_count: 320, isbn: "123",
+  });
+
+  for (const html of [movie, game, book]) {
+    const positions = ["Actions rapides", "Synopsis", "Année", "Genre", "Terminé", "Ajouté"].map(label => html.indexOf(label));
+    assert.ok(positions.every(position => position >= 0));
+    assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+  }
+  assert.ok(movie.indexOf("Réalisateur") < movie.indexOf("Casting"));
+  assert.ok(movie.indexOf("Casting") < movie.indexOf("Terminé"));
+  assert.ok(game.indexOf("Développeur") < game.indexOf("Terminé"));
+  assert.ok(book.indexOf("Pages") < book.indexOf("Auteur"));
+  assert.doesNotMatch(movie, /Durée|Commencé|Sortie/);
+  assert.doesNotMatch(game, /Plateforme/);
+});
+
+test("la recherche globale reste strictement limitée à la bibliothèque", () => {
+  const match = app.match(/^function renderLibrarySearchResults\([\s\S]*?^\}/m);
+  assert.ok(match);
+  assert.match(app, /placeholder="Rechercher dans ma bibliothèque…"/);
+  assert.match(match[0], /State\.entries/);
+  assert.doesNotMatch(match[0], /searchMedia|openModal|API/);
+  assert.doesNotMatch(app, /function quickAdd\(|quickAddFromResult|Ajouter depuis les APIs/);
+});
+
+test("les fiches mobiles se ferment par un geste visible sans transition de jaquette", () => {
   assert.match(app, /function setupDetailSwipeToClose\(\)/);
   assert.match(app, /distance > 92 \|\| velocity > \.55/);
   assert.match(app, /event\.target\.closest\("button, a, input"\)/);
   assert.match(app, /modal\.style\.animation = "none"/);
   assert.match(app, /translate3d\(0, \$\{distance\}px, 0\)/);
-  assert.match(app, /function animateDetailPosterFromOrigin\(origin\)/);
-  assert.match(app, /Promise\.allSettled\(\[animation\.finished, targetAnimation\.finished\]\)/);
+  assert.doesNotMatch(app, /animateDetailPosterFromOrigin|detailCardOrigin|posterTransition/);
   assert.match(mobileStyle, /@keyframes detailSwipeOut/);
   assert.match(mobileStyle, /\.detail-swipe-handle/);
+  assert.match(mobileStyle, /\.detail-close-btn\s*\{\s*display:\s*none/);
+  assert.doesNotMatch(mobileStyle.match(/@keyframes detailSwipeOut\s*\{[\s\S]*?\n\}/)?.[0] || "", /opacity/);
   assert.match(mobileStyle, /@media \(prefers-reduced-motion: reduce\)/);
 });

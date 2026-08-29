@@ -271,8 +271,8 @@ function renderApp() {
       <div class="topbar-logo">Kulturo<span class="topbar-tagline">Suivez votre culture</span></div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher ou ajouter…" autocomplete="off" />
-        <div id="search-quick-add" class="search-quick-add" style="display:none"></div>
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque…" aria-label="Rechercher dans ma bibliothèque" autocomplete="off" />
+        <div id="library-search-results" class="library-search-results" aria-live="polite" style="display:none"></div>
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
@@ -1014,7 +1014,10 @@ function filterEntries(entries) {
   if (f.year !== "all")   res = res.filter(e => entryActivityYear(e) === Number(f.year));
   if (f.month !== "all")  res = res.filter(e => entryActivityMonth(e) === String(f.month));
   if (f.rating !== "all") res = res.filter(e => Number(e.rating) === Number(f.rating));
-  if (f.search)  res = res.filter(e => e.title.toLowerCase().includes(f.search.toLowerCase()));
+  if (f.search) {
+    const expected = normalizeTitle(f.search);
+    res = res.filter(e => normalizeTitle(e.title).includes(expected));
+  }
   // Tri local
   res.sort((a, b) => {
     switch (f.sort) {
@@ -1073,8 +1076,8 @@ function cardHTML(e, i = 0) {
 
   return `
     <article class="${classes}" data-id="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
-      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}', this)"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}', this)}">
+      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
@@ -2352,7 +2355,7 @@ function bindGlobalEvents() {
       // Si on tape depuis une autre page, synchronise aussi toute la navigation.
       if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveSearch: true });
       else if (_currentPage === "library") renderCards({ resetScroll: true });
-      updateQuickAdd(q);
+      renderLibrarySearchResults(q);
     }
   });
   document.addEventListener("change", e => {
@@ -2366,14 +2369,14 @@ function bindGlobalEvents() {
   document.addEventListener("focusout", e => {
     if (e.target.id === "global-search") {
       setTimeout(() => {
-        const qa = document.getElementById("search-quick-add");
-        if (qa) qa.style.display = "none";
+        const results = document.getElementById("library-search-results");
+        if (results) results.style.display = "none";
       }, 200);
     }
   });
   document.addEventListener("focusin", e => {
     if (e.target.id === "global-search" && e.target.value.trim().length > 1) {
-      updateQuickAdd(e.target.value.trim());
+      renderLibrarySearchResults(e.target.value.trim());
     }
   });
   document.addEventListener("keydown", e => {
@@ -3042,7 +3045,7 @@ function renderDetailPanel(e, options = {}) {
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
-    <div class="modal-overlay ${options.posterTransition ? "is-poster-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
@@ -3096,70 +3099,6 @@ function renderDetailPanel(e, options = {}) {
   setupDetailSwipeToClose();
 }
 
-function detailCardOrigin(sourceElement) {
-  const cover = sourceElement?.querySelector?.(".card-cover, .card-cover-placeholder");
-  if (!cover) return null;
-  const rect = cover.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height, source: cover };
-}
-
-function animateDetailPosterFromOrigin(origin) {
-  if (!origin || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
-  const target = document.querySelector("#modal-overlay .detail-poster, #modal-overlay .detail-poster-placeholder");
-  const overlay = document.getElementById("modal-overlay");
-  if (!target || typeof target.animate !== "function") return;
-  const targetRect = target.getBoundingClientRect();
-  if (!targetRect.width || !targetRect.height) return;
-
-  const clone = origin.source?.cloneNode?.(true) || target.cloneNode(true);
-  clone.removeAttribute?.("id");
-  clone.removeAttribute?.("onerror");
-  clone.setAttribute?.("aria-hidden", "true");
-  clone.className = "detail-poster-flight";
-  Object.assign(clone.style, {
-    top: `${origin.top}px`,
-    left: `${origin.left}px`,
-    width: `${origin.width}px`,
-    height: `${origin.height}px`,
-  });
-  document.body.appendChild(clone);
-  target.classList.add("is-poster-arriving");
-  overlay?.classList.add("is-poster-flight-active");
-
-  const duration = 380;
-  const animation = clone.animate([
-    {
-      top: `${origin.top}px`, left: `${origin.left}px`,
-      width: `${origin.width}px`, height: `${origin.height}px`,
-      borderRadius: "12px", opacity: .94,
-    },
-    {
-      top: `${targetRect.top}px`, left: `${targetRect.left}px`,
-      width: `${targetRect.width}px`, height: `${targetRect.height}px`,
-      borderRadius: "10px", opacity: 1, offset: .82,
-    },
-    {
-      top: `${targetRect.top}px`, left: `${targetRect.left}px`,
-      width: `${targetRect.width}px`, height: `${targetRect.height}px`,
-      borderRadius: "10px", opacity: 0,
-    },
-  ], { duration, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
-
-  const targetAnimation = target.animate([
-    { opacity: 0 },
-    { opacity: 0, offset: .72 },
-    { opacity: 1 },
-  ], { duration, easing: "ease-out", fill: "forwards" });
-
-  Promise.allSettled([animation.finished, targetAnimation.finished]).finally(() => {
-    target.classList.remove("is-poster-arriving");
-    targetAnimation.cancel();
-    clone.remove();
-    overlay?.classList.remove("is-poster-flight-active");
-  });
-}
-
 function setupDetailSwipeToClose() {
   const modal = document.querySelector("#modal-overlay .detail-modal");
   const overlay = document.getElementById("modal-overlay");
@@ -3179,24 +3118,18 @@ function setupDetailSwipeToClose() {
     distance = 0;
     overlay.classList.remove("is-swipe-tracking");
     modal.style.transition = "transform .22s var(--ease-smooth)";
-    overlay.style.transition = "opacity .22s var(--ease-smooth)";
     modal.style.transform = "translate3d(0, 0, 0)";
-    overlay.style.opacity = "1";
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
       if (!modal.isConnected) return;
       modal.style.transition = "";
       modal.style.transform = "";
       modal.style.animation = "";
-      overlay.style.transition = "";
-      overlay.style.opacity = "";
-      overlay.style.animation = "";
     }, 230);
   };
 
   handle.addEventListener("touchstart", event => {
     if (window.innerWidth > 680 || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
-    if (overlay.classList.contains("is-poster-flight-active")) return;
     if (event.target.closest("button, a, input")) return;
     const touch = event.touches[0];
     clearTimeout(resetTimer);
@@ -3208,11 +3141,8 @@ function setupDetailSwipeToClose() {
     // Une animation CSS avec `fill: both` garde la priorité sur le transform.
     // On la fige donc avant de laisser la fiche suivre le doigt en direct.
     modal.style.animation = "none";
-    overlay.style.animation = "none";
     modal.style.transition = "none";
-    overlay.style.transition = "none";
     modal.style.transform = "translate3d(0, 0, 0)";
-    overlay.style.opacity = "1";
     overlay.classList.add("is-swipe-settled");
     overlay.classList.add("is-swipe-tracking");
   }, { passive: true });
@@ -3230,7 +3160,6 @@ function setupDetailSwipeToClose() {
     event.preventDefault();
     distance = Math.min(deltaY, window.innerHeight * .55);
     modal.style.transform = `translate3d(0, ${distance}px, 0)`;
-    overlay.style.opacity = String(Math.max(.35, 1 - distance / 420));
   }, { passive: false });
 
   handle.addEventListener("touchend", () => {
@@ -3243,11 +3172,8 @@ function setupDetailSwipeToClose() {
       overlay.classList.add("is-swipe-dismiss");
       modal.style.setProperty("--swipe-start", `${distance}px`);
       modal.style.animation = "";
-      overlay.style.animation = "";
       modal.style.transition = "";
-      overlay.style.transition = "";
       modal.style.transform = "";
-      overlay.style.opacity = "";
       closeModal();
       return;
     }
@@ -3482,18 +3408,7 @@ function renderDetailBody(e, options = {}) {
 
   if (e.status && !options.readOnly) html += quickActionsHTML(e);
 
-  // ── Méta de base ──
-  const baseMeta = [
-    metadataRow("Genre", "genre", e.genre),
-    metaRow("Année",    e.release_year),
-    metaRow("Sortie",   e.release_date ? formatReleaseDate(e.release_date) : null),
-    metaRow("Commencé", e.date_started ? formatReleaseDate(e.date_started) : null),
-    metaRow("Terminé",  e.date_finished ? formatReleaseDate(e.date_finished) : null),
-    metaRow("Ajouté",   e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null),
-  ].filter(Boolean).join("");
-  if (baseMeta) html += `<div class="detail-meta">${baseMeta}</div>`;
-
-  // ── Synopsis ──
+  // Le contenu éditorial vient toujours immédiatement après les actions.
   if (e.description) {
     const synId = `syn-${e.id}`;
     html += section("Synopsis",
@@ -3506,53 +3421,52 @@ function renderDetailBody(e, options = {}) {
     );
   }
 
-  // ── Films & Séries ──
-  if (e.media_type === "movie") {
-    const filmMeta = [
-      metadataRow(e.subtype === "tv" ? "Créateur" : "Réalisateur", "director", e.directors),
-      metaRow("Durée",     e.duration    ? `${e.duration} min` : null),
-      metaRow("Saisons",   e.seasons_count  ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null),
-      metaRow("Épisodes",  e.episodes_count ? `${e.episodes_count} épisodes` : null),
-      metaRow("Statut",    e.air_status),
-    ].filter(Boolean).join("");
-    if (filmMeta) html += `<div class="detail-meta">${filmMeta}</div>`;
-
-    if (e.cast_members) {
-      const castNames = Array.isArray(e.cast_people) && e.cast_people.length
-        ? e.cast_people.map(person => person.name).filter(Boolean)
-        : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
-      const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
-      html += section("Casting", `<div class="detail-chips">${cast}</div>`);
-    }
-
-
-  }
-
-  // ── Jeux ──
-  if (e.media_type === "game") {
-    const gameMeta = [
-      metadataRow("Développeur", "developer", e.developer || e.author),
-      metadataRow("Éditeur", "publisher", e.publisher),
-      metadataRow("Plateforme", "platform", e.platform),
-    ].filter(Boolean).join("");
-    if (gameMeta) html += `<div class="detail-meta">${gameMeta}</div>`;
-  }
-
-  // ── Livres ──
-  if (e.media_type === "book") {
-    const bookMeta = [
-      metadataRow("Auteur", "author", e.author),
-      metadataRow("Éditeur", "publisher", e.publisher),
-      metaRow("Pages",    e.page_count),
-      metaRow("ISBN",     e.isbn),
-    ].filter(Boolean).join("");
-    if (bookMeta) html += `<div class="detail-meta">${bookMeta}</div>`;
-  }
-
-  // ── Notes perso ──
   if (e.notes) {
     html += section("Notes personnelles", `<p class="detail-synopsis-text">${esc(e.notes)}</p>`);
   }
+
+  // Informations factuelles non interactives propres à chaque type.
+  const technicalMeta = [
+    metaRow("Année", e.release_year),
+    e.media_type === "movie" && e.subtype === "tv"
+      ? metaRow("Saisons", e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null)
+      : "",
+    e.media_type === "movie" && e.subtype === "tv"
+      ? metaRow("Épisodes", e.episodes_count ? `${e.episodes_count} épisodes` : null)
+      : "",
+    e.media_type === "movie" && e.subtype === "tv" ? metaRow("Statut", e.air_status) : "",
+    e.media_type === "book" ? metaRow("Pages", e.page_count) : "",
+    e.media_type === "book" ? metaRow("ISBN", e.isbn) : "",
+  ].filter(Boolean).join("");
+  if (technicalMeta) html += `<div class="detail-meta">${technicalMeta}</div>`;
+
+  // Toutes les informations explorables sont regroupées vers le bas.
+  const linkedMeta = [
+    metadataRow("Genre", "genre", e.genre),
+    e.media_type === "movie"
+      ? metadataRow(e.subtype === "tv" ? "Créateur" : "Réalisateur", "director", e.directors || e.author)
+      : "",
+    e.media_type === "game" ? metadataRow("Développeur", "developer", e.developer || e.author) : "",
+    e.media_type === "game" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
+    e.media_type === "book" ? metadataRow("Auteur", "author", e.author) : "",
+    e.media_type === "book" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
+  ].filter(Boolean).join("");
+  if (linkedMeta) html += `<div class="detail-meta detail-meta-linked">${linkedMeta}</div>`;
+
+  if (e.media_type === "movie" && e.cast_members) {
+    const castNames = Array.isArray(e.cast_people) && e.cast_people.length
+      ? e.cast_people.map(person => person.name).filter(Boolean)
+      : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
+    const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
+    html += section("Casting", `<div class="detail-chips">${cast}</div>`);
+  }
+
+  // L'historique personnel clôt systématiquement la fiche.
+  const historyMeta = options.readOnly ? "" : [
+    metaRow("Terminé", e.date_finished ? formatReleaseDate(e.date_finished) : null),
+    metaRow("Ajouté", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null),
+  ].filter(Boolean).join("");
+  if (historyMeta) html += `<div class="detail-meta detail-meta-history">${historyMeta}</div>`;
 
   return html || "";
 }
@@ -3781,14 +3695,12 @@ function _injectBackdrop(backdrop, entryId) {
   img.src = backdrop;
 }
 
-async function openDetailPanel(id, sourceElement = null) {
+async function openDetailPanel(id) {
   const e = State.entries.find(x => x.id === id);
   if (!e) return;
 
-  const origin = detailCardOrigin(sourceElement);
   // Affichage immédiat avec ce qu'on a déjà en base
-  renderDetailPanel(e, { posterTransition: Boolean(origin) });
-  animateDetailPosterFromOrigin(origin);
+  renderDetailPanel(e);
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
@@ -3943,162 +3855,40 @@ function launchConfetti() {
 
 
 
-// ── Recherche rapide + ajout depuis topbar ────────────────────
-let _quickAddTimer = null;
-let _quickAddSeq = 0;
+// ── Recherche dans la bibliothèque ───────────────────────────
+function renderLibrarySearchResults(query) {
+  const results = document.getElementById("library-search-results");
+  if (!results) return;
 
-async function updateQuickAdd(query) {
-  const seq = ++_quickAddSeq;
-  const qa = document.getElementById("search-quick-add");
-  if (!qa) return;
-  if (!query || query.length < 2) { qa.style.display = "none"; return; }
-
-  // Résultats locaux immédiats
-  const localMatches = State.entries.filter(e =>
-    e.title.toLowerCase().includes(query.toLowerCase())
-  ).slice(0, 3);
-
-  // Affiche d'abord les résultats locaux + spinner API
-  let html = "";
-  if (localMatches.length) {
-    html += `<div class="quick-section-label">Dans ma bibliothèque</div>`;
-    html += localMatches.map(e => `
-      <div class="quick-result" onclick="UI.openEditModal('${e.id}')">
-        ${e.cover_url ? `<img src="${esc(e.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[e.media_type]||"🎭"}</div>`}
-        <div class="quick-info">
-          <div class="quick-title">${esc(e.title)}</div>
-          <div class="quick-sub">${getTypeLabel(e)} · ${STATUS_LABELS[e.status]}</div>
-        </div>
-      </div>`).join("");
+  const expected = normalizeTitle(query);
+  if (expected.length < 2) {
+    results.style.display = "none";
+    results.innerHTML = "";
+    return;
   }
-  html += `<div class="quick-section-label">Ajouter depuis les APIs <span id="quick-api-spinner" class="quick-spinner"></span></div>
-           <div id="quick-api-results"></div>`;
-  qa.innerHTML = html;
-  qa.style.display = "block";
 
-  // Debounce API calls
-  clearTimeout(_quickAddTimer);
-  _quickAddTimer = setTimeout(() => {
-    if (seq !== _quickAddSeq) return;
-    const currentQuery = query;
-    let accumulated = [];
+  const matches = State.entries
+    .filter(entry => normalizeTitle(entry.title).includes(expected))
+    .sort((a, b) => {
+      const aStarts = normalizeTitle(a.title).startsWith(expected) ? 0 : 1;
+      const bStarts = normalizeTitle(b.title).startsWith(expected) ? 0 : 1;
+      return aStarts - bStarts || String(a.title).localeCompare(String(b.title), "fr", { sensitivity: "base" });
+    })
+    .slice(0, 6);
 
-    function renderApiResults() {
-      const apiResultsEl = document.getElementById("quick-api-results");
-      if (!apiResultsEl) return;
-      // Vérifie que la query est toujours la même
-      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
-      if (liveQuery !== currentQuery) return;
-
-      window._quickApiResults = accumulated;
-
-      if (!accumulated.length) return; // Spinner encore visible, on attend
-
-      apiResultsEl.innerHTML = accumulated.map((r, i) => `
-        <div class="quick-result quick-result-api" onclick="UI.quickAddFromResult(${i})">
-          ${r.cover_url ? `<img src="${esc(r.cover_url)}" class="quick-thumb" alt="">` : `<div class="quick-thumb quick-thumb-ph">${TYPE_ICONS[r.media_type]||"🎭"}</div>`}
-          <div class="quick-info">
-            <div class="quick-title">${esc(r.title)}</div>
-            <div class="quick-sub">${getTypeLabel(r)}${r.release_year ? " · " + r.release_year : ""}${r.author ? " · " + esc(r.author) : ""}</div>
-          </div>
-          <div class="quick-add-icon">${iconPlus()}</div>
-        </div>`).join("") +
-        `<div class="quick-add-fallback" data-manual-title="${esc(liveQuery)}" onclick="UI.quickAdd(this.dataset.manualTitle)">
-          ${iconPlus()} Ajouter "<strong>${esc(liveQuery)}</strong>" manuellement
-        </div>`;
-    }
-
-    let pendingCount = 3;
-    function onApiDone() {
-      if (seq !== _quickAddSeq) return;
-      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
-      if (liveQuery !== currentQuery) return;
-      pendingCount--;
-      if (pendingCount === 0) {
-        const spinnerEl = document.getElementById("quick-api-spinner");
-        if (spinnerEl) spinnerEl.remove();
-        // Si aucun résultat du tout après les 3 APIs
-        const apiResultsEl = document.getElementById("quick-api-results");
-        if (apiResultsEl && !accumulated.length) {
-          apiResultsEl.innerHTML = `<div class="quick-add-fallback" data-manual-title="${esc(liveQuery)}" onclick="UI.quickAdd(this.dataset.manualTitle)">
-            ${iconPlus()} Ajouter "<strong>${esc(liveQuery)}</strong>" manuellement
-          </div>`;
-        }
-      }
-    }
-
-    // Lance les 3 APIs indépendamment — chacune affiche dès qu'elle répond
-    searchMedia(currentQuery, "game").then(results => {
-      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
-      if (liveQuery !== currentQuery) return;
-      const newItems = (results || []).slice(0, 4)
-        .map(r => ({ ...r, media_type: "game" }))
-        .filter(r => !findMatchingEntry(r));
-      accumulated = [...accumulated, ...newItems];
-      renderApiResults();
-    }).catch(() => {}).finally(onApiDone);
-
-    searchMedia(currentQuery, "movie").then(results => {
-      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
-      if (liveQuery !== currentQuery) return;
-      const newItems = (results || []).slice(0, 4)
-        .map(r => ({ ...r, media_type: "movie" }))
-        .filter(r => !findMatchingEntry(r));
-      accumulated = [...accumulated, ...newItems];
-      renderApiResults();
-    }).catch(() => {}).finally(onApiDone);
-
-    searchMedia(currentQuery, "book").then(results => {
-      const liveQuery = document.getElementById("global-search")?.value?.trim() || "";
-      if (liveQuery !== currentQuery) return;
-      const newItems = (results || []).slice(0, 4)
-        .map(r => ({ ...r, media_type: "book" }))
-        .filter(r => !findMatchingEntry(r));
-      accumulated = [...accumulated, ...newItems];
-      renderApiResults();
-    }).catch(() => {}).finally(onApiDone);
-
-  }, 400);
-}
-
-function quickAdd(title) {
-  const qa = document.getElementById("search-quick-add");
-  if (qa) qa.style.display = "none";
-  const searchEl = document.getElementById("global-search");
-  if (searchEl) searchEl.value = "";
-  State.filters.search = "";
-  _currentRating = 0;
-  window._apiSelected = null;
-  openModal(null, title);
-}
-
-function quickAddFromResult(idx) {
-  const result = window._quickApiResults?.[idx];
-  if (!result) return;
-
-  // Ferme le dropdown de recherche
-  const qa = document.getElementById("search-quick-add");
-  if (qa) qa.style.display = "none";
-  const searchEl = document.getElementById("global-search");
-  if (searchEl) searchEl.value = "";
-  State.filters.search = "";
-
-  // Ouvre directement l'étape « Votre avis » avec le résultat sélectionné.
-  _currentRating = 0;
-  _modalDirty = false;
-  State.editingId = null;
-  window._apiSelected = result;
-  _wizardState = {
-    step: 2,
-    type: result.media_type || "movie",
-    title: result.title,
-    apiSelected: result,
-    rating: 0,
-    notes: "",
-    favorite: false,
-    _status: "finished",
-  };
-  _renderWizard();
+  results.innerHTML = matches.length
+    ? `<div class="quick-section-label">Dans ma bibliothèque</div>${matches.map(entry => `
+        <button type="button" class="quick-result" onclick="UI.openEditModal('${entry.id}')">
+          ${safeMediaUrl(entry.cover_url)
+            ? `<img src="${esc(safeMediaUrl(entry.cover_url))}" class="quick-thumb" alt="" loading="lazy">`
+            : `<span class="quick-thumb quick-thumb-ph" aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+          <span class="quick-info">
+            <strong class="quick-title">${esc(entry.title)}</strong>
+            <small class="quick-sub">${getTypeLabel(entry)} · ${STATUS_LABELS[entry.status] || "Ajouté"}</small>
+          </span>
+        </button>`).join("")}`
+    : `<div class="library-search-empty">Aucun média correspondant dans votre bibliothèque.</div>`;
+  results.style.display = "block";
 }
 
 
@@ -4401,9 +4191,7 @@ function openCommunityMedia(id) {
 
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
-  quickAdd,
-  quickAddFromResult,
-  openEditModal:   (id, sourceElement = null) => { openDetailPanel(id, sourceElement); },
+  openEditModal:   (id) => { openDetailPanel(id); },
   openJournalMedia,
   openCommunityMedia,
   openMetadataFromElement,

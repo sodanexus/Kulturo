@@ -1,11 +1,10 @@
 const DEFINITIONS = Object.freeze({
   cast: Object.freeze({ label: "Acteur ou actrice", fields: ["cast_members"], mediaTypes: ["movie"], external: "imdb" }),
-  director: Object.freeze({ label: "Réalisation", fields: ["directors"], mediaTypes: ["movie"], external: "imdb" }),
+  director: Object.freeze({ label: "Réalisation", fields: ["directors", "author"], mediaTypes: ["movie"], external: "imdb" }),
   author: Object.freeze({ label: "Auteur ou autrice", fields: ["author"], mediaTypes: ["book"], external: "goodreads" }),
   developer: Object.freeze({ label: "Développement", fields: ["developer", "author"], mediaTypes: ["game"], external: "steam" }),
   publisher: Object.freeze({ label: "Édition", fields: ["publisher"], mediaTypes: ["game", "book"], external: null }),
   genre: Object.freeze({ label: "Genre", fields: ["genre"], external: null }),
-  platform: Object.freeze({ label: "Plateforme", fields: ["platform"], mediaTypes: ["game"], external: null }),
 });
 
 export function metadataDefinition(kind) {
