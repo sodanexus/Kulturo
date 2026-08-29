@@ -8,6 +8,7 @@ const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const style = await readFile(new URL("../style.css", import.meta.url), "utf8");
 const addStyle = await readFile(new URL("../styles/add-sheet.css", import.meta.url), "utf8");
 const mobileStyle = await readFile(new URL("../styles/mobile-polish.css", import.meta.url), "utf8");
+const metadataFeature = await readFile(new URL("../features/media-metadata.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const supabase = await readFile(new URL("../supabase.js", import.meta.url), "utf8");
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
@@ -242,11 +243,20 @@ test("les informations des fiches ouvrent la bibliothèque tout en conservant le
   assert.match(mobileStyle, /\.detail-meta-link/);
 });
 
+test("les services de streaming restent masqués dans les fiches", () => {
+  assert.doesNotMatch(app, /metadataRow\("Disponible sur"/);
+  assert.doesNotMatch(metadataFeature, /provider:/);
+});
+
 test("les fiches mobiles se ferment par un geste contrôlé et gardent une animation de jaquette", () => {
   assert.match(app, /function setupDetailSwipeToClose\(\)/);
   assert.match(app, /distance > 92 \|\| velocity > \.55/);
   assert.match(app, /event\.target\.closest\("button, a, input"\)/);
+  assert.match(app, /modal\.style\.animation = "none"/);
+  assert.match(app, /translate3d\(0, \$\{distance\}px, 0\)/);
   assert.match(app, /function animateDetailPosterFromOrigin\(origin\)/);
+  assert.match(app, /Promise\.allSettled\(\[animation\.finished, targetAnimation\.finished\]\)/);
   assert.match(mobileStyle, /@keyframes detailSwipeOut/);
+  assert.match(mobileStyle, /\.detail-swipe-handle/);
   assert.match(mobileStyle, /@media \(prefers-reduced-motion: reduce\)/);
 });

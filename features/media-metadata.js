@@ -6,7 +6,6 @@ const DEFINITIONS = Object.freeze({
   publisher: Object.freeze({ label: "Édition", fields: ["publisher"], mediaTypes: ["game", "book"], external: null }),
   genre: Object.freeze({ label: "Genre", fields: ["genre"], external: null }),
   platform: Object.freeze({ label: "Plateforme", fields: ["platform"], mediaTypes: ["game"], external: null }),
-  provider: Object.freeze({ label: "Disponibilité", fields: ["watch_providers"], mediaTypes: ["movie"], external: null }),
 });
 
 export function metadataDefinition(kind) {

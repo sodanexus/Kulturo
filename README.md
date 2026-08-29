@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.1.0**
+Version actuelle : **3.1.1**
 
 ## Fonctionnalités
 
@@ -10,7 +10,7 @@ Version actuelle : **3.1.0**
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout compact avec recherche universelle TMDb, IGDB et Open Library
-- Fiches détaillées : synopsis, casting, durée, saisons, plateformes et bandes-annonces
+- Fiches détaillées : synopsis, casting, durée, saisons et bandes-annonces
 - Acteurs, réalisateurs, auteurs, genres, plateformes et studios reliés à la bibliothèque
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
@@ -83,7 +83,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.1.0 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.1.1 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -133,7 +133,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.1.0",
+    version: "3.1.1",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -177,9 +177,9 @@ Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux
 
 ### Informations reliées
 
-Dans une fiche, les acteurs, réalisateurs, auteurs, développeurs, éditeurs, genres, plateformes et services disponibles sont cliquables. Le panneau obtenu affiche d’abord les médias correspondants déjà présents dans la bibliothèque. Lorsqu’il est pertinent, le lien externe IMDb, Goodreads ou Steam reste proposé dans ce même panneau.
+Dans une fiche, les acteurs, réalisateurs, auteurs, développeurs, éditeurs, genres et plateformes de jeu sont cliquables. Le panneau obtenu affiche d’abord les médias correspondants déjà présents dans la bibliothèque. Lorsqu’il est pertinent, le lien externe IMDb, Goodreads ou Steam reste proposé dans ce même panneau. Les services de streaming ne sont pas affichés.
 
-Sur mobile, une fiche détaillée peut être refermée par un glissement vers le bas depuis son en-tête. Le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
+Sur mobile, une fiche détaillée peut être refermée par un glissement vers le bas depuis son en-tête. Elle suit le doigt pendant le geste, puis reprend sa place si le seuil de fermeture n’est pas atteint. Le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
 
 ### Journal et Communauté
 

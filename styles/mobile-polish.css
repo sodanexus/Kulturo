@@ -135,6 +135,27 @@
 .detail-poster.is-poster-arriving,
 .detail-poster-placeholder.is-poster-arriving { opacity: 0; }
 
+/* Avec une jaquette partagée, la modale ne se déplace pas en parallèle :
+   le point d'arrivée reste ainsi parfaitement stable. */
+.modal-overlay.is-poster-transition .detail-modal {
+  animation: detailModalPosterIn .22s var(--ease-smooth) both;
+}
+.modal-overlay.is-poster-transition.is-closing .detail-modal {
+  animation: modalOut .18s var(--ease-smooth) both;
+}
+@keyframes detailModalPosterIn {
+  from { opacity: .72; transform: none; }
+  to { opacity: 1; transform: none; }
+}
+
+.detail-swipe-handle { display: none; }
+.modal-overlay.is-swipe-settled:not(.is-closing),
+.modal-overlay.is-swipe-settled:not(.is-closing) .detail-modal {
+  animation: none;
+}
+.modal-overlay.is-swipe-tracking,
+.modal-overlay.is-swipe-tracking .detail-modal { will-change: opacity, transform; }
+
 .modal-overlay.is-closing.is-swipe-dismiss .detail-modal {
   animation: detailSwipeOut .18s var(--ease-smooth) both;
 }
@@ -145,6 +166,20 @@
 
 @media (max-width: 680px) {
   .detail-backdrop { touch-action: pan-x; }
+  .detail-swipe-handle {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    z-index: 9;
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,.62);
+    box-shadow: 0 1px 5px rgba(0,0,0,.28);
+    pointer-events: none;
+    transform: translateX(-50%);
+  }
   .detail-meta-row-links { flex-direction: column; gap: .28rem; }
   .detail-meta-row-links .detail-meta-label { min-width: 0; }
   .detail-meta-link { min-height: 34px; }

@@ -3042,10 +3042,11 @@ function renderDetailPanel(e, options = {}) {
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
-    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay ${options.posterTransition ? "is-poster-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
+          <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
           <button class="detail-close-btn btn-icon" onclick="UI.closeModal()">${iconX()}</button>
           <div class="detail-backdrop-content">
@@ -3100,17 +3101,18 @@ function detailCardOrigin(sourceElement) {
   if (!cover) return null;
   const rect = cover.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
-  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height, source: cover };
 }
 
 function animateDetailPosterFromOrigin(origin) {
   if (!origin || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
   const target = document.querySelector("#modal-overlay .detail-poster, #modal-overlay .detail-poster-placeholder");
+  const overlay = document.getElementById("modal-overlay");
   if (!target || typeof target.animate !== "function") return;
   const targetRect = target.getBoundingClientRect();
   if (!targetRect.width || !targetRect.height) return;
 
-  const clone = target.cloneNode(true);
+  const clone = origin.source?.cloneNode?.(true) || target.cloneNode(true);
   clone.removeAttribute?.("id");
   clone.removeAttribute?.("onerror");
   clone.setAttribute?.("aria-hidden", "true");
@@ -3123,23 +3125,38 @@ function animateDetailPosterFromOrigin(origin) {
   });
   document.body.appendChild(clone);
   target.classList.add("is-poster-arriving");
+  overlay?.classList.add("is-poster-flight-active");
 
+  const duration = 380;
   const animation = clone.animate([
     {
       top: `${origin.top}px`, left: `${origin.left}px`,
       width: `${origin.width}px`, height: `${origin.height}px`,
-      borderRadius: "12px", opacity: .92,
+      borderRadius: "12px", opacity: .94,
     },
     {
       top: `${targetRect.top}px`, left: `${targetRect.left}px`,
       width: `${targetRect.width}px`, height: `${targetRect.height}px`,
-      borderRadius: "10px", opacity: 1,
+      borderRadius: "10px", opacity: 1, offset: .82,
     },
-  ], { duration: 340, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+    {
+      top: `${targetRect.top}px`, left: `${targetRect.left}px`,
+      width: `${targetRect.width}px`, height: `${targetRect.height}px`,
+      borderRadius: "10px", opacity: 0,
+    },
+  ], { duration, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
 
-  Promise.resolve(animation.finished).catch(() => {}).finally(() => {
-    clone.remove();
+  const targetAnimation = target.animate([
+    { opacity: 0 },
+    { opacity: 0, offset: .72 },
+    { opacity: 1 },
+  ], { duration, easing: "ease-out", fill: "forwards" });
+
+  Promise.allSettled([animation.finished, targetAnimation.finished]).finally(() => {
     target.classList.remove("is-poster-arriving");
+    targetAnimation.cancel();
+    clone.remove();
+    overlay?.classList.remove("is-poster-flight-active");
   });
 }
 
@@ -3155,29 +3172,49 @@ function setupDetailSwipeToClose() {
   let startTime = 0;
   let distance = 0;
   let tracking = false;
+  let resetTimer = 0;
 
   const reset = () => {
     tracking = false;
     distance = 0;
-    modal.style.transition = "transform .2s var(--ease-smooth)";
-    modal.style.transform = "translateY(0)";
-    overlay.style.opacity = "";
-    setTimeout(() => {
+    overlay.classList.remove("is-swipe-tracking");
+    modal.style.transition = "transform .22s var(--ease-smooth)";
+    overlay.style.transition = "opacity .22s var(--ease-smooth)";
+    modal.style.transform = "translate3d(0, 0, 0)";
+    overlay.style.opacity = "1";
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => {
       if (!modal.isConnected) return;
       modal.style.transition = "";
       modal.style.transform = "";
-    }, 210);
+      modal.style.animation = "";
+      overlay.style.transition = "";
+      overlay.style.opacity = "";
+      overlay.style.animation = "";
+    }, 230);
   };
 
   handle.addEventListener("touchstart", event => {
     if (window.innerWidth > 680 || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    if (overlay.classList.contains("is-poster-flight-active")) return;
     if (event.target.closest("button, a, input")) return;
     const touch = event.touches[0];
+    clearTimeout(resetTimer);
     startX = touch.clientX;
     startY = touch.clientY;
     startTime = performance.now();
     distance = 0;
     tracking = true;
+    // Une animation CSS avec `fill: both` garde la priorité sur le transform.
+    // On la fige donc avant de laisser la fiche suivre le doigt en direct.
+    modal.style.animation = "none";
+    overlay.style.animation = "none";
+    modal.style.transition = "none";
+    overlay.style.transition = "none";
+    modal.style.transform = "translate3d(0, 0, 0)";
+    overlay.style.opacity = "1";
+    overlay.classList.add("is-swipe-settled");
+    overlay.classList.add("is-swipe-tracking");
   }, { passive: true });
 
   handle.addEventListener("touchmove", event => {
@@ -3192,8 +3229,7 @@ function setupDetailSwipeToClose() {
     if (deltaY < 6) return;
     event.preventDefault();
     distance = Math.min(deltaY, window.innerHeight * .55);
-    modal.style.transition = "none";
-    modal.style.transform = `translateY(${distance}px)`;
+    modal.style.transform = `translate3d(0, ${distance}px, 0)`;
     overlay.style.opacity = String(Math.max(.35, 1 - distance / 420));
   }, { passive: false });
 
@@ -3203,8 +3239,13 @@ function setupDetailSwipeToClose() {
     const velocity = distance / elapsed;
     tracking = false;
     if (distance > 92 || velocity > .55) {
+      overlay.classList.remove("is-swipe-tracking");
       overlay.classList.add("is-swipe-dismiss");
       modal.style.setProperty("--swipe-start", `${distance}px`);
+      modal.style.animation = "";
+      overlay.style.animation = "";
+      modal.style.transition = "";
+      overlay.style.transition = "";
       modal.style.transform = "";
       overlay.style.opacity = "";
       closeModal();
@@ -3473,7 +3514,6 @@ function renderDetailBody(e, options = {}) {
       metaRow("Saisons",   e.seasons_count  ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null),
       metaRow("Épisodes",  e.episodes_count ? `${e.episodes_count} épisodes` : null),
       metaRow("Statut",    e.air_status),
-      metadataRow("Disponible sur", "provider", e.watch_providers),
     ].filter(Boolean).join("");
     if (filmMeta) html += `<div class="detail-meta">${filmMeta}</div>`;
 
@@ -3747,7 +3787,7 @@ async function openDetailPanel(id, sourceElement = null) {
 
   const origin = detailCardOrigin(sourceElement);
   // Affichage immédiat avec ce qu'on a déjà en base
-  renderDetailPanel(e);
+  renderDetailPanel(e, { posterTransition: Boolean(origin) });
   animateDetailPosterFromOrigin(origin);
   _scheduleSynopsisOverflowCheck(e.id);
 
