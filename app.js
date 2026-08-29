@@ -21,6 +21,21 @@ import {
   uniqueEntriesForEvents,
   yearMonthOf,
 } from "./domain.js";
+import {
+  ADD_PRIMARY_STATUSES,
+  ADD_SECONDARY_STATUSES,
+  createAddDraft,
+  isSecondaryAddStatus,
+  selectAddResult,
+  selectManualAdd,
+  setAddDraftStatus,
+} from "./features/add-flow.js";
+import {
+  entriesForMetadata,
+  metadataDefinition,
+  metadataExternalLink,
+  splitMetadataValues,
+} from "./features/media-metadata.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -1058,8 +1073,8 @@ function cardHTML(e, i = 0) {
 
   return `
     <article class="${classes}" data-id="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
-      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
+      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}', this)"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}', this)}">
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
@@ -1493,17 +1508,8 @@ function openModal(entry = null, prefillTitle = null) {
     return;
   }
 
-  // Nouveau : recherche universelle, puis avis en deux étapes.
-  _wizardState = {
-    step: 1,
-    type: "movie",
-    title: prefillTitle || "",
-    apiSelected: null,
-    rating: 0,
-    notes: "",
-    favorite: false,
-    _status: "finished",
-  };
+  // Recherche universelle puis ajout compact, sans assistant visuel encombrant.
+  _wizardState = createAddDraft(prefillTitle);
   _currentRating = 0;
   window._apiSelected = null;
   _renderWizard();
@@ -1529,99 +1535,100 @@ function _renderWizard() {
   const s = _wizardState;
   const root = document.getElementById("modal-root");
 
-  const steps = ["Rechercher", "Votre avis"];
-  const progressHTML = steps.map((label, i) => `
-    <div class="wz-step ${i + 1 === s.step ? "active" : i + 1 < s.step ? "done" : ""}">
-      <div class="wz-dot">${i + 1 < s.step ? "✓" : i + 1}</div>
-      <span>${label}</span>
-    </div>`).join('<div class="wz-line"></div>');
-
   let bodyHTML = "";
   let footerHTML = "";
+  let headerHTML = "";
 
   if (s.step === 1) {
+    headerHTML = `
+      <div class="wz-header-copy">
+        <span>Nouvel ajout</span>
+        <h3 id="add-sheet-title">Que souhaitez-vous ajouter ?</h3>
+      </div>
+      <button type="button" class="btn-icon" onclick="UI.closeModal()" aria-label="Fermer">${iconX()}</button>`;
     bodyHTML = `
-      <p class="wz-hint">Recherchez directement un film, une série, un jeu ou un livre.</p>
       <div class="api-search-wrap wz-universal-search">
         <span class="wz-search-icon" aria-hidden="true">${iconSearch()}</span>
         <input type="text" id="f-api-search" placeholder="Ex. The Brutalist, Dune, Elden Ring…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
         <div class="api-results wz-universal-results" id="api-results" style="display:none"></div>
       </div>
-      <div id="wz-selected-preview" class="wz-selected-preview" style="display:${s.apiSelected ? "flex" : "none"}">
-        ${s.apiSelected ? `
-          ${s.apiSelected.cover_url ? `<img src="${esc(s.apiSelected.cover_url)}" class="wz-preview-cover" alt="">` : ""}
-          <div>
-            <div class="wz-preview-title">${esc(s.apiSelected.title)}</div>
-            <div class="wz-preview-sub">${esc(getTypeLabel(s.apiSelected))}${s.apiSelected.release_year ? ` · ${esc(s.apiSelected.release_year)}` : ""}</div>
-          </div>
-          <button type="button" class="wz-clear-btn" onclick="UI.wzClearSelected()">✕</button>
-        ` : ""}
-      </div>
-      <div class="wz-manual-choice">
-        <span>Pas dans les résultats ? Choisissez son type et continuez.</span>
-        <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
-          ${[["movie","🎬","Film / Série"],["game","🎮","Jeu"],["book","📚","Livre"]].map(([value, icon, label]) => `
-            <button type="button" class="wz-manual-type-btn ${s.type === value ? "active" : ""}" data-type="${value}" onclick="UI.wzSetType('${value}')">${icon} ${label}</button>`).join("")}
-        </div>
+      <div class="wz-search-start" id="wz-search-start">
+        <span aria-hidden="true">⌕</span>
+        <strong>Une seule recherche pour toute votre culture</strong>
+        <small>Films, séries, jeux et livres</small>
       </div>`;
-    footerHTML = `
-      <button class="btn btn-secondary" onclick="UI.closeModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="UI.wzNext()">Continuer →</button>`;
   }
 
   else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
     const cover = s.apiSelected?.cover_url;
+    const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
+    const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, icon, label }) => `
+      <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
+        <span aria-hidden="true">${icon}</span>${label}
+      </button>`).join("");
+    const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value, icon, label }) => `
+      <button type="button" class="wz-status-btn wz-status-secondary ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
+        <span aria-hidden="true">${icon}</span>${label}
+      </button>`).join("");
+    headerHTML = `
+      <button type="button" class="btn-icon wz-back-btn" onclick="UI.wzBack()" aria-label="Changer de média">←</button>
+      <div class="wz-header-copy">
+        <span>Nouvel ajout</span>
+        <h3 id="add-sheet-title">Ajouter à la bibliothèque</h3>
+      </div>
+      <button type="button" class="btn-icon" onclick="UI.closeModal()" aria-label="Fermer">${iconX()}</button>`;
     bodyHTML = `
-      <div class="wz-step3-header">
-        ${cover ? `<img src="${esc(cover)}" class="wz-step3-cover" alt="">` : ""}
-        <div class="wz-step3-title">${esc(title)}</div>
-      </div>
-      <div class="form-group">
-        <label>C'est où t'en es ? 👀</label>
-        <div class="wz-status-grid">
-          ${[
-            ["finished","✅","Terminé"],
-            ["playing","▶️","En cours"],
-            ["wishlist","🔖","Dans ma liste"],
-            ["paused","⏸️","En pause"],
-            ["dropped","❌","Abandonné"],
-          ].map(([val, ico, lbl]) => `
-            <button type="button" class="wz-status-btn ${val === (s._status || "finished") ? "active" : ""}" data-status="${val}" onclick="UI.wzSetStatus('${val}')">
-              ${ico} ${lbl}
-            </button>`).join("")}
+      <div class="wz-selected-card">
+        ${cover
+          ? `<img src="${esc(cover)}" class="wz-selected-cover" alt="">`
+          : `<div class="wz-selected-cover wz-selected-placeholder" aria-hidden="true">${TYPE_ICONS[s.type] || "🎭"}</div>`}
+        <div class="wz-selected-copy">
+          <strong>${esc(title)}</strong>
+          <span>${esc(subtitle)}</span>
         </div>
+        <button type="button" class="wz-change-btn" onclick="UI.wzBack()">Changer</button>
       </div>
-      <div class="form-group">
-        <label>Ta note <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
+
+      <section class="wz-compact-section">
+        <div class="wz-section-heading"><strong>Où en êtes-vous ?</strong></div>
+        <div class="wz-status-grid" role="group" aria-label="Statut du média">${primaryStatuses}</div>
+        <details class="wz-other-status" ${isSecondaryAddStatus(s._status) ? "open" : ""}>
+          <summary>Autre statut</summary>
+          <div class="wz-status-grid wz-status-grid-secondary">${secondaryStatuses}</div>
+        </details>
+      </section>
+
+      <section class="wz-compact-section wz-opinion-section">
+        <div class="wz-section-heading">
+          <strong>Votre note</strong>
+          <span id="rating-tooltip" class="rating-tooltip-label">${s.rating ? `★ ${s.rating}/10` : "Optionnelle"}</span>
+        </div>
         <div class="rating-stars" id="rating-stars"></div>
-      </div>
-      <div class="form-group">
-        <label>Tes impressions ✍️ <span style="color:var(--text-3);font-weight:400">(optionnel)</span></label>
-        <textarea id="f-notes" placeholder="Qu'est-ce que t'en as pensé ?">${esc(s.notes || "")}</textarea>
-      </div>
-      <label class="toggle-row">
-        <span class="toggle-label">♥ Coup de cœur</span>
-        <span class="toggle-switch">
+        <label class="wz-favorite-toggle">
           <input type="checkbox" id="f-favorite" ${s.favorite ? "checked" : ""} />
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </span>
-      </label>`;
+          <span class="wz-favorite-icon" aria-hidden="true">♥</span>
+          <span>Coup de cœur</span>
+        </label>
+      </section>
+
+      <details class="wz-notes-details" ${s.notes ? "open" : ""}>
+        <summary>
+          <span>Ajouter une note personnelle</span>
+          <small>Optionnel</small>
+        </summary>
+        <textarea id="f-notes" placeholder="Votre avis, vos impressions…">${esc(s.notes || "")}</textarea>
+      </details>`;
     footerHTML = `
-      <button class="btn btn-secondary" onclick="UI.wzBack()">← Retour</button>
-      <button class="btn btn-primary" onclick="UI.saveEntry()">Ajouter ✨</button>`;
+      <button class="btn btn-primary wz-submit-btn" onclick="UI.saveEntry()">Ajouter à ma bibliothèque</button>`;
   }
 
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal modal-wizard" data-step="${s.step}" role="dialog" aria-modal="true">
-        <div class="modal-header">
-          <h3>Ajouter à ma bibliothèque</h3>
-          <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
-        </div>
-        <div class="wz-progress">${progressHTML}</div>
+      <div class="modal modal-wizard" data-step="${s.step}" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
+        <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
-        <div class="modal-footer">${footerHTML}</div>
+        ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ""}
       </div>
     </div>`;
 
@@ -1927,30 +1934,28 @@ function setupWizardUniversalSearch() {
   let timer;
   let requestSeq = 0;
 
-  const clearSelectedIfNeeded = (query) => {
-    if (!_wizardState?.apiSelected || normalizeTitle(query) === normalizeTitle(_wizardState.apiSelected.title)) return;
-    _wizardState.apiSelected = null;
-    window._apiSelected = null;
-    const preview = document.getElementById("wz-selected-preview");
-    if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
-  };
-
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
     const query = input.value.trim();
+    const start = document.getElementById("wz-search-start");
     if (_wizardState) _wizardState.title = query;
-    clearSelectedIfNeeded(query);
     if (query.length < 2) {
       requestSeq++;
       results.style.display = "none";
       results.innerHTML = "";
+      if (start) start.hidden = false;
       return;
     }
+    if (start) start.hidden = true;
 
     timer = setTimeout(async () => {
       const seq = ++requestSeq;
       results.style.display = "block";
-      results.innerHTML = `<div class="wz-search-loading"><div class="spinner"></div><span>Recherche dans toutes les catégories…</span></div>`;
+      results.innerHTML = `
+        <div class="wz-search-skeleton" role="status" aria-label="Recherche en cours">
+          ${Array.from({ length: 3 }, () => `
+            <div class="wz-skeleton-result"><i></i><span><b></b><small></small></span></div>`).join("")}
+        </div>`;
 
       const requests = ["movie", "game", "book"].map(async type => {
         try {
@@ -1965,12 +1970,7 @@ function setupWizardUniversalSearch() {
 
       const items = grouped.flat().filter(item => !findMatchingEntry(item));
       window._apiResults = items;
-      if (!items.length) {
-        results.innerHTML = `<div class="wz-search-empty">Aucun résultat précis. Vous pouvez continuer avec ce titre et le type choisi ci-dessous.</div>`;
-        return;
-      }
-
-      results.innerHTML = items.map((item, index) => {
+      const resultItems = items.map((item, index) => {
         const coverUrl = safeMediaUrl(item.cover_url);
         return `
           <button type="button" class="api-result-item wz-universal-result" onclick="UI.fillFromApi(${index})">
@@ -1981,6 +1981,16 @@ function setupWizardUniversalSearch() {
             </span>
           </button>`;
       }).join("");
+      results.innerHTML = `
+        ${resultItems || `<div class="wz-search-empty">Aucun résultat précis pour « ${esc(query)} ».</div>`}
+        <div class="wz-manual-result">
+          <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
+          <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
+            <button type="button" onclick="UI.wzUseManualType('movie')">🎬 Film / Série</button>
+            <button type="button" onclick="UI.wzUseManualType('game')">🎮 Jeu</button>
+            <button type="button" onclick="UI.wzUseManualType('book')">📚 Livre</button>
+          </div>
+        </div>`;
     }, immediate ? 0 : 320);
   };
 
@@ -1999,13 +2009,6 @@ function setupApiSearch() {
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
     const q = input.value.trim();
-    if (_wizardState?.step === 2 && _wizardState.apiSelected &&
-        normalizeTitle(q) !== normalizeTitle(_wizardState.apiSelected.title)) {
-      _wizardState.apiSelected = null;
-      window._apiSelected = null;
-      const preview = document.getElementById("wz-selected-preview");
-      if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
-    }
     if (q.length < 2) {
       requestSeq++;
       results.style.display = "none";
@@ -2041,28 +2044,13 @@ function fillFromApi(idx) {
   if (!it) return;
   markModalDirty();
 
-  // Wizard actif étape 1 : stocker le résultat, puis passer à l'avis.
+  // Dans l'ajout compact, toucher un résultat ouvre directement la finalisation.
   if (_wizardState && _wizardState.step === 1) {
-    _wizardState.apiSelected = it;
-    _wizardState.title = it.title;
-    _wizardState.type = it.media_type || _wizardState.type;
+    _wizardState = selectAddResult(_wizardState, it);
     window._apiSelected = it;
     const input = document.getElementById("f-api-search");
-    if (input) input.value = it.title;
-    const results = document.getElementById("api-results");
-    if (results) results.style.display = "none";
-    const preview = document.getElementById("wz-selected-preview");
-    if (preview) {
-      preview.style.display = "flex";
-      preview.innerHTML =
-        (it.cover_url ? `<img src="${esc(it.cover_url)}" class="wz-preview-cover" alt="">` : "") +
-        `<div style="flex:1"><div class="wz-preview-title">${esc(it.title)}</div>` +
-        `<div class="wz-preview-sub">${esc(getTypeLabel(it))}${it.release_year ? ` · ${esc(it.release_year)}` : ""}</div></div>` +
-        `<button type="button" class="wz-clear-btn" onclick="UI.wzClearSelected()">✕</button>`;
-    }
-    document.querySelectorAll(".wz-manual-type-btn").forEach(button => {
-      button.classList.toggle("active", button.dataset.type === _wizardState.type);
-    });
+    input?.blur();
+    _renderWizard();
     return;
   }
 
@@ -2392,6 +2380,7 @@ function bindGlobalEvents() {
     if (e.key !== "Escape") return;
     const confirmCancel = document.getElementById("confirm-cancel");
     if (confirmCancel) confirmCancel.click();
+    else if (document.getElementById("metadata-overlay")) closeMetadataPanel();
     else if (document.getElementById("filter-modal-overlay")) UI.closeFilterModal();
     else closeModal();
   });
@@ -3103,6 +3092,128 @@ function renderDetailPanel(e, options = {}) {
     backdropEl.style.setProperty("--fallback-img", `url("${cssCoverUrl}")`);
   }
   if (backdropUrl) requestAnimationFrame(() => _injectBackdrop(backdropUrl, e.id));
+  setupDetailSwipeToClose();
+}
+
+function detailCardOrigin(sourceElement) {
+  const cover = sourceElement?.querySelector?.(".card-cover, .card-cover-placeholder");
+  if (!cover) return null;
+  const rect = cover.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+}
+
+function animateDetailPosterFromOrigin(origin) {
+  if (!origin || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  const target = document.querySelector("#modal-overlay .detail-poster, #modal-overlay .detail-poster-placeholder");
+  if (!target || typeof target.animate !== "function") return;
+  const targetRect = target.getBoundingClientRect();
+  if (!targetRect.width || !targetRect.height) return;
+
+  const clone = target.cloneNode(true);
+  clone.removeAttribute?.("id");
+  clone.removeAttribute?.("onerror");
+  clone.setAttribute?.("aria-hidden", "true");
+  clone.className = "detail-poster-flight";
+  Object.assign(clone.style, {
+    top: `${origin.top}px`,
+    left: `${origin.left}px`,
+    width: `${origin.width}px`,
+    height: `${origin.height}px`,
+  });
+  document.body.appendChild(clone);
+  target.classList.add("is-poster-arriving");
+
+  const animation = clone.animate([
+    {
+      top: `${origin.top}px`, left: `${origin.left}px`,
+      width: `${origin.width}px`, height: `${origin.height}px`,
+      borderRadius: "12px", opacity: .92,
+    },
+    {
+      top: `${targetRect.top}px`, left: `${targetRect.left}px`,
+      width: `${targetRect.width}px`, height: `${targetRect.height}px`,
+      borderRadius: "10px", opacity: 1,
+    },
+  ], { duration: 340, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+
+  Promise.resolve(animation.finished).catch(() => {}).finally(() => {
+    clone.remove();
+    target.classList.remove("is-poster-arriving");
+  });
+}
+
+function setupDetailSwipeToClose() {
+  const modal = document.querySelector("#modal-overlay .detail-modal");
+  const overlay = document.getElementById("modal-overlay");
+  const handle = modal?.querySelector(".detail-backdrop");
+  if (!modal || !overlay || !handle || modal.dataset.swipeBound === "true") return;
+  modal.dataset.swipeBound = "true";
+
+  let startX = 0;
+  let startY = 0;
+  let startTime = 0;
+  let distance = 0;
+  let tracking = false;
+
+  const reset = () => {
+    tracking = false;
+    distance = 0;
+    modal.style.transition = "transform .2s var(--ease-smooth)";
+    modal.style.transform = "translateY(0)";
+    overlay.style.opacity = "";
+    setTimeout(() => {
+      if (!modal.isConnected) return;
+      modal.style.transition = "";
+      modal.style.transform = "";
+    }, 210);
+  };
+
+  handle.addEventListener("touchstart", event => {
+    if (window.innerWidth > 680 || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    if (event.target.closest("button, a, input")) return;
+    const touch = event.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    startTime = performance.now();
+    distance = 0;
+    tracking = true;
+  }, { passive: true });
+
+  handle.addEventListener("touchmove", event => {
+    if (!tracking) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    if (deltaY < 0 || Math.abs(deltaX) > Math.abs(deltaY)) {
+      reset();
+      return;
+    }
+    if (deltaY < 6) return;
+    event.preventDefault();
+    distance = Math.min(deltaY, window.innerHeight * .55);
+    modal.style.transition = "none";
+    modal.style.transform = `translateY(${distance}px)`;
+    overlay.style.opacity = String(Math.max(.35, 1 - distance / 420));
+  }, { passive: false });
+
+  handle.addEventListener("touchend", () => {
+    if (!tracking) return;
+    const elapsed = Math.max(1, performance.now() - startTime);
+    const velocity = distance / elapsed;
+    tracking = false;
+    if (distance > 92 || velocity > .55) {
+      overlay.classList.add("is-swipe-dismiss");
+      modal.style.setProperty("--swipe-start", `${distance}px`);
+      modal.style.transform = "";
+      overlay.style.opacity = "";
+      closeModal();
+      return;
+    }
+    reset();
+  }, { passive: true });
+
+  handle.addEventListener("touchcancel", reset, { passive: true });
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
@@ -3198,28 +3309,126 @@ function quickRepeatHTML(entry) {
     </div>`;
 }
 
+let _metadataReturnFocus = null;
+
+function metadataChipHTML(entry, kind, value) {
+  const cleanValue = String(value || "").trim();
+  if (!cleanValue || !metadataDefinition(kind)) return "";
+  let directUrl = "";
+  if (kind === "cast" && Array.isArray(entry?.cast_people)) {
+    const person = entry.cast_people.find(candidate => normalizeTitle(candidate?.name) === normalizeTitle(cleanValue));
+    if (person?.imdb_id) directUrl = `https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/`;
+  }
+  return `
+    <button type="button" class="detail-chip detail-meta-link"
+      data-meta-kind="${esc(kind)}"
+      data-meta-value="${esc(cleanValue)}"
+      data-meta-external="${esc(directUrl)}"
+      onclick="UI.openMetadataFromElement(this)">
+      <span>${esc(cleanValue)}</span><span aria-hidden="true">›</span>
+    </button>`;
+}
+
+function metadataChipsHTML(entry, kind, value) {
+  return splitMetadataValues(value).map(item => metadataChipHTML(entry, kind, item)).join("");
+}
+
+function openMetadataFromElement(element) {
+  const kind = element?.dataset?.metaKind;
+  const value = element?.dataset?.metaValue;
+  const definition = metadataDefinition(kind);
+  if (!definition || !value) return;
+
+  document.getElementById("metadata-overlay")?.remove();
+  _metadataReturnFocus = element;
+  const matches = entriesForMetadata(State.entries, kind, value);
+  const directUrl = safeMediaUrl(element.dataset.metaExternal);
+  const external = metadataExternalLink(kind, value, directUrl || null);
+  const externalUrl = safeMediaUrl(external?.url);
+  const mediaRows = matches.map(entry => {
+    const coverUrl = safeMediaUrl(entry.cover_url);
+    return `
+      <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" onclick="UI.openMetadataMedia(this.dataset.mediaId)">
+        ${coverUrl
+          ? `<img src="${esc(coverUrl)}" alt="" loading="lazy">`
+          : `<span class="metadata-media-cover" aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+        <span class="metadata-media-copy">
+          <strong>${esc(entry.title)}</strong>
+          <small>${esc(getTypeLabel(entry))}${entry.release_year ? ` · ${esc(entry.release_year)}` : ""}</small>
+        </span>
+        ${entry.rating ? ratingScoreHTML(entry.rating, "metadata-media-rating") : `<span class="metadata-media-arrow" aria-hidden="true">›</span>`}
+      </button>`;
+  }).join("");
+  const countLabel = matches.length
+    ? `${matches.length} média${matches.length > 1 ? "s" : ""} dans votre bibliothèque`
+    : "Aucun média correspondant dans votre bibliothèque";
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="metadata-overlay" id="metadata-overlay" onclick="if(event.target.id==='metadata-overlay') UI.closeMetadataPanel()">
+      <section class="metadata-sheet" role="dialog" aria-modal="true" aria-labelledby="metadata-sheet-title">
+        <div class="metadata-sheet-handle" aria-hidden="true"></div>
+        <header class="metadata-sheet-header">
+          <div>
+            <span>${esc(definition.label)}</span>
+            <h3 id="metadata-sheet-title">${esc(value)}</h3>
+            <p>${esc(countLabel)}</p>
+          </div>
+          <button type="button" class="btn-icon" onclick="UI.closeMetadataPanel()" aria-label="Fermer">${iconX()}</button>
+        </header>
+        <div class="metadata-sheet-body">
+          ${mediaRows || `<div class="metadata-empty">Cette information deviendra utile lorsque votre bibliothèque contiendra une autre œuvre correspondante.</div>`}
+        </div>
+        ${externalUrl ? `
+          <footer class="metadata-sheet-footer">
+            <a class="btn btn-secondary" href="${esc(externalUrl)}" target="_blank" rel="noopener">${esc(external.label)} ↗</a>
+          </footer>` : ""}
+      </section>
+    </div>`);
+
+  const detailModal = document.querySelector("#modal-overlay .detail-modal");
+  if (detailModal) detailModal.inert = true;
+  const overlay = document.getElementById("metadata-overlay");
+  requestAnimationFrame(() => overlay?.classList.add("is-open"));
+  setTimeout(() => overlay?.querySelector(".metadata-sheet .btn-icon")?.focus({ preventScroll: true }), 180);
+}
+
+function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
+  const overlay = document.getElementById("metadata-overlay");
+  const finish = () => {
+    overlay?.remove();
+    const detailModal = document.querySelector("#modal-overlay .detail-modal");
+    if (detailModal) detailModal.inert = false;
+    if (restoreFocus) _metadataReturnFocus?.focus?.({ preventScroll: true });
+    _metadataReturnFocus = null;
+  };
+  if (!overlay || immediate) { finish(); return; }
+  if (overlay.classList.contains("is-closing")) return;
+  overlay.classList.add("is-closing");
+  setTimeout(finish, 180);
+}
+
+function openMetadataMedia(id) {
+  if (!State.entries.some(entry => entry.id === id)) return;
+  closeMetadataPanel({ restoreFocus: false });
+  setTimeout(() => openDetailPanel(id), 190);
+}
+
 function renderDetailBody(e, options = {}) {
   const metaRow = (label, value) => value
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
     : "";
+  const metadataRow = (label, kind, value) => {
+    const links = metadataChipsHTML(e, kind, value);
+    return links
+      ? `<div class="detail-meta-row detail-meta-row-links"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
+      : "";
+  };
 
   const section = (label, html) =>
     `<div class="detail-section">
       <div class="detail-section-label">${label}</div>
       <div class="detail-section-content">${html}</div>
     </div>`;
-
-  const chip = (txt) => `<span class="detail-chip">${esc(txt)}</span>`;
-  const castChip = (name) => {
-    const person = Array.isArray(e.cast_people)
-      ? e.cast_people.find(candidate => normalizeTitle(candidate?.name) === normalizeTitle(name))
-      : null;
-    const url = person?.imdb_id
-      ? `https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/`
-      : `https://www.imdb.com/find/?q=${encodeURIComponent(name)}&s=nm`;
-    const title = person?.imdb_id ? `Voir ${name} sur IMDb` : `Rechercher ${name} sur IMDb`;
-    return `<a class="detail-chip detail-cast-link" href="${url}" target="_blank" rel="noopener" title="${esc(title)}">${esc(name)}<span aria-hidden="true">↗</span></a>`;
-  };
 
   let html = "";
 
@@ -3234,7 +3443,7 @@ function renderDetailBody(e, options = {}) {
 
   // ── Méta de base ──
   const baseMeta = [
-    metaRow("Genre",    e.genre),
+    metadataRow("Genre", "genre", e.genre),
     metaRow("Année",    e.release_year),
     metaRow("Sortie",   e.release_date ? formatReleaseDate(e.release_date) : null),
     metaRow("Commencé", e.date_started ? formatReleaseDate(e.date_started) : null),
@@ -3259,12 +3468,12 @@ function renderDetailBody(e, options = {}) {
   // ── Films & Séries ──
   if (e.media_type === "movie") {
     const filmMeta = [
-      metaRow(e.subtype === "tv" ? "Créateur" : "Réalisateur", e.directors),
+      metadataRow(e.subtype === "tv" ? "Créateur" : "Réalisateur", "director", e.directors),
       metaRow("Durée",     e.duration    ? `${e.duration} min` : null),
       metaRow("Saisons",   e.seasons_count  ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null),
       metaRow("Épisodes",  e.episodes_count ? `${e.episodes_count} épisodes` : null),
       metaRow("Statut",    e.air_status),
-      metaRow("Disponible sur", e.watch_providers),
+      metadataRow("Disponible sur", "provider", e.watch_providers),
     ].filter(Boolean).join("");
     if (filmMeta) html += `<div class="detail-meta">${filmMeta}</div>`;
 
@@ -3272,7 +3481,7 @@ function renderDetailBody(e, options = {}) {
       const castNames = Array.isArray(e.cast_people) && e.cast_people.length
         ? e.cast_people.map(person => person.name).filter(Boolean)
         : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
-      const cast = castNames.map(castChip).join("");
+      const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
       html += section("Casting", `<div class="detail-chips">${cast}</div>`);
     }
 
@@ -3282,9 +3491,9 @@ function renderDetailBody(e, options = {}) {
   // ── Jeux ──
   if (e.media_type === "game") {
     const gameMeta = [
-      metaRow("Développeur", e.developer || e.author),
-      metaRow("Éditeur",     e.publisher),
-      metaRow("Plateforme",  e.platform),
+      metadataRow("Développeur", "developer", e.developer || e.author),
+      metadataRow("Éditeur", "publisher", e.publisher),
+      metadataRow("Plateforme", "platform", e.platform),
     ].filter(Boolean).join("");
     if (gameMeta) html += `<div class="detail-meta">${gameMeta}</div>`;
   }
@@ -3292,8 +3501,8 @@ function renderDetailBody(e, options = {}) {
   // ── Livres ──
   if (e.media_type === "book") {
     const bookMeta = [
-      metaRow("Auteur",   e.author),
-      metaRow("Éditeur",  e.publisher),
+      metadataRow("Auteur", "author", e.author),
+      metadataRow("Éditeur", "publisher", e.publisher),
       metaRow("Pages",    e.page_count),
       metaRow("ISBN",     e.isbn),
     ].filter(Boolean).join("");
@@ -3532,12 +3741,14 @@ function _injectBackdrop(backdrop, entryId) {
   img.src = backdrop;
 }
 
-async function openDetailPanel(id) {
+async function openDetailPanel(id, sourceElement = null) {
   const e = State.entries.find(x => x.id === id);
   if (!e) return;
 
+  const origin = detailCardOrigin(sourceElement);
   // Affichage immédiat avec ce qu'on a déjà en base
   renderDetailPanel(e);
+  animateDetailPosterFromOrigin(origin);
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
@@ -4152,9 +4363,12 @@ window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   quickAdd,
   quickAddFromResult,
-  openEditModal:   (id) => { openDetailPanel(id); },
+  openEditModal:   (id, sourceElement = null) => { openDetailPanel(id, sourceElement); },
   openJournalMedia,
   openCommunityMedia,
+  openMetadataFromElement,
+  openMetadataMedia,
+  closeMetadataPanel,
   setEditDetailsView,
   closeModal,
   openEditFromDetail: (id) => {
@@ -4364,66 +4578,43 @@ window.UI = {
     if (q && q.length >= 2) input?._kulturoSearch?.();
   },
 
-  // ── Wizard ───────────────────────────────────────────────
-  wzSetType: (type) => {
-    if (!_wizardState) return;
-    markModalDirty();
-    const typed = document.getElementById("f-api-search")?.value?.trim() || _wizardState.title;
-    if (_wizardState.type !== type) {
-      _wizardState.apiSelected = null;
-      window._apiSelected = null;
-      const preview = document.getElementById("wz-selected-preview");
-      if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
-    }
-    _wizardState.type = type;
-    _wizardState.title = typed;
-    document.querySelectorAll(".wz-manual-type-btn").forEach(b => {
-      b.classList.toggle("active", b.dataset.type === type);
-    });
-  },
-
+  // ── Ajout compact ─────────────────────────────────────────
   wzSetStatus: (status) => {
     if (!_wizardState) return;
     markModalDirty();
-    _wizardState._status = status;
+    _wizardState = setAddDraftStatus(_wizardState, status);
     document.querySelectorAll(".wz-status-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.status === status);
+      b.setAttribute("aria-pressed", String(b.dataset.status === status));
     });
     // Sync hidden field
     const el = document.getElementById("f-status");
     if (el) el.value = status;
+    const secondary = document.querySelector(".wz-other-status");
+    if (secondary) secondary.open = isSecondaryAddStatus(status);
   },
 
-  wzClearSelected: () => {
+  wzUseManualType: (type) => {
     if (!_wizardState) return;
-    markModalDirty();
-    _wizardState.apiSelected = null;
-    window._apiSelected = null;
-    const preview = document.getElementById("wz-selected-preview");
-    if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
-    const input = document.getElementById("f-api-search");
-    if (input) { input.value = ""; input.focus(); }
-  },
-
-  wzNext: () => {
-    if (!_wizardState) return;
-    if (_wizardState.step === 1) {
-      const typed = document.getElementById("f-api-search")?.value?.trim();
-      if (!typed && !_wizardState.apiSelected) {
-        toast("Tape au moins un titre 😊", "error"); return;
-      }
-      if (!_wizardState.apiSelected) _wizardState.title = typed;
-      else _wizardState.type = _wizardState.apiSelected.media_type || _wizardState.type;
-      _wizardState.step = 2;
-      _renderWizard();
+    const typed = document.getElementById("f-api-search")?.value?.trim() || _wizardState.title;
+    const next = selectManualAdd(_wizardState, typed, type);
+    if (next === _wizardState) {
+      toast("Saisissez d’abord un titre.", "error");
+      return;
     }
+    markModalDirty();
+    _wizardState = next;
+    window._apiSelected = null;
+    document.getElementById("f-api-search")?.blur();
+    _renderWizard();
   },
 
   wzBack: () => {
     if (!_wizardState) return;
     if (_wizardState.step > 1) {
       _captureWizardOpinion();
-      _wizardState.step--;
+      _wizardState = { ..._wizardState, step: 1, apiSelected: null };
+      window._apiSelected = null;
       _renderWizard();
     }
   },

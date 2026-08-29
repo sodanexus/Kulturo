@@ -2,15 +2,16 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.0.9**
+Version actuelle : **3.1.0**
 
 ## Fonctionnalités
 
 - Bibliothèque personnelle avec statuts, favoris, notes sur 10 et avis privés
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
-- Ajout guidé avec recherche TMDb, IGDB et Open Library
+- Ajout compact avec recherche universelle TMDb, IGDB et Open Library
 - Fiches détaillées : synopsis, casting, durée, saisons, plateformes et bandes-annonces
+- Acteurs, réalisateurs, auteurs, genres, plateformes et studios reliés à la bibliothèque
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
 - Journal personnel chronologique : ajouts, débuts, achèvements et changements de statut, avec la note actuelle
@@ -18,7 +19,7 @@ Version actuelle : **3.0.9**
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
 - Histogramme des notes cliquable vers les médias concernés
 - Export JSON de la bibliothèque et du Journal
-- Interface responsive et PWA installable sur mobile
+- Interface responsive et PWA installable, avec fiches refermables par glissement sur mobile
 - Animations courtes et cohérentes, adaptées au réglage système de réduction des mouvements
 
 ## Technologies
@@ -44,6 +45,12 @@ Kulturo/
 ├── api.js
 ├── supabase.js
 ├── style.css
+├── styles/
+│   ├── add-sheet.css
+│   └── mobile-polish.css
+├── features/
+│   ├── add-flow.js
+│   └── media-metadata.js
 ├── config.js
 ├── schema.sql
 ├── package.json
@@ -54,7 +61,8 @@ Kulturo/
 ├── icon-512.png
 ├── tests/
 │   ├── domain.test.mjs
-│   └── frontend-contract.test.mjs
+│   ├── frontend-contract.test.mjs
+│   └── media-ui.test.mjs
 └── supabase/functions/
     ├── igdb-proxy/index.ts
     ├── google-books-proxy/index.ts
@@ -75,7 +83,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.0.9 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.1.0 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -125,7 +133,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.0.9",
+    version: "3.1.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -162,6 +170,16 @@ Les actions rapides permettent de :
 - corriger le nombre de revisionnages, relectures ou parties terminées.
 
 Lorsqu’un média déjà terminé repasse sur **En cours**, Kulturo conserve son premier achèvement. Le prochain passage sur **Terminé** incrémente automatiquement le compteur.
+
+### Ajout compact
+
+Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux et livres. Toucher un résultat conduit directement à une finalisation compacte : statut principal, note, coup de cœur et note personnelle repliable. L’ajout manuel n’apparaît qu’après la saisie d’un titre. **En pause** et **Abandonné** restent disponibles sous **Autre statut**.
+
+### Informations reliées
+
+Dans une fiche, les acteurs, réalisateurs, auteurs, développeurs, éditeurs, genres, plateformes et services disponibles sont cliquables. Le panneau obtenu affiche d’abord les médias correspondants déjà présents dans la bibliothèque. Lorsqu’il est pertinent, le lien externe IMDb, Goodreads ou Steam reste proposé dans ce même panneau.
+
+Sur mobile, une fiche détaillée peut être refermée par un glissement vers le bas depuis son en-tête. Le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
 
 ### Journal et Communauté
 
@@ -226,6 +244,9 @@ node --test tests/*.test.mjs
 
 - Vérifier que `config.js` ne contient aucun secret serveur.
 - Tester connexion, ajout, modification, suppression et détection des doublons.
+- Tester l’ajout compact avec un résultat API et avec les trois types d’ajout manuel.
+- Ouvrir une information cliquable depuis une fiche et vérifier le retour vers les médias correspondants.
+- Sur mobile, tester le glissement de fermeture depuis l’en-tête d’une fiche.
 - Vérifier le Journal personnel et la Communauté.
 - Modifier puis effacer une note : le badge du Journal doit suivre la note actuelle, sans nouvelle ligne ni changement de date.
 - Tester le switch annuel/mensuel et les filtres du Profil.

@@ -1,0 +1,178 @@
+/* ============================================================
+   Finitions mobiles, transitions de fiches et métadonnées
+   ============================================================ */
+
+.detail-meta-row-links { align-items: flex-start; }
+.detail-meta-links { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+.detail-meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .28rem;
+  min-height: 30px;
+  padding: .25rem .58rem;
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.detail-meta-link > span:last-child { color: var(--text-3); font-size: .72rem; }
+.detail-meta-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent-glow);
+  color: var(--accent-2);
+  transform: translateY(-1px);
+}
+.detail-meta-link:active { transform: scale(.97); }
+
+.metadata-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, .68);
+  opacity: 0;
+  backdrop-filter: blur(0);
+  transition: opacity .18s var(--ease-smooth), backdrop-filter .18s var(--ease-smooth);
+}
+
+.metadata-overlay.is-open { opacity: 1; backdrop-filter: blur(7px); }
+.metadata-overlay.is-closing { pointer-events: none; opacity: 0; backdrop-filter: blur(0); }
+
+.metadata-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 520px);
+  max-height: min(78dvh, 660px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--bg-2);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(16px) scale(.985);
+  transition: opacity .22s var(--ease-smooth), transform .22s var(--ease-smooth);
+}
+
+.metadata-overlay.is-open .metadata-sheet { opacity: 1; transform: translateY(0) scale(1); }
+.metadata-overlay.is-closing .metadata-sheet { opacity: 0; transform: translateY(18px) scale(.985); }
+.metadata-sheet-handle { display: none; }
+
+.metadata-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.2rem .9rem;
+  border-bottom: 1px solid var(--border);
+}
+.metadata-sheet-header > div { min-width: 0; }
+.metadata-sheet-header span {
+  color: var(--accent);
+  font-size: .56rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.metadata-sheet-header h3 {
+  overflow: hidden;
+  margin: .14rem 0 0;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metadata-sheet-header p { margin: .18rem 0 0; color: var(--text-3); font-size: .67rem; }
+
+.metadata-sheet-body { padding: .5rem; overflow-y: auto; overscroll-behavior: contain; }
+.metadata-media-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .7rem;
+  width: 100%;
+  min-height: 66px;
+  padding: .45rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.metadata-media-row + .metadata-media-row { margin-top: .18rem; }
+.metadata-media-row:hover { border-color: var(--border); background: var(--bg-3); }
+.metadata-media-row:active { transform: scale(.985); }
+.metadata-media-row > img,
+.metadata-media-cover { width: 42px; height: 58px; border-radius: 8px; background: var(--bg-4); object-fit: cover; }
+.metadata-media-cover { display: grid; place-items: center; }
+.metadata-media-copy { display: flex; min-width: 0; flex-direction: column; }
+.metadata-media-copy strong { overflow: hidden; color: var(--text-1); font-size: .79rem; text-overflow: ellipsis; white-space: nowrap; }
+.metadata-media-copy small { margin-top: .12rem; color: var(--text-3); font-size: .64rem; }
+.metadata-media-rating { color: var(--accent-2); font-size: .68rem; white-space: nowrap; }
+.metadata-media-arrow { color: var(--text-3); }
+.metadata-empty { padding: 1.4rem 1rem; color: var(--text-3); font-size: .72rem; line-height: 1.55; text-align: center; }
+
+.metadata-sheet-footer { display: flex; justify-content: flex-end; padding: .75rem 1rem calc(.75rem + var(--safe-bottom)); border-top: 1px solid var(--border); }
+.metadata-sheet-footer .btn { text-decoration: none; }
+
+.detail-poster-flight {
+  position: fixed;
+  z-index: 700;
+  margin: 0;
+  object-fit: cover;
+  pointer-events: none;
+  box-shadow: 0 20px 50px rgba(0,0,0,.38);
+}
+.detail-poster.is-poster-arriving,
+.detail-poster-placeholder.is-poster-arriving { opacity: 0; }
+
+.modal-overlay.is-closing.is-swipe-dismiss .detail-modal {
+  animation: detailSwipeOut .18s var(--ease-smooth) both;
+}
+@keyframes detailSwipeOut {
+  from { opacity: 1; transform: translateY(var(--swipe-start, 92px)); }
+  to { opacity: .3; transform: translateY(100%); }
+}
+
+@media (max-width: 680px) {
+  .detail-backdrop { touch-action: pan-x; }
+  .detail-meta-row-links { flex-direction: column; gap: .28rem; }
+  .detail-meta-row-links .detail-meta-label { min-width: 0; }
+  .detail-meta-link { min-height: 34px; }
+
+  .metadata-overlay { align-items: flex-end; padding: 0 var(--safe-right) 0 var(--safe-left); }
+  .metadata-sheet {
+    width: 100%;
+    max-height: calc(82dvh - var(--safe-top));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    transform: translateY(42px);
+  }
+  .metadata-sheet-handle { display: block; flex: 0 0 auto; width: 36px; height: 4px; margin: .7rem auto -.2rem; border-radius: 99px; background: var(--border-2); }
+  .metadata-sheet-header { padding-top: .9rem; }
+  .metadata-sheet-footer { padding-bottom: calc(max(var(--safe-bottom), 12px) + .75rem); }
+
+  :where(.btn, .btn-icon, .bottom-nav-item, .nav-item, .filter-chip, .wz-status-btn, .detail-meta-link) {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.btn, .btn-icon, .bottom-nav-item, .filter-chip):active { transform: scale(.975); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metadata-overlay,
+  .metadata-sheet,
+  .metadata-media-row,
+  .detail-meta-link { transition: none; }
+  .detail-poster-flight { display: none; }
+}
