@@ -237,7 +237,7 @@ test("l'ajout central utilise une feuille compacte sans indicateur d'étapes", (
   assert.match(app, /wzUseManualType:/);
   assert.doesNotMatch(app, /class="wz-progress"|UI\.wzNext|wz-selected-preview/);
   assert.match(addStyle, /\.modal-overlay:has\(\.modal-wizard\)[\s\S]*?height:\s*auto/);
-  assert.match(addStyle, /\.wz-notes-details/);
+  assert.doesNotMatch(addStyle, /\.wz-notes-details/);
 });
 
 test("les styles fonctionnels sont découpés et chargés explicitement", () => {
@@ -265,7 +265,7 @@ test("les services de streaming restent masqués dans les fiches", () => {
 test("les fiches suivent une hiérarchie commune et terminent par les dates personnelles", () => {
   const common = {
     id: "media", status: "finished", description: "Synopsis test", release_year: 1999,
-    genre: "Drame", date_finished: "2026-08-28", created_at: "2026-08-29T12:00:00Z",
+    genre: "Drame", notes: "Ancienne note privée", date_finished: "2026-08-28", created_at: "2026-08-29T12:00:00Z",
   };
   const movie = detailBodyHarness({
     ...common, media_type: "movie", directors: "Jane Doe", cast_members: "Alice, Bob", duration: 180,
@@ -288,27 +288,52 @@ test("les fiches suivent une hiérarchie commune et terminent par les dates pers
   assert.ok(book.indexOf("Pages") < book.indexOf("Auteur"));
   assert.doesNotMatch(movie, /Durée|Commencé|Sortie/);
   assert.doesNotMatch(game, /Plateforme/);
+  assert.doesNotMatch(movie, /Notes personnelles|Ancienne note privée/);
 });
 
 test("la recherche globale reste strictement limitée à la bibliothèque", () => {
-  const match = app.match(/^function renderLibrarySearchResults\([\s\S]*?^\}/m);
-  assert.ok(match);
   assert.match(app, /placeholder="Rechercher dans ma bibliothèque…"/);
-  assert.match(match[0], /State\.entries/);
-  assert.doesNotMatch(match[0], /searchMedia|openModal|API/);
+  assert.match(app, /if \(e\.target\.id === "global-search"\)[\s\S]*?State\.filters\.search = q;[\s\S]*?renderCards\(\{ resetScroll: true \}\);/);
+  assert.doesNotMatch(app, /library-search-results|renderLibrarySearchResults/);
+  assert.doesNotMatch(style, /\.library-search-results|\.quick-result|\.quick-section-label/);
   assert.doesNotMatch(app, /function quickAdd\(|quickAddFromResult|Ajouter depuis les APIs/);
 });
 
-test("les fiches mobiles se ferment par un geste visible sans transition de jaquette", () => {
-  assert.match(app, /function setupDetailSwipeToClose\(\)/);
+test("toutes les feuilles mobiles se ferment par un geste visible sans transition de jaquette", () => {
+  assert.match(app, /function setupMobileSheetSwipe\(\{ overlay, sheet, handles/);
   assert.match(app, /distance > 92 \|\| velocity > \.55/);
-  assert.match(app, /event\.target\.closest\("button, a, input"\)/);
-  assert.match(app, /modal\.style\.animation = "none"/);
+  assert.match(app, /event\.target\.closest\("button, a, input, textarea, select, label"\)/);
+  assert.match(app, /touchesVisualGrip[\s\S]*?gripDistance <= 30/);
+  assert.match(app, /sheet\.style\.animation = "none"/);
   assert.match(app, /translate3d\(0, \$\{distance\}px, 0\)/);
+  for (const selector of [".modal-wizard", ".edit-modal", ".detail-modal", ".confirm-modal", ".metadata-sheet", ".filter-modal"]) {
+    assert.match(app, new RegExp(selector.replace(".", "\\.")));
+  }
   assert.doesNotMatch(app, /animateDetailPosterFromOrigin|detailCardOrigin|posterTransition/);
-  assert.match(mobileStyle, /@keyframes detailSwipeOut/);
+  assert.match(mobileStyle, /@keyframes mobileSheetSwipeOut/);
   assert.match(mobileStyle, /\.detail-swipe-handle/);
-  assert.match(mobileStyle, /\.detail-close-btn\s*\{\s*display:\s*none/);
-  assert.doesNotMatch(mobileStyle.match(/@keyframes detailSwipeOut\s*\{[\s\S]*?\n\}/)?.[0] || "", /opacity/);
+  assert.match(mobileStyle, /\.mobile-swipe-sheet > \.modal-header > \.btn-icon:last-child/);
+  assert.doesNotMatch(mobileStyle.match(/@keyframes mobileSheetSwipeOut\s*\{[\s\S]*?\n\}/)?.[0] || "", /opacity/);
   assert.match(mobileStyle, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("la confirmation de suppression reprend la structure des autres modales", () => {
+  assert.match(app, /class="modal confirm-modal"/);
+  assert.match(app, /class="modal-header confirm-modal-header"/);
+  assert.match(app, /class="modal-body confirm-modal-body"/);
+  assert.match(app, /sheet: overlay\.querySelector\("\.confirm-modal"\)/);
+  assert.match(style, /\.confirm-modal-symbol/);
+  assert.doesNotMatch(app, /confirm-modal"[^>]*style=/);
+});
+
+test("déplier le synopsis recentre automatiquement la lecture", () => {
+  assert.match(app, /function scrollExpandedSynopsisIntoView\(wrap\)/);
+  assert.match(app, /body\.scrollTo\(\{ top: target, behavior:/);
+  assert.match(app, /if \(isExpanded\) scrollExpandedSynopsisIntoView\(wrap\);/);
+});
+
+test("les notes personnelles quittent l'interface sans effacer les anciennes données", () => {
+  assert.doesNotMatch(app, /id="f-notes"|Notes personnelles|Ajouter une note personnelle/);
+  assert.doesNotMatch(addStyle, /wz-notes-details/);
+  assert.match(app, /notes:\s+existing\?\.notes \?\? null/);
 });

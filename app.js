@@ -272,7 +272,6 @@ function renderApp() {
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
         <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque…" aria-label="Rechercher dans ma bibliothèque" autocomplete="off" />
-        <div id="library-search-results" class="library-search-results" aria-live="polite" style="display:none"></div>
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
@@ -1529,7 +1528,6 @@ function markModalDirty() {
 function _captureWizardOpinion() {
   if (!_wizardState || _wizardState.step !== 2) return;
   _wizardState.rating = _currentRating;
-  _wizardState.notes = document.getElementById("f-notes")?.value || "";
   _wizardState.favorite = document.getElementById("f-favorite")?.checked || false;
   _wizardState._status = document.getElementById("f-status")?.value || _wizardState._status || "finished";
 }
@@ -1613,15 +1611,7 @@ function _renderWizard() {
           <span class="wz-favorite-icon" aria-hidden="true">♥</span>
           <span>Coup de cœur</span>
         </label>
-      </section>
-
-      <details class="wz-notes-details" ${s.notes ? "open" : ""}>
-        <summary>
-          <span>Ajouter une note personnelle</span>
-          <small>Optionnel</small>
-        </summary>
-        <textarea id="f-notes" placeholder="Votre avis, vos impressions…">${esc(s.notes || "")}</textarea>
-      </details>`;
+      </section>`;
     footerHTML = `
       <button class="btn btn-primary wz-submit-btn" onclick="UI.saveEntry()">Ajouter à ma bibliothèque</button>`;
   }
@@ -1663,6 +1653,13 @@ function _renderWizard() {
     _currentRating = s.rating || 0;
     buildRatingStars(_currentRating);
   }
+
+  setupMobileSheetSwipe({
+    overlay: root.querySelector("#modal-overlay"),
+    sheet: root.querySelector(".modal-wizard"),
+    dismiss: () => closeModal(),
+    shouldResetBeforeDismiss: () => _modalDirty,
+  });
 }
 
 function _openModalClassic(entry) {
@@ -1703,10 +1700,6 @@ function _openModalClassic(entry) {
                 <label>Note <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
-            </div>
-            <div class="form-group">
-              <label>Notes personnelles</label>
-              <textarea id="f-notes" placeholder="Ton avis, tes impressions…">${esc(entry.notes||"")}</textarea>
             </div>
             <label class="toggle-row">
               <span class="toggle-label">♥ Coup de cœur</span>
@@ -1767,6 +1760,12 @@ function _openModalClassic(entry) {
   if (!window.matchMedia?.("(max-width: 680px)")?.matches) {
     setTimeout(() => document.getElementById("f-api-search")?.focus(), 100);
   }
+  setupMobileSheetSwipe({
+    overlay: root.querySelector("#modal-overlay"),
+    sheet: root.querySelector(".edit-modal"),
+    dismiss: () => closeModal(),
+    shouldResetBeforeDismiss: () => _modalDirty,
+  });
 }
 
 function syncEditDetailsSummary() {
@@ -2104,7 +2103,9 @@ async function saveEntry() {
     status:        document.getElementById("f-status")?.value,
     rating:        _currentRating || null,
     is_favorite:   document.getElementById("f-favorite")?.checked || false,
-    notes:         document.getElementById("f-notes")?.value?.trim() || null,
+    // L'ancienne colonne reste intacte pour ne supprimer aucune donnée, mais
+    // les notes personnelles ne font plus partie de l'interface Kulturo.
+    notes:         existing?.notes ?? null,
     cover_url:     document.getElementById("f-cover")?.value?.trim() || null,
     genre:         document.getElementById("f-genre")?.value?.trim() || null,
     author:        document.getElementById("f-author")?.value?.trim() || null,
@@ -2262,16 +2263,25 @@ function closeModalOnBg(e) {
 function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "danger") {
   return new Promise(resolve => {
     const root = document.getElementById("modal-root");
+    const parentModal = root.querySelector("#modal-overlay .modal");
+    if (parentModal) parentModal.inert = true;
     root.insertAdjacentHTML("beforeend", `
-      <div class="modal-overlay confirm-overlay" id="confirm-overlay" style="z-index:1100;background:rgba(0,0,0,.6)">
-        <div class="modal confirm-modal" style="max-width:360px" role="alertdialog" aria-modal="true">
-          <div class="modal-header"><h3>${esc(title)}</h3></div>
-          <div class="modal-body" style="padding-top:.5rem">
-            <p style="color:var(--text-2);font-size:.9rem">${esc(message)}</p>
+      <div class="modal-overlay confirm-overlay" id="confirm-overlay">
+        <div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+          <div class="modal-header confirm-modal-header">
+            <div class="confirm-modal-heading">
+              <span>Confirmation</span>
+              <h3 id="confirm-title">${esc(title)}</h3>
+            </div>
+            <button type="button" class="btn-icon" id="confirm-close" aria-label="Fermer">${iconX()}</button>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
-            <button class="btn btn-${variant}" id="confirm-ok">${esc(confirmLabel)}</button>
+          <div class="modal-body confirm-modal-body">
+            <span class="confirm-modal-symbol confirm-modal-symbol-${variant}" aria-hidden="true">!</span>
+            <p id="confirm-message">${esc(message)}</p>
+          </div>
+          <div class="modal-footer confirm-modal-footer">
+            <button type="button" class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+            <button type="button" class="btn btn-${variant}" id="confirm-ok">${esc(confirmLabel)}</button>
           </div>
         </div>
       </div>`);
@@ -2279,11 +2289,21 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
     const cleanup = (result) => {
       if (overlay.classList.contains("is-closing")) return;
       overlay.classList.add("is-closing");
-      setTimeout(() => { overlay.remove(); resolve(result); }, 180);
+      setTimeout(() => {
+        overlay.remove();
+        if (parentModal) parentModal.inert = false;
+        resolve(result);
+      }, 180);
     };
     document.getElementById("confirm-ok").onclick     = () => cleanup(true);
     document.getElementById("confirm-cancel").onclick = () => cleanup(false);
+    document.getElementById("confirm-close").onclick = () => cleanup(false);
     overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(false); });
+    setupMobileSheetSwipe({
+      overlay,
+      sheet: overlay.querySelector(".confirm-modal"),
+      dismiss: () => cleanup(false),
+    });
     document.getElementById("confirm-ok").focus();
   });
 }
@@ -2355,7 +2375,6 @@ function bindGlobalEvents() {
       // Si on tape depuis une autre page, synchronise aussi toute la navigation.
       if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveSearch: true });
       else if (_currentPage === "library") renderCards({ resetScroll: true });
-      renderLibrarySearchResults(q);
     }
   });
   document.addEventListener("change", e => {
@@ -2365,19 +2384,6 @@ function bindGlobalEvents() {
     if (!_modalDirty) return;
     e.preventDefault();
     e.returnValue = "";
-  });
-  document.addEventListener("focusout", e => {
-    if (e.target.id === "global-search") {
-      setTimeout(() => {
-        const results = document.getElementById("library-search-results");
-        if (results) results.style.display = "none";
-      }, 200);
-    }
-  });
-  document.addEventListener("focusin", e => {
-    if (e.target.id === "global-search" && e.target.value.trim().length > 1) {
-      renderLibrarySearchResults(e.target.value.trim());
-    }
   });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
@@ -3096,15 +3102,21 @@ function renderDetailPanel(e, options = {}) {
     backdropEl.style.setProperty("--fallback-img", `url("${cssCoverUrl}")`);
   }
   if (backdropUrl) requestAnimationFrame(() => _injectBackdrop(backdropUrl, e.id));
-  setupDetailSwipeToClose();
+  setupMobileSheetSwipe({
+    overlay: root.querySelector("#modal-overlay"),
+    sheet: root.querySelector(".detail-modal"),
+    handles: ".detail-backdrop",
+    dismiss: () => closeModal(),
+  });
 }
 
-function setupDetailSwipeToClose() {
-  const modal = document.querySelector("#modal-overlay .detail-modal");
-  const overlay = document.getElementById("modal-overlay");
-  const handle = modal?.querySelector(".detail-backdrop");
-  if (!modal || !overlay || !handle || modal.dataset.swipeBound === "true") return;
-  modal.dataset.swipeBound = "true";
+function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dismiss, shouldResetBeforeDismiss = () => false }) {
+  if (!overlay || !sheet || typeof dismiss !== "function" || sheet.dataset.swipeBound === "true") return;
+  const swipeHandles = [...sheet.querySelectorAll(handles)];
+  if (!swipeHandles.length) return;
+  sheet.dataset.swipeBound = "true";
+  overlay.classList.add("mobile-swipe-overlay");
+  sheet.classList.add("mobile-swipe-sheet");
 
   let startX = 0;
   let startY = 0;
@@ -3117,21 +3129,25 @@ function setupDetailSwipeToClose() {
     tracking = false;
     distance = 0;
     overlay.classList.remove("is-swipe-tracking");
-    modal.style.transition = "transform .22s var(--ease-smooth)";
-    modal.style.transform = "translate3d(0, 0, 0)";
+    sheet.style.transition = "transform .22s var(--ease-smooth)";
+    sheet.style.transform = "translate3d(0, 0, 0)";
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
-      if (!modal.isConnected) return;
-      modal.style.transition = "";
-      modal.style.transform = "";
-      modal.style.animation = "";
+      if (!sheet.isConnected) return;
+      sheet.style.transition = "";
+      sheet.style.transform = "";
+      sheet.style.animation = "";
     }, 230);
   };
 
-  handle.addEventListener("touchstart", event => {
-    if (window.innerWidth > 680 || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
-    if (event.target.closest("button, a, input")) return;
+  sheet.addEventListener("touchstart", event => {
+    if (window.innerWidth > 680) return;
     const touch = event.touches[0];
+    const gripDistance = touch.clientY - sheet.getBoundingClientRect().top;
+    const touchesHeader = swipeHandles.some(handle => handle.contains(event.target));
+    const touchesVisualGrip = event.target === sheet && gripDistance >= 0 && gripDistance <= 30;
+    if (!touchesHeader && !touchesVisualGrip) return;
+    if (event.target.closest("button, a, input, textarea, select, label")) return;
     clearTimeout(resetTimer);
     startX = touch.clientX;
     startY = touch.clientY;
@@ -3140,14 +3156,14 @@ function setupDetailSwipeToClose() {
     tracking = true;
     // Une animation CSS avec `fill: both` garde la priorité sur le transform.
     // On la fige donc avant de laisser la fiche suivre le doigt en direct.
-    modal.style.animation = "none";
-    modal.style.transition = "none";
-    modal.style.transform = "translate3d(0, 0, 0)";
+    sheet.style.animation = "none";
+    sheet.style.transition = "none";
+    sheet.style.transform = "translate3d(0, 0, 0)";
     overlay.classList.add("is-swipe-settled");
     overlay.classList.add("is-swipe-tracking");
   }, { passive: true });
 
-  handle.addEventListener("touchmove", event => {
+  sheet.addEventListener("touchmove", event => {
     if (!tracking) return;
     const touch = event.touches[0];
     const deltaX = touch.clientX - startX;
@@ -3159,28 +3175,33 @@ function setupDetailSwipeToClose() {
     if (deltaY < 6) return;
     event.preventDefault();
     distance = Math.min(deltaY, window.innerHeight * .55);
-    modal.style.transform = `translate3d(0, ${distance}px, 0)`;
+    sheet.style.transform = `translate3d(0, ${distance}px, 0)`;
   }, { passive: false });
 
-  handle.addEventListener("touchend", () => {
+  sheet.addEventListener("touchend", () => {
     if (!tracking) return;
     const elapsed = Math.max(1, performance.now() - startTime);
     const velocity = distance / elapsed;
     tracking = false;
     if (distance > 92 || velocity > .55) {
+      if (shouldResetBeforeDismiss()) {
+        reset();
+        dismiss();
+        return;
+      }
       overlay.classList.remove("is-swipe-tracking");
       overlay.classList.add("is-swipe-dismiss");
-      modal.style.setProperty("--swipe-start", `${distance}px`);
-      modal.style.animation = "";
-      modal.style.transition = "";
-      modal.style.transform = "";
-      closeModal();
+      sheet.style.setProperty("--swipe-start", `${distance}px`);
+      sheet.style.animation = "";
+      sheet.style.transition = "";
+      sheet.style.transform = "";
+      dismiss();
       return;
     }
     reset();
   }, { passive: true });
 
-  handle.addEventListener("touchcancel", reset, { passive: true });
+  sheet.addEventListener("touchcancel", reset, { passive: true });
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
@@ -3355,6 +3376,12 @@ function openMetadataFromElement(element) {
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
   if (detailModal) detailModal.inert = true;
   const overlay = document.getElementById("metadata-overlay");
+  setupMobileSheetSwipe({
+    overlay,
+    sheet: overlay?.querySelector(".metadata-sheet"),
+    handles: ".metadata-sheet-handle, .metadata-sheet-header",
+    dismiss: () => closeMetadataPanel(),
+  });
   requestAnimationFrame(() => overlay?.classList.add("is-open"));
   setTimeout(() => overlay?.querySelector(".metadata-sheet .btn-icon")?.focus({ preventScroll: true }), 180);
 }
@@ -3419,10 +3446,6 @@ function renderDetailBody(e, options = {}) {
         <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
       </div>`
     );
-  }
-
-  if (e.notes) {
-    html += section("Notes personnelles", `<p class="detail-synopsis-text">${esc(e.notes)}</p>`);
   }
 
   // Informations factuelles non interactives propres à chaque type.
@@ -3673,6 +3696,23 @@ function _scheduleSynopsisOverflowCheck(entryId) {
   }
 }
 
+function scrollExpandedSynopsisIntoView(wrap) {
+  const body = wrap?.closest(".detail-body");
+  const section = wrap?.closest(".detail-section");
+  if (!body || !section) return;
+
+  // Deux frames laissent démarrer l'ouverture du texte avant de déplacer le
+  // conteneur. Le synopsis se cale alors en haut et masque Actions rapides.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (!wrap.isConnected || !wrap.classList.contains("expanded")) return;
+    const bodyRect = body.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    const target = Math.max(0, body.scrollTop + sectionRect.top - bodyRect.top - 4);
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    body.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
+  }));
+}
+
 function _injectBackdrop(backdrop, entryId) {
   if (!backdrop) return;
   const detailBody = document.getElementById(`detail-body-${entryId}`);
@@ -3853,43 +3893,6 @@ function launchConfetti() {
   }
 }
 
-
-
-// ── Recherche dans la bibliothèque ───────────────────────────
-function renderLibrarySearchResults(query) {
-  const results = document.getElementById("library-search-results");
-  if (!results) return;
-
-  const expected = normalizeTitle(query);
-  if (expected.length < 2) {
-    results.style.display = "none";
-    results.innerHTML = "";
-    return;
-  }
-
-  const matches = State.entries
-    .filter(entry => normalizeTitle(entry.title).includes(expected))
-    .sort((a, b) => {
-      const aStarts = normalizeTitle(a.title).startsWith(expected) ? 0 : 1;
-      const bStarts = normalizeTitle(b.title).startsWith(expected) ? 0 : 1;
-      return aStarts - bStarts || String(a.title).localeCompare(String(b.title), "fr", { sensitivity: "base" });
-    })
-    .slice(0, 6);
-
-  results.innerHTML = matches.length
-    ? `<div class="quick-section-label">Dans ma bibliothèque</div>${matches.map(entry => `
-        <button type="button" class="quick-result" onclick="UI.openEditModal('${entry.id}')">
-          ${safeMediaUrl(entry.cover_url)
-            ? `<img src="${esc(safeMediaUrl(entry.cover_url))}" class="quick-thumb" alt="" loading="lazy">`
-            : `<span class="quick-thumb quick-thumb-ph" aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
-          <span class="quick-info">
-            <strong class="quick-title">${esc(entry.title)}</strong>
-            <small class="quick-sub">${getTypeLabel(entry)} · ${STATUS_LABELS[entry.status] || "Ajouté"}</small>
-          </span>
-        </button>`).join("")}`
-    : `<div class="library-search-empty">Aucun média correspondant dans votre bibliothèque.</div>`;
-  results.style.display = "block";
-}
 
 
 // ── Category tabs mobile ─────────────────────────────────────
@@ -4310,6 +4313,12 @@ window.UI = {
     };
 
     root.insertAdjacentHTML("beforeend", _buildModal());
+    const overlay = document.getElementById("filter-modal-overlay");
+    setupMobileSheetSwipe({
+      overlay,
+      sheet: overlay?.querySelector(".filter-modal"),
+      dismiss: () => UI.closeFilterModal(),
+    });
   },
 
 
@@ -4325,6 +4334,7 @@ window.UI = {
       requestAnimationFrame(() => btn.classList.add("is-changing"));
       btn.addEventListener("animationend", () => btn.classList.remove("is-changing"), { once: true });
     }
+    if (isExpanded) scrollExpandedSynopsisIntoView(wrap);
   },
 
   applyFilters: () => {

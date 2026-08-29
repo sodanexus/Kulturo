@@ -26,13 +26,13 @@ test("le nouvel ajout commence par une recherche compacte et Terminé par défau
 
 test("toucher un résultat prépare directement l'écran final", () => {
   const item = { title: "Dune", media_type: "book", external_id: "work" };
-  const draft = selectAddResult({ ...createAddDraft(), rating: 8, favorite: true, notes: "Ancien média" }, item);
+  const draft = selectAddResult({ ...createAddDraft(), rating: 8, favorite: true }, item);
   assert.equal(draft.step, 2);
   assert.equal(draft.type, "book");
   assert.strictEqual(draft.apiSelected, item);
   assert.equal(draft.rating, 0);
   assert.equal(draft.favorite, false);
-  assert.equal(draft.notes, "");
+  assert.equal("notes" in draft, false);
 });
 
 test("l'ajout manuel exige un titre et un type reconnus", () => {

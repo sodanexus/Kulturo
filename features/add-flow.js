@@ -22,7 +22,6 @@ export function createAddDraft(prefillTitle = "") {
     title: String(prefillTitle || "").trim(),
     apiSelected: null,
     rating: 0,
-    notes: "",
     favorite: false,
     _status: "finished",
   };
@@ -37,7 +36,6 @@ export function selectAddResult(draft, item) {
     title: String(item.title).trim(),
     apiSelected: item,
     rating: 0,
-    notes: "",
     favorite: false,
   };
 }
@@ -52,7 +50,6 @@ export function selectManualAdd(draft, title, type) {
     title: normalizedTitle,
     apiSelected: null,
     rating: 0,
-    notes: "",
     favorite: false,
   };
 }

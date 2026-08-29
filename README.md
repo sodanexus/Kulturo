@@ -2,11 +2,11 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.1.2**
+Version actuelle : **3.1.3**
 
 ## Fonctionnalités
 
-- Bibliothèque personnelle avec statuts, favoris, notes sur 10, avis privés et recherche locale
+- Bibliothèque personnelle avec statuts, favoris, notes sur 10 et recherche locale
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout compact avec recherche universelle TMDb, IGDB et Open Library
@@ -19,7 +19,7 @@ Version actuelle : **3.1.2**
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
 - Histogramme des notes cliquable vers les médias concernés
 - Export JSON de la bibliothèque et du Journal
-- Interface responsive et PWA installable, avec fiches refermables par glissement sur mobile
+- Interface responsive et PWA installable, avec toutes les modales refermables par glissement sur mobile
 - Animations courtes et cohérentes, adaptées au réglage système de réduction des mouvements
 
 ## Technologies
@@ -83,7 +83,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.1.2 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.1.3 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -133,7 +133,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.1.2",
+    version: "3.1.3",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -158,7 +158,7 @@ https://sodanexus.github.io/Kulturo/
 
 ### Bibliothèque et fiches
 
-La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. La recherche située dans l’en-tête consulte uniquement les médias déjà présents dans cette bibliothèque ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
+La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. La recherche située dans l’en-tête filtre directement les cartes déjà présentes, sans liste de résultats superposée ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
 
 L’étagère **À reprendre** est repliée par défaut sur mobile et ouverte sur ordinateur. Elle affiche un aperçu des médias en cours et mémorise son état séparément sur chaque appareil.
 
@@ -173,13 +173,13 @@ Lorsqu’un média déjà terminé repasse sur **En cours**, Kulturo conserve so
 
 ### Ajout compact
 
-Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux et livres. Toucher un résultat conduit directement à une finalisation compacte : statut principal, note, coup de cœur et note personnelle repliable. L’ajout manuel n’apparaît qu’après la saisie d’un titre. **En pause** et **Abandonné** restent disponibles sous **Autre statut**.
+Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux et livres. Toucher un résultat conduit directement à une finalisation compacte : statut principal, note et coup de cœur. L’ajout manuel n’apparaît qu’après la saisie d’un titre. **En pause** et **Abandonné** restent disponibles sous **Autre statut**. Les notes personnelles ne sont plus affichées ni proposées dans l’ajout ou la modification ; d’éventuelles anciennes valeurs restent simplement conservées afin que la mise à jour ne supprime aucune donnée.
 
 ### Informations reliées
 
-Dans une fiche, le synopsis vient immédiatement après les actions rapides. Les informations essentielles suivent, puis les acteurs, réalisateurs, auteurs, développeurs, éditeurs et genres cliquables. Les dates **Terminé** et **Ajouté** ferment toujours la fiche. La durée, les plateformes de jeu et les services de streaming ne sont pas affichés. Le panneau d’une information cliquable montre les médias correspondants déjà présents dans la bibliothèque et conserve, lorsqu’il est pertinent, un lien IMDb, Goodreads ou Steam.
+Dans une fiche, le synopsis vient immédiatement après les actions rapides. **Voir plus** déplie le texte puis le replace automatiquement en haut de la zone de lecture afin de masquer les actions et d’éviter un second geste. Les informations essentielles suivent, puis les acteurs, réalisateurs, auteurs, développeurs, éditeurs et genres cliquables. Les dates **Terminé** et **Ajouté** ferment toujours la fiche. La durée, les plateformes de jeu et les services de streaming ne sont pas affichés. Le panneau d’une information cliquable montre les médias correspondants déjà présents dans la bibliothèque et conserve, lorsqu’il est pertinent, un lien IMDb, Goodreads ou Steam.
 
-Sur mobile, une fiche détaillée suit le doigt lors d’un glissement vers le bas depuis son en-tête, sans fondu, puis reprend sa place si le seuil de fermeture n’est pas atteint. La croix est masquée sur ce format ; le geste reste désactivé sur les boutons et n’intercepte pas le défilement du contenu.
+Sur mobile, toutes les modales suivent le doigt lors d’un glissement vers le bas depuis leur en-tête, sans fondu, puis reprennent leur place si le seuil de fermeture n’est pas atteint. Les croix de fermeture sont masquées sur ce format ; les boutons de retour restent disponibles, et le geste n’intercepte ni les commandes ni le défilement du contenu. La confirmation de suppression reprend la même structure visuelle que les autres modales.
 
 ### Journal et Communauté
 
@@ -210,7 +210,7 @@ Chaque source s’affiche dès qu’elle répond, sans attendre les autres. Les 
 
 ### Sauvegarde
 
-Le bouton **Sauvegarder** du Profil télécharge un fichier JSON contenant la bibliothèque, les notes personnelles et les événements du Journal. Ce fichier reste sur l’appareil de l’utilisateur.
+Le bouton **Sauvegarder** du Profil télécharge un fichier JSON contenant les données de la bibliothèque et les événements du Journal. Ce fichier reste sur l’appareil de l’utilisateur.
 
 ## PWA et fonctionnement hors ligne
 

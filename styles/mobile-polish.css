@@ -125,24 +125,39 @@
 .metadata-sheet-footer .btn { text-decoration: none; }
 
 .detail-swipe-handle { display: none; }
-.modal-overlay.is-swipe-settled:not(.is-closing) .detail-modal {
+.mobile-swipe-overlay.is-swipe-settled:not(.is-closing) .mobile-swipe-sheet {
   animation: none;
 }
-.modal-overlay.is-swipe-tracking .detail-modal { will-change: transform; }
+.mobile-swipe-overlay.is-swipe-tracking .mobile-swipe-sheet { will-change: transform; }
 
-.modal-overlay.is-closing.is-swipe-dismiss { animation: none; }
-
-.modal-overlay.is-closing.is-swipe-dismiss .detail-modal {
-  animation: detailSwipeOut .18s var(--ease-smooth) both;
+.mobile-swipe-overlay.is-closing.is-swipe-dismiss {
+  opacity: 1;
+  animation: none;
+  transition: none;
 }
-@keyframes detailSwipeOut {
+
+.mobile-swipe-overlay.is-closing.is-swipe-dismiss .mobile-swipe-sheet {
+  opacity: 1;
+  transition: none;
+  animation: mobileSheetSwipeOut .18s var(--ease-smooth) both;
+}
+@keyframes mobileSheetSwipeOut {
   from { transform: translateY(var(--swipe-start, 92px)); }
   to { transform: translateY(100%); }
 }
 
 @media (max-width: 680px) {
-  .detail-backdrop { touch-action: pan-x; }
-  .detail-close-btn { display: none; }
+  .mobile-swipe-sheet > .modal-header,
+  .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-handle,
+  .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-header,
+  .detail-modal.mobile-swipe-sheet > .detail-backdrop { touch-action: pan-x; }
+
+  /* Le geste remplace la croix sur toutes les feuilles mobiles. Les boutons
+     de retour du parcours d'ajout et de l'édition restent disponibles. */
+  .mobile-swipe-sheet > .modal-header > .btn-icon:last-child,
+  .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-header > .btn-icon:last-child,
+  .detail-modal.mobile-swipe-sheet .detail-close-btn { display: none; }
+
   .detail-swipe-handle {
     position: absolute;
     top: 7px;

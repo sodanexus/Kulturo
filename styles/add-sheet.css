@@ -266,14 +266,6 @@
 .wz-favorite-toggle:has(input:checked) { border-color: color-mix(in srgb, var(--movie) 50%, var(--border)); color: var(--text); }
 .wz-favorite-toggle:has(input:checked) .wz-favorite-icon { color: var(--movie); transform: scale(1.08); }
 
-.wz-notes-details { overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-3); }
-.wz-notes-details > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: .65rem .75rem; color: var(--text-2); cursor: pointer; font-size: .68rem; font-weight: 700; list-style: none; }
-.wz-notes-details > summary::-webkit-details-marker { display: none; }
-.wz-notes-details > summary small { color: var(--text-3); font-size: .59rem; font-weight: 500; }
-.wz-notes-details > summary::after { content: "+"; margin-left: .5rem; color: var(--accent); }
-.wz-notes-details[open] > summary::after { content: "−"; }
-.wz-notes-details textarea { min-height: 92px; margin: 0 .7rem .7rem; width: calc(100% - 1.4rem); }
-
 .modal-wizard .modal-footer { padding: .8rem 1.25rem 1rem; background: var(--bg-2); }
 .wz-submit-btn { width: 100%; min-height: 46px; justify-content: center; }
 
