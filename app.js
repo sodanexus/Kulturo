@@ -2931,6 +2931,12 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
   }
 }
 
+function canEnrichMediaDetails(entry) {
+  if (!entry) return false;
+  if (entry.media_type === "book") return true;
+  return ["movie", "game"].includes(entry.media_type) && Boolean(entry.external_id);
+}
+
 async function openUpcomingDetail(idx) {
   const it = visibleUpcomingResults()[idx];
   if (!it) return;
@@ -2952,7 +2958,8 @@ async function openUpcomingDetail(idx) {
     is_favorite: false,
   };
 
-  renderDetailPanel(preview, { preview: true, upcomingIdx: idx });
+  const detailsLoading = !preview.description && canEnrichMediaDetails(preview);
+  renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading });
   _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
@@ -2964,7 +2971,10 @@ async function openUpcomingDetail(idx) {
     } else if (mediaType === "book") {
       details = await OpenLibraryDetails.fetch(preview.external_id, preview);
     }
-    if (!details) return;
+    if (!details) {
+      refreshDetailEnrichment(preview, { detailsLoading: false });
+      return;
+    }
 
     Object.entries(details).forEach(([field, value]) => {
       if (value != null && !preview[field]) preview[field] = value;
@@ -2972,11 +2982,11 @@ async function openUpcomingDetail(idx) {
     const body = document.getElementById(`detail-body-${preview.id}`);
     if (body) {
       _injectBackdrop(preview.backdrop_url, preview.id);
-      body.innerHTML = renderDetailBody(preview);
-      _scheduleSynopsisOverflowCheck(preview.id);
+      refreshDetailEnrichment(preview, { detailsLoading: false });
     }
   } catch (err) {
     console.warn("[Detail upcoming] fetch error:", err);
+    refreshDetailEnrichment(preview, { detailsLoading: false });
   }
 }
 
@@ -3075,7 +3085,10 @@ function renderDetailPanel(e, options = {}) {
           </div>
         </div>
 
-        <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e, { readOnly: isReadOnly })}</div>
+        <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e, {
+          readOnly: isReadOnly,
+          detailsLoading: options.detailsLoading === true,
+        })}</div>
 
         <div class="modal-footer">
           ${isReadOnly ? `
@@ -3407,7 +3420,42 @@ function openMetadataMedia(id) {
   setTimeout(() => openDetailPanel(id), 190);
 }
 
-function renderDetailBody(e, options = {}) {
+function detailSectionHTML(label, html, className = "") {
+  return `<div class="detail-section ${className}">
+    <div class="detail-section-label">${label}</div>
+    <div class="detail-section-content">${html}</div>
+  </div>`;
+}
+
+function renderDetailSynopsisHTML(e, options = {}) {
+  if (e.description) {
+    const synId = `syn-${e.id}`;
+    return detailSectionHTML("Synopsis",
+      `<div class="detail-synopsis-wrap" id="${synId}">
+        <div class="detail-synopsis-clip" id="${synId}-clip">
+          <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
+        </div>
+        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
+      </div>`,
+      "detail-synopsis-section"
+    );
+  }
+
+  if (options.detailsLoading) {
+    return detailSectionHTML("Synopsis",
+      `<div class="detail-synopsis-skeleton" role="status" aria-busy="true" aria-label="Chargement du synopsis">
+        <span class="sr-only">Chargement du synopsis…</span>
+        <i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>
+        <b aria-hidden="true"></b>
+      </div>`,
+      "detail-synopsis-section detail-synopsis-loading"
+    );
+  }
+
+  return "";
+}
+
+function renderDetailInfoHTML(e, options = {}) {
   const metaRow = (label, value) => value
     ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
     : "";
@@ -3417,36 +3465,7 @@ function renderDetailBody(e, options = {}) {
       ? `<div class="detail-meta-row detail-meta-row-links"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
       : "";
   };
-
-  const section = (label, html) =>
-    `<div class="detail-section">
-      <div class="detail-section-label">${label}</div>
-      <div class="detail-section-content">${html}</div>
-    </div>`;
-
   let html = "";
-
-  if (options.readOnly) {
-    html += `<div class="activity-detail-notice">
-      <span class="activity-detail-avatar" aria-hidden="true">${iconUser()}</span>
-      <span><strong>${esc(e.username || "Un membre")}</strong> a partagé ce média. Cette fiche est en lecture seule.</span>
-    </div>`;
-  }
-
-  if (e.status && !options.readOnly) html += quickActionsHTML(e);
-
-  // Le contenu éditorial vient toujours immédiatement après les actions.
-  if (e.description) {
-    const synId = `syn-${e.id}`;
-    html += section("Synopsis",
-      `<div class="detail-synopsis-wrap" id="${synId}">
-        <div class="detail-synopsis-clip" id="${synId}-clip">
-          <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
-        </div>
-        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
-      </div>`
-    );
-  }
 
   // Informations factuelles non interactives propres à chaque type.
   const technicalMeta = [
@@ -3481,7 +3500,7 @@ function renderDetailBody(e, options = {}) {
       ? e.cast_people.map(person => person.name).filter(Boolean)
       : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
     const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
-    html += section("Casting", `<div class="detail-chips">${cast}</div>`);
+    html += detailSectionHTML("Casting", `<div class="detail-chips">${cast}</div>`);
   }
 
   // L'historique personnel clôt systématiquement la fiche.
@@ -3491,7 +3510,117 @@ function renderDetailBody(e, options = {}) {
   ].filter(Boolean).join("");
   if (historyMeta) html += `<div class="detail-meta detail-meta-history">${historyMeta}</div>`;
 
-  return html || "";
+  return html;
+}
+
+function renderDetailBody(e, options = {}) {
+  let html = "";
+
+  if (options.readOnly) {
+    html += `<div class="activity-detail-notice">
+      <span class="activity-detail-avatar" aria-hidden="true">${iconUser()}</span>
+      <span><strong>${esc(e.username || "Un membre")}</strong> a partagé ce média. Cette fiche est en lecture seule.</span>
+    </div>`;
+  }
+
+  if (e.status && !options.readOnly) html += quickActionsHTML(e);
+
+  // Ces deux emplacements restent montés pendant l'enrichissement : les
+  // actions, le focus et la position de lecture ne sont jamais reconstruits.
+  html += `<div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
+  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}">${renderDetailInfoHTML(e, options)}</div>`;
+
+  return html;
+}
+
+function replaceDetailSynopsis(entry, options = {}) {
+  const slot = document.getElementById(`detail-synopsis-slot-${entry.id}`);
+  if (!slot) return;
+  const nextHTML = renderDetailSynopsisHTML(entry, options);
+  const previous = slot.firstElementChild;
+  const currentText = slot.querySelector(".detail-synopsis-text")?.textContent || "";
+
+  // Si le synopsis était déjà présent et n'a pas changé, l'enrichissement des
+  // autres informations ne doit pas le faire clignoter une seconde fois.
+  if (entry.description && currentText === String(entry.description) &&
+      !previous?.classList.contains("detail-synopsis-loading")) return;
+
+  if (!nextHTML) {
+    if (!previous) return;
+    previous.classList.add("detail-synopsis-leaving");
+    setTimeout(() => {
+      if (!slot.isConnected) return;
+      slot.replaceChildren();
+      slot.classList.remove("is-transitioning");
+    }, 180);
+    return;
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = nextHTML.trim();
+  const next = template.content.firstElementChild;
+  if (!next) return;
+
+  // Le squelette et le texte partagent temporairement la même cellule : la
+  // place reste réservée pendant que leurs opacités se croisent.
+  if (previous?.classList.contains("detail-synopsis-loading")) {
+    slot.classList.add("is-transitioning");
+    previous.classList.add("detail-synopsis-leaving");
+    next.classList.add("detail-synopsis-arriving");
+    slot.append(next);
+    setTimeout(() => {
+      if (!slot.isConnected) return;
+      previous.remove();
+      next.classList.remove("detail-synopsis-arriving");
+      slot.classList.remove("is-transitioning");
+    }, 270);
+  } else {
+    next.classList.add("detail-synopsis-arriving");
+    slot.replaceChildren(next);
+    setTimeout(() => next.classList.remove("detail-synopsis-arriving"), 270);
+  }
+}
+
+function replaceDetailInfo(entry, options = {}) {
+  const slot = document.getElementById(`detail-info-slot-${entry.id}`);
+  if (!slot) return;
+  const body = slot.closest(".detail-body");
+  const previousScroll = body?.scrollTop || 0;
+  const previousHeight = slot.getBoundingClientRect().height;
+
+  clearTimeout(slot._detailInfoTimer);
+  slot.classList.remove("is-resizing", "is-revealing");
+  slot.style.height = "auto";
+  slot.innerHTML = renderDetailInfoHTML(entry, options);
+  const nextHeight = slot.getBoundingClientRect().height;
+
+  if (Math.abs(nextHeight - previousHeight) > 1) {
+    slot.style.height = `${previousHeight}px`;
+    slot.getBoundingClientRect();
+    slot.classList.add("is-resizing", "is-revealing");
+    requestAnimationFrame(() => {
+      if (!slot.isConnected) return;
+      slot.style.height = `${nextHeight}px`;
+    });
+    slot._detailInfoTimer = setTimeout(() => {
+      if (!slot.isConnected) return;
+      slot.style.height = "";
+      slot.classList.remove("is-resizing", "is-revealing");
+    }, 330);
+  } else {
+    slot.style.height = "";
+  }
+
+  if (body) body.scrollTop = previousScroll;
+}
+
+function refreshDetailEnrichment(entry, options = {}) {
+  replaceDetailSynopsis(entry, options);
+  replaceDetailInfo(entry, options);
+  if (entry.description) {
+    // Le texte se pose d'abord ; le contrôle arrive ensuite sans clignoter.
+    setTimeout(() => _scheduleSynopsisOverflowCheck(entry.id), 90);
+  }
 }
 
 function syncOpenDetail(entry, feedback = "") {
@@ -3676,7 +3805,16 @@ function _checkSynopsisOverflow(entryId) {
   wrap.style.setProperty("--synopsis-expanded-height", `${naturalHeight}px`);
 
   wrap.classList.toggle("is-overflowing", isOverflowing);
+  const wasHidden = btn.hidden;
   btn.hidden = !isOverflowing;
+  if (isOverflowing && wasHidden) {
+    btn.classList.remove("is-ready");
+    requestAnimationFrame(() => {
+      if (btn.isConnected && !btn.hidden) btn.classList.add("is-ready");
+    });
+  } else if (!isOverflowing) {
+    btn.classList.remove("is-ready");
+  }
 
   if (!isOverflowing) wrap.classList.remove("expanded");
   const isExpanded = isOverflowing && wrap.classList.contains("expanded");
@@ -3740,7 +3878,8 @@ async function openDetailPanel(id) {
   if (!e) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
-  renderDetailPanel(e);
+  const detailsLoading = !e.description && !e._detailsFetched && canEnrichMediaDetails(e);
+  renderDetailPanel(e, { detailsLoading });
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Si déjà enrichi, on injecte juste le backdrop sans refetch
@@ -3766,6 +3905,7 @@ async function openDetailPanel(id) {
         console.warn("[Detail] persistence retry error:", error);
         toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
       }
+      if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
       return;
     }
 
@@ -3779,7 +3919,10 @@ async function openDetailPanel(id) {
       details = await OpenLibraryDetails.fetch(e.external_id, e);
     }
 
-    if (!details) return;
+    if (!details) {
+      refreshDetailEnrichment(e, { detailsLoading: false });
+      return;
+    }
     if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = {};
@@ -3812,15 +3955,16 @@ async function openDetailPanel(id) {
     // Injecter le backdrop en fondu
     _injectBackdrop(e.backdrop_url, e.id);
 
-    // Re-render le body enrichi (pas le backdrop — déjà géré ci-dessus)
+    // Seuls les emplacements enrichis changent : les actions et le scroll
+    // restent montés pendant l'arrivée progressive du synopsis.
     const body = document.getElementById(`detail-body-${e.id}`);
     if (body) {
-      body.innerHTML = renderDetailBody(e);
-      _scheduleSynopsisOverflowCheck(e.id);
+      refreshDetailEnrichment(e, { detailsLoading: false });
     }
 
   } catch(err) {
     console.warn("[Detail] fetch error:", err);
+    refreshDetailEnrichment(e, { detailsLoading: false });
   } finally {
     e._detailsFetching = false;
   }

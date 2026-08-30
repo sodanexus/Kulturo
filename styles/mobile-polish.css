@@ -147,6 +147,18 @@
 }
 
 @media (max-width: 680px) {
+  /* La fiche occupe sa hauteur finale dès l'ouverture. Les enrichissements
+     augmentent uniquement le contenu défilable, jamais la feuille elle-même. */
+  .detail-modal {
+    height: min(760px, calc(92dvh - var(--safe-top)));
+    max-height: min(760px, calc(92dvh - var(--safe-top)));
+  }
+  .detail-modal .detail-body {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
   .mobile-swipe-sheet > .modal-header,
   .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-handle,
   .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-header,

@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.1.3**
+Version actuelle : **3.1.4**
 
 ## Fonctionnalités
 
@@ -10,7 +10,7 @@ Version actuelle : **3.1.3**
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout compact avec recherche universelle TMDb, IGDB et Open Library
-- Fiches détaillées : synopsis prioritaire, casting, informations essentielles et bandes-annonces
+- Fiches détaillées : synopsis prioritaire et chargé progressivement, casting, informations essentielles et bandes-annonces
 - Acteurs, réalisateurs, auteurs, genres, éditeurs et studios reliés à la bibliothèque
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
@@ -83,7 +83,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.1.3 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.1.4 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -133,7 +133,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.1.3",
+    version: "3.1.4",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -177,7 +177,7 @@ Le bouton central **+** ouvre une recherche unique pour les films, séries, jeux
 
 ### Informations reliées
 
-Dans une fiche, le synopsis vient immédiatement après les actions rapides. **Voir plus** déplie le texte puis le replace automatiquement en haut de la zone de lecture afin de masquer les actions et d’éviter un second geste. Les informations essentielles suivent, puis les acteurs, réalisateurs, auteurs, développeurs, éditeurs et genres cliquables. Les dates **Terminé** et **Ajouté** ferment toujours la fiche. La durée, les plateformes de jeu et les services de streaming ne sont pas affichés. Le panneau d’une information cliquable montre les médias correspondants déjà présents dans la bibliothèque et conserve, lorsqu’il est pertinent, un lien IMDb, Goodreads ou Steam.
+Dans une fiche, le synopsis vient immédiatement après les actions rapides. Lorsqu’il doit être récupéré, quatre lignes-squelettes réservent déjà sa place ; le texte les remplace ensuite par un fondu croisé très court, puis **Voir plus** apparaît légèrement après. La hauteur de la fiche reste stable sur mobile et les actions rapides ne sont jamais reconstruites pendant l’enrichissement. **Voir plus** déplie ensuite le texte puis le replace automatiquement en haut de la zone de lecture afin de masquer les actions et d’éviter un second geste. Les informations essentielles suivent, puis les acteurs, réalisateurs, auteurs, développeurs, éditeurs et genres cliquables. Les dates **Terminé** et **Ajouté** ferment toujours la fiche. La durée, les plateformes de jeu et les services de streaming ne sont pas affichés. Le panneau d’une information cliquable montre les médias correspondants déjà présents dans la bibliothèque et conserve, lorsqu’il est pertinent, un lien IMDb, Goodreads ou Steam.
 
 Sur mobile, toutes les modales suivent le doigt lors d’un glissement vers le bas depuis leur en-tête, sans fondu, puis reprennent leur place si le seuil de fermeture n’est pas atteint. Les croix de fermeture sont masquées sur ce format ; les boutons de retour restent disponibles, et le geste n’intercepte ni les commandes ni le défilement du contenu. La confirmation de suppression reprend la même structure visuelle que les autres modales.
 

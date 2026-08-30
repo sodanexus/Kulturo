@@ -40,9 +40,14 @@ function journalHarness(entries, events) {
   return context;
 }
 
-function detailBodyHarness(entry) {
-  const match = app.match(/^function renderDetailBody\([\s\S]*?^\}/m);
-  assert.ok(match, "Fonction de fiche détaillée manquante");
+function detailBodyHarness(entry, options = {}) {
+  const source = [
+    "detailSectionHTML", "renderDetailSynopsisHTML", "renderDetailInfoHTML", "renderDetailBody",
+  ].map(name => {
+    const match = app.match(new RegExp(`^function ${name}\\([\\s\\S]*?^\\}`, "m"));
+    assert.ok(match, `Fonction de fiche détaillée manquante : ${name}`);
+    return match[0];
+  }).join("\n");
   const context = vm.createContext({
     quickActionsHTML: () => '<div data-test="quick-actions">Actions rapides</div>',
     metadataChipsHTML: (_entry, kind, value) => value ? `<button>${kind}:${value}</button>` : "",
@@ -50,8 +55,8 @@ function detailBodyHarness(entry) {
     formatReleaseDate: value => String(value),
     esc: value => String(value ?? ""),
   });
-  vm.runInContext(match[0], context);
-  return context.renderDetailBody(entry);
+  vm.runInContext(source, context);
+  return context.renderDetailBody(entry, options);
 }
 
 test("le Profil s'ouvre sur le mois courant", () => {
@@ -330,6 +335,21 @@ test("déplier le synopsis recentre automatiquement la lecture", () => {
   assert.match(app, /function scrollExpandedSynopsisIntoView\(wrap\)/);
   assert.match(app, /body\.scrollTo\(\{ top: target, behavior:/);
   assert.match(app, /if \(isExpanded\) scrollExpandedSynopsisIntoView\(wrap\);/);
+});
+
+test("le synopsis enrichi remplace un squelette sans reconstruire les actions", () => {
+  const loading = detailBodyHarness({ id: "loading", status: "finished", media_type: "movie" }, { detailsLoading: true });
+  assert.match(loading, /detail-synopsis-skeleton/);
+  assert.match(loading, /Chargement du synopsis/);
+  assert.match(app, /function refreshDetailEnrichment\(entry, options = \{\}\)/);
+  assert.match(app, /replaceDetailSynopsis\(entry, options\)/);
+  assert.match(app, /replaceDetailInfo\(entry, options\)/);
+  assert.doesNotMatch(app, /body\.innerHTML = renderDetailBody/);
+  assert.match(style, /@keyframes detailSynopsisArrive/);
+  assert.match(style, /@keyframes detailSynopsisLeave/);
+  assert.match(style, /\.detail-synopsis-toggle\.is-ready/);
+  assert.match(mobileStyle, /\.detail-modal\s*\{[^}]*height:\s*min\(760px, calc\(92dvh - var\(--safe-top\)\)\)/s);
+  assert.match(mobileStyle, /\.detail-modal \.detail-body\s*\{[^}]*flex:\s*1[^}]*max-height:\s*none/s);
 });
 
 test("les notes personnelles quittent l'interface sans effacer les anciennes données", () => {
