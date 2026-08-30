@@ -36,6 +36,17 @@ import {
   metadataExternalLink,
   splitMetadataValues,
 } from "./features/media-metadata.js";
+import {
+  annualMosaicEntries,
+  buildLibraryAffinity,
+  exploredGenres,
+  journalMonthSummary,
+  recommendationForUpcoming,
+  repeatCountForPeriod,
+} from "./features/insights.js";
+import { elementFromHTML, patchKeyedSurface, reconcileKeyedChildren } from "./features/dom-updates.js";
+import { cardSkeletons, emptyState, errorState, loadingState } from "./features/ui-states.js";
+import { clearApiCache } from "./features/request-client.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -47,6 +58,7 @@ const IS_STANDALONE_DISPLAY = Boolean(
 document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
 
 const MOBILE_COLUMNS_KEY = "kulturo-mobile-columns";
+const LIBRARY_DENSITY_KEY = "kulturo-library-density";
 function readMobileColumns() {
   try {
     return localStorage.getItem(MOBILE_COLUMNS_KEY) === "2" ? 2 : 3;
@@ -60,6 +72,21 @@ function applyMobileColumns(value = readMobileColumns()) {
   return columns;
 }
 applyMobileColumns();
+
+function readLibraryDensity() {
+  try {
+    return localStorage.getItem(LIBRARY_DENSITY_KEY) === "compact" ? "compact" : "standard";
+  } catch {
+    return "standard";
+  }
+}
+
+function applyLibraryDensity(value = readLibraryDensity()) {
+  const density = value === "compact" ? "compact" : "standard";
+  document.documentElement.dataset.libraryDensity = density;
+  return density;
+}
+applyLibraryDensity();
 
 let _updateBannerDismissed = false;
 window.addEventListener("kulturo:update-ready", () => {
@@ -144,6 +171,12 @@ function safeMediaUrl(value) {
   }
 }
 
+function hydrateFadeImages(root = document) {
+  root.querySelectorAll?.("img[data-fade-image]").forEach(image => {
+    if (image.complete && image.naturalWidth > 0) image.classList.add("is-loaded");
+  });
+}
+
 function findMatchingEntry(candidate, excludeId = null) {
   const candidateType = candidate.media_type || "movie";
   const candidateSubtype = normalizedSubtype({ ...candidate, media_type: candidateType });
@@ -216,21 +249,85 @@ async function init() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
-  init();
+  // Les modules différés peuvent s'exécuter avec un document déjà
+  // `interactive`, avant que les liaisons déclarées plus bas aient été
+  // initialisées. Le microtour laisse l'évaluation du module se terminer.
+  queueMicrotask(init);
 }
 
-// ── Thème ─────────────────────────────────────────────────────
+// ── Thème et barre système ────────────────────────────────────
+let _systemPage = "library";
+let _systemMediaType = null;
+
+function syncSystemBar(page = _systemPage, mediaType = _systemMediaType) {
+  _systemPage = page || "library";
+  _systemMediaType = mediaType || null;
+  const light = document.documentElement.getAttribute("data-theme") === "light";
+  const pageColors = light
+    ? { library: "#f3f1ec", upcoming: "#f0f1f5", journal: "#eff2f1", dashboard: "#f3efe7" }
+    : { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
+  const mediaColors = light
+    ? { movie: "#f4e9ec", game: "#e9eef8", book: "#e9f3ee" }
+    : { movie: "#171014", game: "#0e131d", book: "#0d1713" };
+  const color = mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", color);
+  document.documentElement.style.setProperty("--system-bar-color", color);
+}
+
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("kulturo-theme", t);
+  syncSystemBar();
   // btn-theme removed
+}
+
+// ── Historique de navigation ──────────────────────────────────
+let _historyReady = false;
+let _handlingPopState = false;
+
+function appHistoryState(page, layer = null, payload = {}) {
+  return { kulturo: true, page: page || "library", layer, ...payload };
+}
+
+function syncPageHistory(page, mode = "push") {
+  if (_handlingPopState || mode === "none") return;
+  const state = appHistoryState(page);
+  if (mode === "replace" || !_historyReady || !history.state?.kulturo) {
+    history.replaceState(state, "");
+    return;
+  }
+  if (history.state?.page === page && !history.state?.layer) return;
+  history.pushState(state, "");
+}
+
+function pushHistoryLayer(layer, payload = {}) {
+  if (_handlingPopState || !layer) return;
+  if (history.state?.kulturo && history.state.layer === layer) {
+    history.replaceState(appHistoryState(_currentPage, layer, payload), "");
+    return;
+  }
+  history.pushState(appHistoryState(_currentPage, layer, payload), "");
+}
+
+function historyOwnsLayer(layer) {
+  return !_handlingPopState && history.state?.kulturo && history.state.layer === layer;
+}
+
+function restoreOpenLayerHistory() {
+  let layer = null;
+  if (document.getElementById("metadata-overlay")) layer = "metadata";
+  else if (document.getElementById("filter-modal-overlay")) layer = "filters";
+  else if (document.getElementById("modal-overlay")) layer = "modal";
+  history.pushState(appHistoryState(_currentPage, layer), "");
 }
 
 function restoreNavigation() {
   const saved = localStorage.getItem("kulturo-nav") || "library";
   const allowed = new Set(["library", "dashboard", "upcoming", "journal"]);
   const normalized = saved === "activity" ? "journal" : saved === "discover" ? "upcoming" : saved;
-  navTo(allowed.has(normalized) ? normalized : "library");
+  navTo(allowed.has(normalized) ? normalized : "library", { history: "replace" });
+  _historyReady = true;
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -396,6 +493,16 @@ function renderApp() {
             <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" onclick="UI.setJournalMode('personal')">Mon journal</button>
             <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" onclick="UI.setJournalMode('community')">Communauté</button>
           </div>
+          <div class="journal-time-nav" id="journal-time-nav" aria-label="Navigation dans le temps">
+            <button type="button" class="journal-time-step" id="journal-time-prev" onclick="UI.stepJournalMonth(1)" aria-label="Mois plus ancien">←</button>
+            <label class="journal-month-select-wrap">
+              <span class="sr-only">Aller à un mois</span>
+              <select id="journal-month-select" onchange="UI.jumpJournalMonth(this.value)">
+                <option value="all">Tout l’historique</option>
+              </select>
+            </label>
+            <button type="button" class="journal-time-step" id="journal-time-next" onclick="UI.stepJournalMonth(-1)" aria-label="Mois plus récent">→</button>
+          </div>
         </div>
 
         <section class="journal-panel" id="journal-personal-panel" role="tabpanel" aria-labelledby="journal-mode-personal">
@@ -499,15 +606,7 @@ async function loadEntries() {
   // Show skeletons while loading
   const grid = document.getElementById("cards-grid");
   if (grid && !State.entries.length) {
-    grid.innerHTML = Array(8).fill(0).map(() => `
-      <div class="skeleton-card">
-        <div class="skeleton skeleton-cover"></div>
-        <div class="skeleton-body">
-          <div class="skeleton skeleton-line"></div>
-          <div class="skeleton skeleton-line short"></div>
-          <div class="skeleton skeleton-line xshort"></div>
-        </div>
-      </div>`).join("");
+    grid.innerHTML = cardSkeletons(8);
   }
   try {
     // Charge tout, le filtrage se fait localement dans filterEntries()
@@ -523,6 +622,7 @@ async function loadEntries() {
       updateBadges();
       toast("Mode hors ligne : dernière bibliothèque enregistrée affichée.", "info");
     } else {
+      if (grid) grid.innerHTML = errorState({ title: "Bibliothèque indisponible", message: "Impossible de charger vos médias pour le moment." });
       toast("Erreur de chargement : " + e.message, "error");
     }
   }
@@ -540,6 +640,11 @@ function navTo(key, options = {}) {
 
   // Les raccourcis de collection appartiennent tous à la Bibliothèque.
   const primaryKey = ["dashboard", "upcoming", "journal"].includes(key) ? key : "library";
+  const isPrimaryPageRequest = ["library", "dashboard", "upcoming", "journal"].includes(key);
+  if (isPrimaryPageRequest) {
+    const historyMode = options.history || (_historyReady && primaryKey !== _currentPage ? "push" : "replace");
+    syncPageHistory(primaryKey, historyMode);
+  }
 
   // Synchronise systématiquement les deux navigations. Cela rend aussi un clic
   // répété utile si une page a été interrompue pendant son chargement.
@@ -604,6 +709,12 @@ function navTo(key, options = {}) {
     renderCards();
     updateCategoryTabs("all", true);
   } else {
+    if (options.preserveFilters) {
+      if (_currentPage !== "library") showPage("library");
+      renderCards();
+      updateCategoryTabs(State.filters.type, State.filters.favorite);
+      return;
+    }
     // "library" → reset complet
     State.filters.type     = "all";
     State.filters.subtype  = "all";
@@ -655,6 +766,8 @@ function showPage(name) {
   });
   newPage.classList.add("active");
   _currentPage = name;
+  document.documentElement.dataset.page = name;
+  syncSystemBar(name, null);
   const filterBtn = document.getElementById("btn-filter-toggle");
   if (filterBtn) {
     const inactive = name !== "library";
@@ -782,19 +895,19 @@ function readContinueExpanded() {
 function continuePreviewHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
-    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" onerror="this.parentElement.textContent='${TYPE_ICONS[entry.media_type] || "🎭"}'"></span>`
+    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.parentElement.textContent='${TYPE_ICONS[entry.media_type] || "🎭"}'"></span>`
     : `<span class="continue-preview-cover">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
 }
 
 function continueCardHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
        <span class="continue-cover-placeholder" style="display:none">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`
     : `<span class="continue-cover-placeholder">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
 
   return `
-    <button type="button" class="continue-card" onclick="UI.openEditModal('${entry.id}')" aria-label="Reprendre ${esc(entry.title)}">
+    <button type="button" class="continue-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Reprendre ${esc(entry.title)}">
       <span class="continue-cover">${cover}<span class="continue-play" aria-hidden="true">${iconPlay()}</span></span>
       <span class="continue-card-copy">
         <strong>${esc(entry.title)}</strong>
@@ -841,6 +954,7 @@ function renderContinueSection() {
       </div>
     </div>
   `;
+  hydrateFadeImages(section);
 }
 
 function toggleContinueSection() {
@@ -958,10 +1072,6 @@ function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
-  // Micro-animation au changement de filtre
-  grid.classList.remove("filter-transition");
-  requestAnimationFrame(() => grid.classList.add("filter-transition"));
-
   if (options.resetScroll) {
     const main = document.getElementById("main");
     if (main) main.scrollTop = 0;
@@ -1000,7 +1110,13 @@ function renderCards(options = {}) {
     return;
   }
 
-  grid.innerHTML = entries.map((e, i) => cardHTML(e, i)).join("");
+  if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
+  reconcileKeyedChildren(grid, entries, {
+    key: entry => entry.id,
+    create: (entry, index) => elementFromHTML(cardHTML(entry, index)),
+    update: (node, entry) => patchMediaCardNode(node, entry),
+  });
+  hydrateFadeImages(grid);
 }
 
 function filterEntries(entries) {
@@ -1053,7 +1169,7 @@ function cardMetaHTML(rating, is_favorite, repeatCount = 0) {
 function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
-    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
        <div class="card-cover-placeholder" style="display:none">${TYPE_ICONS[e.media_type]||"🎭"}</div>`
     : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
@@ -1074,7 +1190,7 @@ function cardHTML(e, i = 0) {
   }[e.status] || "";
 
   return `
-    <article class="${classes}" data-id="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
+    <article class="${classes}" data-id="${e.id}" data-key="${e.id}" data-prefetch-media="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
       style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')"
       onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
       ${coverHTML}
@@ -1082,6 +1198,38 @@ function cardHTML(e, i = 0) {
       ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
       ${cardMetaHTML(e.rating, e.is_favorite, e.repeat_count)}
     </article>`;
+}
+
+function patchMediaCardNode(node, entry) {
+  const next = elementFromHTML(cardHTML(entry));
+  if (!node || !next) return;
+  node.className = next.className;
+  node.dataset.prefetchMedia = String(entry.id);
+  node.setAttribute("aria-label", next.getAttribute("aria-label"));
+
+  const currentTitle = node.querySelector(".card-title");
+  if (currentTitle) currentTitle.textContent = entry.title;
+
+  const currentCover = node.querySelector(".card-cover, .card-cover-placeholder");
+  const nextCover = next.querySelector(".card-cover, .card-cover-placeholder");
+  const coverChanged = currentCover?.tagName !== nextCover?.tagName
+    || (currentCover?.tagName === "IMG" && currentCover.getAttribute("src") !== nextCover.getAttribute("src"));
+  if (coverChanged && currentCover && nextCover) currentCover.replaceWith(nextCover);
+
+  const currentStatus = node.querySelector(".card-status-label");
+  const nextStatus = next.querySelector(".card-status-label");
+  if (currentStatus && nextStatus) currentStatus.replaceWith(nextStatus);
+  else if (currentStatus && !nextStatus) currentStatus.remove();
+  else if (!currentStatus && nextStatus) {
+    const bottom = node.querySelector(".card-bottom");
+    node.insertBefore(nextStatus, bottom || null);
+  }
+
+  const currentBottom = node.querySelector(".card-bottom");
+  const nextBottom = next.querySelector(".card-bottom");
+  if (currentBottom && nextBottom) currentBottom.replaceWith(nextBottom);
+  else if (currentBottom && !nextBottom) currentBottom.remove();
+  else if (!currentBottom && nextBottom) node.append(nextBottom);
 }
 
 // ── Badges sidebar ────────────────────────────────────────────
@@ -1114,6 +1262,7 @@ let _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
 let _profilePeriod = "month";
 let _profileMedia = "all";
 let _profileMonthAutoResolve = true;
+const _profileNumberValues = new Map();
 const LAST_BACKUP_KEY = "kulturo-last-backup";
 const PROFILE_MEDIA_OPTIONS = [
   ["all", "Tout"],
@@ -1122,6 +1271,37 @@ const PROFILE_MEDIA_OPTIONS = [
   ["game", "Jeux"],
   ["book", "Livres"],
 ];
+
+function profileNumberHTML(key, value, options = {}) {
+  const numeric = Number(value) || 0;
+  const decimals = Number(options.decimals || 0);
+  const display = numeric.toFixed(decimals);
+  return `<span class="profile-animated-number" data-profile-number="${esc(key)}" data-profile-value="${numeric}" data-profile-decimals="${decimals}" data-profile-prefix="${esc(options.prefix || "")}" data-profile-suffix="${esc(options.suffix || "")}">${esc(options.prefix || "")}${display}${esc(options.suffix || "")}</span>`;
+}
+
+function animateProfileNumbers(root) {
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  root?.querySelectorAll?.("[data-profile-number]").forEach(element => {
+    const key = element.dataset.profileNumber;
+    const target = Number(element.dataset.profileValue || 0);
+    const decimals = Number(element.dataset.profileDecimals || 0);
+    const prefix = element.dataset.profilePrefix || "";
+    const suffix = element.dataset.profileSuffix || "";
+    const previous = _profileNumberValues.get(key);
+    _profileNumberValues.set(key, target);
+    if (previous == null || previous === target || reduced) return;
+    const start = performance.now();
+    const duration = 440;
+    const draw = now => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = previous + (target - previous) * eased;
+      element.textContent = `${prefix}${value.toFixed(decimals)}${suffix}`;
+      if (progress < 1 && element.isConnected) requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  });
+}
 
 function profileMediaMatches(entry, media = _profileMedia) {
   if (media === "all") return true;
@@ -1333,10 +1513,10 @@ async function renderDashboard() {
     ? topScoped.map((entry, index) => {
         const coverUrl = safeMediaUrl(entry.cover_url);
         return `
-          <button type="button" class="profile-top-card" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
+          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
             <span class="profile-top-rank">${index + 1}</span>
             <span class="profile-top-cover">
-              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy">` : `<span>${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
             </span>
             <strong>${esc(entry.title)}</strong>
             <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
@@ -1361,6 +1541,28 @@ async function renderDashboard() {
       <span class="profile-category-arrow" aria-hidden="true">→</span>
     </button>`).join("");
 
+  const scopedRepeatCount = repeatCountForPeriod(
+    State.journalAvailable ? State.events : [],
+    scopedEntries,
+    _profileYear,
+    periodMonth,
+  );
+  const genreInsights = exploredGenres(scopedEntries, 6);
+  const maxGenreCount = Math.max(...genreInsights.map(item => item.count), 1);
+  const genresHTML = genreInsights.length ? genreInsights.map(item => `
+    <div class="profile-genre-row">
+      <span><strong>${esc(item.label)}</strong><em>${item.count}</em></span>
+      <span class="profile-genre-track"><i style="width:${Math.round(item.count / maxGenreCount * 100)}%"></i></span>
+    </div>`).join("") : `<p class="profile-inline-empty">Pas encore assez de genres renseignés sur cette période.</p>`;
+
+  const mosaicEntries = annualMosaicEntries(all.filter(entry => profileMediaMatches(entry)), _profileYear, entryActivityYear, 24)
+    .filter(entry => safeMediaUrl(entry.cover_url));
+  const mosaicHTML = mosaicEntries.length ? mosaicEntries.map(entry => `
+    <button type="button" class="profile-mosaic-poster" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
+      <img src="${esc(safeMediaUrl(entry.cover_url))}" alt="" loading="lazy" data-fade-image class="fade-image">
+      <span>${esc(entry.title)}</span>
+    </button>`).join("") : `<p class="profile-inline-empty">Aucune affiche disponible pour ${_profileYear}.</p>`;
+
   // Histogramme des notes (toutes années)
   const ratedAll      = all.filter(e => e.rating);
   const ratingCounts  = Array(10).fill(0);
@@ -1384,7 +1586,7 @@ async function renderDashboard() {
   }).join("");
 
   const ratingsHTML = totalRated > 0 ? `
-    <section class="profile-dashboard-card profile-ratings-card">
+    <section class="profile-dashboard-card profile-ratings-card" data-ui-key="profile-ratings">
       <div class="rating-hist-header">
         <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
         <div class="rating-hist-meta">
@@ -1399,8 +1601,8 @@ async function renderDashboard() {
       </div>
     </section>` : "";
 
-  container.innerHTML = `
-    <section class="profile-year-overview">
+  const dashboardHTML = `
+    <section class="profile-year-overview" data-ui-key="profile-overview">
       <div class="profile-year-header">
         <div>
           <span class="section-eyebrow">En un coup d’œil</span>
@@ -1422,13 +1624,13 @@ async function renderDashboard() {
       </div>
       <div class="profile-year-summary">
         <div class="profile-year-primary">
-          <strong>${scopedFinished.length}</strong>
+          <strong>${profileNumberHTML("finished", scopedFinished.length)}</strong>
           <span>média${scopedFinished.length > 1 ? "s" : ""} terminé${scopedFinished.length > 1 ? "s" : ""}</span>
           <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""} au total sur cette période</small>
         </div>
         <div class="profile-year-secondary">
           <span>Note moyenne</span>
-          <strong>${scopedAverage === "—" ? "—" : `★ ${scopedAverage}/10`}</strong>
+          <strong>${scopedAverage === "—" ? "—" : profileNumberHTML("average", scopedAverage, { decimals: 1, prefix: "★ ", suffix: "/10" })}</strong>
           <small>${scopedRated.length} média${scopedRated.length > 1 ? "s" : ""} noté${scopedRated.length > 1 ? "s" : ""}</small>
         </div>
       </div>
@@ -1441,7 +1643,7 @@ async function renderDashboard() {
         ].map(([key, icon, value, label]) => `
           <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear}, '${periodMonth}', '${_profileMedia}')">
             <span class="profile-action-icon" aria-hidden="true">${icon}</span>
-            <strong>${value}</strong>
+            <strong>${profileNumberHTML(`action-${key}`, value)}</strong>
             <span>${label}</span>
             <i aria-hidden="true">→</i>
           </button>`).join("")}
@@ -1450,7 +1652,7 @@ async function renderDashboard() {
 
     ${ratingsHTML}
 
-    <div class="profile-insights-grid">
+    <div class="profile-insights-grid" data-ui-key="profile-insights">
       <section class="profile-dashboard-card profile-top-section">
         <div class="profile-card-heading">
           <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
@@ -1468,7 +1670,31 @@ async function renderDashboard() {
       </section>
     </div>
 
-    <details class="profile-account-details">
+    <div class="profile-habits-grid" data-ui-key="profile-habits">
+      <section class="profile-dashboard-card profile-genres-section">
+        <div class="profile-card-heading">
+          <div><span class="section-eyebrow">Vos terrains</span><h3>Genres les plus explorés</h3></div>
+          <span class="section-count">${genreInsights.length} genre${genreInsights.length > 1 ? "s" : ""}</span>
+        </div>
+        <div class="profile-genre-list">${genresHTML}</div>
+      </section>
+      <section class="profile-dashboard-card profile-repeat-section">
+        <span class="section-eyebrow">Revenir à ses favoris</span>
+        <div class="profile-repeat-value">${profileNumberHTML("repeats", scopedRepeatCount)}</div>
+        <h3>revisionnage${scopedRepeatCount === 1 ? "" : "s"}</h3>
+        <p>Relectures, nouvelles parties et œuvres revues sur cette période.</p>
+      </section>
+    </div>
+
+    <section class="profile-dashboard-card profile-mosaic-section" data-ui-key="profile-mosaic">
+      <div class="profile-card-heading">
+        <div><span class="section-eyebrow">Votre année en images</span><h3>Mosaïque · ${_profileYear}</h3></div>
+        <span class="section-count">${mosaicEntries.length} affiche${mosaicEntries.length > 1 ? "s" : ""}</span>
+      </div>
+      <div class="profile-mosaic">${mosaicHTML}</div>
+    </section>
+
+    <details class="profile-account-details" data-ui-key="profile-account">
       <summary>
         <span><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
         <span aria-hidden="true">⌄</span>
@@ -1495,7 +1721,13 @@ async function renderDashboard() {
       </div>
     </details>
   `;
-  replayMotion(container, "dashboard-refresh");
+  const changedBlocks = patchKeyedSurface(container, dashboardHTML);
+  changedBlocks.forEach(block => {
+    replayMotion(block, "profile-block-enter");
+    block.addEventListener("animationend", () => block.classList.remove("profile-block-enter"), { once: true });
+  });
+  animateProfileNumbers(container);
+  hydrateFadeImages(container);
 }
 
 function openModal(entry = null, prefillTitle = null) {
@@ -1618,12 +1850,14 @@ function _renderWizard() {
 
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal modal-wizard" data-step="${s.step}" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
+      <div class="modal modal-wizard" data-step="${s.step}" data-media-accent="${s.step === 2 ? esc(s.type) : "neutral"}" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
         <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
         ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ""}
       </div>
     </div>`;
+  pushHistoryLayer("modal", { modal: "add", step: s.step });
+  syncSystemBar(_currentPage, s.step === 2 ? s.type : null);
 
   if (s.step === 1) {
     setupWizardUniversalSearch();
@@ -1666,7 +1900,7 @@ function _openModalClassic(entry) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal edit-modal" data-edit-view="main" role="dialog" aria-modal="true">
+      <div class="modal edit-modal" data-edit-view="main" data-media-accent="${esc(entry.media_type || "movie")}" role="dialog" aria-modal="true">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" onclick="UI.setEditDetailsView(false)" aria-label="Revenir à la modification principale">←</button>
           <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
@@ -1748,6 +1982,8 @@ function _openModalClassic(entry) {
         </div>
       </div>
     </div>`;
+  pushHistoryLayer("modal", { modal: "edit", mediaId: entry.id });
+  syncSystemBar(_currentPage, entry.media_type);
   _currentRating = entry.rating || 0;
   buildRatingStars(entry.rating || 0);
   updateApiAvailLabel(entry.media_type || "movie");
@@ -1935,6 +2171,9 @@ function setupWizardUniversalSearch() {
   if (!input || !results) return;
   let timer;
   let requestSeq = 0;
+  let activeController = null;
+  input.dataset.kulturoSearch = "true";
+  input._kulturoAbortSearch = () => activeController?.abort();
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
@@ -1942,6 +2181,7 @@ function setupWizardUniversalSearch() {
     const start = document.getElementById("wz-search-start");
     if (_wizardState) _wizardState.title = query;
     if (query.length < 2) {
+      activeController?.abort();
       requestSeq++;
       results.style.display = "none";
       results.innerHTML = "";
@@ -1952,6 +2192,9 @@ function setupWizardUniversalSearch() {
 
     timer = setTimeout(async () => {
       const seq = ++requestSeq;
+      activeController?.abort();
+      activeController = new AbortController();
+      const { signal } = activeController;
       results.style.display = "block";
       results.innerHTML = `
         <div class="wz-search-skeleton" role="status" aria-label="Recherche en cours">
@@ -1961,14 +2204,14 @@ function setupWizardUniversalSearch() {
 
       const requests = ["movie", "game", "book"].map(async type => {
         try {
-          const items = await searchMedia(query, type);
+          const items = await searchMedia(query, type, { signal });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
         } catch {
           return [];
         }
       });
       const grouped = await Promise.all(requests);
-      if (seq !== requestSeq || input.value.trim() !== query) return;
+      if (signal.aborted || seq !== requestSeq || input.value.trim() !== query) return;
 
       const items = grouped.flat().filter(item => !findMatchingEntry(item));
       window._apiResults = items;
@@ -2007,11 +2250,15 @@ function setupApiSearch() {
   if (!input || !results) return;
   let timer;
   let requestSeq = 0;
+  let activeController = null;
+  input.dataset.kulturoSearch = "true";
+  input._kulturoAbortSearch = () => activeController?.abort();
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
     const q = input.value.trim();
     if (q.length < 2) {
+      activeController?.abort();
       requestSeq++;
       results.style.display = "none";
       return;
@@ -2019,8 +2266,11 @@ function setupApiSearch() {
     timer = setTimeout(async () => {
       const type  = document.getElementById("f-type")?.value || "game";
       const seq = ++requestSeq;
-      const items = await searchMedia(q, type);
-      if (seq !== requestSeq || input.value.trim() !== q ||
+      activeController?.abort();
+      activeController = new AbortController();
+      const { signal } = activeController;
+      const items = await searchMedia(q, type, { signal });
+      if (signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
           (document.getElementById("f-type")?.value || "game") !== type) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
@@ -2225,7 +2475,11 @@ async function toggleFav(id) {
 }
 
 // ── Modal helpers ─────────────────────────────────────────────
-async function closeModal(force = false) {
+async function closeModal(force = false, options = {}) {
+  if (!options.fromHistory && historyOwnsLayer("modal")) {
+    history.back();
+    return true;
+  }
   if (_modalDirty && !force) {
     if (_modalClosePromptOpen) return;
     _modalClosePromptOpen = true;
@@ -2236,10 +2490,11 @@ async function closeModal(force = false) {
       "danger"
     );
     _modalClosePromptOpen = false;
-    if (!discard) return;
+    if (!discard) return false;
   }
   const overlay = document.getElementById("modal-overlay");
   const cleanup = () => {
+    document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
     const root = document.getElementById("modal-root");
     if (root) root.innerHTML = "";
     _currentRating = 0;
@@ -2249,11 +2504,13 @@ async function closeModal(force = false) {
     window._apiResults = [];
     _modalDirty = false;
     _modalClosePromptOpen = false;
+    syncSystemBar(_currentPage, null);
   };
-  if (!overlay) { cleanup(); return; }
-  if (overlay.classList.contains("is-closing")) return;
+  if (!overlay) { cleanup(); return true; }
+  if (overlay.classList.contains("is-closing")) return true;
   overlay.classList.add("is-closing");
   setTimeout(cleanup, 180);
+  return true;
 }
 function closeModalOnBg(e) {
   if (e.target.id === "modal-overlay") closeModal();
@@ -2353,7 +2610,66 @@ function setSort(val) {
 }
 
 // ── Global search ─────────────────────────────────────────────
+async function handleSmartBack(event) {
+  _handlingPopState = true;
+  try {
+    const confirmCancel = document.getElementById("confirm-cancel");
+    if (confirmCancel) {
+      confirmCancel.click();
+      setTimeout(restoreOpenLayerHistory, 0);
+      return;
+    }
+    if (document.getElementById("metadata-overlay")) {
+      closeMetadataPanel({ restoreFocus: true });
+      return;
+    }
+    if (document.getElementById("filter-modal-overlay")) {
+      UI.closeFilterModal({ fromHistory: true });
+      return;
+    }
+    if (document.getElementById("modal-overlay")) {
+      const closed = await closeModal(false, { fromHistory: true });
+      if (!closed) restoreOpenLayerHistory();
+      return;
+    }
+
+    const target = event.state;
+    if (target?.kulturo && target.page && target.page !== _currentPage) {
+      navTo(target.page, { history: "none", preserveFilters: true, preserveSearch: true });
+    }
+  } finally {
+    _handlingPopState = false;
+  }
+}
+
 function bindGlobalEvents() {
+  document.addEventListener("load", event => {
+    if (event.target instanceof HTMLImageElement && event.target.matches("[data-fade-image]")) {
+      event.target.classList.add("is-loaded");
+    }
+  }, true);
+
+  let prefetchTimer = 0;
+  let prefetchTarget = null;
+  document.addEventListener("pointerover", event => {
+    if (!window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches) return;
+    const target = event.target.closest?.("[data-prefetch-media]");
+    if (!target || target === prefetchTarget) return;
+    prefetchTarget = target;
+    clearTimeout(prefetchTimer);
+    prefetchTimer = setTimeout(() => prefetchDetail(target.dataset.prefetchMedia), 180);
+  });
+  document.addEventListener("pointerout", event => {
+    const target = event.target.closest?.("[data-prefetch-media]");
+    if (!target || target.contains(event.relatedTarget)) return;
+    clearTimeout(prefetchTimer);
+    if (prefetchTarget === target) prefetchTarget = null;
+  });
+  document.addEventListener("pointerdown", event => {
+    const target = event.target.closest?.("[data-prefetch-media]");
+    if (target) prefetchDetail(target.dataset.prefetchMedia);
+  }, { passive: true });
+
   // Ripple effect sur les boutons
   document.addEventListener("click", e => {
     const btn = e.target.closest(".btn");
@@ -2385,6 +2701,7 @@ function bindGlobalEvents() {
     e.preventDefault();
     e.returnValue = "";
   });
+  window.addEventListener("popstate", handleSmartBack);
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
     const confirmCancel = document.getElementById("confirm-cancel");
@@ -2406,7 +2723,7 @@ function bindGlobalEvents() {
     }, 120);
   });
 
-
+  hydrateFadeImages(document);
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -2758,6 +3075,7 @@ function renderUpcomingCards() {
   renderUpcomingGenreFilter();
   const allResults = filteredUpcomingResults();
   const results = visibleUpcomingResults();
+  const affinity = buildLibraryAffinity(State.entries);
   const hideAdded = document.getElementById("upcoming-hide-added");
   if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   const resultCount = document.getElementById("upcoming-result-count");
@@ -2774,7 +3092,7 @@ function renderUpcomingCards() {
     const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
-      grid.innerHTML = `<div class="upcoming-loading"><div class="spinner"></div><span>Chargement en cours : ${esc(pendingLabels.join(", "))}…</span></div>`;
+      grid.innerHTML = loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`);
       return;
     }
     const statuses = UpcomingState.type === "all"
@@ -2809,7 +3127,13 @@ function renderUpcomingCards() {
       : sourceStatus === "empty" && UpcomingState.type === "book"
         ? "Aucune date française fiable"
         : "Aucune sortie trouvée";
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>${emptyTitle}</h3><p>${sourceMessage}</p>${hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : ""}</div>`;
+    const stateOptions = {
+      icon: "📅",
+      title: emptyTitle,
+      message: sourceMessage,
+      actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : "",
+    };
+    grid.innerHTML = sourceStatus === "error" ? errorState(stateOptions) : emptyState(stateOptions);
     return;
   }
 
@@ -2838,17 +3162,18 @@ function renderUpcomingCards() {
         <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
       </div>
       <div class="upcoming-grid">
-        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx)).join("")}
+        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx, recommendationForUpcoming(it, affinity))).join("")}
       </div>
     </section>`).join("");
   requestAnimationFrame(() => {
     grid.querySelectorAll(".upcoming-card").forEach((card, i) => {
       card.style.animationDelay = `${Math.min(i * 40, 480)}ms`;
     });
+    hydrateFadeImages(grid);
   });
 }
 
-function upcomingCardHTML(it, idx) {
+function upcomingCardHTML(it, idx, recommendation = null) {
   const inLibrary = isUpcomingInLibrary(it);
   const days = daysUntilRelease(it.release_date, it.date_precision);
   const type = upcomingTypeOf(it);
@@ -2859,7 +3184,7 @@ function upcomingCardHTML(it, idx) {
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
-    ? `<img class="card-cover" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" style="opacity:0" onload="this.style.opacity='1'" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
        <div class="card-cover-placeholder" style="display:none">${typeMeta.icon}</div>`
     : `<div class="card-cover-placeholder">${typeMeta.icon}</div>`;
 
@@ -2870,6 +3195,7 @@ function upcomingCardHTML(it, idx) {
       <div class="upcoming-cover-wrap">
         ${cover}
         ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
+        ${recommendation ? `<span class="upcoming-for-you" title="${esc(recommendation.reason)}" aria-label="Pour vous : ${esc(recommendation.reason)}">✦ Pour vous</span>` : ""}
       </div>
       <div class="card-body">
         <div class="card-title">${esc(it.title)}</div>
@@ -2937,6 +3263,41 @@ function canEnrichMediaDetails(entry) {
   return ["movie", "game"].includes(entry.media_type) && Boolean(entry.external_id);
 }
 
+const DETAIL_PREFETCH_TTL = 15 * 60_000;
+const _detailPrefetchCache = new Map();
+
+function detailPrefetchKey(entry) {
+  return `${entry.media_type}:${entry.subtype || ""}:${entry.source_api || ""}:${entry.external_id || normalizeTitle(entry.title)}`;
+}
+
+async function fetchMediaDetails(entry) {
+  if (entry.media_type === "movie" && entry.external_id) {
+    return TMDbDetails.fetch(entry.external_id, entry.subtype || "movie");
+  }
+  if (entry.media_type === "game" && entry.external_id) return IGDBDetails.fetch(entry.external_id);
+  if (entry.media_type === "book") return OpenLibraryDetails.fetch(entry.external_id, entry);
+  return null;
+}
+
+function requestPrefetchedDetails(entry) {
+  if (!canEnrichMediaDetails(entry)) return Promise.resolve(null);
+  const key = detailPrefetchKey(entry);
+  const cached = _detailPrefetchCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.promise;
+  const promise = fetchMediaDetails(entry).catch(error => {
+    _detailPrefetchCache.delete(key);
+    throw error;
+  });
+  _detailPrefetchCache.set(key, { promise, expiresAt: Date.now() + DETAIL_PREFETCH_TTL });
+  return promise;
+}
+
+function prefetchDetail(id) {
+  const entry = State.entries.find(item => item.id === id);
+  if (!entry || entry._detailsFetched || entry._detailsPending || !canEnrichMediaDetails(entry)) return;
+  requestPrefetchedDetails(entry).catch(() => {});
+}
+
 async function openUpcomingDetail(idx) {
   const it = visibleUpcomingResults()[idx];
   if (!it) return;
@@ -2963,14 +3324,7 @@ async function openUpcomingDetail(idx) {
   _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
-    let details = null;
-    if (mediaType === "movie" && preview.external_id) {
-      details = await TMDbDetails.fetch(preview.external_id, preview.subtype || "movie");
-    } else if (mediaType === "game" && preview.external_id) {
-      details = await IGDBDetails.fetch(preview.external_id);
-    } else if (mediaType === "book") {
-      details = await OpenLibraryDetails.fetch(preview.external_id, preview);
-    }
+    const details = await requestPrefetchedDetails(preview);
     if (!details) {
       refreshDetailEnrichment(preview, { detailsLoading: false });
       return;
@@ -3056,13 +3410,13 @@ function renderDetailPanel(e, options = {}) {
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image" data-fade-image onerror="this.style.display='none'">`
     : `<div class="detail-poster detail-poster-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal detail-modal" role="dialog" aria-modal="true">
+      <div class="modal detail-modal" data-media-accent="${esc(e.media_type || "movie")}" role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -3109,6 +3463,9 @@ function renderDetailPanel(e, options = {}) {
       </div>
     </div>`;
 
+  pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });
+  syncSystemBar(_currentPage, e.media_type);
+  hydrateFadeImages(root);
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
     const cssCoverUrl = coverUrl.replace(/["\\\n\r]/g, "");
@@ -3142,7 +3499,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
     tracking = false;
     distance = 0;
     overlay.classList.remove("is-swipe-tracking");
-    sheet.style.transition = "transform .22s var(--ease-smooth)";
+    sheet.style.transition = "transform var(--motion-base) var(--ease-interface)";
     sheet.style.transform = "translate3d(0, 0, 0)";
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
@@ -3349,9 +3706,9 @@ function openMetadataFromElement(element) {
   const mediaRows = matches.map(entry => {
     const coverUrl = safeMediaUrl(entry.cover_url);
     return `
-      <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" onclick="UI.openMetadataMedia(this.dataset.mediaId)">
+      <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" data-prefetch-media="${esc(entry.id)}" onclick="UI.openMetadataMedia(this.dataset.mediaId)">
         ${coverUrl
-          ? `<img src="${esc(coverUrl)}" alt="" loading="lazy">`
+          ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">`
           : `<span class="metadata-media-cover" aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
         <span class="metadata-media-copy">
           <strong>${esc(entry.title)}</strong>
@@ -3385,6 +3742,8 @@ function openMetadataFromElement(element) {
           </footer>` : ""}
       </section>
     </div>`);
+  pushHistoryLayer("metadata", { metadata: `${kind}:${value}` });
+  hydrateFadeImages(document.getElementById("metadata-overlay"));
 
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
   if (detailModal) detailModal.inert = true;
@@ -3400,6 +3759,10 @@ function openMetadataFromElement(element) {
 }
 
 function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
+  if (!immediate && historyOwnsLayer("metadata")) {
+    history.back();
+    return;
+  }
   const overlay = document.getElementById("metadata-overlay");
   const finish = () => {
     overlay?.remove();
@@ -3452,17 +3815,20 @@ function renderDetailSynopsisHTML(e, options = {}) {
     );
   }
 
-  return "";
+  return detailSectionHTML("Synopsis",
+    `<p class="detail-synopsis-empty">Aucun synopsis n’est disponible pour ce média.</p>`,
+    "detail-synopsis-section detail-synopsis-unavailable"
+  );
 }
 
 function renderDetailInfoHTML(e, options = {}) {
-  const metaRow = (label, value) => value
-    ? `<div class="detail-meta-row"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
+  const metaRow = (label, value, key = label) => value
+    ? `<div class="detail-meta-row" data-detail-key="${esc(String(key))}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
     : "";
   const metadataRow = (label, kind, value) => {
     const links = metadataChipsHTML(e, kind, value);
     return links
-      ? `<div class="detail-meta-row detail-meta-row-links"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
+      ? `<div class="detail-meta-row detail-meta-row-links" data-detail-key="${esc(kind)}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
       : "";
   };
   let html = "";
@@ -3503,6 +3869,16 @@ function renderDetailInfoHTML(e, options = {}) {
     html += detailSectionHTML("Casting", `<div class="detail-chips">${cast}</div>`);
   }
 
+  const awaitsMoreInfo = options.detailsLoading && (
+    e.media_type === "book" || (["movie", "game"].includes(e.media_type) && Boolean(e.external_id))
+  );
+  if (awaitsMoreInfo) {
+    html += `<div class="detail-info-skeleton" role="status" aria-label="Chargement des informations complémentaires">
+      <span class="sr-only">Chargement des informations complémentaires…</span>
+      <i aria-hidden="true"></i><i aria-hidden="true"></i>
+    </div>`;
+  }
+
   // L'historique personnel clôt systématiquement la fiche.
   const historyMeta = options.readOnly ? "" : [
     metaRow("Terminé", e.date_finished ? formatReleaseDate(e.date_finished) : null),
@@ -3528,7 +3904,7 @@ function renderDetailBody(e, options = {}) {
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
   html += `<div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
-  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}">${renderDetailInfoHTML(e, options)}</div>`;
+  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div>`;
 
   return html;
 }
@@ -3587,29 +3963,32 @@ function replaceDetailInfo(entry, options = {}) {
   const body = slot.closest(".detail-body");
   const previousScroll = body?.scrollTop || 0;
   const previousHeight = slot.getBoundingClientRect().height;
+  const current = slot.querySelector(":scope > .detail-info-content");
+  const next = document.createElement("div");
+  next.className = "detail-info-content detail-info-arriving";
+  next.innerHTML = renderDetailInfoHTML(entry, options);
+  if (current?.innerHTML === next.innerHTML) return;
 
   clearTimeout(slot._detailInfoTimer);
-  slot.classList.remove("is-resizing", "is-revealing");
-  slot.style.height = "auto";
-  slot.innerHTML = renderDetailInfoHTML(entry, options);
+  slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
+  slot.style.height = `${previousHeight}px`;
+  slot.classList.add("is-transitioning", "is-resizing", "is-revealing");
+  current?.classList.add("detail-info-leaving");
+  slot.append(next);
   const nextHeight = slot.getBoundingClientRect().height;
-
-  if (Math.abs(nextHeight - previousHeight) > 1) {
-    slot.style.height = `${previousHeight}px`;
-    slot.getBoundingClientRect();
-    slot.classList.add("is-resizing", "is-revealing");
-    requestAnimationFrame(() => {
-      if (!slot.isConnected) return;
-      slot.style.height = `${nextHeight}px`;
-    });
-    slot._detailInfoTimer = setTimeout(() => {
-      if (!slot.isConnected) return;
-      slot.style.height = "";
-      slot.classList.remove("is-resizing", "is-revealing");
-    }, 330);
-  } else {
+  const measuredNextHeight = next.scrollHeight;
+  slot.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    if (!slot.isConnected) return;
+    slot.style.height = `${measuredNextHeight || nextHeight}px`;
+  });
+  slot._detailInfoTimer = setTimeout(() => {
+    if (!slot.isConnected) return;
+    current?.remove();
+    next.classList.remove("detail-info-arriving");
     slot.style.height = "";
-  }
+    slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
+  }, 330);
 
   if (body) body.scrollTop = previousScroll;
 }
@@ -3909,15 +4288,7 @@ async function openDetailPanel(id) {
       return;
     }
 
-    let details = null;
-
-    if (e.media_type === "movie" && e.external_id) {
-      details = await TMDbDetails.fetch(e.external_id, e.subtype || "movie");
-    } else if (e.media_type === "game" && e.external_id) {
-      details = await IGDBDetails.fetch(e.external_id);
-    } else if (e.media_type === "book") {
-      details = await OpenLibraryDetails.fetch(e.external_id, e);
-    }
+    const details = await requestPrefetchedDetails(e);
 
     if (!details) {
       refreshDetailEnrichment(e, { detailsLoading: false });
@@ -4103,6 +4474,16 @@ function setMobileColumns(value) {
   });
 }
 
+function setLibraryDensity(value) {
+  const density = applyLibraryDensity(value);
+  try { localStorage.setItem(LIBRARY_DENSITY_KEY, density); } catch {}
+  document.querySelectorAll(".library-density-btn").forEach(button => {
+    const active = button.dataset.density === density;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
 // ── Journal culturel personnel ────────────────────────────────
 let _journalMode = (() => {
   try { return localStorage.getItem("kulturo-journal-mode") === "community" ? "community" : "personal"; }
@@ -4114,6 +4495,8 @@ try {
 } catch {}
 let _communityEntries = [];
 let _communityLoaded = false;
+let _journalMonthTarget = "all";
+let _journalMonthKeys = [];
 
 function syncJournalMode() {
   ["personal", "community"].forEach(mode => {
@@ -4125,6 +4508,8 @@ function syncJournalMode() {
     if (button) button.tabIndex = active ? 0 : -1;
     if (panel) panel.hidden = !active;
   });
+  const timeNav = document.getElementById("journal-time-nav");
+  if (timeNav) timeNav.hidden = _journalMode !== "personal";
 }
 
 function setJournalMode(mode) {
@@ -4155,12 +4540,12 @@ async function renderPersonalJournal() {
   if (!container) return;
 
   if (State.journalDirty) {
-    container.innerHTML = `<div class="journal-loading"><div class="spinner"></div><span>Chargement du journal…</span></div>`;
+    container.innerHTML = loadingState("Chargement du journal…", { compact: true });
     await refreshJournalEvents({ silent: true });
   }
 
   if (!State.journalAvailable) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal indisponible</h3><p>Vérifiez la table <strong>media_events</strong> dans Supabase.</p></div>`;
+    container.innerHTML = errorState({ title: "Journal indisponible", message: "Vérifiez la table <strong>media_events</strong> dans Supabase." });
     return;
   }
   renderCurrentJournalView();
@@ -4171,6 +4556,8 @@ function renderCurrentJournalView() {
   if (!container || !State.journalAvailable) return;
   const visible = visibleJournalEvents();
   container.innerHTML = renderJournalFeed(visible);
+  syncJournalTimeNavigation(visible);
+  hydrateFadeImages(container);
 }
 
 function journalDateLabel(value) {
@@ -4185,22 +4572,110 @@ function journalDateLabel(value) {
 
 function renderJournalFeed(events) {
   if (!events.length) {
-    return `<div class="empty-state"><div class="empty-icon">📓</div><h3>Journal vide</h3><p>Vos prochaines actions apparaîtront ici.</p></div>`;
+    return emptyState({ icon: "📓", title: "Journal vide", message: "Vos prochaines actions apparaîtront ici." });
   }
 
-  const groups = new Map();
+  const months = new Map();
   events.forEach(event => {
-    const label = journalDateLabel(event.occurred_at);
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(event);
+    const key = yearMonthOf(event.occurred_at) || "unknown";
+    if (!months.has(key)) months.set(key, []);
+    months.get(key).push(event);
   });
 
-  return [...groups.entries()].map(([date, items]) => `
-    <section class="activity-date-group journal-date-group">
-      <div class="activity-date-label">${esc(date)}</div>
-      ${items.map(journalRowHTML).join("")}
-    </section>
-  `).join("");
+  return [...months.entries()].map(([monthKey, monthEvents]) => {
+    const days = new Map();
+    monthEvents.forEach(event => {
+      const label = journalDateLabel(event.occurred_at);
+      if (!days.has(label)) days.set(label, []);
+      days.get(label).push(event);
+    });
+    const monthLabel = monthKey === "unknown"
+      ? "Date inconnue"
+      : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+          .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
+    return `
+      <section class="journal-month-group" id="journal-month-${esc(monthKey)}" data-journal-month="${esc(monthKey)}">
+        <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
+        ${[...days.entries()].map(([date, items]) => `
+          <section class="activity-date-group journal-date-group">
+            <div class="activity-date-label">${esc(date)}</div>
+            ${items.map(journalRowHTML).join("")}
+          </section>`).join("")}
+        ${monthKey === "unknown" ? "" : journalMonthSummaryHTML(monthKey)}
+      </section>`;
+  }).join("");
+}
+
+function journalMonthSummaryHTML(monthKey) {
+  const summary = journalMonthSummary(State.events, State.entries, monthKey);
+  const average = summary.average == null ? "—" : `★ ${summary.average.toFixed(1)}/10`;
+  const favorite = summary.favorite;
+  const favoriteCover = safeMediaUrl(favorite?.cover_url);
+  const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" })
+    .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
+  return `
+    <aside class="journal-month-summary" aria-label="Récapitulatif du mois">
+      <div class="journal-month-summary-heading"><span>Le mois en bref</span><strong>${esc(monthLabel)}</strong></div>
+      <div class="journal-month-summary-stats">
+        <span><strong>${summary.completed}</strong><small>terminé${summary.completed > 1 ? "s" : ""}</small></span>
+        <span><strong>${average}</strong><small>${summary.rated} noté${summary.rated > 1 ? "s" : ""}</small></span>
+      </div>
+      ${favorite ? `
+        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" onclick="UI.openJournalMedia('${esc(favorite.id)}')">
+          ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${TYPE_ICONS[favorite.media_type] || "🎭"}</span>`}
+          <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
+          ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
+        </button>` : `<p class="journal-month-no-favorite">Aucun favori noté pour ce mois.</p>`}
+    </aside>`;
+}
+
+function syncJournalTimeNavigation(events) {
+  const select = document.getElementById("journal-month-select");
+  const nav = document.getElementById("journal-time-nav");
+  if (!select || !nav) return;
+  _journalMonthKeys = [...new Set(events.map(event => yearMonthOf(event.occurred_at)).filter(Boolean))]
+    .sort((a, b) => b.localeCompare(a));
+  if (_journalMonthTarget !== "all" && !_journalMonthKeys.includes(_journalMonthTarget)) _journalMonthTarget = "all";
+  select.innerHTML = `<option value="all">Tout l’historique</option>` + _journalMonthKeys.map(key => {
+    const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+      .format(new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1));
+    return `<option value="${key}">${esc(label[0].toUpperCase() + label.slice(1))}</option>`;
+  }).join("");
+  select.value = _journalMonthTarget;
+  syncJournalTimeButtons();
+}
+
+function syncJournalTimeButtons() {
+  const index = _journalMonthKeys.indexOf(_journalMonthTarget);
+  const previous = document.getElementById("journal-time-prev");
+  const next = document.getElementById("journal-time-next");
+  if (previous) previous.disabled = !_journalMonthKeys.length || (_journalMonthTarget !== "all" && index >= _journalMonthKeys.length - 1);
+  if (next) next.disabled = _journalMonthTarget === "all" || index <= 0;
+}
+
+function jumpJournalMonth(value) {
+  if (value !== "all" && !_journalMonthKeys.includes(value)) return;
+  _journalMonthTarget = value;
+  const select = document.getElementById("journal-month-select");
+  if (select) select.value = value;
+  syncJournalTimeButtons();
+  const main = document.getElementById("main");
+  const target = value === "all"
+    ? document.querySelector("#journal-feed .journal-month-group")
+    : document.getElementById(`journal-month-${value}`);
+  if (!main || !target) return;
+  const mainRect = main.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const stickyHeight = document.querySelector("#page-journal .journal-sticky-controls")?.offsetHeight || 0;
+  const top = Math.max(0, main.scrollTop + targetRect.top - mainRect.top - stickyHeight - 8);
+  main.scrollTo({ top, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth" });
+}
+
+function stepJournalMonth(direction) {
+  if (!_journalMonthKeys.length) return;
+  const currentIndex = _journalMonthTarget === "all" ? -1 : _journalMonthKeys.indexOf(_journalMonthTarget);
+  const nextIndex = Math.min(_journalMonthKeys.length - 1, Math.max(0, currentIndex + Number(direction || 0)));
+  jumpJournalMonth(_journalMonthKeys[nextIndex]);
 }
 
 function journalRowHTML(event) {
@@ -4210,7 +4685,7 @@ function journalRowHTML(event) {
   const mediaIcon = TYPE_ICONS[entry.media_type] || "🎭";
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${mediaIcon}</div>`;
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
   const currentRating = Number(entry.rating);
@@ -4220,7 +4695,7 @@ function journalRowHTML(event) {
   const type = getTypeLabel(entry);
   const dateOnly = Boolean(metadata.date_only || metadata.legacy);
   const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openJournalMedia('${entry.id}')}"`;
+  const attributes = `role="button" tabindex="0" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openJournalMedia('${entry.id}')}"`;
 
   return `
     <article class="activity-row is-clickable journal-event-row" ${attributes}>
@@ -4252,18 +4727,20 @@ async function renderCommunity() {
 
   if (_communityLoaded) {
     container.innerHTML = renderCommunityFeed(_communityEntries);
+    hydrateFadeImages(container);
     return;
   }
 
-  container.innerHTML = `<div class="journal-loading"><div class="spinner"></div><span>Chargement de la communauté…</span></div>`;
+  container.innerHTML = loadingState("Chargement de la communauté…", { compact: true });
 
   try {
     const entries = await Activity.getFeed(100);
     _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
     _communityLoaded = true;
     container.innerHTML = renderCommunityFeed(_communityEntries);
+    hydrateFadeImages(container);
   } catch {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Communauté indisponible</h3><p>Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase.</p></div>`;
+    container.innerHTML = errorState({ title: "Communauté indisponible", message: "Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase." });
   }
 }
 
@@ -4293,7 +4770,7 @@ function communityRowHTML(entry) {
   const status = STATUS_LABELS[entry.status] || "Ajouté";
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover" alt="" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
   const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}')}"`;
@@ -4384,6 +4861,7 @@ window.UI = {
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
       const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
       const mobileColumns = readMobileColumns();
+      const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
           onclick="UI.setTypeFilter('${v}')">${l}</button>`
@@ -4447,6 +4925,17 @@ window.UI = {
                   </button>
                 </div>
               </div>
+              <div class="filter-modal-section">
+                <div class="filter-modal-label">Densité de la bibliothèque</div>
+                <div class="library-density-control" role="group" aria-label="Densité de la grille">
+                  <button type="button" class="library-density-btn ${libraryDensity === "standard" ? "active" : ""}" data-density="standard" aria-pressed="${libraryDensity === "standard"}" onclick="UI.setLibraryDensity('standard')">
+                    <span aria-hidden="true">▦</span><span><strong>Standard</strong><small>Affiches plus grandes</small></span>
+                  </button>
+                  <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" onclick="UI.setLibraryDensity('compact')">
+                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus de titres visibles</small></span>
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="modal-footer">
               <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" onclick="UI.resetFilters()">Réinitialiser</button>
@@ -4457,6 +4946,7 @@ window.UI = {
     };
 
     root.insertAdjacentHTML("beforeend", _buildModal());
+    pushHistoryLayer("filters");
     const overlay = document.getElementById("filter-modal-overlay");
     setupMobileSheetSwipe({
       overlay,
@@ -4487,7 +4977,11 @@ window.UI = {
     setTimeout(() => toast(`${count} résultat${count > 1 ? "s" : ""}`, "info"), 220);
   },
 
-  closeFilterModal: () => {
+  closeFilterModal: (options = {}) => {
+    if (!options.fromHistory && historyOwnsLayer("filters")) {
+      history.back();
+      return;
+    }
     const overlay = document.getElementById("filter-modal-overlay");
     if (!overlay) return;
     if (overlay.classList.contains("is-closing")) return;
@@ -4530,6 +5024,7 @@ window.UI = {
   setUpcomingHideAdded,
   resetUpcomingFilters,
   refreshUpcoming: () => {
+    clearApiCache(key => key.includes("/discover/") || key.includes('"action":"upcoming"'));
     UpcomingState.loaded = false;
     UpcomingState.results = [];
     renderUpcoming(true);
@@ -4538,9 +5033,12 @@ window.UI = {
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
   setJournalMode,
+  jumpJournalMonth,
+  stepJournalMonth,
   saveUsername,
   exportLibrary,
   setMobileColumns,
+  setLibraryDensity,
   applyAppUpdate,
   dismissUpdateBanner,
   showRatingLabel,

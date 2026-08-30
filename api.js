@@ -4,6 +4,7 @@
 // ============================================================
 
 import { Auth } from "./supabase.js";
+import { requestJSON } from "./features/request-client.js";
 
 // Identifiants officiels TMDb. Les libellés sont gardés côté client pour
 // éviter deux requêtes supplémentaires à chaque chargement des sorties.
@@ -40,16 +41,7 @@ function tmdbGenreData(ids, subtype) {
 
 // ── Utilitaire fetch avec timeout ────────────────────────────
 async function apiFetch(url, options = {}) {
-  const controller = new AbortController();
-  const { timeoutMs = 8000, ...fetchOptions } = options;
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...fetchOptions, signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
+  return requestJSON(url, options);
 }
 
 async function edgeFunctionHeaders() {
@@ -72,15 +64,15 @@ export const TMDb = {
     return CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_");
   },
 
-  async search(query) {
+  async search(query, options = {}) {
     if (!this.available()) return [];
     const base = CONFIG.tmdb.baseUrl;
     const key  = CONFIG.tmdb.apiKey;
     const lang = "language=fr-FR";
 
     const [movies, shows] = await Promise.allSettled([
-      apiFetch(`${base}/search/movie?api_key=${key}&query=${encodeURIComponent(query)}&${lang}`),
-      apiFetch(`${base}/search/tv?api_key=${key}&query=${encodeURIComponent(query)}&${lang}`),
+      apiFetch(`${base}/search/movie?api_key=${key}&query=${encodeURIComponent(query)}&${lang}`, { cachePolicy: "search", signal: options.signal }),
+      apiFetch(`${base}/search/tv?api_key=${key}&query=${encodeURIComponent(query)}&${lang}`, { cachePolicy: "search", signal: options.signal }),
     ]);
 
     const normalizeMovie = m => ({
@@ -160,10 +152,10 @@ export const TMDb = {
     const tvFrenchOriginUrl = page => `${base}/discover/tv?${common}&${tvWindow}&with_origin_country=FR&page=${page}`;
 
     const requests = await Promise.allSettled([
-      apiFetch(movieUrl(1)), apiFetch(movieUrl(2)),
-      apiFetch(tvFranceUrl(1)), apiFetch(tvFranceUrl(2)),
-      apiFetch(tvBroadcasterUrl(1)), apiFetch(tvBroadcasterUrl(2)), apiFetch(tvBroadcasterUrl(3)),
-      apiFetch(tvFrenchOriginUrl(1)), apiFetch(tvFrenchOriginUrl(2)),
+      apiFetch(movieUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(movieUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
+      apiFetch(tvFranceUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvFranceUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
+      apiFetch(tvBroadcasterUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvBroadcasterUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvBroadcasterUrl(3), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
+      apiFetch(tvFrenchOriginUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvFrenchOriginUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
     ]);
     if (requests.every(r => r.status === "rejected")) {
       throw new Error("TMDB indisponible");
@@ -256,13 +248,15 @@ export const IGDB = {
     return CONFIG?.supabase?.url && CONFIG?.igdb?.clientId && !CONFIG.igdb.clientId.includes("VOTRE_");
   },
 
-  async search(query) {
+  async search(query, options = {}) {
     if (!this.available()) return [];
     const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
     const data = await apiFetch(proxyUrl, {
       method: "POST",
       headers: await edgeFunctionHeaders(),
       body: JSON.stringify({ query }),
+      cachePolicy: "search",
+      signal: options.signal,
     });
     if (data.error) throw new Error(data.error);
     return (data || []).map(g => ({
@@ -289,6 +283,7 @@ export const IGDB = {
       headers: await edgeFunctionHeaders(),
       body: JSON.stringify({ action: "upcoming" }),
       timeoutMs: 15000,
+      cachePolicy: "upcoming",
     });
     if (data?.error) throw new Error(data.error);
 
@@ -358,9 +353,9 @@ export const IGDB = {
 export const OpenLibrary = {
   available() { return true; }, // pas de clé requise
 
-  async search(query) {
+  async search(query, options = {}) {
     const url = `${CONFIG.openLibrary.baseUrl}/search.json?q=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,subject,cover_i`;
-    const data = await apiFetch(url);
+    const data = await apiFetch(url, { cachePolicy: "search", signal: options.signal });
     return (data.docs || []).map(b => ({
       external_id:  b.key?.replace("/works/", "") || null,
       title:        b.title,
@@ -391,6 +386,7 @@ async function googleBooksProxy(payload, timeoutMs = 20000) {
     headers: await edgeFunctionHeaders(),
     body: JSON.stringify(payload),
     timeoutMs,
+    cachePolicy: payload?.action === "upcoming" ? "upcoming" : "detail",
   });
   if (data?.error) throw new Error(data.error);
   return Array.isArray(data?.items) ? data.items : [];
@@ -449,9 +445,9 @@ export const TMDbDetails = {
     const lang = "language=fr-FR";
 
     const [main, credits, providers] = await Promise.allSettled([
-      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`),
-      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`),
-      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`),
+      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, { cachePolicy: "detail" }),
+      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, { cachePolicy: "detail" }),
+      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, { cachePolicy: "detail" }),
     ]);
 
     const d = main.status === "fulfilled" ? main.value : null;
@@ -473,7 +469,7 @@ export const TMDbDetails = {
     const topCast = c?.cast?.slice(0, 4) || [];
     const cast_members = topCast.map(x => x.name).join(", ") || null;
     const castExternalIds = await Promise.allSettled(topCast.map(person =>
-      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`)
+      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`, { cachePolicy: "detail" })
     ));
     const cast_people = topCast.map((person, index) => ({
       id: person.id,
@@ -522,6 +518,8 @@ export const IGDBDetails = {
       method: "POST",
       headers: await edgeFunctionHeaders(),
       body: JSON.stringify({ id: Number(externalId) }),
+      cachePolicy: "detail",
+      timeoutMs: 12_000,
     });
     const g = Array.isArray(data) ? data[0] : data;
     if (!g) return null;
@@ -552,6 +550,8 @@ async function translateViaProxy(text) {
       // Le navigateur n'a pas le droit de choisir le prompt ou le modèle.
       // Le proxy applique lui-même une consigne de traduction fixe.
       body: JSON.stringify({ text }),
+      cachePolicy: "translation",
+      timeoutMs: 15_000,
     });
     return data.translation?.trim() || text;
   } catch {
@@ -562,8 +562,8 @@ async function translateViaProxy(text) {
 export const OpenLibraryDetails = {
   async fetch(externalId, fallback = {}) {
     const [workResult, editionsResult] = await Promise.allSettled([
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`) : Promise.resolve(null),
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`) : Promise.resolve({ entries: [] }),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`, { cachePolicy: "detail" }) : Promise.resolve(null),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`, { cachePolicy: "detail" }) : Promise.resolve({ entries: [] }),
     ]);
     const work = workResult.status === "fulfilled" ? workResult.value : null;
     const editions = editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
@@ -655,17 +655,18 @@ async function fetchGoogleBookDetails({ title, author, isbn }) {
 }
 
 // ── Dispatcher selon le type de média ───────────────────────
-export async function searchMedia(query, mediaType) {
+export async function searchMedia(query, mediaType, options = {}) {
   if (!query || query.length < 2) return [];
   try {
     switch (mediaType) {
-      case "movie": return await TMDb.search(query);
-      case "game":  return await IGDB.search(query);
-      case "book":  return await OpenLibrary.search(query);
+      case "movie": return await TMDb.search(query, options);
+      case "game":  return await IGDB.search(query, options);
+      case "book":  return await OpenLibrary.search(query, options);
       default:      return [];
     }
   } catch (err) {
     // On ignore les erreurs serveur (5xx) qui sont hors de notre contrôle
+    if (err?.name === "AbortError") return [];
     if (!err.message?.includes("HTTP 5")) {
       console.error("[API] Erreur recherche :", err);
     }

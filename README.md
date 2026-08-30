@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.1.4**
+Version actuelle : **3.2.0**
 
 ## Fonctionnalités
 
@@ -18,6 +18,15 @@ Version actuelle : **3.1.4**
 - Vue **Communauté** réservée aux autres membres, avec fiches en lecture seule
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
 - Histogramme des notes cliquable vers les médias concernés
+- Navigation Retour intelligente pour les pages, fiches, filtres et panneaux d’informations
+- Préchargement discret des fiches au survol ou au toucher, avec transitions locales des enrichissements
+- Navigation temporelle dans le Journal et récapitulatif de chaque mois
+- Recommandations **Pour vous** dans Sorties selon les genres, personnes et studios les plus présents dans la bibliothèque
+- Profil enrichi : genres explorés, revisionnages et mosaïque annuelle des affiches
+- Densité **Compacte** facultative pour les grandes bibliothèques
+- Accents visuels adaptés au type de média et couleur de barre système synchronisée
+- États communs de chargement, de liste vide et d’erreur, avec mise à jour locale des cartes et blocs du Profil
+- Couche réseau commune avec annulation des recherches obsolètes, cache à durée de vie, délai maximal et nouvelle tentative
 - Export JSON de la bibliothèque et du Journal
 - Interface responsive et PWA installable, avec toutes les modales refermables par glissement sur mobile
 - Animations courtes et cohérentes, adaptées au réglage système de réduction des mouvements
@@ -47,10 +56,15 @@ Kulturo/
 ├── style.css
 ├── styles/
 │   ├── add-sheet.css
-│   └── mobile-polish.css
+│   ├── mobile-polish.css
+│   └── enhancements.css
 ├── features/
 │   ├── add-flow.js
-│   └── media-metadata.js
+│   ├── dom-updates.js
+│   ├── insights.js
+│   ├── media-metadata.js
+│   ├── request-client.js
+│   └── ui-states.js
 ├── config.js
 ├── schema.sql
 ├── package.json
@@ -61,6 +75,7 @@ Kulturo/
 ├── icon-512.png
 ├── tests/
 │   ├── domain.test.mjs
+│   ├── enhancements.test.mjs
 │   ├── frontend-contract.test.mjs
 │   └── media-ui.test.mjs
 └── supabase/functions/
@@ -83,7 +98,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.1.4 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.2.0 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -133,7 +148,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.1.4",
+    version: "3.2.0",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -189,6 +204,8 @@ La note affichée sur chaque ligne est toujours la note actuelle du média, au f
 
 **Communauté** affiche uniquement l’activité partageable des autres membres. Le compte connecté n’y est jamais répété, puisqu’il possède déjà son Journal. Les notes textuelles, dates personnelles de suivi et autres informations privées ne sont pas exposées. Les fiches des autres restent en lecture seule.
 
+Le Journal reste ouvert sur tout l’historique. Ses flèches et son sélecteur permettent de rejoindre rapidement un mois sans transformer le fil en filtre permanent. Un récapitulatif clôt chaque mois avec le nombre de médias terminés, la moyenne des médias notés sur la période et son favori éventuel.
+
 ### Profil
 
 Le Profil propose une vue annuelle ou mensuelle, filtrable par films, séries, jeux et livres.
@@ -199,6 +216,8 @@ Le Profil propose une vue annuelle ou mensuelle, filtrable par films, séries, j
 - Un mois choisi manuellement reste affiché même s’il est vide.
 - À l’ouverture, un mois courant sans Top peut revenir au dernier mois précédent renseigné.
 - L’histogramme global ouvre les médias correspondant exactement à la note sélectionnée.
+- Les nombres principaux évoluent doucement lors d’un changement de période, sans reconstruire les blocs restés identiques.
+- Les genres les plus explorés, le nombre de revisionnages et une mosaïque des affiches de l’année complètent la lecture du Profil.
 
 Les anciens médias marqués **Terminé** sans date ont été harmonisés en utilisant leur date d’ajout, conformément au fonctionnement personnel de cette installation.
 
@@ -207,6 +226,16 @@ Les anciens médias marqués **Terminé** sans date ont été harmonisés en uti
 TMDb fournit les films et premières diffusions de séries attendus en France, IGDB les jeux datés pour l’Europe ou à défaut à l’international, et les flux BnF les annonces françaises de livres, bandes dessinées et mangas.
 
 Chaque source s’affiche dès qu’elle répond, sans attendre les autres. Les annonces BnF sont consultées à la volée et ne sont enregistrées dans la bibliothèque qu’après une action volontaire sur **Wishlist**.
+
+Une sortie peut recevoir le badge **Pour vous** lorsqu’elle correspond fortement aux genres, réalisateurs, auteurs, studios ou éditeurs déjà représentés dans votre bibliothèque. Le badge reste volontairement exigeant : une seule correspondance isolée ne suffit pas.
+
+## Navigation et performances
+
+Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actuellement ouvert (confirmation, information, filtres ou fiche), puis revient à la page précédente. La position de chaque page est restaurée lors du changement d’onglet.
+
+Les couvertures et les informations récupérées apparaissent par fondu local : la fiche conserve sa structure et ses actions pendant l’enrichissement, avec un message explicite lorsqu’aucun synopsis n’est disponible. Les cartes de la bibliothèque et les blocs du Profil sont réconciliés localement afin qu’une petite modification ne reconstruise pas toute la page.
+
+Les recherches API interrompent la requête précédente dès qu’une nouvelle saisie commence. Les recherches, sorties, détails et traductions utilisent un cache mémoire à durée de vie limitée ; ce cache ne contient aucune donnée personnelle et disparaît au rechargement de la page. Chaque requête dispose aussi d’un délai maximal et d’une reprise limitée pour les erreurs transitoires.
 
 ### Sauvegarde
 
@@ -234,6 +263,8 @@ La clé anonyme/publishable Supabase est conçue pour être utilisée par le cli
 - Garder `schema.sql` synchronisé avec la structure complète de production.
 - Après une future évolution de la base, intégrer son état final dans `schema.sql` avant d’archiver le script ponctuel correspondant.
 - Mettre à jour la version dans `config.js` et le nom du cache dans `sw.js` uniquement lors d’une vraie publication de l’application.
+- Garder les durées et courbes d’animation dans les variables de `styles/enhancements.css`.
+- Ajouter toute nouvelle source externe derrière `features/request-client.js` plutôt qu’un appel réseau direct dans l’interface.
 - Lancer les tests avec :
 
 ```bash

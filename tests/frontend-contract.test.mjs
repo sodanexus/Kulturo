@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
-import { eventsForPeriod, isProfileTopEvent, journalEventPresentation, uniqueEntriesForEvents } from "../domain.js";
+import { eventsForPeriod, isProfileTopEvent, journalEventPresentation, uniqueEntriesForEvents, yearMonthOf } from "../domain.js";
 
 const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const style = await readFile(new URL("../style.css", import.meta.url), "utf8");
@@ -34,6 +34,9 @@ function journalHarness(entries, events) {
     eventsForPeriod,
     isProfileTopEvent,
     uniqueEntriesForEvents,
+    yearMonthOf,
+    journalMonthSummaryHTML: () => "",
+    emptyState: ({ title, message }) => `<div class="empty-state"><h3>${title}</h3><p>${message}</p></div>`,
     profileMediaMatches: () => true,
   });
   vm.runInContext(journalRenderingSource, context);

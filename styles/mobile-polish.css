@@ -39,7 +39,7 @@
   background: rgba(0, 0, 0, .68);
   opacity: 0;
   backdrop-filter: blur(0);
-  transition: opacity .18s var(--ease-smooth), backdrop-filter .18s var(--ease-smooth);
+  transition: opacity var(--motion-feedback) var(--ease-interface), backdrop-filter var(--motion-feedback) var(--ease-interface);
 }
 
 .metadata-overlay.is-open { opacity: 1; backdrop-filter: blur(7px); }
@@ -57,7 +57,7 @@
   box-shadow: var(--shadow-lg);
   opacity: 0;
   transform: translateY(16px) scale(.985);
-  transition: opacity .22s var(--ease-smooth), transform .22s var(--ease-smooth);
+  transition: opacity var(--motion-base) var(--ease-interface), transform var(--motion-base) var(--ease-interface);
 }
 
 .metadata-overlay.is-open .metadata-sheet { opacity: 1; transform: translateY(0) scale(1); }
@@ -139,7 +139,7 @@
 .mobile-swipe-overlay.is-closing.is-swipe-dismiss .mobile-swipe-sheet {
   opacity: 1;
   transition: none;
-  animation: mobileSheetSwipeOut .18s var(--ease-smooth) both;
+  animation: mobileSheetSwipeOut var(--motion-feedback) var(--ease-interface) both;
 }
 @keyframes mobileSheetSwipeOut {
   from { transform: translateY(var(--swipe-start, 92px)); }
