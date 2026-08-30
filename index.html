@@ -88,10 +88,24 @@
           })
           .catch(e => console.warn("[SW] Erreur :", e));
 
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
+        let updateControllerPending = false;
+        const reloadAfterAcceptedUpdate = () => {
           if (!window.__kulturoUpdateAccepted || window.__kulturoReloading) return;
+          // Un changement de contrôleur peut arriver pendant que l'onglet est
+          // en arrière-plan. On attend son retour visible pour éviter un
+          // rechargement qui semble provenir d'un simple changement d'onglet.
+          if (document.visibilityState === "hidden") {
+            updateControllerPending = true;
+            return;
+          }
+          updateControllerPending = false;
+          window.__kulturoUpdateAccepted = false;
           window.__kulturoReloading = true;
           window.location.reload();
+        };
+        navigator.serviceWorker.addEventListener("controllerchange", reloadAfterAcceptedUpdate);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible" && updateControllerPending) reloadAfterAcceptedUpdate();
         });
       });
     }

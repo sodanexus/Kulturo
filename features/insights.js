@@ -137,10 +137,3 @@ export function repeatCountForPeriod(events, entries, year, month = "all", predi
   if (datedRepeats.length || (events || []).length) return datedRepeats.length;
   return [...byId.values()].reduce((sum, entry) => sum + Math.max(0, Number.parseInt(entry.repeat_count, 10) || 0), 0);
 }
-
-export function annualMosaicEntries(entries, year, activityYear, limit = 24) {
-  return (entries || [])
-    .filter(entry => Number(activityYear(entry)) === Number(year) && entry.cover_url)
-    .sort((a, b) => new Date(b.date_finished || b.date_started || b.created_at || 0) - new Date(a.date_finished || a.date_started || a.created_at || 0))
-    .slice(0, Math.max(1, limit));
-}

@@ -3565,37 +3565,6 @@ input, textarea, select { border-radius: 12px; }
   margin-left: auto;
 }
 
-/* Préférence de grille dans le panneau Filtres. */
-.mobile-display-setting { display: none; }
-.mobile-columns-control {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .5rem;
-}
-.mobile-columns-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .55rem;
-  min-height: 44px;
-  padding: .55rem .75rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-2);
-  color: var(--text-3);
-  font-size: .76rem;
-  font-weight: 700;
-}
-.mobile-columns-btn.active {
-  border-color: var(--accent);
-  background: var(--accent-glow);
-  color: var(--accent-2);
-}
-.columns-preview { display: grid; gap: 2px; width: 22px; height: 18px; }
-.columns-preview-2 { grid-template-columns: repeat(2, 1fr); }
-.columns-preview-3 { grid-template-columns: repeat(3, 1fr); }
-.columns-preview i { border-radius: 2px; background: currentColor; opacity: .85; }
-
 /* Bandeau de mise à jour. */
 .update-banner {
   position: fixed;
@@ -3713,16 +3682,6 @@ input, textarea, select { border-radius: 12px; }
   .continue-card { flex-basis: 112px; }
   .continue-track { margin-right: -.8rem; padding-right: .8rem; }
   .library-list-heading { margin-top: .85rem; }
-
-  html[data-mobile-columns="2"] #cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .85rem;
-  }
-  html[data-mobile-columns="3"] #cards-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: .6rem;
-  }
-  .mobile-display-setting { display: block; }
 
   .upcoming-toolbar {
     margin-top: .75rem;

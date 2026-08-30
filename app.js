@@ -37,7 +37,6 @@ import {
   splitMetadataValues,
 } from "./features/media-metadata.js";
 import {
-  annualMosaicEntries,
   buildLibraryAffinity,
   exploredGenres,
   journalMonthSummary,
@@ -47,6 +46,7 @@ import {
 import { elementFromHTML, patchKeyedSurface, reconcileKeyedChildren } from "./features/dom-updates.js";
 import { cardSkeletons, emptyState, errorState, loadingState } from "./features/ui-states.js";
 import { clearApiCache } from "./features/request-client.js";
+import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -57,21 +57,7 @@ const IS_STANDALONE_DISPLAY = Boolean(
 );
 document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
 
-const MOBILE_COLUMNS_KEY = "kulturo-mobile-columns";
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
-function readMobileColumns() {
-  try {
-    return localStorage.getItem(MOBILE_COLUMNS_KEY) === "2" ? 2 : 3;
-  } catch {
-    return 3;
-  }
-}
-function applyMobileColumns(value = readMobileColumns()) {
-  const columns = Number(value) === 2 ? 2 : 3;
-  document.documentElement.dataset.mobileColumns = String(columns);
-  return columns;
-}
-applyMobileColumns();
 
 function readLibraryDensity() {
   try {
@@ -119,6 +105,61 @@ const State = {
 };
 
 const ENTRY_CACHE_PREFIX = "kulturo-entries-v1:";
+const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v1";
+
+function persistUiSnapshot() {
+  if (!State.user) return;
+  const main = document.getElementById("main");
+  let savedPage = "library";
+  try { savedPage = localStorage.getItem("kulturo-nav") || savedPage; } catch {}
+  const page = document.documentElement.dataset.page || savedPage;
+  if (main && page) State.scrollPos[page] = main.scrollTop;
+  try {
+    sessionStorage.setItem(UI_SNAPSHOT_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      page,
+      scrollPos: State.scrollPos,
+      filters: State.filters,
+    }));
+  } catch {}
+}
+
+function restoreUiSnapshot() {
+  try {
+    const snapshot = JSON.parse(sessionStorage.getItem(UI_SNAPSHOT_KEY) || "null");
+    if (!snapshot || Date.now() - Number(snapshot.savedAt || 0) > 24 * 60 * 60_000) return null;
+    const allowedPages = new Set(["library", "dashboard", "upcoming", "journal"]);
+    if (allowedPages.has(snapshot.page)) {
+      const safeScroll = Object.fromEntries(Object.entries(snapshot.scrollPos || {})
+        .filter(([key, value]) => allowedPages.has(key) && Number.isFinite(Number(value)))
+        .map(([key, value]) => [key, Math.max(0, Number(value))]));
+      State.scrollPos = { ...State.scrollPos, ...safeScroll };
+    }
+    const filters = snapshot.filters;
+    if (filters && typeof filters === "object") {
+      const allowedTypes = new Set(["all", "movie", "game", "book"]);
+      const allowedSubtypes = new Set(["all", "movie", "tv"]);
+      const allowedStatuses = new Set(["all", "wishlist", "playing", "finished", "paused", "dropped"]);
+      const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
+      State.filters.type = allowedTypes.has(filters.type) ? filters.type : "all";
+      State.filters.subtype = allowedSubtypes.has(filters.subtype) ? filters.subtype : "all";
+      State.filters.status = allowedStatuses.has(filters.status) ? filters.status : "all";
+      State.filters.favorite = Boolean(filters.favorite);
+      State.filters.search = typeof filters.search === "string" ? filters.search.slice(0, 120) : "";
+      State.filters.sort = allowedSorts.has(filters.sort) ? filters.sort : "created_at";
+      State.filters.year = filters.year === "all" || Number.isFinite(Number(filters.year)) ? filters.year : "all";
+      State.filters.month = typeof filters.month === "string" ? filters.month : "all";
+      State.filters.rating = filters.rating === "all" || Number.isFinite(Number(filters.rating)) ? filters.rating : "all";
+    }
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+function clearUiSnapshot() {
+  try { sessionStorage.removeItem(UI_SNAPSHOT_KEY); } catch {}
+}
 
 function entryCacheKey() {
   return State.user?.id ? `${ENTRY_CACHE_PREFIX}${State.user.id}` : null;
@@ -150,6 +191,13 @@ function readCachedEntries() {
   }
 }
 
+function primeEntriesFromCache() {
+  const cached = readCachedEntries();
+  if (!Array.isArray(cached)) return false;
+  State.entries = cached;
+  return true;
+}
+
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
 const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
@@ -169,6 +217,38 @@ function safeMediaUrl(value) {
   } catch {
     return "";
   }
+}
+
+function bindCoverAccent(element, coverUrl) {
+  const cleanUrl = safeMediaUrl(coverUrl);
+  if (!element) return;
+  if (!cleanUrl) {
+    delete element.dataset.coverAccentUrl;
+    delete element.dataset.coverAccentTheme;
+    delete element.dataset.coverAccent;
+    element.style.removeProperty("--accent");
+    element.style.removeProperty("--accent-2");
+    element.style.removeProperty("--accent-glow");
+    return;
+  }
+  element.dataset.coverAccentUrl = cleanUrl;
+  const theme = document.documentElement.getAttribute("data-theme") || "dark";
+  element.dataset.coverAccentTheme = theme;
+  element.style.removeProperty("--accent");
+  element.style.removeProperty("--accent-2");
+  element.style.removeProperty("--accent-glow");
+  element.dataset.coverAccent = "pending";
+  coverAccentForUrl(cleanUrl, theme).then(accent => {
+    if (!accent || !element.isConnected || element.dataset.coverAccentUrl !== cleanUrl || element.dataset.coverAccentTheme !== theme) return;
+    applyCoverAccent(element, accent);
+    if (element.matches(".detail-modal")) syncSystemBar(_currentPage, null, accent.system);
+  }).catch(() => {});
+}
+
+function refreshOpenCoverAccent() {
+  document.querySelectorAll("[data-cover-accent-url]").forEach(element => {
+    bindCoverAccent(element, element.dataset.coverAccentUrl);
+  });
 }
 
 function hydrateFadeImages(root = document) {
@@ -215,6 +295,10 @@ async function init() {
     if (existingUser) {
       State.user = existingUser;
       State.username = null;
+      // Une restauration de page reste immédiatement utile même si le
+      // navigateur a suspendu l'onglet et si Supabase met quelques instants à
+      // répondre. Le réseau remplace ensuite cet instantané dès qu'il arrive.
+      primeEntriesFromCache();
       renderApp();
       await loadEntries();
       restoreNavigation();
@@ -225,10 +309,12 @@ async function init() {
       State.user = user;
       if (event === "SIGNED_IN" && user) {
         State.username = null;
+        primeEntriesFromCache();
         renderApp();
         await loadEntries();
         restoreNavigation();
       } else if (event === "SIGNED_OUT") {
+        clearUiSnapshot();
         State.entries = [];
         State.events = [];
         _communityEntries = [];
@@ -259,7 +345,7 @@ if (document.readyState === 'loading') {
 let _systemPage = "library";
 let _systemMediaType = null;
 
-function syncSystemBar(page = _systemPage, mediaType = _systemMediaType) {
+function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customColor = null) {
   _systemPage = page || "library";
   _systemMediaType = mediaType || null;
   const light = document.documentElement.getAttribute("data-theme") === "light";
@@ -269,7 +355,7 @@ function syncSystemBar(page = _systemPage, mediaType = _systemMediaType) {
   const mediaColors = light
     ? { movie: "#f4e9ec", game: "#e9eef8", book: "#e9f3ee" }
     : { movie: "#171014", game: "#0e131d", book: "#0d1713" };
-  const color = mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library);
+  const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", color);
   document.documentElement.style.setProperty("--system-bar-color", color);
@@ -279,6 +365,7 @@ function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("kulturo-theme", t);
   syncSystemBar();
+  refreshOpenCoverAccent();
   // btn-theme removed
 }
 
@@ -323,10 +410,16 @@ function restoreOpenLayerHistory() {
 }
 
 function restoreNavigation() {
-  const saved = localStorage.getItem("kulturo-nav") || "library";
+  const snapshot = restoreUiSnapshot();
+  let saved = "library";
+  try { saved = localStorage.getItem("kulturo-nav") || saved; } catch {}
+  saved = snapshot?.page || saved;
   const allowed = new Set(["library", "dashboard", "upcoming", "journal"]);
   const normalized = saved === "activity" ? "journal" : saved === "discover" ? "upcoming" : saved;
-  navTo(allowed.has(normalized) ? normalized : "library", { history: "replace" });
+  const target = allowed.has(normalized) ? normalized : "library";
+  const search = document.getElementById("global-search");
+  if (search) search.value = State.filters.search || "";
+  navTo(target, { history: "replace", preserveFilters: true, preserveSearch: true });
   _historyReady = true;
 }
 
@@ -566,7 +659,6 @@ function renderApp() {
   const savedSort = localStorage.getItem("kulturo-sort");
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
   State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
-  applyMobileColumns();
   buildFilterBar();
   renderCards();
   updateBadges();
@@ -1555,14 +1647,6 @@ async function renderDashboard() {
       <span class="profile-genre-track"><i style="width:${Math.round(item.count / maxGenreCount * 100)}%"></i></span>
     </div>`).join("") : `<p class="profile-inline-empty">Pas encore assez de genres renseignés sur cette période.</p>`;
 
-  const mosaicEntries = annualMosaicEntries(all.filter(entry => profileMediaMatches(entry)), _profileYear, entryActivityYear, 24)
-    .filter(entry => safeMediaUrl(entry.cover_url));
-  const mosaicHTML = mosaicEntries.length ? mosaicEntries.map(entry => `
-    <button type="button" class="profile-mosaic-poster" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
-      <img src="${esc(safeMediaUrl(entry.cover_url))}" alt="" loading="lazy" data-fade-image class="fade-image">
-      <span>${esc(entry.title)}</span>
-    </button>`).join("") : `<p class="profile-inline-empty">Aucune affiche disponible pour ${_profileYear}.</p>`;
-
   // Histogramme des notes (toutes années)
   const ratedAll      = all.filter(e => e.rating);
   const ratingCounts  = Array(10).fill(0);
@@ -1686,14 +1770,6 @@ async function renderDashboard() {
       </section>
     </div>
 
-    <section class="profile-dashboard-card profile-mosaic-section" data-ui-key="profile-mosaic">
-      <div class="profile-card-heading">
-        <div><span class="section-eyebrow">Votre année en images</span><h3>Mosaïque · ${_profileYear}</h3></div>
-        <span class="section-count">${mosaicEntries.length} affiche${mosaicEntries.length > 1 ? "s" : ""}</span>
-      </div>
-      <div class="profile-mosaic">${mosaicHTML}</div>
-    </section>
-
     <details class="profile-account-details" data-ui-key="profile-account">
       <summary>
         <span><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
@@ -1767,6 +1843,7 @@ function _captureWizardOpinion() {
 function _renderWizard() {
   const s = _wizardState;
   const root = document.getElementById("modal-root");
+  const cover = s.step === 2 ? safeMediaUrl(s.apiSelected?.cover_url) : "";
 
   let bodyHTML = "";
   let footerHTML = "";
@@ -1794,7 +1871,6 @@ function _renderWizard() {
 
   else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
-    const cover = s.apiSelected?.cover_url;
     const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
     const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, icon, label }) => `
       <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
@@ -1850,7 +1926,7 @@ function _renderWizard() {
 
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal modal-wizard" data-step="${s.step}" data-media-accent="${s.step === 2 ? esc(s.type) : "neutral"}" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
+      <div class="modal modal-wizard" data-step="${s.step}" data-media-accent="${s.step === 2 ? esc(s.type) : "neutral"}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
         <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
         ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ""}
@@ -1858,6 +1934,7 @@ function _renderWizard() {
     </div>`;
   pushHistoryLayer("modal", { modal: "add", step: s.step });
   syncSystemBar(_currentPage, s.step === 2 ? s.type : null);
+  if (s.step === 2) bindCoverAccent(root.querySelector(".modal-wizard"), cover);
 
   if (s.step === 1) {
     setupWizardUniversalSearch();
@@ -1898,9 +1975,10 @@ function _renderWizard() {
 
 function _openModalClassic(entry) {
   const root = document.getElementById("modal-root");
+  const entryCoverUrl = safeMediaUrl(entry.cover_url);
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal edit-modal" data-edit-view="main" data-media-accent="${esc(entry.media_type || "movie")}" role="dialog" aria-modal="true">
+      <div class="modal edit-modal" data-edit-view="main" data-media-accent="${esc(entry.media_type || "movie")}" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" onclick="UI.setEditDetailsView(false)" aria-label="Revenir à la modification principale">←</button>
           <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
@@ -1984,6 +2062,7 @@ function _openModalClassic(entry) {
     </div>`;
   pushHistoryLayer("modal", { modal: "edit", mediaId: entry.id });
   syncSystemBar(_currentPage, entry.media_type);
+  bindCoverAccent(root.querySelector(".edit-modal"), entryCoverUrl);
   _currentRating = entry.rating || 0;
   buildRatingStars(entry.rating || 0);
   updateApiAvailLabel(entry.media_type || "movie");
@@ -1991,6 +2070,9 @@ function _openModalClassic(entry) {
   syncEditDetailsSummary();
   ["f-genre", "f-author", "f-platform", "f-cover"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
+  });
+  document.getElementById("f-cover")?.addEventListener("change", event => {
+    bindCoverAccent(root.querySelector(".edit-modal"), event.target.value);
   });
   // Sur mobile, ne pas ouvrir le clavier dès l’arrivée : la fiche reste entière.
   if (!window.matchMedia?.("(max-width: 680px)")?.matches) {
@@ -2317,6 +2399,8 @@ function fillFromApi(idx) {
   window._apiSelected = it;
   document.getElementById("api-results").style.display = "none";
   syncEditDetailsSummary();
+  const editModal = document.querySelector(".edit-modal");
+  if (editModal) bindCoverAccent(editModal, it.cover_url);
   if (it.cover_url || it.genre) {
     const details = document.querySelector(".advanced-details");
     if (details && !window.matchMedia?.("(max-width: 680px)")?.matches) details.open = true;
@@ -2696,7 +2780,13 @@ function bindGlobalEvents() {
   document.addEventListener("change", e => {
     if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persistUiSnapshot();
+    else syncBackToTop();
+  });
+  window.addEventListener("pagehide", persistUiSnapshot, { capture: true });
   window.addEventListener("beforeunload", e => {
+    persistUiSnapshot();
     if (!_modalDirty) return;
     e.preventDefault();
     e.returnValue = "";
@@ -3416,7 +3506,7 @@ function renderDetailPanel(e, options = {}) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal detail-modal" data-media-accent="${esc(e.media_type || "movie")}" role="dialog" aria-modal="true">
+      <div class="modal detail-modal" data-media-accent="${esc(e.media_type || "movie")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -3465,6 +3555,7 @@ function renderDetailPanel(e, options = {}) {
 
   pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });
   syncSystemBar(_currentPage, e.media_type);
+  bindCoverAccent(root.querySelector(".detail-modal"), coverUrl);
   hydrateFadeImages(root);
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
@@ -4464,16 +4555,6 @@ function exportLibrary() {
   toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
 }
 
-function setMobileColumns(value) {
-  const columns = applyMobileColumns(value);
-  try { localStorage.setItem(MOBILE_COLUMNS_KEY, String(columns)); } catch {}
-  document.querySelectorAll(".mobile-columns-btn").forEach(button => {
-    const active = Number(button.dataset.columns) === columns;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-}
-
 function setLibraryDensity(value) {
   const density = applyLibraryDensity(value);
   try { localStorage.setItem(LIBRARY_DENSITY_KEY, density); } catch {}
@@ -4860,7 +4941,6 @@ window.UI = {
       const statuses = ["all","wishlist","playing","finished","paused","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
       const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
-      const mobileColumns = readMobileColumns();
       const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
@@ -4911,19 +4991,6 @@ window.UI = {
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Trier par</div>
                 <div class="filter-modal-chips" id="fm-sort-chips">${sortChips}</div>
-              </div>
-              <div class="filter-modal-section mobile-display-setting">
-                <div class="filter-modal-label">Affichage mobile</div>
-                <div class="mobile-columns-control" role="group" aria-label="Nombre de colonnes">
-                  <button type="button" class="mobile-columns-btn ${mobileColumns === 2 ? "active" : ""}" data-columns="2" aria-pressed="${mobileColumns === 2}" onclick="UI.setMobileColumns(2)">
-                    <span class="columns-preview columns-preview-2" aria-hidden="true"><i></i><i></i></span>
-                    2 colonnes
-                  </button>
-                  <button type="button" class="mobile-columns-btn ${mobileColumns === 3 ? "active" : ""}" data-columns="3" aria-pressed="${mobileColumns === 3}" onclick="UI.setMobileColumns(3)">
-                    <span class="columns-preview columns-preview-3" aria-hidden="true"><i></i><i></i><i></i></span>
-                    3 colonnes
-                  </button>
-                </div>
               </div>
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Densité de la bibliothèque</div>
@@ -5037,7 +5104,6 @@ window.UI = {
   stepJournalMonth,
   saveUsername,
   exportLibrary,
-  setMobileColumns,
   setLibraryDensity,
   applyAppUpdate,
   dismissUpdateBanner,

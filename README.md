@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.2.0**
+Version actuelle : **3.2.1**
 
 ## Fonctionnalités
 
@@ -22,9 +22,9 @@ Version actuelle : **3.2.0**
 - Préchargement discret des fiches au survol ou au toucher, avec transitions locales des enrichissements
 - Navigation temporelle dans le Journal et récapitulatif de chaque mois
 - Recommandations **Pour vous** dans Sorties selon les genres, personnes et studios les plus présents dans la bibliothèque
-- Profil enrichi : genres explorés, revisionnages et mosaïque annuelle des affiches
-- Densité **Compacte** facultative pour les grandes bibliothèques
-- Accents visuels adaptés au type de média et couleur de barre système synchronisée
+- Profil enrichi : genres explorés et revisionnages
+- Densité **Standard** ou **Compacte** pour les grandes bibliothèques, sans réglage mobile redondant
+- Accents visuels dérivés de la couleur dominante de la jaquette, avec repli par type et couleur de barre système synchronisée
 - États communs de chargement, de liste vide et d’erreur, avec mise à jour locale des cartes et blocs du Profil
 - Couche réseau commune avec annulation des recherches obsolètes, cache à durée de vie, délai maximal et nouvelle tentative
 - Export JSON de la bibliothèque et du Journal
@@ -62,6 +62,7 @@ Kulturo/
 │   ├── add-flow.js
 │   ├── dom-updates.js
 │   ├── insights.js
+│   ├── cover-accent.js
 │   ├── media-metadata.js
 │   ├── request-client.js
 │   └── ui-states.js
@@ -98,7 +99,7 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.2.0 déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.2.x déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
 
 ### 2. Déployer les Edge Functions
 
@@ -148,7 +149,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.2.0",
+    version: "3.2.1",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -174,6 +175,8 @@ https://sodanexus.github.io/Kulturo/
 ### Bibliothèque et fiches
 
 La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. La recherche située dans l’en-tête filtre directement les cartes déjà présentes, sans liste de résultats superposée ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
+
+Le panneau Filtres propose une seule préférence de densité : **Standard** conserve les affiches confortables, tandis que **Compact** en affiche davantage, y compris sur mobile. L’ancien choix indépendant de deux ou trois colonnes n’est plus nécessaire.
 
 L’étagère **À reprendre** est repliée par défaut sur mobile et ouverte sur ordinateur. Elle affiche un aperçu des médias en cours et mémorise son état séparément sur chaque appareil.
 
@@ -217,7 +220,7 @@ Le Profil propose une vue annuelle ou mensuelle, filtrable par films, séries, j
 - À l’ouverture, un mois courant sans Top peut revenir au dernier mois précédent renseigné.
 - L’histogramme global ouvre les médias correspondant exactement à la note sélectionnée.
 - Les nombres principaux évoluent doucement lors d’un changement de période, sans reconstruire les blocs restés identiques.
-- Les genres les plus explorés, le nombre de revisionnages et une mosaïque des affiches de l’année complètent la lecture du Profil.
+- Les genres les plus explorés et le nombre de revisionnages complètent la lecture du Profil.
 
 Les anciens médias marqués **Terminé** sans date ont été harmonisés en utilisant leur date d’ajout, conformément au fonctionnement personnel de cette installation.
 
@@ -231,9 +234,11 @@ Une sortie peut recevoir le badge **Pour vous** lorsqu’elle correspond forteme
 
 ## Navigation et performances
 
-Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actuellement ouvert (confirmation, information, filtres ou fiche), puis revient à la page précédente. La position de chaque page est restaurée lors du changement d’onglet.
+Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actuellement ouvert (confirmation, information, filtres ou fiche), puis revient à la page précédente. La position, la page active et les filtres de la bibliothèque sont conservés lorsque l’onglet du navigateur est mis en arrière-plan ou restauré.
 
 Les couvertures et les informations récupérées apparaissent par fondu local : la fiche conserve sa structure et ses actions pendant l’enrichissement, avec un message explicite lorsqu’aucun synopsis n’est disponible. Les cartes de la bibliothèque et les blocs du Profil sont réconciliés localement afin qu’une petite modification ne reconstruise pas toute la page.
+
+La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Une couleur de secours liée au type de média est conservée si l’image ne peut pas être analysée par le navigateur.
 
 Les recherches API interrompent la requête précédente dès qu’une nouvelle saisie commence. Les recherches, sorties, détails et traductions utilisent un cache mémoire à durée de vie limitée ; ce cache ne contient aucune donnée personnelle et disparaît au rechargement de la page. Chaque requête dispose aussi d’un délai maximal et d’une reprise limitée pour les erreurs transitoires.
 

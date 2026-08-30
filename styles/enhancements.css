@@ -1,5 +1,5 @@
 /* ============================================================
-   Kulturo 3.2 — navigation, densité, insights et rendu local
+   Kulturo 3.2.1 — navigation, densité, insights et rendu local
    ============================================================ */
 
 :root {
@@ -97,7 +97,8 @@ body { background-color: var(--system-bar-color); }
 }
 .is-locally-added { animation: localItemIn var(--motion-content) var(--ease-enter) both; }
 
-/* Accent discret propre au média ------------------------------ */
+/* Accent de jaquette : les valeurs de type restent le repli lorsque
+   l'image est absente ou ne permet pas une lecture CORS. */
 :where(.detail-modal, .modal-wizard, .edit-modal)[data-media-accent="movie"] {
   --accent: #e59aaa;
   --accent-2: #f2bcc7;
@@ -116,6 +117,7 @@ body { background-color: var(--system-bar-color); }
 [data-theme="light"] :where(.detail-modal, .modal-wizard, .edit-modal)[data-media-accent="movie"] { --accent: #a95067; --accent-2: #873b50; }
 [data-theme="light"] :where(.detail-modal, .modal-wizard, .edit-modal)[data-media-accent="game"] { --accent: #496fad; --accent-2: #36588f; }
 [data-theme="light"] :where(.detail-modal, .modal-wizard, .edit-modal)[data-media-accent="book"] { --accent: #397c5b; --accent-2: #2e664a; }
+
 
 /* Enrichissement local des fiches ---------------------------- */
 .detail-synopsis-empty {
@@ -273,7 +275,7 @@ body { background-color: var(--system-bar-color); }
   box-shadow: 0 5px 16px rgba(0,0,0,.2);
 }
 
-/* Profil : habitudes et mosaïque ----------------------------- */
+/* Profil : habitudes et revisionnages ------------------------ */
 .profile-habits-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(210px, .55fr);
@@ -290,27 +292,6 @@ body { background-color: var(--system-bar-color); }
 .profile-repeat-value { margin-top: .45rem; color: var(--accent-2); font-size: 2.6rem; font-weight: 800; line-height: 1; }
 .profile-repeat-section h3 { margin-top: .25rem; font-size: .95rem; }
 .profile-repeat-section p { margin-top: .35rem; color: var(--text-3); font-size: .65rem; line-height: 1.5; }
-.profile-mosaic-section { margin-top: 1rem; }
-.profile-mosaic {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: .35rem;
-  margin-top: .75rem;
-}
-.profile-mosaic > .profile-inline-empty { grid-column: 1 / -1; }
-.profile-mosaic-poster {
-  position: relative;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: var(--bg-3);
-  aspect-ratio: 2 / 3;
-}
-.profile-mosaic-poster img { width: 100%; height: 100%; object-fit: cover; }
-.profile-mosaic-poster span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.profile-mosaic-poster:hover img { transform: scale(1.045); }
-.profile-mosaic-poster img { transition: opacity var(--motion-content) var(--ease-interface), transform var(--motion-content) var(--ease-interface) !important; }
 .profile-animated-number { font: inherit; font-variant-numeric: tabular-nums; }
 .profile-block-enter { animation: profileBlockIn var(--motion-content) var(--ease-enter) both; }
 @keyframes profileBlockIn {
@@ -318,12 +299,8 @@ body { background-color: var(--system-bar-color); }
   to { opacity: 1; transform: none; }
 }
 
-@media (max-width: 900px) {
-  .profile-mosaic { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-}
 @media (max-width: 680px) {
   .profile-habits-grid { grid-template-columns: 1fr; gap: .75rem; }
-  .profile-mosaic { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .28rem; }
   .profile-repeat-section { min-height: 128px; }
   .profile-repeat-value { font-size: 2.25rem; }
 }

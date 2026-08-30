@@ -8,6 +8,7 @@ import {
   recommendationForUpcoming,
   repeatCountForPeriod,
 } from "../features/insights.js";
+import { accentFromSample } from "../features/cover-accent.js";
 import { clearApiCache, requestJSON } from "../features/request-client.js";
 
 const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
@@ -39,12 +40,38 @@ test("le Journal propose le saut temporel et un bilan mensuel", () => {
   assert.match(appSource, /Favori du mois/);
 });
 
-test("le Profil ajoute genres, revisionnages, mosaïque et nombres animés", () => {
+test("le Profil garde les insights utiles sans mosaïque annuelle", () => {
   assert.match(appSource, /Genres les plus explorés/);
   assert.match(appSource, /profileNumberHTML\("repeats", scopedRepeatCount\)/);
-  assert.match(appSource, /Mosaïque · \$\{_profileYear\}/);
   assert.match(appSource, /animateProfileNumbers\(container\)/);
   assert.match(appSource, /patchKeyedSurface\(container, dashboardHTML\)/);
+  assert.doesNotMatch(appSource, /annualMosaicEntries|profile-mosaic/);
+  assert.doesNotMatch(enhancementStyle, /profile-mosaic/);
+});
+
+test("la grille mobile utilise uniquement Standard et Compact", () => {
+  assert.match(appSource, /const LIBRARY_DENSITY_KEY = "kulturo-library-density"/);
+  assert.match(appSource, /Densité de la bibliothèque/);
+  assert.doesNotMatch(appSource, /MOBILE_COLUMNS_KEY|setMobileColumns|2 colonnes|3 colonnes/);
+  assert.doesNotMatch(enhancementStyle, /data-mobile-columns/);
+});
+
+test("la couleur de jaquette fournit un accent lisible avec un repli", () => {
+  const dark = accentFromSample(220, 35, 70, "dark");
+  const light = accentFromSample(35, 95, 220, "light");
+  assert.match(dark.accent, /^hsl\(/);
+  assert.match(dark.glow, /\/ \.18\)$/);
+  assert.match(light.system, /^hsl\(/);
+  assert.ok(dark.hue >= 0 && dark.hue <= 360);
+});
+
+test("l'état de l'interface est conservé pendant un changement d'onglet", () => {
+  assert.match(appSource, /const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v1"/);
+  assert.match(appSource, /document\.addEventListener\("visibilitychange"/);
+  assert.match(appSource, /window\.addEventListener\("pagehide", persistUiSnapshot/);
+  assert.match(appSource, /primeEntriesFromCache\(\);[\s\S]*?renderApp\(\);/);
+  assert.match(indexSource, /updateControllerPending/);
+  assert.match(indexSource, /document\.visibilityState === "hidden"/);
 });
 
 test("les fiches ont un vrai état sans synopsis et un enrichissement local", () => {
