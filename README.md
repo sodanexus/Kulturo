@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.2.2**
+Version actuelle : **3.2.3**
 
 ## Fonctionnalités
 
@@ -97,7 +97,7 @@ Ce fichier crée la structure complète actuelle : médias, profils, Journal, po
 
 Pour une installation Kulturo 3.2.x déjà fonctionnelle, il ne faut pas réexécuter tout `schema.sql` lors d’une simple mise à jour du frontend.
 
-### Mise à jour d’une installation existante vers 3.2.2
+### Autorisation requise depuis la version 3.2.2
 
 La suppression discrète d’un événement du Journal est un masquage non destructif dans sa colonne `metadata`. Pour l’autoriser sur une base existante, exécuter une seule fois dans **Supabase → SQL Editor** :
 
@@ -161,7 +161,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.2.2",
+    version: "3.2.3",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -254,7 +254,7 @@ Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actu
 
 Les couvertures et les informations récupérées apparaissent par fondu local : la fiche conserve sa structure et ses actions pendant l’enrichissement, avec un message explicite lorsqu’aucun synopsis n’est disponible. Les cartes de la bibliothèque et les blocs du Profil sont réconciliés localement afin qu’une petite modification ne reconstruise pas toute la page.
 
-La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Les accents calculés avec succès sont conservés dans un cache local versionné ; les anciens résultats incohérents sont donc invalidés automatiquement en 3.2.2. Le cache d’images PWA est également renouvelé, et une jaquette demandée pour l’analyse ne réutilise plus une ancienne réponse opaque illisible par le calcul de couleur. Un échec réseau, un délai dépassé ou une image encore protégée par CORS n’est pas mémorisé et sera retenté à la prochaine ouverture. Si l’analyse reste impossible, la fiche revient à l’or neutre de Kulturo plutôt qu’à une couleur artificielle liée au type.
+La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Les accents calculés avec succès sont conservés dans un cache local versionné. La version 3.2.3 invalide automatiquement les anciens résultats et utilise, pour les affiches TMDb, une URL d’analyse distincte de celle déjà affichée dans la page. Cela empêche le navigateur de réutiliser une copie mémoire non lisible par le calcul de couleur. Le cache d’images PWA est également renouvelé. Un échec réseau, un délai dépassé ou une image protégée par CORS n’est pas mémorisé et sera retenté à la prochaine ouverture. Si l’analyse reste impossible, la fiche revient à l’or neutre de Kulturo.
 
 Les bannières sont enregistrées dans `media_entries.backdrop_url` sur Supabase après leur récupération. Lorsqu’un ancien film n’a pas encore de bannière, l’ouverture de sa fiche force une vérification TMDb fraîche. Si l’ancien média ne possède pas d’identifiant TMDb, Kulturo tente d’abord un rapprochement strict par titre, type et année ; il complète ensuite uniquement les champs manquants, sans écraser les informations personnelles. Une fiche comme **Fight Club** se répare ainsi progressivement, sans réinitialisation globale de la base.
 

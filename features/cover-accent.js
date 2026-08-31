@@ -5,9 +5,9 @@
 const accentCache = new Map();
 const pendingAccents = new Map();
 const MAX_ACCENT_CACHE = 120;
-const ACCENT_CACHE_VERSION = "2";
+const ACCENT_CACHE_VERSION = "3";
 const ACCENT_CACHE_VERSION_KEY = "kulturo-cover-accent-version";
-const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v2";
+const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v3";
 let storageHydrated = false;
 
 function ensureStorageVersion() {
@@ -150,6 +150,24 @@ export function accentFromSample(red, green, blue, theme = "dark") {
   );
 }
 
+// Les affiches TMDb sont souvent déjà présentes dans le cache mémoire du
+// navigateur après le rendu de la grille. Certains moteurs réutilisent alors
+// cette première réponse chargée sans CORS pour le second <img>, même si
+// crossOrigin est défini avant src. Une URL d'analyse distincte force une
+// réponse CORS propre, sans modifier l'URL enregistrée ni l'image affichée.
+export function accentImageRequestUrl(value) {
+  const cleanUrl = String(value || "").trim();
+  if (!cleanUrl) return "";
+  try {
+    const url = new URL(cleanUrl);
+    if (url.hostname === "image.tmdb.org") {
+      url.searchParams.set("kulturo-accent", ACCENT_CACHE_VERSION);
+      return url.href;
+    }
+  } catch {}
+  return cleanUrl;
+}
+
 function sampleImage(image, theme) {
   if (typeof document === "undefined") return null;
   try {
@@ -198,7 +216,7 @@ export function coverAccentForUrl(url, theme = "dark") {
     image.referrerPolicy = "no-referrer";
     image.onload = () => finish(sampleImage(image, theme));
     image.onerror = () => finish(null);
-    image.src = cleanUrl;
+    image.src = accentImageRequestUrl(cleanUrl);
   });
   pendingAccents.set(key, promise);
   return promise;
