@@ -4356,10 +4356,23 @@ input, textarea, select { border-radius: 12px; }
     padding-left: max(1.5rem, calc(1rem + var(--safe-left)));
   }
 
-  .quick-personal-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .quick-personal-actions {
+    display: grid;
+    grid-template-columns: minmax(0, .84fr) minmax(0, 1.16fr);
+    align-items: stretch;
+    gap: .45rem;
+    width: 100%;
+  }
   .quick-favorite-btn,
-  .quick-repeat-stepper { width: 100%; }
-  .quick-repeat-stepper { grid-template-columns: 36px minmax(0, 1fr) 36px; }
+  .quick-repeat-stepper { min-width: 0; width: 100%; }
+  .quick-favorite-btn { padding-right: .45rem; padding-left: .45rem; }
+  .quick-repeat-stepper { grid-template-columns: 32px minmax(0, 1fr) 32px; }
+  .quick-repeat-value { padding-right: .3rem; padding-left: .3rem; }
+  .quick-repeat-value > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .profile-year-header { align-items: flex-start; }
   .profile-date-controls { flex-wrap: wrap; }
@@ -4435,6 +4448,12 @@ input, textarea, select { border-radius: 12px; }
 }
 
 @media (max-width: 390px) {
+  .quick-favorite-btn {
+    gap: .3rem;
+    padding-right: .3rem;
+    padding-left: .3rem;
+    font-size: var(--type-caption);
+  }
   .profile-year-header { flex-direction: column; }
   .profile-date-controls { width: 100%; justify-content: flex-start; }
 }
