@@ -64,17 +64,19 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.2.6**
+**3.2.7**
 
 La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus homogène et plus agréable à utiliser, surtout sur mobile.
 
 - échelle typographique commune pour mieux ordonner toute l’interface ;
 - en-tête mobile allégé, avec le logo **Kulturo** centré dans son espace à côté de la recherche ;
 - accents visuels inspirés des jaquettes pour donner une identité douce à chaque fiche ;
+- zoom subtil appliqué au cadre complet des médias de la zone **À reprendre**, comme dans la bibliothèque ;
 - navigation, chargements et transitions plus discrets pour conserver le fil de l’expérience.
 
 ## Dernières évolutions
 
+- **3.2.7** — effet de survol harmonisé : le cadre complet des médias **À reprendre** s’agrandit avec la jaquette, et non plus l’image seule.
 - **3.2.6** — logo mobile recentré avec des marges équilibrées ; slogan masqué sur les petits écrans pour préserver la lisibilité.
 - **3.2.5** — en-tête mobile simplifié autour de la recherche.
 - **3.2.4** — typographie harmonisée entre le bureau et le mobile.
