@@ -228,7 +228,6 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
   if (!cleanUrl && !cleanFallbackUrl) {
     delete element.dataset.coverAccentUrl;
     delete element.dataset.coverAccentFallback;
-    delete element.dataset.coverAccentTheme;
     delete element.dataset.coverAccent;
     element.style.removeProperty("--accent");
     element.style.removeProperty("--accent-2");
@@ -237,8 +236,6 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
   }
   element.dataset.coverAccentUrl = cleanUrl || cleanFallbackUrl;
   element.dataset.coverAccentFallback = cleanUrl && cleanFallbackUrl ? cleanFallbackUrl : "";
-  const theme = document.documentElement.getAttribute("data-theme") || "dark";
-  element.dataset.coverAccentTheme = theme;
   element.style.removeProperty("--accent");
   element.style.removeProperty("--accent-2");
   element.style.removeProperty("--accent-glow");
@@ -246,9 +243,9 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
   const identity = element.dataset.coverAccentUrl;
   const fallbackIdentity = element.dataset.coverAccentFallback;
   (async () => {
-    let accent = await coverAccentForUrl(identity, theme);
-    if (!accent && fallbackIdentity) accent = await coverAccentForUrl(fallbackIdentity, theme);
-    if (!element.isConnected || element.dataset.coverAccentUrl !== identity || element.dataset.coverAccentFallback !== fallbackIdentity || element.dataset.coverAccentTheme !== theme) return;
+    let accent = await coverAccentForUrl(identity);
+    if (!accent && fallbackIdentity) accent = await coverAccentForUrl(fallbackIdentity);
+    if (!element.isConnected || element.dataset.coverAccentUrl !== identity || element.dataset.coverAccentFallback !== fallbackIdentity) return;
     if (!accent) {
       element.dataset.coverAccent = "fallback";
       return;
@@ -256,12 +253,6 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
     applyCoverAccent(element, accent);
     if (element.matches(".detail-modal, .modal-wizard, .edit-modal")) syncSystemBar(_currentPage, null, accent.system);
   })().catch(() => { if (element.isConnected) element.dataset.coverAccent = "fallback"; });
-}
-
-function refreshOpenCoverAccent() {
-  document.querySelectorAll("[data-cover-accent-url]").forEach(element => {
-    bindCoverAccent(element, element.dataset.coverAccentUrl, element.dataset.coverAccentFallback);
-  });
 }
 
 function hydrateFadeImages(root = document) {
@@ -301,8 +292,6 @@ async function init() {
       document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;text-align:center;padding:max(2rem,env(safe-area-inset-top,0px)) max(2rem,env(safe-area-inset-right,0px)) max(2rem,env(safe-area-inset-bottom,0px)) max(2rem,env(safe-area-inset-left,0px))"><b>Configuration Supabase manquante</b><p style="font-size:var(--type-body);color:#a0a0b0">Renseignez les valeurs publiques Supabase dans config.js.</p></div>';
       return;
     }
-    applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
-
     const sessionUser = await Auth.getSessionUser().catch(() => null);
     const existingUser = sessionUser || await Auth.getUser().catch(() => null);
     if (existingUser) {
@@ -354,32 +343,19 @@ if (document.readyState === 'loading') {
   queueMicrotask(init);
 }
 
-// ── Thème et barre système ────────────────────────────────────
+// ── Barre système ─────────────────────────────────────────────
 let _systemPage = "library";
 let _systemMediaType = null;
 
 function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customColor = null) {
   _systemPage = page || "library";
   _systemMediaType = mediaType || null;
-  const light = document.documentElement.getAttribute("data-theme") === "light";
-  const pageColors = light
-    ? { library: "#f3f1ec", upcoming: "#f0f1f5", journal: "#eff2f1", dashboard: "#f3efe7" }
-    : { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
-  const mediaColors = light
-    ? { movie: "#f4e9ec", game: "#e9eef8", book: "#e9f3ee" }
-    : { movie: "#171014", game: "#0e131d", book: "#0d1713" };
+  const pageColors = { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
+  const mediaColors = { movie: "#171014", game: "#0e131d", book: "#0d1713" };
   const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", color);
   document.documentElement.style.setProperty("--system-bar-color", color);
-}
-
-function applyTheme(t) {
-  document.documentElement.setAttribute("data-theme", t);
-  localStorage.setItem("kulturo-theme", t);
-  syncSystemBar();
-  refreshOpenCoverAccent();
-  // btn-theme removed
 }
 
 // ── Historique de navigation ──────────────────────────────────
@@ -673,7 +649,6 @@ function renderApp() {
     </nav>
   `;
 
-  applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
   // Restaure le tri mémorisé
   const savedSort = localStorage.getItem("kulturo-sort");
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
