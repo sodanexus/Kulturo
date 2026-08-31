@@ -19,7 +19,7 @@
     transform var(--motion-fast) ease;
 }
 
-.detail-meta-link > span:last-child { color: var(--text-3); font-size: .72rem; }
+.detail-meta-link > span:last-child { color: var(--text-3); font-size: var(--type-label); }
 .detail-meta-link:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: var(--accent-glow);
@@ -75,7 +75,7 @@
 .metadata-sheet-header > div { min-width: 0; }
 .metadata-sheet-header span {
   color: var(--accent);
-  font-size: .56rem;
+  font-size: var(--type-micro);
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -85,12 +85,12 @@
   margin: .14rem 0 0;
   color: var(--text-1);
   font-family: var(--font-body);
-  font-size: 1.1rem;
+  font-size: var(--type-title-sm);
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.metadata-sheet-header p { margin: .18rem 0 0; color: var(--text-3); font-size: .67rem; }
+.metadata-sheet-header p { margin: .18rem 0 0; color: var(--text-3); font-size: var(--type-caption); }
 
 .metadata-sheet-body { padding: .5rem; overflow-y: auto; overscroll-behavior: contain; }
 .metadata-media-row {
@@ -115,11 +115,11 @@
 .metadata-media-cover { width: 42px; height: 58px; border-radius: 8px; background: var(--bg-4); object-fit: cover; }
 .metadata-media-cover { display: grid; place-items: center; }
 .metadata-media-copy { display: flex; min-width: 0; flex-direction: column; }
-.metadata-media-copy strong { overflow: hidden; color: var(--text-1); font-size: .79rem; text-overflow: ellipsis; white-space: nowrap; }
-.metadata-media-copy small { margin-top: .12rem; color: var(--text-3); font-size: .64rem; }
-.metadata-media-rating { color: var(--accent-2); font-size: .68rem; white-space: nowrap; }
+.metadata-media-copy strong { overflow: hidden; color: var(--text-1); font-size: var(--type-control); text-overflow: ellipsis; white-space: nowrap; }
+.metadata-media-copy small { margin-top: .12rem; color: var(--text-3); font-size: var(--type-caption); }
+.metadata-media-rating { color: var(--accent-2); font-size: var(--type-caption); white-space: nowrap; }
 .metadata-media-arrow { color: var(--text-3); }
-.metadata-empty { padding: 1.4rem 1rem; color: var(--text-3); font-size: .72rem; line-height: 1.55; text-align: center; }
+.metadata-empty { padding: 1.4rem 1rem; color: var(--text-3); font-size: var(--type-label); line-height: 1.55; text-align: center; }
 
 .metadata-sheet-footer { display: flex; justify-content: flex-end; padding: .75rem 1rem calc(.75rem + var(--safe-bottom)); border-top: 1px solid var(--border); }
 .metadata-sheet-footer .btn { text-decoration: none; }

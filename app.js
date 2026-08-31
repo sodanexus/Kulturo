@@ -293,12 +293,12 @@ function findMatchingEntry(candidate, excludeId = null) {
 async function init() {
   if (typeof CONFIG === "undefined") {
     console.error("CONFIG non défini — vérifiez que config.js est chargé.");
-    document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"><b>Erreur : config.js introuvable</b><p style="font-size:.85rem;color:#a0a0b0">Vérifiez que config.js est présent dans votre dépôt GitHub.</p></div>';
+    document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"><b>Erreur : config.js introuvable</b><p style="font-size:var(--type-body);color:#a0a0b0">Vérifiez que config.js est présent dans votre dépôt GitHub.</p></div>';
     return;
   }
   try {
     if (!initSupabase()) {
-      document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;text-align:center;padding:max(2rem,env(safe-area-inset-top,0px)) max(2rem,env(safe-area-inset-right,0px)) max(2rem,env(safe-area-inset-bottom,0px)) max(2rem,env(safe-area-inset-left,0px))"><b>Configuration Supabase manquante</b><p style="font-size:.85rem;color:#a0a0b0">Renseignez les valeurs publiques Supabase dans config.js.</p></div>';
+      document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;text-align:center;padding:max(2rem,env(safe-area-inset-top,0px)) max(2rem,env(safe-area-inset-right,0px)) max(2rem,env(safe-area-inset-bottom,0px)) max(2rem,env(safe-area-inset-left,0px))"><b>Configuration Supabase manquante</b><p style="font-size:var(--type-body);color:#a0a0b0">Renseignez les valeurs publiques Supabase dans config.js.</p></div>';
       return;
     }
     applyTheme(localStorage.getItem("kulturo-theme") || CONFIG.app.defaultTheme);
@@ -2375,7 +2375,7 @@ function setupApiSearch() {
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" onclick="UI.fillFromApi(${idx})">
-          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">${TYPE_ICONS[type]}</div>`}
+          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:var(--type-title-lg)">${TYPE_ICONS[type]}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
@@ -4928,7 +4928,7 @@ function journalRowHTML(event, options = {}) {
           <span class="journal-event-label"><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</span>
           <span class="activity-title">${esc(entry.title)}</span>
           <span class="activity-meta">
-            <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
+            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
             ${ratingBadge}
           </span>
         </span>
@@ -5036,8 +5036,8 @@ function communityRowHTML(entry) {
         <div class="activity-line"><span class="activity-username">${esc(entry.username)}</span><span class="activity-verb">a ajouté</span></div>
         <div class="activity-title">${icon} ${esc(entry.title)}</div>
         <div class="activity-meta">
-          <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
-          <span class="badge badge-${entry.status}" style="font-size:.7rem">${esc(status)}</span>
+          <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
+          <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${esc(status)}</span>
           ${rating}${entry.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
         </div>
       </div>
