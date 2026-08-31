@@ -3381,6 +3381,8 @@ input, textarea, select { border-radius: 12px; }
   overflow: hidden;
   border-radius: var(--radius);
   background: var(--bg-3);
+  box-shadow: 0 8px 22px rgba(0,0,0,.16);
+  transition: transform .22s var(--ease-spring), box-shadow .22s var(--ease-smooth);
 }
 .continue-cover > img,
 .continue-cover-placeholder {
@@ -3426,14 +3428,24 @@ input, textarea, select { border-radius: 12px; }
   color: var(--text-3);
   font-size: var(--type-caption);
 }
-.continue-card:hover .continue-cover { box-shadow: 0 12px 28px rgba(0,0,0,.3); }
 .continue-card:active { transform: scale(.98); }
+.continue-card:hover .continue-cover {
+  transform: scale(1.04);
+  z-index: 2;
+  box-shadow: 0 14px 34px rgba(0,0,0,.28);
+}
 @media (hover: hover) and (pointer: fine) {
   .continue-section:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
   .continue-toggle:hover .continue-preview-cover:nth-child(1) { transform: translateX(-2px) rotate(-2deg); }
   .continue-toggle:hover .continue-preview-cover:nth-child(2) { transform: translateY(1px); }
   .continue-toggle:hover .continue-preview-cover:nth-child(3) { transform: translateX(2px) translateY(2px) rotate(2deg); }
   .continue-toggle:hover .continue-chevron { background: var(--bg-4); color: var(--accent); }
+}
+@media (hover: none) {
+  .continue-card:hover .continue-cover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 /* Actions rapides dans la fiche. */
