@@ -5,6 +5,60 @@
 const accentCache = new Map();
 const pendingAccents = new Map();
 const MAX_ACCENT_CACHE = 120;
+const ACCENT_CACHE_VERSION = "2";
+const ACCENT_CACHE_VERSION_KEY = "kulturo-cover-accent-version";
+const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v2";
+let storageHydrated = false;
+
+function ensureStorageVersion() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (localStorage.getItem(ACCENT_CACHE_VERSION_KEY) !== ACCENT_CACHE_VERSION) {
+      localStorage.removeItem(ACCENT_CACHE_STORAGE_KEY);
+      localStorage.setItem(ACCENT_CACHE_VERSION_KEY, ACCENT_CACHE_VERSION);
+    }
+  } catch {}
+}
+
+function hydrateAccentCache() {
+  if (storageHydrated) return;
+  storageHydrated = true;
+  ensureStorageVersion();
+  if (typeof localStorage === "undefined") return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(ACCENT_CACHE_STORAGE_KEY) || "[]");
+    if (!Array.isArray(stored)) return;
+    stored.slice(-MAX_ACCENT_CACHE).forEach(([key, accent]) => {
+      if (typeof key === "string" && accent?.accent && accent?.accent2 && accent?.system) {
+        accentCache.set(key, accent);
+      }
+    });
+  } catch {}
+}
+
+function persistAccentCache() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(ACCENT_CACHE_STORAGE_KEY, JSON.stringify([...accentCache.entries()].slice(-MAX_ACCENT_CACHE)));
+  } catch {}
+}
+
+function rememberAccent(key, accent) {
+  if (!accent) return;
+  if (accentCache.size >= MAX_ACCENT_CACHE) accentCache.delete(accentCache.keys().next().value);
+  accentCache.set(key, accent);
+  persistAccentCache();
+}
+
+export function resetCoverAccentCache() {
+  accentCache.clear();
+  storageHydrated = true;
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(ACCENT_CACHE_STORAGE_KEY);
+    localStorage.setItem(ACCENT_CACHE_VERSION_KEY, ACCENT_CACHE_VERSION);
+  } catch {}
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -118,6 +172,7 @@ function sampleImage(image, theme) {
 export function coverAccentForUrl(url, theme = "dark") {
   const cleanUrl = String(url || "").trim();
   if (!cleanUrl || typeof Image === "undefined") return Promise.resolve(null);
+  hydrateAccentCache();
   const key = `${theme}:${cleanUrl}`;
   if (accentCache.has(key)) return Promise.resolve(accentCache.get(key));
   if (pendingAccents.has(key)) return pendingAccents.get(key);
@@ -132,13 +187,15 @@ export function coverAccentForUrl(url, theme = "dark") {
       image.onload = null;
       image.onerror = null;
       pendingAccents.delete(key);
-      if (accentCache.size >= MAX_ACCENT_CACHE) accentCache.delete(accentCache.keys().next().value);
-      accentCache.set(key, value);
+      // Un échec réseau, un timeout ou une protection CORS ne doit pas rester
+      // mémorisé : la prochaine ouverture pourra retenter l'analyse.
+      rememberAccent(key, value);
       resolve(value);
     };
-    const timeout = setTimeout(() => finish(null), 2200);
+    const timeout = setTimeout(() => finish(null), 7000);
     image.crossOrigin = "anonymous";
     image.decoding = "async";
+    image.referrerPolicy = "no-referrer";
     image.onload = () => finish(sampleImage(image, theme));
     image.onerror = () => finish(null);
     image.src = cleanUrl;

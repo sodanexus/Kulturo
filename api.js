@@ -437,17 +437,20 @@ export const GoogleBooks = {
 // ── Détails enrichis ────────────────────────────────────────
 
 export const TMDbDetails = {
-  async fetch(externalId, subtype = "movie") {
+  async fetch(externalId, subtype = "movie", options = {}) {
     if (!CONFIG?.tmdb?.apiKey) return null;
     const key  = CONFIG.tmdb.apiKey;
     const base = CONFIG.tmdb.baseUrl;
     const ep   = subtype === "tv" ? "tv" : "movie";
     const lang = "language=fr-FR";
+    const detailRequest = options.fresh
+      ? { cachePolicy: "detail", cacheTtlMs: 0 }
+      : { cachePolicy: "detail" };
 
     const [main, credits, providers] = await Promise.allSettled([
-      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, { cachePolicy: "detail" }),
-      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, { cachePolicy: "detail" }),
-      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, { cachePolicy: "detail" }),
+      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, detailRequest),
+      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, detailRequest),
+      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, detailRequest),
     ]);
 
     const d = main.status === "fulfilled" ? main.value : null;
@@ -469,7 +472,7 @@ export const TMDbDetails = {
     const topCast = c?.cast?.slice(0, 4) || [];
     const cast_members = topCast.map(x => x.name).join(", ") || null;
     const castExternalIds = await Promise.allSettled(topCast.map(person =>
-      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`, { cachePolicy: "detail" })
+      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`, detailRequest)
     ));
     const cast_people = topCast.map((person, index) => ({
       id: person.id,

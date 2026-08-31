@@ -2,11 +2,11 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.2.1**
+Version actuelle : **3.2.2**
 
 ## Fonctionnalités
 
-- Bibliothèque personnelle avec statuts, favoris, notes sur 10 et recherche locale
+- Bibliothèque personnelle ouverte par défaut sur **Terminé**, avec favoris, notes sur 10 et recherche locale
 - Étagère **À reprendre** repliable, compacte sur mobile et mémorisée par appareil
 - Compteur de revisionnages, relectures et nouvelles parties
 - Ajout compact avec recherche universelle TMDb, IGDB et Open Library
@@ -14,17 +14,18 @@ Version actuelle : **3.2.1**
 - Acteurs, réalisateurs, auteurs, genres, éditeurs et studios reliés à la bibliothèque
 - Prochaines sorties françaises pour les films, séries, jeux et livres
 - Chargement progressif des différentes sources dans **Sorties**
-- Journal personnel chronologique : ajouts, débuts, achèvements et changements de statut, avec la note actuelle
+- Journal personnel chronologique : actions similaires regroupées à partir de trois, dépliables et masquables sans modifier les médias ni les statistiques
 - Vue **Communauté** réservée aux autres membres, avec fiches en lecture seule
 - Profil annuel ou mensuel avec statistiques, Top et répartition par catégorie
-- Histogramme des notes cliquable vers les médias concernés
+- Histogramme des notes toujours placé juste après **En un coup d’œil** et cliquable vers les médias concernés
 - Navigation Retour intelligente pour les pages, fiches, filtres et panneaux d’informations
 - Préchargement discret des fiches au survol ou au toucher, avec transitions locales des enrichissements
 - Navigation temporelle dans le Journal et récapitulatif de chaque mois
 - Recommandations **Pour vous** dans Sorties selon les genres, personnes et studios les plus présents dans la bibliothèque
 - Profil enrichi : genres explorés et revisionnages
 - Densité **Standard** ou **Compacte** pour les grandes bibliothèques, sans réglage mobile redondant
-- Accents visuels dérivés de la couleur dominante de la jaquette, avec repli par type et couleur de barre système synchronisée
+- Accents visuels dérivés de la couleur dominante de la jaquette, recalculables et conservés localement, avec couleur de barre système synchronisée
+- Réparation progressive des anciennes identités TMDb et des bannières manquantes lors de l’ouverture d’une fiche
 - États communs de chargement, de liste vide et d’erreur, avec mise à jour locale des cartes et blocs du Profil
 - Couche réseau commune avec annulation des recherches obsolètes, cache à durée de vie, délai maximal et nouvelle tentative
 - Export JSON de la bibliothèque et du Journal
@@ -63,22 +64,17 @@ Kulturo/
 │   ├── dom-updates.js
 │   ├── insights.js
 │   ├── cover-accent.js
+│   ├── journal-groups.js
 │   ├── media-metadata.js
 │   ├── request-client.js
 │   └── ui-states.js
 ├── config.js
 ├── schema.sql
-├── package.json
 ├── manifest.json
 ├── sw.js
 ├── icon.svg
 ├── icon-192.png
 ├── icon-512.png
-├── tests/
-│   ├── domain.test.mjs
-│   ├── enhancements.test.mjs
-│   ├── frontend-contract.test.mjs
-│   └── media-ui.test.mjs
 └── supabase/functions/
     ├── igdb-proxy/index.ts
     ├── google-books-proxy/index.ts
@@ -99,7 +95,23 @@ schema.sql
 
 Ce fichier crée la structure complète actuelle : médias, profils, Journal, politiques RLS, déclencheur d’événements et fonction Communauté.
 
-Pour une installation Kulturo 3.2.x déjà fonctionnelle, il ne faut pas réexécuter `schema.sql` lors d’une simple mise à jour du frontend.
+Pour une installation Kulturo 3.2.x déjà fonctionnelle, il ne faut pas réexécuter tout `schema.sql` lors d’une simple mise à jour du frontend.
+
+### Mise à jour d’une installation existante vers 3.2.2
+
+La suppression discrète d’un événement du Journal est un masquage non destructif dans sa colonne `metadata`. Pour l’autoriser sur une base existante, exécuter une seule fois dans **Supabase → SQL Editor** :
+
+```sql
+DROP POLICY IF EXISTS "events_update_own" ON public.media_events;
+CREATE POLICY "events_update_own" ON public.media_events
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+GRANT UPDATE (metadata) ON public.media_events TO authenticated;
+```
+
+Ce réglage ne modifie et ne supprime aucune ligne existante. Une installation neuve qui utilise le `schema.sql` fourni possède déjà cette politique.
 
 ### 2. Déployer les Edge Functions
 
@@ -149,7 +161,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.2.1",
+    version: "3.2.2",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -174,7 +186,7 @@ https://sodanexus.github.io/Kulturo/
 
 ### Bibliothèque et fiches
 
-La bibliothèque peut être filtrée par type, statut, note, favori, année ou mois. La recherche située dans l’en-tête filtre directement les cartes déjà présentes, sans liste de résultats superposée ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
+La bibliothèque affiche **Terminé** par défaut, tout en conservant l’étagère **À reprendre** au-dessus. Le filtre de statut propose **Terminé**, **Wishlist**, **En cours** et **Abandonné** ; les choix redondants **Tout** et **En pause** ne sont plus proposés. Les autres filtres portent sur le type, la note, le favori, l’année ou le mois. La recherche située dans l’en-tête filtre directement les cartes déjà présentes, sans liste de résultats superposée ; l’ajout d’une nouvelle œuvre passe exclusivement par le bouton central **+**. Les cartes ouvrent une fiche détaillée avec les informations enregistrées et, si nécessaire, les compléments récupérés auprès des APIs.
 
 Le panneau Filtres propose une seule préférence de densité : **Standard** conserve les affiches confortables, tandis que **Compact** en affiche davantage, y compris sur mobile. L’ancien choix indépendant de deux ou trois colonnes n’est plus nécessaire.
 
@@ -203,6 +215,10 @@ Sur mobile, toutes les modales suivent le doigt lors d’un glissement vers le b
 
 **Mon journal** regroupe chronologiquement les étapes du suivi : ajout à la bibliothèque ou à la wishlist, début, achèvement, reprise et autres changements de statut. Il n’y a pas de sous-filtre intermédiaire. Chaque ligne rouvre la fiche concernée.
 
+À partir de trois actions identiques dans une même journée et pour un même type de média, le Journal les condense en une ligne — par exemple **3 films vus** ou **3 films ajoutés à la wishlist**. Un appui déplie les œuvres sans perdre la chronologie. Sur ordinateur, le sélecteur **Mon journal / Communauté**, le mois et les flèches restent ancrés pendant le défilement.
+
+La petite corbeille d’une ligne retire seulement cet événement du fil visible. Le média, son statut, sa note, la date de l’action, les statistiques et les Tops restent inchangés ; l’événement est simplement marqué comme masqué afin que ce choix soit conservé entre les appareils.
+
 La note affichée sur chaque ligne est toujours la note actuelle du média, au format **★ 8/10**. Ajouter, modifier ou effacer une note actualise ce badge sans créer de ligne visible, ni modifier les dates ou l’ordre des étapes. Les anciennes lignes de notation sont également masquées. Les événements de notation restent conservés pour les Tops mensuels et les sauvegardes ; aucune donnée n’est supprimée.
 
 **Communauté** affiche uniquement l’activité partageable des autres membres. Le compte connecté n’y est jamais répété, puisqu’il possède déjà son Journal. Les notes textuelles, dates personnelles de suivi et autres informations privées ne sont pas exposées. Les fiches des autres restent en lecture seule.
@@ -218,7 +234,7 @@ Le Profil propose une vue annuelle ou mensuelle, filtrable par films, séries, j
 - Une simple mise en cours ne fait pas remonter une ancienne note dans le Top.
 - Un mois choisi manuellement reste affiché même s’il est vide.
 - À l’ouverture, un mois courant sans Top peut revenir au dernier mois précédent renseigné.
-- L’histogramme global ouvre les médias correspondant exactement à la note sélectionnée.
+- L’histogramme global reste toujours juste après **En un coup d’œil** et ouvre les médias correspondant exactement à la note sélectionnée.
 - Les nombres principaux évoluent doucement lors d’un changement de période, sans reconstruire les blocs restés identiques.
 - Les genres les plus explorés et le nombre de revisionnages complètent la lecture du Profil.
 
@@ -238,7 +254,9 @@ Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actu
 
 Les couvertures et les informations récupérées apparaissent par fondu local : la fiche conserve sa structure et ses actions pendant l’enrichissement, avec un message explicite lorsqu’aucun synopsis n’est disponible. Les cartes de la bibliothèque et les blocs du Profil sont réconciliés localement afin qu’une petite modification ne reconstruise pas toute la page.
 
-La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Une couleur de secours liée au type de média est conservée si l’image ne peut pas être analysée par le navigateur.
+La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Les accents calculés avec succès sont conservés dans un cache local versionné ; les anciens résultats incohérents sont donc invalidés automatiquement en 3.2.2. Le cache d’images PWA est également renouvelé, et une jaquette demandée pour l’analyse ne réutilise plus une ancienne réponse opaque illisible par le calcul de couleur. Un échec réseau, un délai dépassé ou une image encore protégée par CORS n’est pas mémorisé et sera retenté à la prochaine ouverture. Si l’analyse reste impossible, la fiche revient à l’or neutre de Kulturo plutôt qu’à une couleur artificielle liée au type.
+
+Les bannières sont enregistrées dans `media_entries.backdrop_url` sur Supabase après leur récupération. Lorsqu’un ancien film n’a pas encore de bannière, l’ouverture de sa fiche force une vérification TMDb fraîche. Si l’ancien média ne possède pas d’identifiant TMDb, Kulturo tente d’abord un rapprochement strict par titre, type et année ; il complète ensuite uniquement les champs manquants, sans écraser les informations personnelles. Une fiche comme **Fight Club** se répare ainsi progressivement, sans réinitialisation globale de la base.
 
 Les recherches API interrompent la requête précédente dès qu’une nouvelle saisie commence. Les recherches, sorties, détails et traductions utilisent un cache mémoire à durée de vie limitée ; ce cache ne contient aucune donnée personnelle et disparaît au rechargement de la page. Chaque requête dispose aussi d’un délai maximal et d’une reprise limitée pour les erreurs transitoires.
 
@@ -270,11 +288,6 @@ La clé anonyme/publishable Supabase est conçue pour être utilisée par le cli
 - Mettre à jour la version dans `config.js` et le nom du cache dans `sw.js` uniquement lors d’une vraie publication de l’application.
 - Garder les durées et courbes d’animation dans les variables de `styles/enhancements.css`.
 - Ajouter toute nouvelle source externe derrière `features/request-client.js` plutôt qu’un appel réseau direct dans l’interface.
-- Lancer les tests avec :
-
-```bash
-node --test tests/*.test.mjs
-```
 
 ## Vérifications avant mise en ligne
 
@@ -284,10 +297,11 @@ node --test tests/*.test.mjs
 - Ouvrir une information cliquable depuis une fiche et vérifier le retour vers les médias correspondants.
 - Sur mobile, tester le glissement de fermeture depuis l’en-tête d’une fiche.
 - Vérifier le Journal personnel et la Communauté.
+- Regrouper au moins trois actions semblables, déplier le groupe puis masquer une ligne du Journal.
 - Modifier puis effacer une note : le badge du Journal doit suivre la note actuelle, sans nouvelle ligne ni changement de date.
 - Tester le switch annuel/mensuel et les filtres du Profil.
 - Vérifier le Top mensuel et les compteurs d’achèvement.
 - Tester les prochaines sorties et leur chargement progressif.
 - Vérifier l’export JSON depuis le Profil.
+- Ouvrir un ancien film sans bannière et vérifier que `backdrop_url` est complété après la récupération TMDb.
 - Tester l’installation et le rafraîchissement de la PWA sur mobile.
-- Exécuter `node --test tests/*.test.mjs`.

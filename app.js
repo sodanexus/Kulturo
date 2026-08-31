@@ -47,6 +47,7 @@ import { elementFromHTML, patchKeyedSurface, reconcileKeyedChildren } from "./fe
 import { cardSkeletons, emptyState, errorState, loadingState } from "./features/ui-states.js";
 import { clearApiCache } from "./features/request-client.js";
 import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js";
+import { groupJournalDayEvents, journalGroupPresentation } from "./features/journal-groups.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -58,6 +59,7 @@ const IS_STANDALONE_DISPLAY = Boolean(
 document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
 
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
+const DEFAULT_LIBRARY_STATUS = "finished";
 
 function readLibraryDensity() {
   try {
@@ -92,7 +94,7 @@ const State = {
   filters: {
     type:     "all",
     subtype:  "all",
-    status:   "all",
+    status:   DEFAULT_LIBRARY_STATUS,
     favorite: false,
     search:   "",
     sort:     "created_at",
@@ -105,7 +107,7 @@ const State = {
 };
 
 const ENTRY_CACHE_PREFIX = "kulturo-entries-v1:";
-const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v1";
+const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v2";
 
 function persistUiSnapshot() {
   if (!State.user) return;
@@ -139,11 +141,11 @@ function restoreUiSnapshot() {
     if (filters && typeof filters === "object") {
       const allowedTypes = new Set(["all", "movie", "game", "book"]);
       const allowedSubtypes = new Set(["all", "movie", "tv"]);
-      const allowedStatuses = new Set(["all", "wishlist", "playing", "finished", "paused", "dropped"]);
+      const allowedStatuses = new Set(["all", "wishlist", "playing", "finished", "dropped"]);
       const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
       State.filters.type = allowedTypes.has(filters.type) ? filters.type : "all";
       State.filters.subtype = allowedSubtypes.has(filters.subtype) ? filters.subtype : "all";
-      State.filters.status = allowedStatuses.has(filters.status) ? filters.status : "all";
+      State.filters.status = allowedStatuses.has(filters.status) ? filters.status : DEFAULT_LIBRARY_STATUS;
       State.filters.favorite = Boolean(filters.favorite);
       State.filters.search = typeof filters.search === "string" ? filters.search.slice(0, 120) : "";
       State.filters.sort = allowedSorts.has(filters.sort) ? filters.sort : "created_at";
@@ -207,7 +209,7 @@ function getTypeLabel(e) {
   if (e.media_type === "movie" && e.subtype === "tv") return "Série";
   return TYPE_LABELS[e.media_type] || e.media_type;
 }
-const STATUS_LABELS= { wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
+const STATUS_LABELS= { all:"Tous les statuts", wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
 function safeMediaUrl(value) {
   if (!value) return "";
@@ -219,11 +221,13 @@ function safeMediaUrl(value) {
   }
 }
 
-function bindCoverAccent(element, coverUrl) {
+function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
   const cleanUrl = safeMediaUrl(coverUrl);
+  const cleanFallbackUrl = safeMediaUrl(fallbackImageUrl);
   if (!element) return;
-  if (!cleanUrl) {
+  if (!cleanUrl && !cleanFallbackUrl) {
     delete element.dataset.coverAccentUrl;
+    delete element.dataset.coverAccentFallback;
     delete element.dataset.coverAccentTheme;
     delete element.dataset.coverAccent;
     element.style.removeProperty("--accent");
@@ -231,23 +235,32 @@ function bindCoverAccent(element, coverUrl) {
     element.style.removeProperty("--accent-glow");
     return;
   }
-  element.dataset.coverAccentUrl = cleanUrl;
+  element.dataset.coverAccentUrl = cleanUrl || cleanFallbackUrl;
+  element.dataset.coverAccentFallback = cleanUrl && cleanFallbackUrl ? cleanFallbackUrl : "";
   const theme = document.documentElement.getAttribute("data-theme") || "dark";
   element.dataset.coverAccentTheme = theme;
   element.style.removeProperty("--accent");
   element.style.removeProperty("--accent-2");
   element.style.removeProperty("--accent-glow");
   element.dataset.coverAccent = "pending";
-  coverAccentForUrl(cleanUrl, theme).then(accent => {
-    if (!accent || !element.isConnected || element.dataset.coverAccentUrl !== cleanUrl || element.dataset.coverAccentTheme !== theme) return;
+  const identity = element.dataset.coverAccentUrl;
+  const fallbackIdentity = element.dataset.coverAccentFallback;
+  (async () => {
+    let accent = await coverAccentForUrl(identity, theme);
+    if (!accent && fallbackIdentity) accent = await coverAccentForUrl(fallbackIdentity, theme);
+    if (!element.isConnected || element.dataset.coverAccentUrl !== identity || element.dataset.coverAccentFallback !== fallbackIdentity || element.dataset.coverAccentTheme !== theme) return;
+    if (!accent) {
+      element.dataset.coverAccent = "fallback";
+      return;
+    }
     applyCoverAccent(element, accent);
-    if (element.matches(".detail-modal")) syncSystemBar(_currentPage, null, accent.system);
-  }).catch(() => {});
+    if (element.matches(".detail-modal, .modal-wizard, .edit-modal")) syncSystemBar(_currentPage, null, accent.system);
+  })().catch(() => { if (element.isConnected) element.dataset.coverAccent = "fallback"; });
 }
 
 function refreshOpenCoverAccent() {
   document.querySelectorAll("[data-cover-accent-url]").forEach(element => {
-    bindCoverAccent(element, element.dataset.coverAccentUrl);
+    bindCoverAccent(element, element.dataset.coverAccentUrl, element.dataset.coverAccentFallback);
   });
 }
 
@@ -767,7 +780,7 @@ function navTo(key, options = {}) {
   } else if (key.startsWith("type-")) {
     State.filters.type     = key.replace("type-", "");
     State.filters.subtype  = "all";
-    State.filters.status   = "all";
+    State.filters.status   = DEFAULT_LIBRARY_STATUS;
     State.filters.favorite = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
@@ -792,7 +805,7 @@ function navTo(key, options = {}) {
     State.filters.favorite = true;
     State.filters.type     = "all";
     State.filters.subtype  = "all";
-    State.filters.status   = "all";
+    State.filters.status   = DEFAULT_LIBRARY_STATUS;
     State.filters.year     = "all";
     State.filters.month    = "all";
     State.filters.rating   = "all";
@@ -810,7 +823,7 @@ function navTo(key, options = {}) {
     // "library" → reset complet
     State.filters.type     = "all";
     State.filters.subtype  = "all";
-    State.filters.status   = "all";
+    State.filters.status   = DEFAULT_LIBRARY_STATUS;
     State.filters.favorite = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
@@ -899,11 +912,10 @@ function buildFilterBar() {
   // Chips statut dans le drawer
   const chipsEl = document.getElementById("filter-status-chips");
   if (chipsEl) {
-    const statuses = ["all","wishlist","playing","finished","paused","dropped"];
+    const statuses = ["finished","wishlist","playing","dropped"];
     chipsEl.innerHTML = statuses.map(s => {
-      const label = s === "all" ? "Tous" : STATUS_LABELS[s];
       return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-                      onclick="UI.setStatusChip('${s}')">${label}</button>`;
+                      onclick="UI.setStatusChip('${s}')">${STATUS_LABELS[s]}</button>`;
     }).join("");
   }
   // Met à jour le label actif sur le bouton toggle
@@ -914,7 +926,7 @@ function _countActiveFilters() {
   let n = 0;
   if (State.filters.subtype !== "all" || State.filters.type !== "all") n++;
   if (State.filters.favorite) n++;
-  if (State.filters.status !== "all") n++;
+  if (State.filters.status !== DEFAULT_LIBRARY_STATUS) n++;
   if (State.filters.sort !== "created_at") n++;
   if (State.filters.year !== "all" || State.filters.month !== "all") n++;
   if (State.filters.rating !== "all") n++;
@@ -973,7 +985,7 @@ const CONTINUE_EXPANDED_KEY = "kulturo-continue-expanded";
 
 function isLibraryViewUnfiltered() {
   const f = State.filters;
-  return f.type === "all" && f.subtype === "all" && f.status === "all" && !f.favorite && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
+  return f.type === "all" && f.subtype === "all" && f.status === DEFAULT_LIBRARY_STATUS && !f.favorite && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
 }
 
 function readContinueExpanded() {
@@ -1089,7 +1101,7 @@ function renderActiveFilters() {
   const filters = [];
   if (State.filters.subtype !== "all") filters.push(["subtype", subtypeLabels[State.filters.subtype] || State.filters.subtype]);
   else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
-  if (State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
+  if (State.filters.status !== DEFAULT_LIBRARY_STATUS) filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
   if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
   if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
   if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
@@ -1120,7 +1132,7 @@ function clearLibraryFilter(key) {
     State.filters.type = "all";
     State.filters.subtype = "all";
   }
-  else if (key === "status") State.filters.status = "all";
+  else if (key === "status") State.filters.status = DEFAULT_LIBRARY_STATUS;
   else if (key === "favorite") State.filters.favorite = false;
   else if (key === "sort") {
     State.filters.sort = "created_at";
@@ -1143,7 +1155,7 @@ function clearLibraryFilter(key) {
 function clearAllLibraryFilters() {
   State.filters.type = "all";
   State.filters.subtype = "all";
-  State.filters.status = "all";
+  State.filters.status = DEFAULT_LIBRARY_STATUS;
   State.filters.favorite = false;
   State.filters.search = "";
   State.filters.rating = "all";
@@ -1186,7 +1198,8 @@ function renderCards(options = {}) {
     else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
     else if (f.subtype === "movie") emptyMsg = "Aucun film ne correspond à ces filtres.";
     else if (f.subtype === "tv")    emptyMsg = "Aucune série ne correspond à ces filtres.";
-    else if (f.status !== "all")     emptyMsg = `Aucun média avec le statut "<strong>${STATUS_LABELS[f.status]}</strong>".`;
+    else if (f.status !== DEFAULT_LIBRARY_STATUS) emptyMsg = `Aucun média avec le statut "<strong>${STATUS_LABELS[f.status]}</strong>".`;
+    else if (f.status === DEFAULT_LIBRARY_STATUS) emptyMsg = "Aucun média terminé pour le moment.";
     else if (f.type === "game")      emptyMsg = "Aucun jeu dans votre bibliothèque.";
     else if (f.type === "movie")     emptyMsg = "Aucun film ou série dans votre bibliothèque.";
     else if (f.type === "book")      emptyMsg = "Aucun livre dans votre bibliothèque.";
@@ -1195,7 +1208,7 @@ function renderCards(options = {}) {
         <div class="empty-icon">🎭</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.status !== "all" || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
+        ${f.search || f.favorite || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
           ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
           : emptyBtn}
       </div>`;
@@ -1531,6 +1544,10 @@ function openRatingCollection(value) {
   const rating = Number.parseInt(value, 10);
   if (!Number.isInteger(rating) || rating < 1 || rating > 10) return;
   navTo("library");
+  // L'histogramme couvre toutes les œuvres notées, quel que soit leur statut.
+  // Le lien doit donc montrer exactement le même ensemble, même si la vue
+  // normale de la Bibliothèque démarre désormais sur « Terminé ».
+  State.filters.status = "all";
   State.filters.rating = rating;
   syncFilterChips();
   renderCards({ resetScroll: true });
@@ -1926,14 +1943,14 @@ function _renderWizard() {
 
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal modal-wizard" data-step="${s.step}" data-media-accent="${s.step === 2 ? esc(s.type) : "neutral"}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
+      <div class="modal modal-wizard" data-step="${s.step}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
         <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
         ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ""}
       </div>
     </div>`;
   pushHistoryLayer("modal", { modal: "add", step: s.step });
-  syncSystemBar(_currentPage, s.step === 2 ? s.type : null);
+  syncSystemBar(_currentPage, null);
   if (s.step === 2) bindCoverAccent(root.querySelector(".modal-wizard"), cover);
 
   if (s.step === 1) {
@@ -1978,7 +1995,7 @@ function _openModalClassic(entry) {
   const entryCoverUrl = safeMediaUrl(entry.cover_url);
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal edit-modal" data-edit-view="main" data-media-accent="${esc(entry.media_type || "movie")}" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true">
+      <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" onclick="UI.setEditDetailsView(false)" aria-label="Revenir à la modification principale">←</button>
           <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
@@ -2061,7 +2078,7 @@ function _openModalClassic(entry) {
       </div>
     </div>`;
   pushHistoryLayer("modal", { modal: "edit", mediaId: entry.id });
-  syncSystemBar(_currentPage, entry.media_type);
+  syncSystemBar(_currentPage, null);
   bindCoverAccent(root.querySelector(".edit-modal"), entryCoverUrl);
   _currentRating = entry.rating || 0;
   buildRatingStars(entry.rating || 0);
@@ -3353,6 +3370,46 @@ function canEnrichMediaDetails(entry) {
   return ["movie", "game"].includes(entry.media_type) && Boolean(entry.external_id);
 }
 
+function canResolveMediaIdentity(entry) {
+  return Boolean(
+    entry?.media_type === "movie" &&
+    !entry.external_id &&
+    entry.title &&
+    TMDb.available(),
+  );
+}
+
+async function repairMissingTMDbIdentity(entry) {
+  if (!canResolveMediaIdentity(entry)) return false;
+  const expectedSubtype = entry.subtype === "tv" ? "tv" : "movie";
+  const expectedTitle = normalizeTitle(entry.title);
+  const expectedYear = Number(entry.release_year) || null;
+  const results = await TMDb.search(entry.title);
+  const exactMatches = results.filter(candidate =>
+    normalizeTitle(candidate.title) === expectedTitle &&
+    (candidate.subtype === "tv" ? "tv" : "movie") === expectedSubtype
+  );
+  const match = (expectedYear
+    ? exactMatches.find(candidate => Number(candidate.release_year) === expectedYear)
+    : null) || (!expectedYear ? exactMatches[0] : null);
+  if (!match) return false;
+
+  const identity = {
+    external_id: match.external_id,
+    source_api: "tmdb",
+  };
+  ["subtype", "release_year", "cover_url", "genre", "description"].forEach(field => {
+    if (!entry[field] && match[field] != null) identity[field] = match[field];
+  });
+  const updated = await Media.update(entry.id, identity);
+  Object.assign(entry, updated);
+  cacheEntriesLocally();
+
+  const detailModal = document.getElementById(`detail-body-${entry.id}`)?.closest(".detail-modal");
+  if (detailModal) bindCoverAccent(detailModal, entry.cover_url, entry.backdrop_url);
+  return true;
+}
+
 const DETAIL_PREFETCH_TTL = 15 * 60_000;
 const _detailPrefetchCache = new Map();
 
@@ -3360,18 +3417,22 @@ function detailPrefetchKey(entry) {
   return `${entry.media_type}:${entry.subtype || ""}:${entry.source_api || ""}:${entry.external_id || normalizeTitle(entry.title)}`;
 }
 
-async function fetchMediaDetails(entry) {
+async function fetchMediaDetails(entry, options = {}) {
   if (entry.media_type === "movie" && entry.external_id) {
-    return TMDbDetails.fetch(entry.external_id, entry.subtype || "movie");
+    return TMDbDetails.fetch(entry.external_id, entry.subtype || "movie", options);
   }
   if (entry.media_type === "game" && entry.external_id) return IGDBDetails.fetch(entry.external_id);
   if (entry.media_type === "book") return OpenLibraryDetails.fetch(entry.external_id, entry);
   return null;
 }
 
-function requestPrefetchedDetails(entry) {
+function requestPrefetchedDetails(entry, options = {}) {
   if (!canEnrichMediaDetails(entry)) return Promise.resolve(null);
   const key = detailPrefetchKey(entry);
+  if (options.fresh) {
+    _detailPrefetchCache.delete(key);
+    return fetchMediaDetails(entry, { fresh: true });
+  }
   const cached = _detailPrefetchCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.promise;
   const promise = fetchMediaDetails(entry).catch(error => {
@@ -3506,7 +3567,7 @@ function renderDetailPanel(e, options = {}) {
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
-      <div class="modal detail-modal" data-media-accent="${esc(e.media_type || "movie")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
+      <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -3554,8 +3615,8 @@ function renderDetailPanel(e, options = {}) {
     </div>`;
 
   pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });
-  syncSystemBar(_currentPage, e.media_type);
-  bindCoverAccent(root.querySelector(".detail-modal"), coverUrl);
+  syncSystemBar(_currentPage, null);
+  bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
   hydrateFadeImages(root);
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
@@ -4324,8 +4385,11 @@ function scrollExpandedSynopsisIntoView(wrap) {
 function _injectBackdrop(backdrop, entryId) {
   if (!backdrop) return;
   const detailBody = document.getElementById(`detail-body-${entryId}`);
-  const bdEl = detailBody?.closest(".detail-modal")?.querySelector(".detail-backdrop");
+  const detailModal = detailBody?.closest(".detail-modal");
+  const bdEl = detailModal?.querySelector(".detail-backdrop");
   if (!bdEl) return;
+  const currentAccentImage = detailModal.dataset.coverAccentUrl || "";
+  bindCoverAccent(detailModal, currentAccentImage, backdrop === currentAccentImage ? "" : backdrop);
   // Evite de doubler la couche si déjà présente
   if (bdEl.querySelector(".detail-backdrop-layer")) return;
   const img = new Image();
@@ -4348,12 +4412,14 @@ async function openDetailPanel(id) {
   if (!e) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
-  const detailsLoading = !e.description && !e._detailsFetched && canEnrichMediaDetails(e);
+  const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
   renderDetailPanel(e, { detailsLoading });
   _scheduleSynopsisOverflowCheck(e.id);
 
-  // Si déjà enrichi, on injecte juste le backdrop sans refetch
-  if (e._detailsFetched) {
+  // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
+  // l'arrivée des bannières. Elle bénéficie d'une unique vérification fraîche.
+  const needsBackdropRepair = e.media_type === "movie" && !e.backdrop_url && !e._backdropRepairAttempted;
+  if (e._detailsFetched && !needsBackdropRepair) {
     _injectBackdrop(e.backdrop_url, e.id);
     return;
   }
@@ -4361,6 +4427,17 @@ async function openDetailPanel(id) {
   e._detailsFetching = true;
 
   try {
+    // Les anciens ajouts manuels n'avaient parfois pas d'identifiant TMDb.
+    // Un rapprochement strict titre + type (+ année si connue) permet de
+    // réparer Fight Club et les fiches équivalentes sans associer une œuvre au hasard.
+    if (canResolveMediaIdentity(e)) {
+      try {
+        await repairMissingTMDbIdentity(e);
+      } catch (error) {
+        console.warn("[Detail] identity repair error:", error);
+      }
+    }
+
     // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on
     // retente d'abord exactement ces champs sans refaire ni écraser les saisies.
     if (e._detailsPending && Object.keys(e._detailsPending).length) {
@@ -4379,7 +4456,14 @@ async function openDetailPanel(id) {
       return;
     }
 
-    const details = await requestPrefetchedDetails(e);
+    if (!canEnrichMediaDetails(e)) {
+      refreshDetailEnrichment(e, { detailsLoading: false });
+      return;
+    }
+
+    const refreshBackdrop = e.media_type === "movie" && !e.backdrop_url;
+    if (refreshBackdrop) e._backdropRepairAttempted = true;
+    const details = await requestPrefetchedDetails(e, { fresh: refreshBackdrop });
 
     if (!details) {
       refreshDetailEnrichment(e, { detailsLoading: false });
@@ -4578,6 +4662,7 @@ let _communityEntries = [];
 let _communityLoaded = false;
 let _journalMonthTarget = "all";
 let _journalMonthKeys = [];
+const _journalExpandedGroups = new Set();
 
 function syncJournalMode() {
   ["personal", "community"].forEach(mode => {
@@ -4603,7 +4688,10 @@ function setJournalMode(mode) {
 function visibleJournalEvents() {
   const existingIds = new Set(State.entries.map(entry => entry.id));
   // Les notations restent dans State.events pour les Tops et les sauvegardes.
-  return State.events.filter(event => event.event_type !== "rated" && existingIds.has(event.media_id));
+  return State.events.filter(event => {
+    const metadata = event?.metadata && typeof event.metadata === "object" ? event.metadata : {};
+    return event.event_type !== "rated" && !metadata.hidden_from_journal && existingIds.has(event.media_id);
+  });
 }
 
 async function renderJournal() {
@@ -4677,11 +4765,14 @@ function renderJournalFeed(events) {
     return `
       <section class="journal-month-group" id="journal-month-${esc(monthKey)}" data-journal-month="${esc(monthKey)}">
         <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
-        ${[...days.entries()].map(([date, items]) => `
-          <section class="activity-date-group journal-date-group">
-            <div class="activity-date-label">${esc(date)}</div>
-            ${items.map(journalRowHTML).join("")}
-          </section>`).join("")}
+        ${[...days.entries()].map(([date, items]) => {
+          const groupedItems = groupJournalDayEvents(items, State.entries, 3);
+          return `
+            <section class="activity-date-group journal-date-group">
+              <div class="activity-date-label">${esc(date)}</div>
+              ${groupedItems.map(item => item.kind === "group" ? journalGroupHTML(item) : journalRowHTML(item.event)).join("")}
+            </section>`;
+        }).join("")}
         ${monthKey === "unknown" ? "" : journalMonthSummaryHTML(monthKey)}
       </section>`;
   }).join("");
@@ -4759,7 +4850,57 @@ function stepJournalMonth(direction) {
   jumpJournalMonth(_journalMonthKeys[nextIndex]);
 }
 
-function journalRowHTML(event) {
+function journalGroupDomId(key) {
+  return `journal-group-${String(key || "group").replace(/[^a-z0-9_-]+/gi, "-")}`;
+}
+
+function journalGroupCoverHTML(event) {
+  const entry = State.entries.find(item => item.id === event?.media_id);
+  if (!entry) return "";
+  const coverUrl = safeMediaUrl(entry.cover_url);
+  return coverUrl
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none'">`
+    : `<span aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
+}
+
+function journalGroupHTML(group) {
+  const presentation = journalGroupPresentation(group);
+  const expanded = _journalExpandedGroups.has(group.key);
+  const domId = journalGroupDomId(group.key);
+  return `
+    <section class="journal-event-group ${expanded ? "is-expanded" : ""}" id="${domId}" data-journal-group="${esc(group.key)}">
+      <button type="button" class="journal-event-group-toggle" onclick="UI.toggleJournalGroup('${esc(group.key)}')" aria-expanded="${expanded}" aria-controls="${domId}-content">
+        <span class="journal-event-group-covers" aria-hidden="true">${group.events.slice(0, 3).map(journalGroupCoverHTML).join("")}</span>
+        <span class="journal-event-group-copy">
+          <strong><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</strong>
+          <small>${expanded ? "Masquer le détail" : `Afficher les ${group.events.length} œuvres`}</small>
+        </span>
+        <span class="journal-event-group-chevron" aria-hidden="true">⌄</span>
+      </button>
+      <div class="journal-event-group-expand" id="${domId}-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
+        <div class="journal-event-group-inner">${group.events.map(event => journalRowHTML(event, { grouped: true })).join("")}</div>
+      </div>
+    </section>`;
+}
+
+function toggleJournalGroup(key) {
+  const domId = journalGroupDomId(key);
+  const group = document.getElementById(domId);
+  const content = document.getElementById(`${domId}-content`);
+  const toggle = group?.querySelector(".journal-event-group-toggle");
+  if (!group || !content || !toggle) return;
+  const expanded = !group.classList.contains("is-expanded");
+  group.classList.toggle("is-expanded", expanded);
+  toggle.setAttribute("aria-expanded", String(expanded));
+  const hint = toggle.querySelector("small");
+  if (hint) hint.textContent = expanded ? "Masquer le détail" : `Afficher les ${content.querySelectorAll(".journal-event-row").length} œuvres`;
+  content.setAttribute("aria-hidden", String(!expanded));
+  content.inert = !expanded;
+  if (expanded) _journalExpandedGroups.add(key);
+  else _journalExpandedGroups.delete(key);
+}
+
+function journalRowHTML(event, options = {}) {
   const entry = State.entries.find(item => item.id === event.media_id);
   if (!entry) return "";
   const presentation = journalEventPresentation(event, entry);
@@ -4776,21 +4917,53 @@ function journalRowHTML(event) {
   const type = getTypeLabel(entry);
   const dateOnly = Boolean(metadata.date_only || metadata.legacy);
   const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const attributes = `role="button" tabindex="0" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openJournalMedia('${entry.id}')}"`;
+  const deleteButton = event.id ? `
+    <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" onclick="event.stopPropagation();UI.hideJournalEvent('${esc(event.id)}')">${iconTrash()}</button>` : "";
 
   return `
-    <article class="activity-row is-clickable journal-event-row" ${attributes}>
-      ${coverHTML}
-      <div class="activity-info">
-        <div class="journal-event-label"><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</div>
-        <div class="activity-title">${esc(entry.title)}</div>
-        <div class="activity-meta">
-          <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
-          ${ratingBadge}
-        </div>
-      </div>
-      ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
+    <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""}>
+      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')">
+        ${coverHTML}
+        <span class="activity-info">
+          <span class="journal-event-label"><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</span>
+          <span class="activity-title">${esc(entry.title)}</span>
+          <span class="activity-meta">
+            <span class="badge badge-${entry.media_type}" style="font-size:.7rem">${esc(type)}</span>
+            ${ratingBadge}
+          </span>
+        </span>
+        ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
+      </button>
+      ${deleteButton}
     </article>`;
+}
+
+async function hideJournalEvent(id) {
+  const journalEvent = State.events.find(event => event.id === id);
+  if (!journalEvent) return;
+  const confirmed = await confirmDialog(
+    "Retirer cet événement du Journal ?",
+    "Le média, son statut et vos statistiques ne seront pas modifiés.",
+    "Retirer",
+    "danger",
+  );
+  if (!confirmed) return;
+
+  const rows = [...document.querySelectorAll("[data-journal-event-id]")]
+    .filter(row => row.dataset.journalEventId === id);
+  rows.forEach(row => row.classList.add("is-removing"));
+  try {
+    const updated = await Journal.hide(id, journalEvent.metadata || {});
+    Object.assign(journalEvent, updated);
+    setTimeout(() => renderCurrentJournalView(), 150);
+    toast("Événement retiré du Journal", "info");
+  } catch (error) {
+    rows.forEach(row => row.classList.remove("is-removing"));
+    const permissionMissing = /permission|policy|row-level|42501/i.test(String(error?.message || ""));
+    toast(permissionMissing
+      ? "Autorisation Journal manquante dans Supabase."
+      : "Impossible de retirer l’événement : " + error.message, "error");
+  }
 }
 
 function openJournalMedia(id) {
@@ -4938,7 +5111,7 @@ window.UI = {
     if (document.getElementById("filter-modal-overlay")) return;
 
     const _buildModal = () => {
-      const statuses = ["all","wishlist","playing","finished","paused","dropped"];
+      const statuses = ["finished","wishlist","playing","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
       const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
       const libraryDensity = readLibraryDensity();
@@ -4954,9 +5127,8 @@ window.UI = {
         onclick="UI.toggleFavFilter()">♥ Coups de cœur</button>`;
 
       const statusChips = statuses.map(s => {
-        const label = s === "all" ? "Tous" : STATUS_LABELS[s];
         return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-          onclick="UI.setStatusChip('${s}')">${label}</button>`;
+          onclick="UI.setStatusChip('${s}')">${STATUS_LABELS[s]}</button>`;
       }).join("");
 
       const sortChips = sorts.map(([v, l]) =>
@@ -5069,7 +5241,7 @@ window.UI = {
   resetFilters: () => {
     State.filters.type = "all";
     State.filters.subtype = "all";
-    State.filters.status = "all";
+    State.filters.status = DEFAULT_LIBRARY_STATUS;
     State.filters.sort = "created_at";
     State.filters.favorite = false;
     State.filters.year = "all";
@@ -5102,6 +5274,8 @@ window.UI = {
   setJournalMode,
   jumpJournalMonth,
   stepJournalMonth,
+  toggleJournalGroup,
+  hideJournalEvent,
   saveUsername,
   exportLibrary,
   setLibraryDensity,

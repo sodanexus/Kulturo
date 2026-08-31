@@ -66,8 +66,12 @@ export function patchKeyedSurface(container, html) {
       return;
     }
     if (previous?.matches("details[open]") && next.matches("details")) next.open = true;
-    if (previous) previous.replaceWith(next);
-    else container.appendChild(next);
+    // Toujours placer le bloc traité à la fin de la séquence courante. Un
+    // simple replaceWith conservait parfois son ancien index tandis que les
+    // blocs inchangés étaient déplacés, ce qui pouvait faire remonter
+    // l'histogramme du Profil au-dessus d'« En un coup d'œil ».
+    if (previous) previous.remove();
+    container.appendChild(next);
     changed.push(next);
   });
 

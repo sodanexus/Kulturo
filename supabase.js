@@ -184,6 +184,27 @@ export const Journal = {
 
     return events;
   },
+
+  // Retire uniquement la ligne du Journal visible. L'événement reste présent
+  // pour les statistiques et le statut du média n'est jamais modifié.
+  async hide(eventId, metadata = {}) {
+    const user = await requireCurrentUser();
+    const { data, error } = await _client
+      .from("media_events")
+      .update({
+        metadata: {
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+          hidden_from_journal: true,
+          hidden_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", eventId)
+      .eq("user_id", user.id)
+      .select("id, media_id, event_type, occurred_at, metadata")
+      .single();
+    if (error) throw error;
+    return data;
+  },
 };
 
 // ── Activité communautaire ──────────────────────────────────

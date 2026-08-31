@@ -4,8 +4,8 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v40";
-const IMAGE_CACHE = "kulturo-images-v1";
+const STATIC_CACHE = "kulturo-static-v41";
+const IMAGE_CACHE = "kulturo-images-v2";
 const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
 const MAX_IMAGE_ENTRIES = 120;
 const STATIC_ASSETS = [
@@ -103,6 +103,25 @@ self.addEventListener("fetch", e => {
           }
           return new Response("Hors ligne", { status: 503 });
         })
+    );
+    return;
+  }
+
+  // L'analyse de couleur demande explicitement les jaquettes en mode CORS.
+  // Une ancienne réponse opaque, mise en cache par un <img> classique, peut
+  // s'afficher mais ne peut pas être lue dans un canvas. Ces requêtes passent
+  // donc d'abord par le réseau et remplacent l'éventuelle copie opaque par une
+  // réponse CORS exploitable lorsque le serveur d'images l'autorise.
+  if (e.request.destination === "image" && e.request.mode === "cors") {
+    e.respondWith(
+      fetch(e.request)
+        .then(response => {
+          if (response.ok && response.type !== "opaque") {
+            cacheImage(e.request, response.clone()).catch(() => {});
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(e.request)) || new Response(null, { status: 504 }))
     );
     return;
   }

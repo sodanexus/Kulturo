@@ -253,10 +253,16 @@ CREATE POLICY "profiles_delete" ON public.profiles FOR DELETE TO authenticated U
 
 DROP POLICY IF EXISTS "events_select_own" ON public.media_events;
 CREATE POLICY "events_select_own" ON public.media_events FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "events_update_own" ON public.media_events;
+CREATE POLICY "events_update_own" ON public.media_events
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.media_entries TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
 GRANT SELECT ON public.media_events TO authenticated;
+GRANT UPDATE (metadata) ON public.media_events TO authenticated;
 
 -- ── Activité communautaire à champs limités ─────────────────
 DROP FUNCTION IF EXISTS public.get_activity_feed(INTEGER);
