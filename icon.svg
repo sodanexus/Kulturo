@@ -1,26 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img">
+  <title>Icône Kulturo</title>
+  <desc>Trois cercles superposés en rouge corail, vert sarcelle et ambre sur fond sombre.</desc>
+  <rect width="512" height="512" fill="#0C0D11"/>
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a1f"/>
-      <stop offset="100%" style="stop-color:#0d0d0f"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e8c98e"/>
-      <stop offset="100%" style="stop-color:#c8a96e"/>
-    </linearGradient>
+    <clipPath id="icon-red"><circle cx="150" cy="115" r="40"/></clipPath>
+    <clipPath id="icon-teal"><circle cx="190" cy="115" r="40"/></clipPath>
   </defs>
-  <!-- Background rounded rect -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Subtle border -->
-  <rect width="512" height="512" rx="112" fill="none" stroke="#c8a96e" stroke-width="8" opacity="0.3"/>
-  <!-- K letter -->
-  <text
-    x="256" y="360"
-    font-family="Georgia, 'Playfair Display', serif"
-    font-weight="900"
-    font-size="340"
-    text-anchor="middle"
-    fill="url(#gold)"
-    letter-spacing="-10"
-  >K</text>
+  <g transform="translate(-200 -20) scale(2.4)">
+    <circle cx="150" cy="115" r="40" fill="#E8553A"/>
+    <circle cx="190" cy="115" r="40" fill="#1FA88C"/>
+    <circle cx="230" cy="115" r="40" fill="#F0A93A"/>
+    <circle cx="190" cy="115" r="40" fill="#1C3820" clip-path="url(#icon-red)"/>
+    <circle cx="230" cy="115" r="40" fill="#1D6F20" clip-path="url(#icon-teal)"/>
+  </g>
 </svg>

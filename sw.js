@@ -4,12 +4,14 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v50";
+const STATIC_CACHE = "kulturo-static-v51";
 const IMAGE_CACHE = "kulturo-images-v3";
 const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
 const MAX_IMAGE_ENTRIES = 120;
 const STATIC_ASSETS = [
   "/Kulturo/",
+  "/Kulturo/logo.svg",
+  "/Kulturo/icon.svg",
   "/Kulturo/icon-192.png",
   "/Kulturo/icon-512.png"
 ];

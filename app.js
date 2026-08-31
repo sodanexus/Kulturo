@@ -471,7 +471,13 @@ function renderApp() {
   app.innerHTML = `
     <!-- Topbar -->
     <header id="topbar">
-      <div class="topbar-logo">Kulturo<span class="topbar-tagline">Suivez votre culture</span></div>
+      <div class="topbar-logo" role="img" aria-label="Kulturo — Suivez votre culture">
+        <img class="topbar-mark" src="logo.svg" alt="" width="64" height="38" aria-hidden="true">
+        <span class="topbar-brand-copy">
+          <span class="topbar-wordmark">Kulturo</span>
+          <span class="topbar-tagline">Suivez votre culture</span>
+        </span>
+      </div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
         <input id="global-search" type="search" placeholder="Rechercher dans toute ma bibliothèque…" aria-label="Rechercher dans toute ma bibliothèque" autocomplete="off" />
@@ -3820,6 +3826,7 @@ function quickActionsHTML(entry) {
           </button>`).join("")}
       </div>
       <div class="quick-actions-row">
+        ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
         <div class="quick-opinion-row">
           ${quickRatingHTML(entry)}
           <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}" aria-label="${favoriteAction}" title="${favoriteAction}">
@@ -3827,7 +3834,6 @@ function quickActionsHTML(entry) {
             <span class="quick-favorite-label">Coup de cœur</span>
           </button>
         </div>
-        ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
       </div>
     </section>`;
 }
