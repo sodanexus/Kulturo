@@ -1,5 +1,5 @@
 /* ============================================================
-   Kulturo 3.2.3 — accents TMDb et rendu local
+   Kulturo 3.2.8 — cohérence visuelle et rendu local
    ============================================================ */
 
 :root {
@@ -40,6 +40,98 @@ body { background-color: var(--system-bar-color); }
   transition: opacity var(--motion-content) var(--ease-interface) !important;
 }
 .fade-image.is-loaded { opacity: 1; }
+
+/* Icônes d'interface : une seule famille SVG, indépendante des emojis système. */
+.ui-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  vertical-align: -.12em;
+}
+.card-cover-placeholder .ui-icon,
+.detail-poster-placeholder .ui-icon,
+.wz-selected-placeholder .ui-icon,
+.api-result-placeholder .ui-icon,
+.activity-cover-ph .ui-icon,
+.empty-icon .ui-icon { width: 1.35em; height: 1.35em; }
+.continue-preview-placeholder > .ui-icon { width: 1.15em; height: 1.15em; }
+.continue-preview-cover > .continue-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+.card-status-label,
+.filter-chip,
+.modal-type-tab,
+.wz-manual-types button,
+.detail-ext-link,
+.activity-title { align-items: center; }
+.filter-chip,
+.modal-type-tab,
+.wz-manual-types button { display: inline-flex; justify-content: center; gap: .35rem; }
+.card-status-label { display: inline-flex; gap: .3rem; }
+.profile-category-icon,
+.profile-action-icon { display: grid; place-items: center; }
+.profile-category-icon .ui-icon,
+.profile-action-icon .ui-icon { width: 1.05rem; height: 1.05rem; }
+.profile-top-rank { z-index: 4; }
+.upcoming-refresh-icon .ui-icon { width: .95rem; height: .95rem; }
+
+/* Jaquettes : une interaction commune pour la bibliothèque, À reprendre,
+   Sorties et le Top du profil. Les conteneurs, et non leurs seules images,
+   se déplacent afin que le cadre et l'ombre restent solidaires. */
+.media-card:not(.upcoming-card) > :is(.card-cover, .card-cover-placeholder),
+.upcoming-card .upcoming-cover-wrap,
+.continue-card .continue-cover,
+.profile-top-card .profile-top-cover {
+  position: relative;
+  transform-origin: center;
+  transition:
+    transform var(--motion-base) var(--ease-interface),
+    box-shadow var(--motion-base) var(--ease-interface),
+    filter var(--motion-base) var(--ease-interface),
+    opacity var(--motion-base) var(--ease-interface);
+}
+.upcoming-card .upcoming-cover-wrap {
+  border-radius: var(--radius);
+  box-shadow: var(--media-cover-shadow);
+}
+.upcoming-card .upcoming-cover-wrap > :is(.card-cover, .card-cover-placeholder) { box-shadow: none; }
+.media-card.is-playing .card-status-label {
+  border-color: color-mix(in srgb, var(--game) 36%, transparent);
+  background: color-mix(in srgb, var(--game) 14%, rgba(12,13,17,.88));
+  color: var(--game);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .media-card:not(.upcoming-card):hover > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card:hover .upcoming-cover-wrap,
+  .continue-card:hover .continue-cover,
+  .profile-top-card:hover .profile-top-cover {
+    z-index: 3;
+    transform: scale(var(--media-hover-scale));
+    box-shadow: var(--media-cover-shadow-hover);
+  }
+  .media-card:is(.is-wishlist, .is-paused, .is-dropped):hover > :is(.card-cover, .card-cover-placeholder) {
+    opacity: 1;
+    filter: saturate(1);
+  }
+  .media-card:hover .card-status-label { opacity: 0; }
+  .media-card.both:hover > :is(.card-cover, .card-cover-placeholder) {
+    box-shadow: var(--media-cover-shadow-hover), 0 0 0 2px rgba(200,169,110,1), 0 0 24px 8px rgba(200,169,110,.4);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .media-card:not(.upcoming-card):active > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card:active .upcoming-cover-wrap,
+  .continue-card:active .continue-cover,
+  .profile-top-card:active .profile-top-cover {
+    transform: scale(var(--media-press-scale));
+    transition-duration: var(--motion-touch);
+  }
+}
 
 /* Bibliothèque dense ------------------------------------------ */
 .library-density-control {
@@ -406,4 +498,11 @@ body { background-color: var(--system-bar-color); }
   .profile-block-enter,
   .journal-event-row.is-removing,
   .is-locally-added { animation: none !important; transition: none !important; }
+  .media-card:not(.upcoming-card) > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card .upcoming-cover-wrap,
+  .continue-card .continue-cover,
+  .profile-top-card .profile-top-cover {
+    transform: none !important;
+    transition: none !important;
+  }
 }

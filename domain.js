@@ -52,6 +52,31 @@ export function normalizeTitle(value) {
   return String(value || "").trim().toLocaleLowerCase("fr-FR");
 }
 
+// La barre principale explore toujours la collection entière. Les filtres
+// restent dans l'état de l'interface, mais n'entrent de nouveau en jeu qu'une
+// fois la recherche effacée.
+export function filterLibraryEntries(entries, filters = {}) {
+  const source = [...(entries || [])];
+  const search = String(filters.search || "").trim();
+  if (search) {
+    const expected = normalizeTitle(search);
+    return source.filter(entry => normalizeTitle(entry?.title).includes(expected));
+  }
+
+  return source.filter(entry => {
+    if (filters.type && filters.type !== "all" && entry.media_type !== filters.type) return false;
+    if (filters.subtype && filters.subtype !== "all") {
+      if (entry.media_type !== "movie" || normalizedSubtype(entry) !== filters.subtype) return false;
+    }
+    if (filters.status && filters.status !== "all" && entry.status !== filters.status) return false;
+    if (filters.favorite && !entry.is_favorite) return false;
+    if (filters.year && filters.year !== "all" && entryActivityYear(entry) !== Number(filters.year)) return false;
+    if (filters.month && filters.month !== "all" && entryActivityMonth(entry) !== String(filters.month)) return false;
+    if (filters.rating && filters.rating !== "all" && Number(entry.rating) !== Number(filters.rating)) return false;
+    return true;
+  });
+}
+
 export function normalizedSubtype(item) {
   return item?.media_type === "movie" || item?.subtype
     ? (item?.subtype === "tv" ? "tv" : "movie")

@@ -1,12 +1,12 @@
 export const ADD_PRIMARY_STATUSES = Object.freeze([
-  Object.freeze({ value: "wishlist", icon: "♡", label: "Wishlist" }),
-  Object.freeze({ value: "playing", icon: "▶", label: "En cours" }),
-  Object.freeze({ value: "finished", icon: "✓", label: "Terminé" }),
+  Object.freeze({ value: "wishlist", label: "Wishlist" }),
+  Object.freeze({ value: "playing", label: "En cours" }),
+  Object.freeze({ value: "finished", label: "Terminé" }),
 ]);
 
 export const ADD_SECONDARY_STATUSES = Object.freeze([
-  Object.freeze({ value: "paused", icon: "Ⅱ", label: "En pause" }),
-  Object.freeze({ value: "dropped", icon: "×", label: "Abandonné" }),
+  Object.freeze({ value: "paused", label: "En pause" }),
+  Object.freeze({ value: "dropped", label: "Abandonné" }),
 ]);
 
 const ADD_MEDIA_TYPES = new Set(["movie", "game", "book"]);

@@ -8,6 +8,7 @@ import {
   entryActivityMonth,
   entryActivityYear,
   eventsForPeriod,
+  filterLibraryEntries,
   isCompletionEvent,
   isProfileTopEvent,
   journalEventPresentation,
@@ -202,7 +203,6 @@ function primeEntriesFromCache() {
 
 // ── Labels ───────────────────────────────────────────────────
 const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
-const TYPE_ICONS   = { game:"🎮", movie:"🎬", book:"📚" };
 
 // Retourne "Série" si c'est une série TMDb, sinon le label par défaut
 function getTypeLabel(e) {
@@ -474,7 +474,7 @@ function renderApp() {
       <div class="topbar-logo">Kulturo<span class="topbar-tagline">Suivez votre culture</span></div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque…" aria-label="Rechercher dans ma bibliothèque" autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher dans toute ma bibliothèque…" aria-label="Rechercher dans toute ma bibliothèque" autocomplete="off" />
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
@@ -562,7 +562,7 @@ function renderApp() {
               <button class="upcoming-type-btn" id="upcoming-filter-book" onclick="UI.setUpcomingType('book')" aria-pressed="false">Livres</button>
             </div>
             <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" onclick="UI.refreshUpcoming()" title="Actualiser les sorties" aria-label="Actualiser les sorties">
-              <span class="upcoming-refresh-icon" aria-hidden="true">↻</span>
+              <span class="upcoming-refresh-icon" aria-hidden="true">${iconRefresh()}</span>
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
@@ -629,7 +629,7 @@ function renderApp() {
 
     <!-- Nouvelle version PWA -->
     <aside id="update-banner" class="update-banner" role="status" aria-live="polite" hidden>
-      <div class="update-banner-icon" aria-hidden="true">↻</div>
+      <div class="update-banner-icon" aria-hidden="true">${iconRefresh()}</div>
       <div class="update-banner-copy">
         <strong>Nouvelle version disponible</strong>
         <span>Quelques secondes suffisent pour l’installer.</span>
@@ -876,9 +876,11 @@ function showPage(name) {
   const filterBtn = document.getElementById("btn-filter-toggle");
   if (filterBtn) {
     const inactive = name !== "library";
+    const searchMode = Boolean(State.filters.search);
     filterBtn.classList.toggle("is-inactive", inactive);
-    filterBtn.setAttribute("aria-hidden", String(inactive));
-    filterBtn.tabIndex = inactive ? -1 : 0;
+    filterBtn.classList.toggle("is-search-mode", searchMode);
+    filterBtn.setAttribute("aria-hidden", String(inactive || searchMode));
+    filterBtn.tabIndex = inactive || searchMode ? -1 : 0;
   }
 
   // #1 — restaure la position de scroll
@@ -915,7 +917,7 @@ function buildFilterBar() {
     const statuses = ["finished","wishlist","playing","dropped"];
     chipsEl.innerHTML = statuses.map(s => {
       return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-                      onclick="UI.setStatusChip('${s}')">${STATUS_LABELS[s]}</button>`;
+                      onclick="UI.setStatusChip('${s}')">${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
     }).join("");
   }
   // Met à jour le label actif sur le bouton toggle
@@ -945,8 +947,13 @@ function _updateFilterModalTypeChips() {
 function _updateFilterToggleLabel() {
   const btn = document.getElementById("btn-filter-toggle");
   if (!btn) return;
+  const searchMode = Boolean(State.filters.search);
   const n = _countActiveFilters();
   btn.classList.toggle("has-filter", n > 0);
+  btn.classList.toggle("is-search-mode", searchMode);
+  const unavailable = _currentPage !== "library" || searchMode;
+  btn.setAttribute("aria-hidden", String(unavailable));
+  btn.tabIndex = unavailable ? -1 : 0;
   // Badge count
   let badge = btn.querySelector(".filter-fab-badge");
   if (n > 0) {
@@ -999,16 +1006,16 @@ function readContinueExpanded() {
 function continuePreviewHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
-    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.parentElement.textContent='${TYPE_ICONS[entry.media_type] || "🎭"}'"></span>`
-    : `<span class="continue-preview-cover">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
+    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><span class="continue-preview-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span></span>`
+    : `<span class="continue-preview-cover continue-preview-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 }
 
 function continueCardHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
     ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-       <span class="continue-cover-placeholder" style="display:none">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`
-    : `<span class="continue-cover-placeholder">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
+       <span class="continue-cover-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span>`
+    : `<span class="continue-cover-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 
   return `
     <button type="button" class="continue-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Reprendre ${esc(entry.title)}">
@@ -1099,25 +1106,30 @@ function renderActiveFilters() {
     title: "Titre",
   };
   const filters = [];
-  if (State.filters.subtype !== "all") filters.push(["subtype", subtypeLabels[State.filters.subtype] || State.filters.subtype]);
-  else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
-  if (State.filters.status !== DEFAULT_LIBRARY_STATUS) filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
-  if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
-  if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
-  if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
-  if (State.filters.search) filters.push(["search", `“${State.filters.search}”`]);
-  if (State.filters.month !== "all") {
-    const [year, month] = String(State.filters.month).split("-").map(Number);
-    const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
-      .format(new Date(year, Math.max(0, month - 1), 1));
-    filters.push(["period", label]);
-  } else if (State.filters.year !== "all") {
-    filters.push(["period", String(State.filters.year)]);
+  // La recherche de la barre supérieure est volontairement globale. Les
+  // filtres restent mémorisés et réapparaissent dès que la requête est vidée.
+  if (State.filters.search) {
+    filters.push(["search", `“${State.filters.search}”`]);
+  } else {
+    if (State.filters.subtype !== "all") filters.push(["subtype", subtypeLabels[State.filters.subtype] || State.filters.subtype]);
+    else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
+    if (State.filters.status !== DEFAULT_LIBRARY_STATUS && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
+    if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
+    if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
+    if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
+    if (State.filters.month !== "all") {
+      const [year, month] = String(State.filters.month).split("-").map(Number);
+      const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+        .format(new Date(year, Math.max(0, month - 1), 1));
+      filters.push(["period", label]);
+    } else if (State.filters.year !== "all") {
+      filters.push(["period", String(State.filters.year)]);
+    }
   }
 
   container.hidden = filters.length === 0;
   container.innerHTML = filters.length ? `
-    <span class="active-filter-label">Filtres actifs</span>
+    <span class="active-filter-label">${State.filters.search ? "Recherche globale" : "Filtres actifs"}</span>
     <div class="active-filter-chips">
       ${filters.map(([key, label]) => `
         <button type="button" class="active-filter-chip" onclick="UI.clearLibraryFilter('${key}')" aria-label="Retirer le filtre ${esc(label)}">
@@ -1142,6 +1154,7 @@ function clearLibraryFilter(key) {
     State.filters.search = "";
     const search = document.getElementById("global-search");
     if (search) search.value = "";
+    _updateFilterToggleLabel();
   } else if (key === "period" || key === "year" || key === "month") {
     State.filters.year = "all";
     State.filters.month = "all";
@@ -1186,6 +1199,7 @@ function renderCards(options = {}) {
   renderActiveFilters();
   renderContinueSection();
   updateLibraryHeading(entries);
+  _updateFilterToggleLabel();
 
   if (!entries.length) {
     const f = State.filters;
@@ -1205,7 +1219,7 @@ function renderCards(options = {}) {
     else if (f.type === "book")      emptyMsg = "Aucun livre dans votre bibliothèque.";
     grid.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">🎭</div>
+        <div class="empty-icon">${iconMedia("media")}</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
         ${f.search || f.favorite || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
@@ -1225,19 +1239,8 @@ function renderCards(options = {}) {
 }
 
 function filterEntries(entries) {
-  let res = [...entries];
   const f = State.filters;
-  if (f.type    !== "all") res = res.filter(e => e.media_type === f.type);
-  if (f.subtype !== "all") res = res.filter(e => e.media_type === "movie" && (e.subtype === "tv" ? "tv" : "movie") === f.subtype);
-  if (f.status  !== "all") res = res.filter(e => e.status    === f.status);
-  if (f.favorite)          res = res.filter(e => e.is_favorite);
-  if (f.year !== "all")   res = res.filter(e => entryActivityYear(e) === Number(f.year));
-  if (f.month !== "all")  res = res.filter(e => entryActivityMonth(e) === String(f.month));
-  if (f.rating !== "all") res = res.filter(e => Number(e.rating) === Number(f.rating));
-  if (f.search) {
-    const expected = normalizeTitle(f.search);
-    res = res.filter(e => normalizeTitle(e.title).includes(expected));
-  }
+  const res = filterLibraryEntries(entries, f);
   // Tri local
   res.sort((a, b) => {
     switch (f.sort) {
@@ -1275,8 +1278,8 @@ function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
     ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-       <div class="card-cover-placeholder" style="display:none">${TYPE_ICONS[e.media_type]||"🎭"}</div>`
-    : `<div class="card-cover-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
+       <div class="card-cover-placeholder" style="display:none">${iconMedia(e.media_type, e.subtype)}</div>`
+    : `<div class="card-cover-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const isPerfect = e.rating === 10;
   const statusClass = { wishlist: "is-wishlist", playing: "is-playing", paused: "is-paused", dropped: "is-dropped" }[e.status] || "";
@@ -1288,10 +1291,10 @@ function cardHTML(e, i = 0) {
   ].filter(Boolean).join(" ");
 
   const statusLabel = {
-    wishlist: "♡ Wishlist",
-    playing:  "▶ En cours",
-    paused:   "⏸ En pause",
-    dropped:  "✕ Abandonné",
+    wishlist: "Wishlist",
+    playing:  "En cours",
+    paused:   "En pause",
+    dropped:  "Abandonné",
   }[e.status] || "";
 
   return `
@@ -1300,7 +1303,7 @@ function cardHTML(e, i = 0) {
       onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
-      ${statusLabel ? `<span class="card-status-label">${statusLabel}</span>` : ""}
+      ${statusLabel ? `<span class="card-status-label">${iconStatus(e.status)}<span>${statusLabel}</span></span>` : ""}
       ${cardMetaHTML(e.rating, e.is_favorite, e.repeat_count)}
     </article>`;
 }
@@ -1625,7 +1628,7 @@ async function renderDashboard() {
           <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
             <span class="profile-top-rank">${index + 1}</span>
             <span class="profile-top-cover">
-              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
             </span>
             <strong>${esc(entry.title)}</strong>
             <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
@@ -1634,10 +1637,10 @@ async function renderDashboard() {
     : `<div class="profile-inline-empty">Aucun média noté en ${esc(periodLabel)}.</div>`;
 
   const categories = [
-    { key: "film", label: "Films", icon: "🎬", color: "var(--movie)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
-    { key: "tv", label: "Séries", icon: "▣", color: "var(--accent)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
-    { key: "game", label: "Jeux", icon: "🎮", color: "var(--game)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
-    { key: "book", label: "Livres", icon: "📚", color: "var(--book)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
+    { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--movie)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
+    { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--accent)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
+    { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--game)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
+    { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--book)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
   ];
   const categoryMax = Math.max(...categories.map(category => category.count), 1);
   const categoryHTML = categories.map(category => `
@@ -1737,13 +1740,13 @@ async function renderDashboard() {
       </div>
       <div class="profile-action-grid">
         ${[
-          ["finished", "✓", scopedFinished.length, "Terminés"],
-          ["playing", "▶", scopedPlaying.length, "En cours"],
-          ["favorite", "♥", scopedFavs.length, "Coups de cœur"],
-          ["wishlist", "＋", scopedWishlist.length, "Wishlist"],
-        ].map(([key, icon, value, label]) => `
+          ["finished", scopedFinished.length, "Terminés"],
+          ["playing", scopedPlaying.length, "En cours"],
+          ["favorite", scopedFavs.length, "Coups de cœur"],
+          ["wishlist", scopedWishlist.length, "Wishlist"],
+        ].map(([key, value, label]) => `
           <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear}, '${periodMonth}', '${_profileMedia}')">
-            <span class="profile-action-icon" aria-hidden="true">${icon}</span>
+            <span class="profile-action-icon" aria-hidden="true">${iconStatus(key)}</span>
             <strong>${profileNumberHTML(`action-${key}`, value)}</strong>
             <span>${label}</span>
             <i aria-hidden="true">→</i>
@@ -1889,13 +1892,13 @@ function _renderWizard() {
   else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
     const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
-    const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, icon, label }) => `
+    const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, label }) => `
       <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
-        <span aria-hidden="true">${icon}</span>${label}
+        <span aria-hidden="true">${iconStatus(value)}</span>${label}
       </button>`).join("");
-    const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value, icon, label }) => `
+    const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value, label }) => `
       <button type="button" class="wz-status-btn wz-status-secondary ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
-        <span aria-hidden="true">${icon}</span>${label}
+        <span aria-hidden="true">${iconStatus(value)}</span>${label}
       </button>`).join("");
     headerHTML = `
       <button type="button" class="btn-icon wz-back-btn" onclick="UI.wzBack()" aria-label="Changer de média">←</button>
@@ -1908,7 +1911,7 @@ function _renderWizard() {
       <div class="wz-selected-card">
         ${cover
           ? `<img src="${esc(cover)}" class="wz-selected-cover" alt="">`
-          : `<div class="wz-selected-cover wz-selected-placeholder" aria-hidden="true">${TYPE_ICONS[s.type] || "🎭"}</div>`}
+          : `<div class="wz-selected-cover wz-selected-placeholder" aria-hidden="true">${iconMedia(s.type)}</div>`}
         <div class="wz-selected-copy">
           <strong>${esc(title)}</strong>
           <span>${esc(subtitle)}</span>
@@ -2005,9 +2008,9 @@ function _openModalClassic(entry) {
           <div class="edit-primary-view">
             <div class="form-group modal-search-unified">
               <div class="modal-type-tabs">
-                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">🎬 Film / Série</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">🎮 Jeu</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">📚 Livre</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">${iconMedia("movie")} Film / Série</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">${iconMedia("game")} Jeu</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">${iconMedia("book")} Livre</button>
               </div>
               <div class="api-search-wrap">
                 <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
@@ -2318,7 +2321,7 @@ function setupWizardUniversalSearch() {
         const coverUrl = safeMediaUrl(item.cover_url);
         return `
           <button type="button" class="api-result-item wz-universal-result" onclick="UI.fillFromApi(${index})">
-            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${TYPE_ICONS[item.media_type] || "🎭"}</div>`}
+            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
             <span class="api-result-info">
               <strong class="api-result-title">${esc(item.title)}</strong>
               <small class="api-result-sub">${esc(getTypeLabel(item))}${item.release_year ? ` · ${esc(item.release_year)}` : ""}${item.author ? ` · ${esc(item.author)}` : ""}</small>
@@ -2330,9 +2333,9 @@ function setupWizardUniversalSearch() {
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
-            <button type="button" onclick="UI.wzUseManualType('movie')">🎬 Film / Série</button>
-            <button type="button" onclick="UI.wzUseManualType('game')">🎮 Jeu</button>
-            <button type="button" onclick="UI.wzUseManualType('book')">📚 Livre</button>
+            <button type="button" onclick="UI.wzUseManualType('movie')">${iconMedia("movie")} Film / Série</button>
+            <button type="button" onclick="UI.wzUseManualType('game')">${iconMedia("game")} Jeu</button>
+            <button type="button" onclick="UI.wzUseManualType('book')">${iconMedia("book")} Livre</button>
           </div>
         </div>`;
     }, immediate ? 0 : 320);
@@ -2375,7 +2378,7 @@ function setupApiSearch() {
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" onclick="UI.fillFromApi(${idx})">
-          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb" style="display:flex;align-items:center;justify-content:center;font-size:var(--type-title-lg)">${TYPE_ICONS[type]}</div>`}
+          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
@@ -2789,8 +2792,9 @@ function bindGlobalEvents() {
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
       State.filters.search = q;
+      _updateFilterToggleLabel();
       // Si on tape depuis une autre page, synchronise aussi toute la navigation.
-      if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveSearch: true });
+      if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveFilters: true, preserveSearch: true });
       else if (_currentPage === "library") renderCards({ resetScroll: true });
     }
   });
@@ -2908,16 +2912,60 @@ const iconJournal = () => `<svg width="18" height="18" fill="none" stroke="curre
 
 const iconLogout  = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>`;
 const iconUser     = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const iconRefresh  = () => `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.7-2.6L20 11M4 13l2.2 4.6A7 7 0 0 0 17.9 15"/></svg>`;
+const iconExternal = () => `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>`;
+
+function iconMedia(type, subtype = "", className = "") {
+  const kind = type === "movie" && subtype === "tv" ? "tv" : type;
+  const paths = {
+    movie: `<rect x="3" y="6" width="18" height="14" rx="2"/><path d="m3 10 18-4M7 5l2 4M13 4l2 4M19 3l2 4"/>`,
+    tv: `<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 2 4 3 4-3M8 22h8"/>`,
+    game: `<path d="M8.5 8h7a5.5 5.5 0 0 1 5.2 7.3l-1 2.8a2 2 0 0 1-3.2.8L14.7 17H9.3l-1.8 1.9a2 2 0 0 1-3.2-.8l-1-2.8A5.5 5.5 0 0 1 8.5 8Z"/><path d="M7 12v4M5 14h4M16.5 13h.01M18.5 15h.01"/>`,
+    book: `<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5Z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5Z"/>`,
+    media: `<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/>`,
+  };
+  const safeKind = paths[kind] ? kind : "media";
+  const classes = ["ui-icon", "ui-icon-media", `ui-icon-${safeKind}`, className].filter(Boolean).join(" ");
+  return `<svg class="${classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[safeKind]}</svg>`;
+}
+
+function iconStatus(status, className = "") {
+  const paths = {
+    wishlist: `<path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18l-6-3-6 3Z"/>`,
+    playing: `<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4Z"/>`,
+    finished: `<circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16.5 9"/>`,
+    paused: `<circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/>`,
+    dropped: `<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>`,
+    favorite: `<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>`,
+    added: `<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>`,
+  };
+  const safeStatus = paths[status] ? status : "added";
+  const classes = ["ui-icon", "ui-icon-status", `ui-icon-${safeStatus}`, className].filter(Boolean).join(" ");
+  return `<svg class="${classes}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[safeStatus]}</svg>`;
+}
+
+function iconJournalAction(action, metadata = {}) {
+  if (["repeat_started", "repeat_finished"].includes(action)) return iconRepeat();
+  const targetStatus = metadata?.to || metadata?.status;
+  if (["wishlist", "playing", "finished", "paused", "dropped"].includes(targetStatus)) return iconStatus(targetStatus);
+  if (action === "started") return iconStatus("playing");
+  if (action === "finished") return iconStatus("finished");
+  if (action === "paused") return iconStatus("paused");
+  if (action === "dropped") return iconStatus("dropped");
+  if (action === "wishlist" || metadata?.to === "wishlist" || metadata?.status === "wishlist") return iconStatus("wishlist");
+  if (action === "rated") return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/></svg>`;
+  return iconStatus("added");
+}
 
 
 // ── Prochaines sorties ────────────────────────────────────────
 const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences";
 const UPCOMING_TYPES = ["all", "movie", "tv", "game", "book"];
 const UPCOMING_TYPE_META = {
-  movie: { label: "Film",  icon: "🎬", mediaType: "movie", badge: "movie" },
-  tv:    { label: "Série", icon: "📺", mediaType: "movie", badge: "movie" },
-  game:  { label: "Jeu",   icon: "🎮", mediaType: "game",  badge: "game" },
-  book:  { label: "Livre", icon: "📚", mediaType: "book",  badge: "book" },
+  movie: { label: "Film",  icon: iconMedia("movie"),       mediaType: "movie", badge: "movie" },
+  tv:    { label: "Série", icon: iconMedia("movie", "tv"), mediaType: "movie", badge: "movie" },
+  game:  { label: "Jeu",   icon: iconMedia("game"),        mediaType: "game",  badge: "game" },
+  book:  { label: "Livre", icon: iconMedia("book"),        mediaType: "book",  badge: "book" },
 };
 
 function upcomingTypeOf(item) {
@@ -3235,7 +3283,7 @@ function renderUpcomingCards() {
         ? "Aucune date française fiable"
         : "Aucune sortie trouvée";
     const stateOptions = {
-      icon: "📅",
+      icon: "◇",
       title: emptyTitle,
       message: sourceMessage,
       actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : "",
@@ -3285,9 +3333,6 @@ function upcomingCardHTML(it, idx, recommendation = null) {
   const days = daysUntilRelease(it.release_date, it.date_precision);
   const type = upcomingTypeOf(it);
   const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
-  const regionIcon = type === "game"
-    ? (it.availability_label === "Sortie Europe" ? "🇪🇺" : "🌍")
-    : "🇫🇷";
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
@@ -3308,7 +3353,7 @@ function upcomingCardHTML(it, idx, recommendation = null) {
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-meta">
           <span class="badge badge-${typeMeta.badge}">${typeMeta.icon} ${typeMeta.label}</span>
-          ${it.availability_label ? `<span class="upcoming-region-label">${regionIcon} ${esc(it.availability_label)}</span>` : ""}
+          ${it.availability_label ? `<span class="upcoming-region-label">${esc(it.availability_label)}</span>` : ""}
         </div>
         <div class="release-date">${formatReleaseDate(it.release_date, it.date_precision)}</div>
         ${secondary ? `<div class="upcoming-secondary">${esc(secondary)}</div>` : ""}
@@ -3548,21 +3593,20 @@ function renderDetailPanel(e, options = {}) {
   const externalLabel = e.external_label || (e.media_type === "book" && e.external_id
     ? "Open Library"
     : ({ game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien"));
-  const externalIcon  = { game:"🎮", movie:"🎬", book:"📚" }[e.media_type] || "🔗";
   const externalHTML  = externalUrl
-    ? `<a href="${esc(externalUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${externalIcon} ${esc(externalLabel)}</a>`
+    ? `<a href="${esc(externalUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${iconExternal()} ${esc(externalLabel)}</a>`
     : "";
 
   const youtubeQuery     = encodeURIComponent(`${e.title} ${e.media_type === "game" ? "trailer" : e.media_type === "movie" ? "bande annonce" : "book trailer"}`);
   const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${youtubeQuery}`;
-  const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">▶ Trailer</a>`;
+  const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${iconPlay()} Trailer</a>`;
 
   // Backdrop header
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
     ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image" data-fade-image onerror="this.style.display='none'">`
-    : `<div class="detail-poster detail-poster-placeholder">${TYPE_ICONS[e.media_type]||"🎭"}</div>`;
+    : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
@@ -3579,10 +3623,10 @@ function renderDetailPanel(e, options = {}) {
               <h2 class="detail-title">${esc(e.title)}</h2>
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
-                <span class="badge badge-${e.media_type}">${TYPE_ICONS[e.media_type]} ${getTypeLabel(e)}</span>
+                <span class="badge badge-${e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
                 ${e.status
-                  ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${STATUS_LABELS[e.status]}</span>`
-                  : `<span class="badge badge-upcoming">📅 À venir</span>`}
+                  ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${STATUS_LABELS[e.status]}</span>`
+                  : `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview && !isReadOnly ? detailRepeatIndicatorHTML(e) : ""}
               </div>
@@ -3758,9 +3802,9 @@ function quickRatingHTML(entry) {
 
 function quickActionsHTML(entry) {
   const statusOptions = [
-    ["wishlist", "♡", "Wishlist"],
-    ["playing", "▶", "En cours"],
-    ["finished", "✓", "Terminé"],
+    ["wishlist", "Wishlist"],
+    ["playing", "En cours"],
+    ["finished", "Terminé"],
   ];
   return `
     <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
@@ -3769,9 +3813,9 @@ function quickActionsHTML(entry) {
         <span class="quick-actions-feedback" id="quick-feedback-${entry.id}" aria-live="polite"></span>
       </div>
       <div class="quick-status-control" role="group" aria-label="Statut">
-        ${statusOptions.map(([value, icon, label]) => `
+        ${statusOptions.map(([value, label]) => `
           <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" onclick="UI.quickSetStatus('${entry.id}', '${value}')" aria-pressed="${entry.status === value}">
-            <span aria-hidden="true">${icon}</span>${label}
+            <span aria-hidden="true">${iconStatus(value)}</span>${label}
           </button>`).join("")}
       </div>
       <div class="quick-actions-row">
@@ -3861,7 +3905,7 @@ function openMetadataFromElement(element) {
       <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" data-prefetch-media="${esc(entry.id)}" onclick="UI.openMetadataMedia(this.dataset.mediaId)">
         ${coverUrl
           ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">`
-          : `<span class="metadata-media-cover" aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`}
+          : `<span class="metadata-media-cover" aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`}
         <span class="metadata-media-copy">
           <strong>${esc(entry.title)}</strong>
           <small>${esc(getTypeLabel(entry))}${entry.release_year ? ` · ${esc(entry.release_year)}` : ""}</small>
@@ -4161,7 +4205,7 @@ function syncOpenDetail(entry, feedback = "") {
   const statusBadge = document.getElementById(`detail-status-${entry.id}`);
   if (statusBadge) {
     statusBadge.className = `badge badge-${entry.status}`;
-    statusBadge.textContent = STATUS_LABELS[entry.status] || entry.status;
+    statusBadge.innerHTML = `${iconStatus(entry.status)} ${esc(STATUS_LABELS[entry.status] || entry.status)}`;
   }
 
   const favorite = document.getElementById(`detail-fav-${entry.id}`);
@@ -4741,7 +4785,7 @@ function journalDateLabel(value) {
 
 function renderJournalFeed(events) {
   if (!events.length) {
-    return emptyState({ icon: "📓", title: "Journal vide", message: "Vos prochaines actions apparaîtront ici." });
+    return emptyState({ icon: "◇", title: "Journal vide", message: "Vos prochaines actions apparaîtront ici." });
   }
 
   const months = new Map();
@@ -4794,7 +4838,7 @@ function journalMonthSummaryHTML(monthKey) {
       </div>
       ${favorite ? `
         <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" onclick="UI.openJournalMedia('${esc(favorite.id)}')">
-          ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${TYPE_ICONS[favorite.media_type] || "🎭"}</span>`}
+          ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
           <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
           ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
         </button>` : `<p class="journal-month-no-favorite">Aucun favori noté pour ce mois.</p>`}
@@ -4860,7 +4904,7 @@ function journalGroupCoverHTML(event) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
     ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none'">`
-    : `<span aria-hidden="true">${TYPE_ICONS[entry.media_type] || "🎭"}</span>`;
+    : `<span aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 }
 
 function journalGroupHTML(group) {
@@ -4872,7 +4916,7 @@ function journalGroupHTML(group) {
       <button type="button" class="journal-event-group-toggle" onclick="UI.toggleJournalGroup('${esc(group.key)}')" aria-expanded="${expanded}" aria-controls="${domId}-content">
         <span class="journal-event-group-covers" aria-hidden="true">${group.events.slice(0, 3).map(journalGroupCoverHTML).join("")}</span>
         <span class="journal-event-group-copy">
-          <strong><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</strong>
+          <strong><span aria-hidden="true">${iconJournalAction(group.action)}</span>${esc(presentation.label)}</strong>
           <small>${expanded ? "Masquer le détail" : `Afficher les ${group.events.length} œuvres`}</small>
         </span>
         <span class="journal-event-group-chevron" aria-hidden="true">⌄</span>
@@ -4904,11 +4948,10 @@ function journalRowHTML(event, options = {}) {
   const entry = State.entries.find(item => item.id === event.media_id);
   if (!entry) return "";
   const presentation = journalEventPresentation(event, entry);
-  const mediaIcon = TYPE_ICONS[entry.media_type] || "🎭";
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
     ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
-    : `<div class="activity-cover activity-cover-ph">${mediaIcon}</div>`;
+    : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
   const currentRating = Number(entry.rating);
   const ratingBadge = Number.isInteger(currentRating) && currentRating >= 1 && currentRating <= 10
@@ -4925,7 +4968,7 @@ function journalRowHTML(event, options = {}) {
       <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')">
         ${coverHTML}
         <span class="activity-info">
-          <span class="journal-event-label"><span aria-hidden="true">${presentation.icon}</span>${esc(presentation.label)}</span>
+          <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
           <span class="activity-title">${esc(entry.title)}</span>
           <span class="activity-meta">
             <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
@@ -5000,7 +5043,7 @@ async function renderCommunity() {
 
 function renderCommunityFeed(entries) {
   if (!entries.length) {
-    return `<div class="empty-state"><div class="empty-icon">🎭</div><h3>Aucune activité</h3><p>Les prochains ajouts des autres membres apparaîtront ici.</p></div>`;
+    return `<div class="empty-state"><div class="empty-icon">${iconMedia("media")}</div><h3>Aucune activité</h3><p>Les prochains ajouts des autres membres apparaîtront ici.</p></div>`;
   }
 
   const groups = new Map();
@@ -5019,13 +5062,12 @@ function renderCommunityFeed(entries) {
 }
 
 function communityRowHTML(entry) {
-  const icon = TYPE_ICONS[entry.media_type] || "🎭";
   const type = entry.media_type === "movie" && !entry.subtype ? "Film / Série" : getTypeLabel(entry);
   const status = STATUS_LABELS[entry.status] || "Ajouté";
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
     ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
-    : `<div class="activity-cover activity-cover-ph">${icon}</div>`;
+    : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
   const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}')}"`;
 
@@ -5034,10 +5076,10 @@ function communityRowHTML(entry) {
       ${coverHTML}
       <div class="activity-info">
         <div class="activity-line"><span class="activity-username">${esc(entry.username)}</span><span class="activity-verb">a ajouté</span></div>
-        <div class="activity-title">${icon} ${esc(entry.title)}</div>
+        <div class="activity-title">${iconMedia(entry.media_type, entry.subtype)} ${esc(entry.title)}</div>
         <div class="activity-meta">
           <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
-          <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${esc(status)}</span>
+          <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
           ${rating}${entry.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
         </div>
       </div>
@@ -5113,22 +5155,27 @@ window.UI = {
     const _buildModal = () => {
       const statuses = ["finished","wishlist","playing","dropped"];
       const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
-      const types = [["all","Tous"],["game","🎮 Jeux"],["movie","🎬 Films / Séries"],["book","📚 Livres"]];
+      const types = [
+        ["all", "Tous", ""],
+        ["game", "Jeux", iconMedia("game")],
+        ["movie", "Films / Séries", iconMedia("movie")],
+        ["book", "Livres", iconMedia("book")],
+      ];
       const libraryDensity = readLibraryDensity();
-      const typeChips = types.map(([v,l]) =>
+      const typeChips = types.map(([v,l,icon]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
-          onclick="UI.setTypeFilter('${v}')">${l}</button>`
+          onclick="UI.setTypeFilter('${v}')">${icon}${l}</button>`
       ).join("");
 
       const activeCount = _countActiveFilters();
       const headerLabel = activeCount > 0 ? `Filtres <span class="filter-active-count">${activeCount}</span>` : "Filtres";
 
       const favChip = `<button class="filter-chip ${State.filters.favorite ? "active" : ""}"
-        onclick="UI.toggleFavFilter()">♥ Coups de cœur</button>`;
+        onclick="UI.toggleFavFilter()">${iconStatus("favorite")}Coups de cœur</button>`;
 
       const statusChips = statuses.map(s => {
         return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-          onclick="UI.setStatusChip('${s}')">${STATUS_LABELS[s]}</button>`;
+          onclick="UI.setStatusChip('${s}')">${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
       }).join("");
 
       const sortChips = sorts.map(([v, l]) =>
