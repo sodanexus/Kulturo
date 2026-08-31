@@ -3387,7 +3387,6 @@ input, textarea, select { border-radius: 12px; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform .22s var(--ease-spring);
 }
 .continue-cover-placeholder {
   display: flex;
@@ -3427,15 +3426,9 @@ input, textarea, select { border-radius: 12px; }
   color: var(--text-3);
   font-size: var(--type-caption);
 }
+.continue-card:hover .continue-cover { box-shadow: 0 12px 28px rgba(0,0,0,.3); }
 .continue-card:active { transform: scale(.98); }
 @media (hover: hover) and (pointer: fine) {
-  .continue-card:hover .continue-cover {
-    box-shadow: 0 14px 34px rgba(0,0,0,.28);
-  }
-  .continue-card:hover .continue-cover > img,
-  .continue-card:hover .continue-cover-placeholder {
-    transform: scale(1.015);
-  }
   .continue-section:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
   .continue-toggle:hover .continue-preview-cover:nth-child(1) { transform: translateX(-2px) rotate(-2deg); }
   .continue-toggle:hover .continue-preview-cover:nth-child(2) { transform: translateY(1px); }
