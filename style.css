@@ -3359,10 +3359,10 @@ input, textarea, select { border-radius: 12px; }
   display: flex;
   gap: .8rem;
   overflow-x: auto;
-  margin: -.35rem;
-  padding: .35rem .35rem .5rem;
+  margin: -.35rem -.55rem;
+  padding: .35rem .55rem .5rem;
   scroll-snap-type: x proximity;
-  scroll-padding-inline: .35rem;
+  scroll-padding-inline: .55rem;
   scrollbar-width: none;
 }
 .continue-track::-webkit-scrollbar { display: none; }
@@ -3432,7 +3432,7 @@ input, textarea, select { border-radius: 12px; }
 }
 .continue-card:active { transform: scale(.98); }
 .continue-card:hover .continue-cover {
-  transform: scale(1.04);
+  transform: scale(1.02);
   z-index: 2;
   box-shadow: 0 14px 34px rgba(0,0,0,.28);
 }
@@ -3716,12 +3716,12 @@ input, textarea, select { border-radius: 12px; }
     margin-top: -.3rem;
     margin-right: -.8rem;
     margin-bottom: -.35rem;
-    margin-left: -.35rem;
+    margin-left: -.55rem;
     padding-top: .3rem;
-    padding-right: 1.15rem;
+    padding-right: 1.35rem;
     padding-bottom: .5rem;
-    padding-left: .35rem;
-    scroll-padding-inline: .35rem;
+    padding-left: .55rem;
+    scroll-padding-inline: .55rem;
   }
   .library-list-heading { margin-top: .85rem; }
 

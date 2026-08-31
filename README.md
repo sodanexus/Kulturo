@@ -76,7 +76,7 @@ La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus
 
 ## Dernières évolutions
 
-- **3.2.7** — effet de survol harmonisé : le cadre complet des médias **À reprendre** s’agrandit avec la jaquette, sans être rogné par la rangée horizontale.
+- **3.2.7** — effet de survol harmonisé : le cadre complet des médias **À reprendre** s’agrandit avec la jaquette, sans être rogné par la rangée horizontale ni ses extrémités.
 - **3.2.6** — logo mobile recentré avec des marges équilibrées ; slogan masqué sur les petits écrans pour préserver la lisibilité.
 - **3.2.5** — en-tête mobile simplifié autour de la recherche.
 - **3.2.4** — typographie harmonisée entre le bureau et le mobile.
