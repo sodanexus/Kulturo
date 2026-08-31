@@ -3777,41 +3777,12 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
-function quickRatingHTML(entry) {
-  const current = Number(entry.rating) || 0;
-  const safeId = String(entry.id).replace(/[^a-zA-Z0-9_-]/g, "");
-  const stars = Array.from({ length: 5 }, (_, index) => {
-    const full = (index + 1) * 2;
-    const half = full - 1;
-    const fullActive = current >= full;
-    const halfActive = current >= half && !fullActive;
-    const clipId = `quick-half-${safeId}-${index}`;
-    return `
-      <span class="quick-star-wrap">
-        <svg class="quick-star-svg" viewBox="0 0 20 20" aria-hidden="true">
-          <defs><clipPath id="${clipId}"><rect x="0" y="0" width="10" height="20"/></clipPath></defs>
-          <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${fullActive ? "var(--accent)" : "var(--border-2)"}"/>
-          <polygon points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${halfActive ? "var(--accent)" : "none"}" clip-path="url(#${clipId})"/>
-        </svg>
-        <button type="button" class="quick-star-zone quick-star-half" onclick="UI.quickRate('${entry.id}', ${half})" aria-label="Noter ${half} sur 10" aria-pressed="${current === half}"></button>
-        <button type="button" class="quick-star-zone quick-star-full" onclick="UI.quickRate('${entry.id}', ${full})" aria-label="Noter ${full} sur 10" aria-pressed="${current === full}"></button>
-      </span>`;
-  }).join("");
-
-  return `
-    <div class="quick-rating" role="group" aria-label="Votre note">
-      <div class="quick-rating-stars">${stars}</div>
-      ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
-    </div>`;
-}
-
 function quickActionsHTML(entry) {
   const statusOptions = [
     ["wishlist", "Wishlist"],
     ["playing", "En cours"],
     ["finished", "Terminé"],
   ];
-  const favoriteAction = entry.is_favorite ? "Retirer des coups de cœur" : "Ajouter aux coups de cœur";
   const repeatControl = quickRepeatHTML(entry);
   return `
     <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
@@ -3825,16 +3796,7 @@ function quickActionsHTML(entry) {
             <span aria-hidden="true">${iconStatus(value)}</span>${label}
           </button>`).join("")}
       </div>
-      <div class="quick-actions-row">
-        ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
-        <div class="quick-opinion-row">
-          ${quickRatingHTML(entry)}
-          <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}" aria-label="${favoriteAction}" title="${favoriteAction}">
-            <span class="quick-favorite-icon" aria-hidden="true">${entry.is_favorite ? "♥" : "♡"}</span>
-            <span class="quick-favorite-label">Coup de cœur</span>
-          </button>
-        </div>
-      </div>
+      ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
     </section>`;
 }
 
@@ -4296,21 +4258,6 @@ async function quickSetStatus(id, status) {
 
   const updated = await persistQuickEntryChange(id, transition.changes, feedback);
   if (updated && status === "finished" && previousStatus !== "finished") launchConfetti();
-}
-
-async function quickRate(id, value) {
-  const rating = Number(value);
-  if (!Number.isInteger(rating) || rating < 0 || rating > 10) return;
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry || Number(entry.rating || 0) === rating) return;
-  await persistQuickEntryChange(id, { rating: rating || null }, rating ? `★ ${rating}/10 enregistré` : "Note effacée");
-}
-
-async function quickToggleFavorite(id) {
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry) return;
-  const favorite = !entry.is_favorite;
-  await persistQuickEntryChange(id, { is_favorite: favorite }, favorite ? "Ajouté aux favoris" : "Retiré des favoris");
 }
 
 async function quickAdjustRepeat(id, delta) {
@@ -5142,8 +5089,6 @@ window.UI = {
   deleteEntry,
   toggleFav,
   quickSetStatus,
-  quickRate,
-  quickToggleFavorite,
   quickAdjustRepeat,
   fillFromApi,
   setRating,
