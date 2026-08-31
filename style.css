@@ -3449,25 +3449,18 @@ input, textarea, select { border-radius: 12px; }
 .quick-actions-row {
   margin-top: .85rem;
 }
-.quick-rating-group { width: 100%; min-width: 0; }
-.quick-actions-meta,
 .quick-opinion-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .65rem;
+  min-width: 0;
 }
-.quick-actions-meta { margin-bottom: .35rem; }
-.quick-opinion-row { min-width: 0; }
-.quick-actions-label {
-  display: block;
-  color: var(--text-3);
-  font-size: var(--type-caption);
-  font-weight: 700;
-}
+.quick-repeat-row { width: 100%; margin-top: .55rem; }
 .quick-rating {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   min-width: 0;
   gap: .45rem;
 }
@@ -3489,21 +3482,9 @@ input, textarea, select { border-radius: 12px; }
 }
 .quick-star-half { left: 0; width: 50%; }
 .quick-star-full { right: 0; width: 50%; }
-.quick-rating-summary {
-  display: grid;
-  flex: 0 0 auto;
-  justify-items: start;
-  gap: .02rem;
-}
-.quick-rating-value {
-  min-width: 42px;
-  color: var(--text-2);
-  font-size: var(--type-label);
-  font-weight: 700;
-  white-space: nowrap;
-}
 .quick-rating-clear {
-  padding: .1rem 0;
+  flex: 0 0 auto;
+  padding: .2rem .1rem;
   border: 0;
   background: transparent;
   color: var(--text-3);
@@ -3683,18 +3664,17 @@ input, textarea, select { border-radius: 12px; }
   .quick-actions-row {
     margin-top: .75rem;
   }
-  .quick-actions-meta { gap: .45rem; margin-bottom: .35rem; }
   .quick-opinion-row { gap: .45rem; }
   .quick-rating { flex: 1 1 auto; flex-wrap: nowrap; gap: .35rem; }
   .quick-rating-stars { flex: 0 0 auto; }
   .quick-favorite-btn {
-    flex: 0 0 40px;
-    width: 40px;
-    min-width: 40px;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
     min-height: 40px;
-    padding: 0;
+    gap: .3rem;
+    padding: .4rem .5rem;
   }
-  .quick-favorite-label { display: none; }
   .quick-star-wrap,
   .quick-star-svg { width: 27px; height: 27px; }
   .detail-modal .modal-footer { gap: .65rem; }
@@ -4287,6 +4267,11 @@ input, textarea, select { border-radius: 12px; }
   border-radius: 10px;
   background: var(--bg-2);
 }
+.quick-repeat-row .quick-repeat-stepper {
+  width: 100%;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  min-height: 40px;
+}
 .quick-repeat-adjust {
   display: grid;
   place-items: center;
@@ -4297,6 +4282,7 @@ input, textarea, select { border-radius: 12px; }
   font-size: var(--type-lead);
   font-weight: 750;
 }
+.quick-repeat-row .quick-repeat-adjust { min-width: 40px; }
 .quick-repeat-adjust:first-child { border-right: 1px solid var(--border); }
 .quick-repeat-adjust:last-child { border-left: 1px solid var(--border); }
 .quick-repeat-adjust:not(:disabled):hover { background: var(--bg-4); color: var(--accent-2); }
@@ -4376,15 +4362,6 @@ input, textarea, select { border-radius: 12px; }
     padding-left: max(1.5rem, calc(1rem + var(--safe-left)));
   }
 
-  .quick-actions-meta .quick-repeat-stepper {
-    flex: 0 1 auto;
-    width: auto;
-    max-width: 100%;
-    grid-template-columns: 36px minmax(0, auto) 36px;
-    min-height: 40px;
-  }
-  .quick-actions-meta .quick-repeat-adjust { min-width: 36px; }
-  .quick-actions-meta .quick-repeat-value { padding-right: .4rem; padding-left: .4rem; }
   .quick-repeat-value > span {
     min-width: 0;
     overflow: hidden;

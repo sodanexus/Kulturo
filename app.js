@@ -3795,10 +3795,7 @@ function quickRatingHTML(entry) {
   return `
     <div class="quick-rating" role="group" aria-label="Votre note">
       <div class="quick-rating-stars">${stars}</div>
-      <div class="quick-rating-summary">
-        <span class="quick-rating-value">${current ? `★ ${current}/10` : "Non noté"}</span>
-        ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
-      </div>
+      ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
     </div>`;
 }
 
@@ -3809,6 +3806,7 @@ function quickActionsHTML(entry) {
     ["finished", "Terminé"],
   ];
   const favoriteAction = entry.is_favorite ? "Retirer des coups de cœur" : "Ajouter aux coups de cœur";
+  const repeatControl = quickRepeatHTML(entry);
   return `
     <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
       <div class="quick-actions-header">
@@ -3822,19 +3820,14 @@ function quickActionsHTML(entry) {
           </button>`).join("")}
       </div>
       <div class="quick-actions-row">
-        <div class="quick-rating-group">
-          <div class="quick-actions-meta">
-            <span class="quick-actions-label">Votre note</span>
-            ${quickRepeatHTML(entry)}
-          </div>
-          <div class="quick-opinion-row">
-            ${quickRatingHTML(entry)}
-            <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}" aria-label="${favoriteAction}" title="${favoriteAction}">
-              <span class="quick-favorite-icon" aria-hidden="true">${entry.is_favorite ? "♥" : "♡"}</span>
-              <span class="quick-favorite-label">Coup de cœur</span>
-            </button>
-          </div>
+        <div class="quick-opinion-row">
+          ${quickRatingHTML(entry)}
+          <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}" aria-label="${favoriteAction}" title="${favoriteAction}">
+            <span class="quick-favorite-icon" aria-hidden="true">${entry.is_favorite ? "♥" : "♡"}</span>
+            <span class="quick-favorite-label">Coup de cœur</span>
+          </button>
         </div>
+        ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
       </div>
     </section>`;
 }

@@ -64,11 +64,11 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.2.10**
+**3.2.11**
 
 La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus homogène et plus agréable à utiliser, surtout sur mobile.
 
-- actions personnelles réorganisées : la note et le cœur forment un ensemble compact, tandis que le compteur de reprise devient contextuel et disparaît tant qu’il n’est pas utile ;
+- actions personnelles simplifiées : les étoiles, **Effacer** et **Coup de cœur** partagent une ligne sans répéter la note déjà visible dans l’en-tête, puis la reprise occupe seule une rangée contextuelle ;
 - recherche réellement globale dans toute la bibliothèque, quel que soit le filtre ou le statut actif ;
 - médias **En cours** laissés pleinement colorés, avec un badge bleu qui suffit à les identifier ;
 - interaction de jaquette unique dans la Bibliothèque, **À reprendre**, les Sorties et le Top du profil ;
@@ -80,6 +80,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.2.11** — fiche mobile allégée : libellé et score redondants retirés, Coup de cœur explicite et reprise replacée sur toute la largeur.
 - **3.2.10** — ergonomie mobile affinée dans les fiches : étoiles toujours visibles, cœur allégé et reprise compacte uniquement après une première fin.
 - **3.2.9** — fiche média mobile raccourcie : Coup de cœur et reprise partagent désormais une même rangée, y compris sur les écrans étroits.
 - **3.2.8** — recherche globale, médias en cours remis en couleur, jaquettes et rangées harmonisées, icônes unifiées et styles de survol consolidés.
