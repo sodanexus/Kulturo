@@ -4151,17 +4151,17 @@ input, textarea, select { border-radius: 12px; }
 }
 
 @media (max-width: 680px) {
-  /* Le slogan reste sous le logo sans augmenter la hauteur de la barre. */
+  /* Sur mobile, le logo reste seul et se cale sur la hauteur de la recherche. */
   #topbar { grid-template-columns: 88px minmax(0, 1fr) 78px; }
-  .topbar-logo { width: 88px; line-height: .92; }
-  .topbar-tagline {
-    display: block;
-    margin-top: .18rem;
-    font-size: var(--type-brandline);
-    font-weight: 650;
-    letter-spacing: .025em;
+  .topbar-logo {
+    width: 88px;
+    min-height: 40px;
+    align-items: flex-start;
+    justify-content: center;
     line-height: 1;
-    white-space: nowrap;
+  }
+  .topbar-tagline {
+    display: none;
   }
 
   /* En-têtes mobiles plus courts : le contenu utile arrive plus vite. */
@@ -4235,7 +4235,6 @@ input, textarea, select { border-radius: 12px; }
 @media (max-width: 390px) {
   #topbar { grid-template-columns: 82px minmax(0, 1fr) 42px; }
   .topbar-logo { width: 82px; font-size: var(--type-title-sm); }
-  .topbar-tagline { font-size: var(--type-brandline); }
   .profile-year-summary { grid-template-columns: 1fr; }
   .profile-year-primary,
   .profile-year-secondary { min-height: 88px; }
