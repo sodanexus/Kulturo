@@ -4156,8 +4156,9 @@ input, textarea, select { border-radius: 12px; }
   .topbar-logo {
     width: 88px;
     min-height: 40px;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
+    text-align: center;
     line-height: 1;
   }
   .topbar-tagline {

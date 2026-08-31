@@ -2,7 +2,7 @@
 
 Kulturo permet de suivre ses films, séries, jeux vidéo et livres, de les noter et de consulter les prochaines sorties culturelles en France. L’application est une SPA statique déployée sur GitHub Pages, avec Supabase pour l’authentification, la base de données et les fonctions serveur.
 
-Version actuelle : **3.2.5**
+Version actuelle : **3.2.6**
 
 ## Fonctionnalités
 
@@ -32,6 +32,7 @@ Version actuelle : **3.2.5**
 - Interface responsive et PWA installable, avec toutes les modales refermables par glissement sur mobile
 - Échelle typographique commune à toute l’interface, avec des textes mobiles lisibles sans casser les vues compactes
 - En-tête mobile simplifié : seul le logo **Kulturo** reste à gauche de la recherche
+- Logo mobile centré dans toute sa cellule, avec des marges équilibrées autour de lui
 - Animations courtes et cohérentes, adaptées au réglage système de réduction des mouvements
 
 ## Technologies
@@ -163,7 +164,7 @@ const CONFIG = {
   },
   app: {
     name: "Kulturo",
-    version: "3.2.5",
+    version: "3.2.6",
     defaultTheme: "dark",
     itemsPerPage: 24,
   },
@@ -256,7 +257,7 @@ Le bouton Retour du navigateur ou du téléphone ferme d’abord le panneau actu
 
 Les couvertures et les informations récupérées apparaissent par fondu local : la fiche conserve sa structure et ses actions pendant l’enrichissement, avec un message explicite lorsqu’aucun synopsis n’est disponible. Les cartes de la bibliothèque et les blocs du Profil sont réconciliés localement afin qu’une petite modification ne reconstruise pas toute la page.
 
-Depuis la version 3.2.4, les tailles de texte reposent sur une échelle commune allant des micro-informations aux grands titres. Les composants conservent ainsi la même hiérarchie entre le bureau et le mobile ; seuls le logo, les grands indicateurs et les titres de page s’adaptent encore à l’espace disponible. La version 3.2.5 simplifie l’en-tête mobile en masquant le slogan et en centrant verticalement le logo sur la barre de recherche.
+Depuis la version 3.2.4, les tailles de texte reposent sur une échelle commune allant des micro-informations aux grands titres. Les composants conservent ainsi la même hiérarchie entre le bureau et le mobile ; seuls le logo, les grands indicateurs et les titres de page s’adaptent encore à l’espace disponible. Les versions 3.2.5 et 3.2.6 simplifient l’en-tête mobile : le slogan est masqué et le logo est centré dans sa cellule, sur les deux axes, à côté de la barre de recherche.
 
 La fiche adapte son accent à la couleur dominante de la jaquette (note, boutons, focus et barre système). Les accents calculés avec succès sont conservés dans un cache local versionné. La version 3.2.3 invalide automatiquement les anciens résultats et utilise, pour les affiches TMDb, une URL d’analyse distincte de celle déjà affichée dans la page. Cela empêche le navigateur de réutiliser une copie mémoire non lisible par le calcul de couleur. Le cache d’images PWA est également renouvelé. Un échec réseau, un délai dépassé ou une image protégée par CORS n’est pas mémorisé et sera retenté à la prochaine ouverture. Si l’analyse reste impossible, la fiche revient à l’or neutre de Kulturo.
 
