@@ -3795,8 +3795,10 @@ function quickRatingHTML(entry) {
   return `
     <div class="quick-rating" role="group" aria-label="Votre note">
       <div class="quick-rating-stars">${stars}</div>
-      <span class="quick-rating-value">${current ? `★ ${current}/10` : "Non noté"}</span>
-      ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
+      <div class="quick-rating-summary">
+        <span class="quick-rating-value">${current ? `★ ${current}/10` : "Non noté"}</span>
+        ${current ? `<button type="button" class="quick-rating-clear" onclick="UI.quickRate('${entry.id}', 0)">Effacer</button>` : ""}
+      </div>
     </div>`;
 }
 
@@ -3806,6 +3808,7 @@ function quickActionsHTML(entry) {
     ["playing", "En cours"],
     ["finished", "Terminé"],
   ];
+  const favoriteAction = entry.is_favorite ? "Retirer des coups de cœur" : "Ajouter aux coups de cœur";
   return `
     <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
       <div class="quick-actions-header">
@@ -3820,15 +3823,17 @@ function quickActionsHTML(entry) {
       </div>
       <div class="quick-actions-row">
         <div class="quick-rating-group">
-          <span class="quick-actions-label">Votre note</span>
-          ${quickRatingHTML(entry)}
-        </div>
-        <div class="quick-personal-actions">
-          <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}">
-            <span aria-hidden="true">♥</span>
-            <span>Coup de cœur</span>
-          </button>
-          ${quickRepeatHTML(entry)}
+          <div class="quick-actions-meta">
+            <span class="quick-actions-label">Votre note</span>
+            ${quickRepeatHTML(entry)}
+          </div>
+          <div class="quick-opinion-row">
+            ${quickRatingHTML(entry)}
+            <button type="button" class="quick-favorite-btn ${entry.is_favorite ? "active" : ""}" onclick="UI.quickToggleFavorite('${entry.id}')" aria-pressed="${Boolean(entry.is_favorite)}" aria-label="${favoriteAction}" title="${favoriteAction}">
+              <span class="quick-favorite-icon" aria-hidden="true">${entry.is_favorite ? "♥" : "♡"}</span>
+              <span class="quick-favorite-label">Coup de cœur</span>
+            </button>
+          </div>
         </div>
       </div>
     </section>`;
@@ -3845,18 +3850,24 @@ function detailRepeatIndicatorHTML(entry) {
 
 function quickRepeatHTML(entry) {
   const info = repeatInfo(entry);
+  if (!info.total) return "";
+
   const progress = repeatProgressLabel(entry, info);
-  const canAdd = Boolean(entry.status === "finished" || entry.date_finished || info.repeats > 0);
-  const historyLabel = info.total ? `${info.done} ${info.total} fois` : "Pas encore terminé";
-  const countLabel = progress || historyLabel;
+  const historyLabel = `${info.done} ${info.total} fois`;
+  const [singular, plural] = entry.media_type === "book"
+    ? ["lecture", "lectures"]
+    : entry.media_type === "game"
+      ? ["partie", "parties"]
+      : ["vue", "vues"];
+  const countLabel = `${info.total} ${info.total > 1 ? plural : singular}`;
   const fullLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
   const canAdjustDown = !progress && info.repeats > 0;
-  const canAdjustUp = !progress && canAdd;
+  const canAdjustUp = !progress;
   const addTitle = progress
     ? "Le compteur augmentera au prochain passage sur Terminé"
-    : canAdd ? info.action : "Disponible une fois terminé";
+    : info.action;
   return `
-    <div class="quick-repeat-stepper ${canAdd ? "" : "is-disabled"} ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
+    <div class="quick-repeat-stepper ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
       <button type="button" class="quick-repeat-adjust" onclick="UI.quickAdjustRepeat('${entry.id}', -1)" ${canAdjustDown ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
       <span class="quick-repeat-value" title="${esc(fullLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
       <button type="button" class="quick-repeat-adjust quick-repeat-add" onclick="UI.quickAdjustRepeat('${entry.id}', 1)" ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
