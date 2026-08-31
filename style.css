@@ -3359,8 +3359,10 @@ input, textarea, select { border-radius: 12px; }
   display: flex;
   gap: .8rem;
   overflow-x: auto;
-  padding-bottom: .15rem;
+  margin: -.35rem;
+  padding: .35rem .35rem .5rem;
   scroll-snap-type: x proximity;
+  scroll-padding-inline: .35rem;
   scrollbar-width: none;
 }
 .continue-track::-webkit-scrollbar { display: none; }
@@ -3710,7 +3712,17 @@ input, textarea, select { border-radius: 12px; }
   .continue-expanded-head > span:first-child { display: none; }
   .continue-expanded-head .section-link { margin-left: auto; }
   .continue-card { flex-basis: 112px; }
-  .continue-track { margin-right: -.8rem; padding-right: .8rem; }
+  .continue-track {
+    margin-top: -.3rem;
+    margin-right: -.8rem;
+    margin-bottom: -.35rem;
+    margin-left: -.35rem;
+    padding-top: .3rem;
+    padding-right: 1.15rem;
+    padding-bottom: .5rem;
+    padding-left: .35rem;
+    scroll-padding-inline: .35rem;
+  }
   .library-list-heading { margin-top: .85rem; }
 
   .upcoming-toolbar {
