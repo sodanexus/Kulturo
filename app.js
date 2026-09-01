@@ -1255,6 +1255,21 @@ function cardMetaHTML(rating, is_favorite, repeatCount = 0) {
   return `<div class="card-bottom">${ratingEl}<span class="card-markers">${heartEl}${repeatEl}</span></div>`;
 }
 
+// Les marqueurs du Journal décrivent l'état actuel du média, indépendamment
+// de l'événement historique affiché sur la ligne.
+function activityStateMarkersHTML(entry) {
+  const info = repeatInfo(entry);
+  const favorite = entry?.is_favorite
+    ? `<span class="activity-favorite-marker" title="Actuellement : coup de cœur" aria-label="Actuellement coup de cœur">♥</span>`
+    : "";
+  const repeat = info.repeats > 0
+    ? `<span class="activity-repeat-marker" title="Actuellement : ${esc(info.done.toLowerCase())} ${info.total} fois" aria-label="Actuellement ${esc(info.done.toLowerCase())} ${info.total} fois">${iconRepeat()}<strong>${info.total}×</strong></span>`
+    : "";
+  return favorite || repeat
+    ? `<span class="activity-state-markers">${favorite}${repeat}</span>`
+    : "";
+}
+
 function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
@@ -1618,15 +1633,15 @@ async function renderDashboard() {
     : `<div class="profile-inline-empty">Aucun média noté en ${esc(periodLabel)}.</div>`;
 
   const categories = [
-    { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--movie)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
-    { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--accent)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
-    { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--game)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
-    { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--book)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
+    { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
+    { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
+    { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--brand-teal)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
+    { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--brand-gold)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
   ];
   const categoryMax = Math.max(...categories.map(category => category.count), 1);
   const categoryHTML = categories.map(category => `
     <button type="button" class="profile-category-row" onclick="UI.openProfileCollection('${category.key}', ${_profileYear}, '${periodMonth}', '${category.key}')">
-      <span class="profile-category-icon" aria-hidden="true">${category.icon}</span>
+      <span class="profile-category-icon" style="color:${category.color}" aria-hidden="true">${category.icon}</span>
       <span class="profile-category-copy">
         <span><strong>${category.label}</strong><em>${category.count}</em></span>
         <span class="profile-category-track"><i style="width:${Math.round(category.count / categoryMax * 100)}%;background:${category.color}"></i></span>
@@ -3566,6 +3581,11 @@ function renderDetailPanel(e, options = {}) {
   const isPreview = options.preview === true;
   const isReadOnly = options.readOnly === true;
   const ratingDisplay = isPreview ? "" : ratingScoreHTML(e.rating, "detail-rating-score");
+  const headerStatusBadge = isPreview
+    ? `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`
+    : isReadOnly && e.status
+      ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${STATUS_LABELS[e.status]}</span>`
+      : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
 
@@ -3612,11 +3632,9 @@ function renderDetailPanel(e, options = {}) {
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
-                ${e.status
-                  ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${STATUS_LABELS[e.status]}</span>`
-                  : `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`}
+                ${headerStatusBadge}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
-                ${!isPreview && !isReadOnly ? detailRepeatIndicatorHTML(e) : ""}
+                ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
               </div>
             </div>
           </div>
@@ -4912,8 +4930,9 @@ function journalRowHTML(event, options = {}) {
           <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
           <span class="activity-title">${esc(entry.title)}</span>
           <span class="activity-meta">
-            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
+            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
             ${ratingBadge}
+            ${activityStateMarkersHTML(entry)}
           </span>
         </span>
         ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
@@ -5019,9 +5038,9 @@ function communityRowHTML(entry) {
         <div class="activity-line"><span class="activity-username">${esc(entry.username)}</span><span class="activity-verb">a ajouté</span></div>
         <div class="activity-title">${iconMedia(entry.media_type, entry.subtype)} ${esc(entry.title)}</div>
         <div class="activity-meta">
-          <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
+          <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
           <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
-          ${rating}${entry.is_favorite ? `<span class="community-favorite" aria-label="Coup de cœur">♥</span>` : ""}
+          ${rating}${activityStateMarkersHTML(entry)}
         </div>
       </div>
       <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>

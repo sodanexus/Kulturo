@@ -231,6 +231,16 @@
   color: var(--accent-2);
   animation: addStatusPop var(--motion-feedback) var(--ease-interface);
 }
+.modal-wizard .wz-status-btn[data-status="playing"].active {
+  border-color: color-mix(in srgb, var(--game) 55%, transparent);
+  background: color-mix(in srgb, var(--game) 14%, transparent);
+  color: var(--game);
+}
+.modal-wizard .wz-status-btn[data-status="finished"].active {
+  border-color: color-mix(in srgb, var(--brand-teal) 55%, transparent);
+  background: var(--brand-teal-glow);
+  color: var(--brand-teal);
+}
 
 @keyframes addStatusPop {
   50% { transform: scale(1.025); }
@@ -263,8 +273,12 @@
 
 .wz-favorite-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .wz-favorite-icon { color: var(--text-3); font-size: var(--type-body); transition: color var(--motion-fast) ease, transform var(--motion-fast) ease; }
-.wz-favorite-toggle:has(input:checked) { border-color: color-mix(in srgb, var(--movie) 50%, var(--border)); color: var(--text); }
-.wz-favorite-toggle:has(input:checked) .wz-favorite-icon { color: var(--movie); transform: scale(1.08); }
+.wz-favorite-toggle:has(input:checked) {
+  border-color: color-mix(in srgb, var(--brand-coral) 50%, var(--border));
+  background: color-mix(in srgb, var(--brand-coral) 8%, var(--bg-3));
+  color: var(--text);
+}
+.wz-favorite-toggle:has(input:checked) .wz-favorite-icon { color: var(--brand-coral); transform: scale(1.08); }
 
 .modal-wizard .modal-footer { padding: .8rem 1.25rem 1rem; background: var(--bg-2); }
 .wz-submit-btn { width: 100%; min-height: 46px; justify-content: center; }

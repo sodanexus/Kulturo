@@ -276,6 +276,7 @@ RETURNS TABLE (
   status TEXT,
   rating SMALLINT,
   is_favorite BOOLEAN,
+  repeat_count SMALLINT,
   cover_url TEXT,
   created_at TIMESTAMPTZ,
   username TEXT
@@ -294,6 +295,7 @@ AS $$
     media.status,
     media.rating,
     media.is_favorite,
+    media.repeat_count,
     media.cover_url,
     media.created_at,
     COALESCE(NULLIF(profile.username, ''), 'Utilisateur') AS username

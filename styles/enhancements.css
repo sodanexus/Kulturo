@@ -1,5 +1,5 @@
 /* ============================================================
-   Kulturo 3.2.8 — cohérence visuelle et rendu local
+   Kulturo 3.2.16 — cohérence visuelle et rendu local
    ============================================================ */
 
 :root {
@@ -48,6 +48,38 @@ body { background-color: var(--system-bar-color); }
   height: 1em;
   flex: 0 0 auto;
   vertical-align: -.12em;
+}
+.ui-icon-favorite { color: var(--brand-coral); }
+.ui-icon-finished { color: var(--brand-teal); }
+.community-favorite { color: var(--brand-coral); font-size: var(--type-body); line-height: 1; }
+.activity-title > :is(.ui-icon-movie, .ui-icon-tv) { color: var(--brand-coral); }
+.activity-title > .ui-icon-game { color: var(--brand-teal); }
+.activity-title > .ui-icon-book { color: var(--brand-gold); }
+.activity-state-markers {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+.activity-favorite-marker {
+  color: var(--brand-coral);
+  font-size: var(--type-body);
+  line-height: 1;
+}
+.activity-repeat-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: .15rem;
+  color: var(--brand-teal);
+  font-size: var(--type-label);
+  font-weight: 750;
+  line-height: 1;
+}
+.activity-repeat-marker .icon-repeat { width: 13px; height: 13px; }
+.favorite-filter-chip.active {
+  border-color: var(--brand-coral);
+  background: var(--brand-coral-glow);
+  color: var(--brand-coral);
+  box-shadow: 0 4px 16px var(--brand-coral-glow);
 }
 .card-cover-placeholder .ui-icon,
 .detail-poster-placeholder .ui-icon,
@@ -311,16 +343,16 @@ body { background-color: var(--system-bar-color); }
   gap: .65rem;
   margin-top: .55rem;
   padding: .5rem;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--brand-coral) 24%, var(--border));
   border-radius: 12px;
-  background: var(--bg-3);
+  background: color-mix(in srgb, var(--brand-coral) 7%, var(--bg-3));
   color: var(--text-1);
   text-align: left;
 }
 .journal-month-favorite img,
 .journal-month-favorite > span:first-child { width: 34px; height: 48px; border-radius: 7px; object-fit: cover; }
 .journal-month-favorite > span:nth-child(2) { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.journal-month-favorite small { color: var(--text-3); font-size: var(--type-micro); }
+.journal-month-favorite small { color: var(--brand-coral); font-size: var(--type-micro); }
 .journal-month-favorite strong { overflow: hidden; font-size: var(--type-label); text-overflow: ellipsis; white-space: nowrap; }
 .journal-month-favorite-rating { font-size: var(--type-caption); white-space: nowrap; }
 .journal-month-no-favorite { margin: .55rem 0 0; color: var(--text-3); font-size: var(--type-caption); }
@@ -411,6 +443,13 @@ body { background-color: var(--system-bar-color); }
 .journal-event-group-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .journal-event-group-copy strong { display: flex; align-items: center; gap: .42rem; color: var(--text-1); font-size: var(--type-control); }
 .journal-event-group-copy strong > span { color: var(--accent); }
+.journal-event-label .icon-repeat,
+.journal-event-group-copy .icon-repeat { color: var(--brand-teal); }
+[data-event-tone="teal"] .journal-event-label > span {
+  background: var(--brand-teal-glow);
+  color: var(--brand-teal);
+}
+.journal-event-group[data-event-tone="teal"] .journal-event-group-copy strong > span { color: var(--brand-teal); }
 .journal-event-group-copy small { margin-top: .16rem; color: var(--text-3); font-size: var(--type-caption); }
 .journal-event-group-chevron { color: var(--text-3); transition: transform var(--motion-layout) var(--ease-interface), color var(--motion-feedback) ease; }
 .journal-event-group.is-expanded .journal-event-group-chevron { color: var(--accent); transform: rotate(180deg); }
@@ -450,10 +489,10 @@ body { background-color: var(--system-bar-color); }
   bottom: .55rem;
   z-index: 3;
   padding: .24rem .46rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-coral) 48%, transparent);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--bg-2) 86%, transparent);
-  color: var(--accent-2);
+  background: color-mix(in srgb, var(--brand-coral) 9%, var(--bg-2));
+  color: var(--brand-coral);
   -webkit-backdrop-filter: blur(9px);
   backdrop-filter: blur(9px);
   font-size: var(--type-micro);
@@ -475,7 +514,7 @@ body { background-color: var(--system-bar-color); }
 .profile-genre-track { display: block; height: 4px; margin-top: .26rem; overflow: hidden; border-radius: 99px; background: var(--bg-4); }
 .profile-genre-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transform-origin: left; animation: barGrowX var(--motion-layout) var(--ease-enter) both; }
 .profile-repeat-section { display: flex; flex-direction: column; justify-content: center; }
-.profile-repeat-value { margin-top: .45rem; color: var(--accent-2); font-size: var(--type-metric-xl); font-weight: 800; line-height: 1; }
+.profile-repeat-value { margin-top: .45rem; color: var(--brand-teal); font-size: var(--type-metric-xl); font-weight: 800; line-height: 1; }
 .profile-repeat-section h3 { margin-top: .25rem; font-size: var(--type-lead); }
 .profile-repeat-section p { margin-top: .35rem; color: var(--text-3); font-size: var(--type-caption); line-height: 1.5; }
 .profile-animated-number { font: inherit; font-variant-numeric: tabular-nums; }

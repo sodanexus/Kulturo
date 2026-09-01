@@ -5,9 +5,9 @@
 const accentCache = new Map();
 const pendingAccents = new Map();
 const MAX_ACCENT_CACHE = 120;
-const ACCENT_CACHE_VERSION = "3";
+const ACCENT_CACHE_VERSION = "4";
 const ACCENT_CACHE_VERSION_KEY = "kulturo-cover-accent-version";
-const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v3";
+const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v4";
 let storageHydrated = false;
 
 function ensureStorageVersion() {
@@ -118,19 +118,15 @@ function quantizedColor(data) {
   return [...buckets.values()].sort((a, b) => b.weight - a.weight)[0] || fallback;
 }
 
-function accentFromRGB(red, green, blue, theme = "dark") {
+function accentFromRGB(red, green, blue) {
   const { h, s, l } = rgbToHsl(red, green, blue);
   const saturation = clamp(Math.max(s * 100, 42), 42, 78);
-  const lightness = theme === "light"
-    ? clamp(38 + l * 12, 38, 52)
-    : clamp(52 + l * 18, 52, 70);
-  const secondaryLightness = theme === "light"
-    ? clamp(lightness - 8, 30, 45)
-    : clamp(lightness + 11, 60, 82);
+  const lightness = clamp(52 + l * 18, 52, 70);
+  const secondaryLightness = clamp(lightness + 11, 60, 82);
   const hue = Number(h.toFixed(1));
   const sat = Number(saturation.toFixed(1));
-  const glowLightness = theme === "light" ? clamp(lightness - 4, 30, 48) : clamp(lightness - 8, 42, 64);
-  const systemLightness = theme === "light" ? 96 : 10;
+  const glowLightness = clamp(lightness - 8, 42, 64);
+  const systemLightness = 10;
 
   return {
     accent: `hsl(${hue} ${sat}% ${Number(lightness.toFixed(1))}%)`,
@@ -141,12 +137,11 @@ function accentFromRGB(red, green, blue, theme = "dark") {
   };
 }
 
-export function accentFromSample(red, green, blue, theme = "dark") {
+export function accentFromSample(red, green, blue) {
   return accentFromRGB(
     clamp(Number(red) || 0, 0, 255),
     clamp(Number(green) || 0, 0, 255),
     clamp(Number(blue) || 0, 0, 255),
-    theme,
   );
 }
 
@@ -168,7 +163,7 @@ export function accentImageRequestUrl(value) {
   return cleanUrl;
 }
 
-function sampleImage(image, theme) {
+function sampleImage(image) {
   if (typeof document === "undefined") return null;
   try {
     const canvas = document.createElement("canvas");
@@ -179,7 +174,7 @@ function sampleImage(image, theme) {
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
     const color = quantizedColor(data);
-    return accentFromRGB(color.r, color.g, color.b, theme);
+    return accentFromRGB(color.r, color.g, color.b);
   } catch {
     // Les images distantes sans en-tête CORS ne peuvent pas être lues par un
     // canvas. Le composant conserve alors son accent de secours.
@@ -187,11 +182,11 @@ function sampleImage(image, theme) {
   }
 }
 
-export function coverAccentForUrl(url, theme = "dark") {
+export function coverAccentForUrl(url) {
   const cleanUrl = String(url || "").trim();
   if (!cleanUrl || typeof Image === "undefined") return Promise.resolve(null);
   hydrateAccentCache();
-  const key = `${theme}:${cleanUrl}`;
+  const key = cleanUrl;
   if (accentCache.has(key)) return Promise.resolve(accentCache.get(key));
   if (pendingAccents.has(key)) return pendingAccents.get(key);
 
@@ -214,7 +209,7 @@ export function coverAccentForUrl(url, theme = "dark") {
     image.crossOrigin = "anonymous";
     image.decoding = "async";
     image.referrerPolicy = "no-referrer";
-    image.onload = () => finish(sampleImage(image, theme));
+    image.onload = () => finish(sampleImage(image));
     image.onerror = () => finish(null);
     image.src = accentImageRequestUrl(cleanUrl);
   });
