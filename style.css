@@ -3073,11 +3073,31 @@ h1, h2, h3 { color: var(--text-1); }
   justify-content: flex-end;
 }
 .topbar-filter-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  min-width: 42px;
+  height: 40px;
   min-height: 40px;
-  padding: .55rem .9rem;
+  padding: 0;
   border-radius: 12px;
   background: var(--bg-3);
   font-weight: 650;
+}
+.topbar-filter-btn > svg { width: 18px; height: 18px; }
+.topbar-filter-btn .filter-fab-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 .3rem;
+  border: 2px solid var(--bg-2);
+  font-size: var(--type-micro);
+  line-height: 1;
 }
 .topbar-filter-btn:is(.is-inactive, .is-search-mode) {
   visibility: hidden;
@@ -3552,20 +3572,19 @@ input, textarea, select { border-radius: 12px; }
 
 @media (max-width: 680px) {
   #topbar {
-    grid-template-columns: 84px minmax(0, 1fr) 78px;
+    grid-template-columns: 84px minmax(0, 1fr) 42px;
     gap: .55rem;
     min-height: calc(62px + var(--safe-top));
     padding: var(--safe-top) max(.9rem, calc(.5rem + var(--safe-right))) 0 max(.9rem, calc(.5rem + var(--safe-left)));
   }
   .topbar-logo { width: 84px; font-size: var(--type-title-sm); }
-  .topbar-right { width: 78px; min-width: 78px; }
+  .topbar-right { width: 42px; min-width: 42px; }
   .topbar-filter-btn {
-    width: 78px;
-    justify-content: center;
-    padding: .45rem .55rem;
-    font-size: var(--type-control);
+    width: 42px;
+    padding: 0;
   }
   .topbar-search-wrap input { height: 40px; padding-left: 2.15rem; }
+  .topbar-search-wrap input::placeholder { font-size: var(--type-control); }
   .topbar-search-wrap .search-icon { left: .7rem; }
 
   #main { padding-top: 0; }
@@ -4054,7 +4073,7 @@ input, textarea, select { border-radius: 12px; }
 
 @media (max-width: 680px) {
   /* Sur mobile, le logo reste seul et se cale sur la hauteur de la recherche. */
-  #topbar { grid-template-columns: 88px minmax(0, 1fr) 78px; }
+  #topbar { grid-template-columns: 88px minmax(0, 1fr) 42px; }
   .topbar-logo {
     width: 88px;
     min-height: 40px;
@@ -4065,6 +4084,7 @@ input, textarea, select { border-radius: 12px; }
     gap: 0;
   }
   .topbar-mark { width: 64px; height: 38px; }
+  .topbar-right { width: 42px; min-width: 42px; }
   .topbar-brand-copy { display: none; }
   .topbar-tagline {
     display: none;

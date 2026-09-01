@@ -2,7 +2,10 @@
 // domain.js — règles métier pures et testables de Kulturo
 // ============================================================
 
-export const COMPLETION_EVENT_TYPES = new Set(["finished", "repeat_finished"]);
+// Une fin initiale et une reprise terminée restent deux événements distincts.
+// Les statistiques « Terminé » ne doivent jamais absorber les replays.
+export const COMPLETION_EVENT_TYPES = new Set(["finished"]);
+export const REPLAY_COMPLETION_EVENT_TYPES = new Set(["repeat_finished"]);
 
 export function localISODate(now = new Date()) {
   return [
@@ -70,7 +73,7 @@ export function filterLibraryEntries(entries, filters = {}) {
     }
     if (filters.status && filters.status !== "all" && entry.status !== filters.status) return false;
     if (filters.favorite && !entry.is_favorite) return false;
-    if (filters.replay && Math.max(0, Number.parseInt(entry?.repeat_count, 10) || 0) < 1) return false;
+    if (filters.replay && !isReplayEntry(entry)) return false;
     if (filters.year && filters.year !== "all" && entryActivityYear(entry) !== Number(filters.year)) return false;
     if (filters.month && filters.month !== "all" && entryActivityMonth(entry) !== String(filters.month)) return false;
     if (filters.rating && filters.rating !== "all" && Number(entry.rating) !== Number(filters.rating)) return false;
@@ -100,6 +103,14 @@ export function repeatProgressLabel(entry, info = repeatInfo(entry)) {
   return "Revisionnage en cours";
 }
 
+// Règle unique utilisée par la fiche, la Bibliothèque, le Journal et les filtres.
+// Un premier replay est déjà un replay dès son démarrage, avant l'incrément du
+// compteur qui intervient seulement lorsqu'il est terminé.
+export function isReplayEntry(entry) {
+  const info = repeatInfo(entry);
+  return info.repeats > 0 || Boolean(repeatProgressLabel(entry, info));
+}
+
 export function statusTransitionChanges(entry, nextStatus, today = localISODate()) {
   const previousStatus = entry?.status || null;
   const info = repeatInfo(entry || {});
@@ -125,6 +136,10 @@ export function isCompletionEvent(event) {
   return COMPLETION_EVENT_TYPES.has(event?.event_type);
 }
 
+export function isReplayCompletionEvent(event) {
+  return REPLAY_COMPLETION_EVENT_TYPES.has(event?.event_type);
+}
+
 // Le Top mensuel doit refléter une note réellement donnée pendant la période,
 // pas la note actuelle d'un média qui aurait seulement été commencé ce mois-là.
 // Lors de la création d'un média, la migration 3.0 range toutefois la note
@@ -141,7 +156,7 @@ export function isRatingActivityEvent(event) {
 }
 
 export function isProfileTopEvent(event) {
-  return isCompletionEvent(event) || isRatingActivityEvent(event);
+  return isCompletionEvent(event) || isReplayCompletionEvent(event) || isRatingActivityEvent(event);
 }
 
 export function eventsForPeriod(events, year, month = "all") {

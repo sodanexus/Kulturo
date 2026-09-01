@@ -115,7 +115,11 @@ export function exploredGenres(entries, limit = 6) {
 export function journalMonthSummary(events, entries, monthKey) {
   const entryById = new Map((entries || []).map(entry => [entry.id, entry]));
   const monthEvents = (events || []).filter(event => yearMonthOf(event?.occurred_at) === monthKey);
-  const completed = monthEvents.filter(isCompletionEvent).length;
+  // Une œuvre compte une seule fois parmi les « terminés », même en présence
+  // de doublons historiques. Les repeat_finished restent réservés au replay.
+  const completed = new Set(
+    monthEvents.filter(isCompletionEvent).map(event => event.media_id).filter(Boolean)
+  ).size;
   const topIds = new Set(monthEvents.filter(isProfileTopEvent).map(event => event.media_id));
   const rated = [...topIds]
     .map(id => entryById.get(id))

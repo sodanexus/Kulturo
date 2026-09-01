@@ -64,10 +64,17 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.2.17**
+**3.2.18**
 
 La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus homogène et plus agréable à utiliser, surtout sur mobile.
 
+- statistiques **Terminé** et **Replay** désormais strictement séparées, sans double comptage lors d’une reprise ;
+- définition du replay partagée par la fiche, la Bibliothèque, le Journal et les filtres, y compris pendant une première reprise encore en cours ;
+- tuile du Profil renommée **Revoir, relire, rejouer**, avec un vocabulaire commun de **reprises** ;
+- boutons de statut de l’ajout accordés à l’accent de la jaquette, comme les actions de la fiche ;
+- filtres allégés : type de média sans choix « Tous » redondant, libellés de tri explicites et description du mode Compact corrigée ;
+- barre supérieure simplifiée avec une recherche mobile plus courte et un bouton de filtre réduit à son icône sur tous les écrans ;
+- favicon et icônes d’installation recentrés sur les trois cercles seuls, sans fond noir intégré ;
 - section **Marqueurs** ajoutée aux filtres de la Bibliothèque : **Coups de cœur** et **Replay** se filtrent côte à côte et peuvent être combinés ;
 - le favori du **Mois en bref** et le Top **Vos préférés** ne retiennent plus les médias actuellement **En cours**, même lorsqu'ils avaient été terminés auparavant ;
 - code couleur unifié dans les fiches, la Bibliothèque, le Journal, la Communauté, les Sorties et le Profil : films et séries en corail, jeux en sarcelle, livres et notes en or, coups de cœur en corail et revisionnages en sarcelle ;
@@ -90,6 +97,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.2.18** — compteurs Terminé/Replay séparés, replay reconnu partout, filtres et barre de recherche simplifiés, icône aux trois cercles rendue transparente.
 - **3.2.17** — Replay rejoint les marqueurs de filtre et les préférés du Journal/Profil suivent désormais le statut actuel des médias.
 - **3.2.16** — code couleur sémantique étendu aux fiches et aux journaux, statut redondant retiré des fiches personnelles et commandes rapides rendues à l’accent de la jaquette.
 - **3.2.15** — corail et sarcelle intégrés par rôle, logo desktop réaligné et rebond du shell corrigé dans la web app tactile.

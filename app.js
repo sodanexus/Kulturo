@@ -11,6 +11,7 @@ import {
   filterLibraryEntries,
   isCompletionEvent,
   isProfileTopEvent,
+  isReplayEntry,
   journalEventPresentation,
   latestEventMonth,
   localISODate,
@@ -458,13 +459,12 @@ function renderApp() {
       </div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans toute ma bibliothèque…" aria-label="Rechercher dans toute ma bibliothèque" autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque" autocomplete="off" />
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
-        <button class="topbar-filter-btn" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()" aria-label="Ouvrir les filtres de la bibliothèque">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-          Filtres
+        <button class="topbar-filter-btn" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()" aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
       </div>
     </header>
@@ -829,11 +829,12 @@ function navTo(key, options = {}) {
 
 // ── Filtre type depuis les category-tabs (conserve le status) ─
 function setTypeFilter(type) {
-  State.filters.type     = type;
+  const nextType = State.filters.type === type && State.filters.subtype === "all" ? "all" : type;
+  State.filters.type     = nextType;
   State.filters.subtype  = "all";
   syncFilterChips();
   renderCards({ resetScroll: true });
-  updateCategoryTabs(type);
+  updateCategoryTabs(nextType);
   _updateFilterResultCount();
 }
 
@@ -925,8 +926,11 @@ function _countActiveFilters() {
 
 function _updateFilterModalTypeChips() {
   const chips = document.querySelectorAll("#fm-type-chips .filter-chip");
-  const types = ["all","game","movie","book"];
-  chips.forEach((c, i) => c.classList.toggle("active", types[i] === State.filters.type));
+  chips.forEach(chip => {
+    const active = chip.dataset.value === State.filters.type;
+    chip.classList.toggle("active", active);
+    chip.setAttribute("aria-pressed", String(active));
+  });
   _updateFilterToggleLabel();
   _updateFilterModalHeader();
   _updateResetBtn();
@@ -939,6 +943,11 @@ function _updateFilterToggleLabel() {
   const n = _countActiveFilters();
   btn.classList.toggle("has-filter", n > 0);
   btn.classList.toggle("is-search-mode", searchMode);
+  const accessibleLabel = n > 0
+    ? `Ouvrir les filtres de la bibliothèque · ${n} actif${n > 1 ? "s" : ""}`
+    : "Ouvrir les filtres de la bibliothèque";
+  btn.setAttribute("aria-label", accessibleLabel);
+  btn.title = n > 0 ? `Filtres · ${n} actif${n > 1 ? "s" : ""}` : "Filtres";
   const unavailable = _currentPage !== "library" || searchMode;
   btn.setAttribute("aria-hidden", String(unavailable));
   btn.tabIndex = unavailable ? -1 : 0;
@@ -1088,10 +1097,10 @@ function renderActiveFilters() {
   const typeLabels = { game: "Jeux", movie: "Films / Séries", book: "Livres" };
   const subtypeLabels = { movie: "Films", tv: "Séries" };
   const sortLabels = {
-    date_finished: "Date de fin",
+    date_finished: "Fins récentes",
     rating_desc: "Meilleures notes",
-    rating_asc: "Notes croissantes",
-    title: "Titre",
+    rating_asc: "Notes les plus basses",
+    title: "Titre A–Z",
   };
   const filters = [];
   // La recherche de la barre supérieure est volontairement globale. Les
@@ -1256,13 +1265,17 @@ function ratingScoreHTML(rating, className = "") {
   return `<span class="${classes}" aria-label="Note ${display} sur 10">★ ${display}/10</span>`;
 }
 
-function cardMetaHTML(rating, is_favorite, repeatCount = 0) {
-  const repeats = Math.max(0, Number.parseInt(repeatCount, 10) || 0);
-  if (!rating && !is_favorite && !repeats) return "";
-  const ratingEl = rating ? ratingScoreHTML(rating, "card-rating") : "";
-  const heartEl = is_favorite ? `<span class="card-heart">♥</span>` : "";
-  const repeatEl = repeats
-    ? `<span class="card-repeat" title="Vu, lu ou terminé ${repeats + 1} fois">${iconRepeat()}<strong>${repeats + 1}×</strong></span>`
+function cardMetaHTML(entry) {
+  const info = repeatInfo(entry);
+  const progress = repeatProgressLabel(entry, info);
+  const hasReplay = isReplayEntry(entry);
+  if (!entry?.rating && !entry?.is_favorite && !hasReplay) return "";
+  const ratingEl = entry.rating ? ratingScoreHTML(entry.rating, "card-rating") : "";
+  const heartEl = entry.is_favorite ? `<span class="card-heart">♥</span>` : "";
+  const historyLabel = `${info.done} ${info.total} fois`;
+  const repeatLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
+  const repeatEl = hasReplay
+    ? `<span class="card-repeat" title="${esc(repeatLabel)}" aria-label="${esc(repeatLabel)}">${iconRepeat()}<strong>${info.total}×</strong></span>`
     : "";
   return `<div class="card-bottom">${ratingEl}<span class="card-markers">${heartEl}${repeatEl}</span></div>`;
 }
@@ -1271,11 +1284,15 @@ function cardMetaHTML(rating, is_favorite, repeatCount = 0) {
 // de l'événement historique affiché sur la ligne.
 function activityStateMarkersHTML(entry) {
   const info = repeatInfo(entry);
+  const progress = repeatProgressLabel(entry, info);
+  const hasReplay = isReplayEntry(entry);
   const favorite = entry?.is_favorite
     ? `<span class="activity-favorite-marker" title="Actuellement : coup de cœur" aria-label="Actuellement coup de cœur">♥</span>`
     : "";
-  const repeat = info.repeats > 0
-    ? `<span class="activity-repeat-marker" title="Actuellement : ${esc(info.done.toLowerCase())} ${info.total} fois" aria-label="Actuellement ${esc(info.done.toLowerCase())} ${info.total} fois">${iconRepeat()}<strong>${info.total}×</strong></span>`
+  const historyLabel = `${info.done} ${info.total} fois`;
+  const repeatLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
+  const repeat = hasReplay
+    ? `<span class="activity-repeat-marker" title="Actuellement : ${esc(repeatLabel.toLowerCase())}" aria-label="Actuellement ${esc(repeatLabel.toLowerCase())}">${iconRepeat()}<strong>${info.total}×</strong></span>`
     : "";
   return favorite || repeat
     ? `<span class="activity-state-markers">${favorite}${repeat}</span>`
@@ -1312,7 +1329,7 @@ function cardHTML(e, i = 0) {
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${iconStatus(e.status)}<span>${statusLabel}</span></span>` : ""}
-      ${cardMetaHTML(e.rating, e.is_favorite, e.repeat_count)}
+      ${cardMetaHTML(e)}
     </article>`;
 }
 
@@ -1617,10 +1634,9 @@ async function renderDashboard() {
     : String(_profileYear);
   const dateScopedEntries = profileEntriesForPeriod(all, _profileYear, periodMonth);
   const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
-  const scopedIds = new Set(scopedEntries.map(entry => entry.id));
   const periodEvents = State.journalAvailable ? eventsForPeriod(State.events, _profileYear, periodMonth) : [];
   const scopedFinished = State.journalAvailable
-    ? periodEvents.filter(event => scopedIds.has(event.media_id) && isCompletionEvent(event))
+    ? uniqueEntriesForEvents(scopedEntries, periodEvents.filter(isCompletionEvent))
     : scopedEntries.filter(entry => entry.status === "finished" && entry.date_finished);
   const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
   const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
@@ -1797,10 +1813,10 @@ async function renderDashboard() {
         <div class="profile-genre-list">${genresHTML}</div>
       </section>
       <section class="profile-dashboard-card profile-repeat-section">
-        <span class="section-eyebrow">Revenir à ses favoris</span>
+        <span class="section-eyebrow">Revoir, relire, rejouer</span>
         <div class="profile-repeat-value">${profileNumberHTML("repeats", scopedRepeatCount)}</div>
-        <h3>revisionnage${scopedRepeatCount === 1 ? "" : "s"}</h3>
-        <p>Relectures, nouvelles parties et œuvres revues sur cette période.</p>
+        <h3>reprise${scopedRepeatCount === 1 ? "" : "s"}</h3>
+        <p>Revisionnages, relectures et nouvelles parties terminés sur cette période.</p>
       </section>
     </div>
 
@@ -3832,7 +3848,7 @@ function detailRepeatIndicatorHTML(entry) {
   const info = repeatInfo(entry);
   const progress = repeatProgressLabel(entry, info);
   const historyLabel = info.total ? `${info.done} ${info.total} fois` : "Aucun revisionnage";
-  const active = info.repeats > 0 || Boolean(progress);
+  const active = isReplayEntry(entry);
   const label = progress ? `${progress} · ${historyLabel}` : historyLabel;
   return `<span class="detail-repeat ${active ? "is-active" : ""} ${progress ? "is-progress" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
 }
@@ -5140,16 +5156,15 @@ window.UI = {
 
     const _buildModal = () => {
       const statuses = ["finished","wishlist","playing","dropped"];
-      const sorts = [["created_at","Date d'ajout"],["date_finished","Date de fin"],["rating_desc","Note ↓"],["rating_asc","Note ↑"],["title","Titre"]];
+      const sorts = [["created_at","Ajouts récents"],["date_finished","Fins récentes"],["rating_desc","Meilleures notes"],["rating_asc","Notes les plus basses"],["title","Titre A–Z"]];
       const types = [
-        ["all", "Tous", ""],
-        ["game", "Jeux", iconMedia("game")],
         ["movie", "Films / Séries", iconMedia("movie")],
+        ["game", "Jeux", iconMedia("game")],
         ["book", "Livres", iconMedia("book")],
       ];
       const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l,icon]) =>
-        `<button class="filter-chip ${State.filters.type === v ? "active" : ""}"
+        `<button class="filter-chip ${State.filters.type === v ? "active" : ""}" data-value="${v}" aria-pressed="${State.filters.type === v}"
           onclick="UI.setTypeFilter('${v}')">${icon}${l}</button>`
       ).join("");
 
@@ -5184,7 +5199,7 @@ window.UI = {
             </div>
             <div class="modal-body">
               <div class="filter-modal-section">
-                <div class="filter-modal-label">Catégorie</div>
+                <div class="filter-modal-label">Type de média</div>
                 <div class="filter-modal-chips" id="fm-type-chips">${typeChips}</div>
               </div>
               <div class="filter-modal-section">
@@ -5207,7 +5222,7 @@ window.UI = {
                     <span aria-hidden="true">▦</span><span><strong>Standard</strong><small>Affiches plus grandes</small></span>
                   </button>
                   <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" onclick="UI.setLibraryDensity('compact')">
-                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus de titres visibles</small></span>
+                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus de médias à l’écran</small></span>
                   </button>
                 </div>
               </div>

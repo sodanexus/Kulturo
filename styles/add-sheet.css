@@ -231,16 +231,6 @@
   color: var(--accent-2);
   animation: addStatusPop var(--motion-feedback) var(--ease-interface);
 }
-.modal-wizard .wz-status-btn[data-status="playing"].active {
-  border-color: color-mix(in srgb, var(--game) 55%, transparent);
-  background: color-mix(in srgb, var(--game) 14%, transparent);
-  color: var(--game);
-}
-.modal-wizard .wz-status-btn[data-status="finished"].active {
-  border-color: color-mix(in srgb, var(--brand-teal) 55%, transparent);
-  background: var(--brand-teal-glow);
-  color: var(--brand-teal);
-}
 
 @keyframes addStatusPop {
   50% { transform: scale(1.025); }
