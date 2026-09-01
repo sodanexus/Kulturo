@@ -2014,7 +2014,7 @@ function _openModalClassic(entry) {
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>
-            <label class="toggle-row">
+            <label class="toggle-row favorite-toggle">
               <span class="toggle-label">♥ Coup de cœur</span>
               <span class="toggle-switch">
                 <input type="checkbox" id="f-favorite" ${entry.is_favorite?"checked":""} />
@@ -2938,6 +2938,13 @@ function iconJournalAction(action, metadata = {}) {
   return iconStatus("added");
 }
 
+function journalActionTone(action, metadata = {}) {
+  const targetStatus = metadata?.to || metadata?.status;
+  return ["finished", "repeat_started", "repeat_finished"].includes(action) || targetStatus === "finished"
+    ? "teal"
+    : "";
+}
+
 
 // ── Prochaines sorties ────────────────────────────────────────
 const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences";
@@ -3767,7 +3774,7 @@ function quickActionsHTML(entry) {
       </div>
       <div class="quick-status-control" role="group" aria-label="Statut">
         ${statusOptions.map(([value, label]) => `
-          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" onclick="UI.quickSetStatus('${entry.id}', '${value}')" aria-pressed="${entry.status === value}">
+          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" data-status="${value}" onclick="UI.quickSetStatus('${entry.id}', '${value}')" aria-pressed="${entry.status === value}">
             <span aria-hidden="true">${iconStatus(value)}</span>${label}
           </button>`).join("")}
       </div>
@@ -4539,7 +4546,7 @@ function loadingDone() {
 
 // ── Confetti ──────────────────────────────────────────────────
 function launchConfetti() {
-  const colors = ["#d8b46a","#efcf8c","#7ea6ff","#ff7f96","#69d4a2","#fff"];
+  const colors = ["#d8b46a","#efcf8c","#e8553a","#1fa88c","#7ea6ff","#fff"];
   const container = document.body;
   for (let i = 0; i < 60; i++) {
     const el = document.createElement("div");
@@ -4843,8 +4850,9 @@ function journalGroupHTML(group) {
   const presentation = journalGroupPresentation(group);
   const expanded = _journalExpandedGroups.has(group.key);
   const domId = journalGroupDomId(group.key);
+  const tone = journalActionTone(group.action);
   return `
-    <section class="journal-event-group ${expanded ? "is-expanded" : ""}" id="${domId}" data-journal-group="${esc(group.key)}">
+    <section class="journal-event-group ${expanded ? "is-expanded" : ""}" id="${domId}" data-journal-group="${esc(group.key)}" ${tone ? `data-event-tone="${tone}"` : ""}>
       <button type="button" class="journal-event-group-toggle" onclick="UI.toggleJournalGroup('${esc(group.key)}')" aria-expanded="${expanded}" aria-controls="${domId}-content">
         <span class="journal-event-group-covers" aria-hidden="true">${group.events.slice(0, 3).map(journalGroupCoverHTML).join("")}</span>
         <span class="journal-event-group-copy">
@@ -4885,6 +4893,7 @@ function journalRowHTML(event, options = {}) {
     ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
+  const tone = journalActionTone(event.event_type, metadata);
   const currentRating = Number(entry.rating);
   const ratingBadge = Number.isInteger(currentRating) && currentRating >= 1 && currentRating <= 10
     ? ratingScoreHTML(currentRating, "journal-rating-badge")
@@ -4896,7 +4905,7 @@ function journalRowHTML(event, options = {}) {
     <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" onclick="event.stopPropagation();UI.hideJournalEvent('${esc(event.id)}')">${iconTrash()}</button>` : "";
 
   return `
-    <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""}>
+    <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""} ${tone ? `data-event-tone="${tone}"` : ""}>
       <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')">
         ${coverHTML}
         <span class="activity-info">
@@ -5012,7 +5021,7 @@ function communityRowHTML(entry) {
         <div class="activity-meta">
           <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${esc(type)}</span>
           <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
-          ${rating}${entry.is_favorite ? `<span style="color:var(--accent)">♥</span>` : ""}
+          ${rating}${entry.is_favorite ? `<span class="community-favorite" aria-label="Coup de cœur">♥</span>` : ""}
         </div>
       </div>
       <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
@@ -5100,7 +5109,7 @@ window.UI = {
       const activeCount = _countActiveFilters();
       const headerLabel = activeCount > 0 ? `Filtres <span class="filter-active-count">${activeCount}</span>` : "Filtres";
 
-      const favChip = `<button class="filter-chip ${State.filters.favorite ? "active" : ""}"
+      const favChip = `<button class="filter-chip favorite-filter-chip ${State.filters.favorite ? "active" : ""}"
         onclick="UI.toggleFavFilter()">${iconStatus("favorite")}Coups de cœur</button>`;
 
       const statusChips = statuses.map(s => {

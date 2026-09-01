@@ -19,14 +19,19 @@
   --text:        #f4f2ed;
   --text-2:      #a8abb5;
   --text-3:      #7f8492;
-  --accent:      #d8b46a;        /* or Kulturo */
+  --brand-gold:  #d8b46a;
+  --brand-coral: #e8553a;
+  --brand-teal:  #1fa88c;
+  --brand-coral-glow: rgba(232,85,58,.15);
+  --brand-teal-glow:  rgba(31,168,140,.15);
+  --accent:      var(--brand-gold);
   --accent-2:    #efcf8c;
   --accent-glow: rgba(216,180,106,.16);
   --game:        #7ea6ff;
   --movie:       #ff7f96;
   --book:        #69d4a2;
   --danger:      #f07178;
-  --success:     #69d4a2;
+  --success:     var(--brand-teal);
   --warn:        #e8a968;
   --radius-sm:   10px;
   --radius:      14px;
@@ -581,7 +586,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
 }
 .card-heart {
   font-size: var(--type-lead);
-  color: var(--movie);
+  color: var(--brand-coral);
   line-height: 1;
   flex-shrink: 0;
   transition: transform var(--motion-fast) var(--ease-spring);
@@ -606,7 +611,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
 .badge-book  { background: rgba(91,191,141,.15); color: var(--book); }
 .badge-wishlist  { background: rgba(96,96,112,.15); color: var(--text-3); }
 .badge-playing   { background: rgba(91,141,238,.15); color: var(--game); }
-.badge-finished  { background: rgba(91,191,141,.15); color: var(--success); }
+.badge-finished  { background: var(--brand-teal-glow); color: var(--brand-teal); }
 .badge-paused    { background: rgba(255,180,50,.15);  color: var(--warn); }
 .badge-dropped   { background: rgba(220,60,60,.15);   color: var(--danger); }
 
@@ -660,7 +665,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
   font-size: var(--type-body);
   line-height: 1;
 }
-.fav-btn:hover { color: var(--accent); background: rgba(13,13,15,.9); }
+.fav-btn:hover { color: var(--brand-coral); background: rgba(13,13,15,.9); }
 
 
 /* ── Empty state ──────────────────────────────────────────── */
@@ -1031,6 +1036,12 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
   transform: translateX(18px);
   background: var(--accent);
 }
+.favorite-toggle:has(input:checked) .toggle-label { color: var(--brand-coral); }
+.favorite-toggle .toggle-switch input:checked ~ .toggle-track {
+  border-color: var(--brand-coral);
+  background: var(--brand-coral-glow);
+}
+.favorite-toggle .toggle-switch input:checked ~ .toggle-track .toggle-thumb { background: var(--brand-coral); }
 
 /* ── Details / advanced section ──────────────────────────── */
 .edit-primary-view {
@@ -1426,7 +1437,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   flex-wrap: wrap;
 }
 .detail-fav {
-  color: var(--accent);
+  color: var(--brand-coral);
   font-size: var(--type-body);
 }
 
@@ -1791,7 +1802,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .fav-btn:hover { transform: scale(1.15); }
 .fav-btn.on {
-  color: var(--accent);
+  color: var(--brand-coral);
   transition: color .25s var(--ease-spring), transform .25s var(--ease-spring);
 }
 .fav-btn:not(.on) {
@@ -2350,23 +2361,24 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 
 /* WebKit retire parfois les safe areas de 100dvh au premier rendu d'une PWA.
-   En standalone, 100vh inclut bien tout l'écran ; #main garde son propre scroll. */
-@media (max-width: 680px) {
-  html.is-standalone,
-  html.is-standalone body.app-shell-active {
-    height: 100vh;
-    min-height: 100vh;
-  }
-  html.is-standalone body.app-shell-active {
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-  html.is-standalone body.app-shell-active #app {
-    height: 100vh;
-    min-height: 100vh;
-    overflow: hidden;
-  }
+   Le verrou s'applique à toutes les largeurs : #main garde son propre scroll
+   sans que le shell, la topbar et la navigation se désolidarisent au rebond. */
+html.is-standalone,
+html.is-standalone body.app-shell-active {
+  height: 100vh;
+  min-height: 100vh;
 }
+html.is-standalone body.app-shell-active {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.is-standalone body.app-shell-active #app {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.is-standalone body.app-shell-active #main { overscroll-behavior-y: contain; }
 
 /* Category tabs — global (desktop + mobile) */
 .category-tab {
@@ -3441,6 +3453,16 @@ input, textarea, select { border-radius: 12px; }
   background: var(--accent-glow);
   color: var(--accent-2);
 }
+.quick-status-btn[data-status="playing"].active {
+  border-color: color-mix(in srgb, var(--game) 55%, transparent);
+  background: color-mix(in srgb, var(--game) 14%, transparent);
+  color: var(--game);
+}
+.quick-status-btn[data-status="finished"].active {
+  border-color: color-mix(in srgb, var(--brand-teal) 55%, transparent);
+  background: var(--brand-teal-glow);
+  color: var(--brand-teal);
+}
 .quick-repeat-row {
   width: 100%;
   margin-top: var(--quick-actions-gap);
@@ -3611,6 +3633,21 @@ input, textarea, select { border-radius: 12px; }
   .topbar-filter-btn { width: 42px; font-size: 0; padding: 0; }
   .topbar-filter-btn svg { width: 16px; height: 16px; }
   .quick-status-btn { font-size: var(--type-label); }
+}
+
+/* Sur desktop et tablette, le centre du symbole est sur le même axe vertical
+   que les boutons de la navigation latérale (56px de large). */
+@media (min-width: 681px) {
+  #topbar {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+  .topbar-logo {
+    padding-left: 4px;
+    gap: .55rem;
+  }
+  .topbar-mark { width: 48px; height: 30px; }
+  .topbar-right { padding-right: 20px; }
 }
 
 /* ============================================================
@@ -4150,14 +4187,14 @@ input, textarea, select { border-radius: 12px; }
   gap: .2rem;
   max-width: 0;
   overflow: hidden;
-  color: var(--accent-2);
+  color: var(--brand-teal);
   opacity: 0;
   transform: scale(.75);
   transform-origin: left center;
   transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease, max-width var(--motion-base) ease;
 }
 .detail-repeat.is-active { max-width: 64px; opacity: 1; transform: scale(1); }
-.detail-repeat.is-progress { color: var(--accent); }
+.detail-repeat.is-progress { color: var(--brand-teal); }
 .detail-repeat .icon-repeat { width: 14px; height: 14px; }
 .detail-repeat strong { font-size: var(--type-caption); line-height: 1; }
 
@@ -4166,7 +4203,7 @@ input, textarea, select { border-radius: 12px; }
   display: inline-flex;
   align-items: center;
   gap: .15rem;
-  color: var(--accent-2);
+  color: var(--brand-teal);
   line-height: 1;
 }
 .card-repeat .icon-repeat { width: 13px; height: 13px; }
@@ -4199,7 +4236,7 @@ input, textarea, select { border-radius: 12px; }
 .quick-repeat-row .quick-repeat-adjust { width: 40px; min-width: 40px; }
 .quick-repeat-adjust:first-child { border-right: 1px solid var(--border); }
 .quick-repeat-adjust:last-child { border-left: 1px solid var(--border); }
-.quick-repeat-adjust:not(:disabled):hover { background: var(--bg-4); color: var(--accent-2); }
+.quick-repeat-adjust:not(:disabled):hover { background: var(--bg-4); color: var(--brand-teal); }
 .quick-repeat-adjust:disabled { cursor: not-allowed; opacity: .35; }
 .quick-repeat-value {
   display: flex;
@@ -4213,12 +4250,12 @@ input, textarea, select { border-radius: 12px; }
   font-weight: 700;
   white-space: nowrap;
 }
-.quick-repeat-value .icon-repeat { flex: 0 0 auto; color: var(--accent); }
+.quick-repeat-value .icon-repeat { flex: 0 0 auto; color: var(--brand-teal); }
 .quick-repeat-stepper.is-progress {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: var(--accent-glow);
+  border-color: color-mix(in srgb, var(--brand-teal) 55%, var(--border));
+  background: var(--brand-teal-glow);
 }
-.quick-repeat-stepper.is-progress .quick-repeat-value { color: var(--accent-2); }
+.quick-repeat-stepper.is-progress .quick-repeat-value { color: var(--brand-teal); }
 
 /* Sélecteurs compacts du profil : période puis catégorie. */
 .profile-date-controls { display: flex; align-items: center; justify-content: flex-end; gap: .4rem; }

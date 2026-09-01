@@ -64,10 +64,12 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.2.14**
+**3.2.15**
 
 La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus homogène et plus agréable à utiliser, surtout sur mobile.
 
+- palette de marque désormais sémantique : or pour les actions principales, corail pour les coups de cœur et recommandations, sarcelle pour les éléments terminés, les reprises et les confirmations ;
+- symbole desktop aligné sur l’axe de la navigation latérale et shell de la web app stabilisé lors du geste de rafraîchissement tactile ;
 - identité recentrée sur une palette sombre unique : l’or du logo rejoint exactement celui de l’interface et les anciens styles du thème clair sont retirés ;
 - fiche média recentrée sur les actions immédiates : statut et reprise uniquement ; la note et le **Coup de cœur** restent réunis dans **Modifier**, sans point d’entrée redondant ;
 - nouvelle identité visuelle aux trois cercles, déclinée dans l’en-tête, le favicon et les icônes d’installation mobile ;
@@ -82,6 +84,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.2.15** — corail et sarcelle intégrés par rôle, logo desktop réaligné et rebond du shell corrigé dans la web app tactile.
 - **3.2.14** — or du logo harmonisé avec l’interface et suppression complète de l’ancien mode clair devenu inaccessible.
 - **3.2.13** — actions rapides simplifiées autour du statut et de la reprise ; note, effacement et Coup de cœur restent accessibles depuis **Modifier**.
 - **3.2.12** — rebranding aux trois cercles et rythme uniformisé dans les actions rapides : reprise avant la note, espacements identiques et contrôles équilibrés.
