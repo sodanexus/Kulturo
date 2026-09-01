@@ -1,5 +1,5 @@
 /* ============================================================
-   Kulturo 3.2.16 — cohérence visuelle et rendu local
+   Kulturo 3.2.17 — cohérence visuelle et rendu local
    ============================================================ */
 
 :root {
@@ -80,6 +80,15 @@ body { background-color: var(--system-bar-color); }
   background: var(--brand-coral-glow);
   color: var(--brand-coral);
   box-shadow: 0 4px 16px var(--brand-coral-glow);
+}
+.favorite-filter-chip:hover { border-color: var(--brand-coral); color: var(--brand-coral); }
+.replay-filter-chip .icon-repeat { color: var(--brand-teal); }
+.replay-filter-chip:hover { border-color: var(--brand-teal); color: var(--brand-teal); }
+.replay-filter-chip.active {
+  border-color: var(--brand-teal);
+  background: var(--brand-teal-glow);
+  color: var(--brand-teal);
+  box-shadow: 0 4px 16px var(--brand-teal-glow);
 }
 .card-cover-placeholder .ui-icon,
 .detail-poster-placeholder .ui-icon,

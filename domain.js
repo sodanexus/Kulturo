@@ -70,6 +70,7 @@ export function filterLibraryEntries(entries, filters = {}) {
     }
     if (filters.status && filters.status !== "all" && entry.status !== filters.status) return false;
     if (filters.favorite && !entry.is_favorite) return false;
+    if (filters.replay && Math.max(0, Number.parseInt(entry?.repeat_count, 10) || 0) < 1) return false;
     if (filters.year && filters.year !== "all" && entryActivityYear(entry) !== Number(filters.year)) return false;
     if (filters.month && filters.month !== "all" && entryActivityMonth(entry) !== String(filters.month)) return false;
     if (filters.rating && filters.rating !== "all" && Number(entry.rating) !== Number(filters.rating)) return false;

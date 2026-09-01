@@ -97,6 +97,7 @@ const State = {
     subtype:  "all",
     status:   DEFAULT_LIBRARY_STATUS,
     favorite: false,
+    replay:   false,
     search:   "",
     sort:     "created_at",
     year:     "all",
@@ -148,6 +149,7 @@ function restoreUiSnapshot() {
       State.filters.subtype = allowedSubtypes.has(filters.subtype) ? filters.subtype : "all";
       State.filters.status = allowedStatuses.has(filters.status) ? filters.status : DEFAULT_LIBRARY_STATUS;
       State.filters.favorite = Boolean(filters.favorite);
+      State.filters.replay = Boolean(filters.replay);
       State.filters.search = typeof filters.search === "string" ? filters.search.slice(0, 120) : "";
       State.filters.sort = allowedSorts.has(filters.sort) ? filters.sort : "created_at";
       State.filters.year = filters.year === "all" || Number.isFinite(Number(filters.year)) ? filters.year : "all";
@@ -763,6 +765,7 @@ function navTo(key, options = {}) {
     State.filters.subtype  = "all";
     State.filters.status   = DEFAULT_LIBRARY_STATUS;
     State.filters.favorite = false;
+    State.filters.replay   = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
     State.filters.rating   = "all";
@@ -775,6 +778,7 @@ function navTo(key, options = {}) {
     State.filters.type     = "all";
     State.filters.subtype  = "all";
     State.filters.favorite = false;
+    State.filters.replay   = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
     State.filters.rating   = "all";
@@ -784,6 +788,7 @@ function navTo(key, options = {}) {
     updateCategoryTabs("all");
   } else if (key === "fav") {
     State.filters.favorite = true;
+    State.filters.replay   = false;
     State.filters.type     = "all";
     State.filters.subtype  = "all";
     State.filters.status   = DEFAULT_LIBRARY_STATUS;
@@ -806,6 +811,7 @@ function navTo(key, options = {}) {
     State.filters.subtype  = "all";
     State.filters.status   = DEFAULT_LIBRARY_STATUS;
     State.filters.favorite = false;
+    State.filters.replay   = false;
     State.filters.year     = "all";
     State.filters.month    = "all";
     State.filters.rating   = "all";
@@ -909,6 +915,7 @@ function _countActiveFilters() {
   let n = 0;
   if (State.filters.subtype !== "all" || State.filters.type !== "all") n++;
   if (State.filters.favorite) n++;
+  if (State.filters.replay) n++;
   if (State.filters.status !== DEFAULT_LIBRARY_STATUS) n++;
   if (State.filters.sort !== "created_at") n++;
   if (State.filters.year !== "all" || State.filters.month !== "all") n++;
@@ -973,7 +980,7 @@ const CONTINUE_EXPANDED_KEY = "kulturo-continue-expanded";
 
 function isLibraryViewUnfiltered() {
   const f = State.filters;
-  return f.type === "all" && f.subtype === "all" && f.status === DEFAULT_LIBRARY_STATUS && !f.favorite && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
+  return f.type === "all" && f.subtype === "all" && f.status === DEFAULT_LIBRARY_STATUS && !f.favorite && !f.replay && !f.search && f.year === "all" && f.month === "all" && f.rating === "all";
 }
 
 function readContinueExpanded() {
@@ -1096,6 +1103,7 @@ function renderActiveFilters() {
     else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
     if (State.filters.status !== DEFAULT_LIBRARY_STATUS && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
     if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
+    if (State.filters.replay) filters.push(["replay", "Replay"]);
     if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
     if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
     if (State.filters.month !== "all") {
@@ -1127,6 +1135,7 @@ function clearLibraryFilter(key) {
   }
   else if (key === "status") State.filters.status = DEFAULT_LIBRARY_STATUS;
   else if (key === "favorite") State.filters.favorite = false;
+  else if (key === "replay") State.filters.replay = false;
   else if (key === "sort") {
     State.filters.sort = "created_at";
     localStorage.setItem("kulturo-sort", "created_at");
@@ -1151,6 +1160,7 @@ function clearAllLibraryFilters() {
   State.filters.subtype = "all";
   State.filters.status = DEFAULT_LIBRARY_STATUS;
   State.filters.favorite = false;
+  State.filters.replay = false;
   State.filters.search = "";
   State.filters.rating = "all";
   State.filters.sort = "created_at";
@@ -1188,7 +1198,9 @@ function renderCards(options = {}) {
     let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
     else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>★ ${f.rating}/10</strong>.`;
+    else if (f.favorite && f.replay) emptyMsg = "Aucun média ne réunit les marqueurs Coup de cœur et Replay.";
     else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
+    else if (f.replay)               emptyMsg = "Aucun média rejoué, relu ou revisionné pour l'instant.";
     else if (f.month !== "all")     emptyMsg = "Aucun média ne correspond à ce mois.";
     else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
     else if (f.subtype === "movie") emptyMsg = "Aucun film ne correspond à ces filtres.";
@@ -1203,7 +1215,7 @@ function renderCards(options = {}) {
         <div class="empty-icon">${iconMedia("media")}</div>
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
+        ${f.search || f.favorite || f.replay || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
           ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
           : emptyBtn}
       </div>`;
@@ -1498,6 +1510,7 @@ function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
   State.filters.subtype = "all";
   State.filters.status = "all";
   State.filters.favorite = false;
+  State.filters.replay = false;
   State.filters.search = "";
   State.filters.rating = "all";
   State.filters.year = Number(year) || "all";
@@ -1616,7 +1629,12 @@ async function renderDashboard() {
   const scopedAverage = scopedRated.length
     ? (scopedRated.reduce((sum, entry) => sum + entry.rating, 0) / scopedRated.length).toFixed(1)
     : "—";
-  const topScoped = [...scopedRated].sort((a,b) => b.rating - a.rating).slice(0, 6);
+  // « Vos préférés » représente les œuvres actuellement terminées. Une œuvre
+  // relancée reste comptée dans les statistiques, mais quitte temporairement ce Top.
+  const topScoped = scopedRated
+    .filter(entry => entry.status === "finished")
+    .sort((a,b) => b.rating - a.rating)
+    .slice(0, 6);
   const topHTML = topScoped.length
     ? topScoped.map((entry, index) => {
         const coverUrl = safeMediaUrl(entry.cover_url);
@@ -1630,7 +1648,7 @@ async function renderDashboard() {
             <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
           </button>`;
       }).join("")
-    : `<div class="profile-inline-empty">Aucun média noté en ${esc(periodLabel)}.</div>`;
+    : `<div class="profile-inline-empty">Aucun média terminé et noté en ${esc(periodLabel)}.</div>`;
 
   const categories = [
     { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
@@ -2673,6 +2691,16 @@ function syncFilterChips() {
     const value = chip.dataset.value;
     chip.classList.toggle("active", value === status);
   });
+  const favoriteChip = document.querySelector('#fm-marker-chips [data-marker="favorite"]');
+  if (favoriteChip) {
+    favoriteChip.classList.toggle("active", State.filters.favorite);
+    favoriteChip.setAttribute("aria-pressed", String(State.filters.favorite));
+  }
+  const replayChip = document.querySelector('#fm-marker-chips [data-marker="replay"]');
+  if (replayChip) {
+    replayChip.classList.toggle("active", State.filters.replay);
+    replayChip.setAttribute("aria-pressed", String(State.filters.replay));
+  }
   _updateFilterModalTypeChips();
 }
 
@@ -4798,7 +4826,7 @@ function journalMonthSummaryHTML(monthKey) {
           ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
           <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
           ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
-        </button>` : `<p class="journal-month-no-favorite">Aucun favori noté pour ce mois.</p>`}
+        </button>` : `<p class="journal-month-no-favorite">Aucun média actuellement terminé à mettre en avant ce mois.</p>`}
     </aside>`;
 }
 
@@ -5128,8 +5156,11 @@ window.UI = {
       const activeCount = _countActiveFilters();
       const headerLabel = activeCount > 0 ? `Filtres <span class="filter-active-count">${activeCount}</span>` : "Filtres";
 
-      const favChip = `<button class="filter-chip favorite-filter-chip ${State.filters.favorite ? "active" : ""}"
-        onclick="UI.toggleFavFilter()">${iconStatus("favorite")}Coups de cœur</button>`;
+      const markerChips = `
+        <button type="button" class="filter-chip favorite-filter-chip ${State.filters.favorite ? "active" : ""}"
+          data-marker="favorite" aria-pressed="${State.filters.favorite}" onclick="UI.toggleFavFilter()">${iconStatus("favorite")}Coups de cœur</button>
+        <button type="button" class="filter-chip replay-filter-chip ${State.filters.replay ? "active" : ""}"
+          data-marker="replay" aria-pressed="${State.filters.replay}" onclick="UI.toggleReplayFilter()">${iconRepeat()}Replay</button>`;
 
       const statusChips = statuses.map(s => {
         return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
@@ -5157,8 +5188,8 @@ window.UI = {
                 <div class="filter-modal-chips" id="fm-type-chips">${typeChips}</div>
               </div>
               <div class="filter-modal-section">
-                <div class="filter-modal-label">Coup de cœur</div>
-                <div class="filter-modal-chips" id="fm-fav-chips">${favChip}</div>
+                <div class="filter-modal-label">Marqueurs</div>
+                <div class="filter-modal-chips" id="fm-marker-chips">${markerChips}</div>
               </div>
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Statut</div>
@@ -5236,8 +5267,23 @@ window.UI = {
   toggleFavFilter: () => {
     State.filters.favorite = !State.filters.favorite;
     renderCards({ resetScroll: true }); _updateFilterToggleLabel(); _updateFilterModalHeader();
-    const btn = document.querySelector("#fm-fav-chips .filter-chip");
-    if (btn) btn.classList.toggle("active", State.filters.favorite);
+    const btn = document.querySelector('#fm-marker-chips [data-marker="favorite"]');
+    if (btn) {
+      btn.classList.toggle("active", State.filters.favorite);
+      btn.setAttribute("aria-pressed", String(State.filters.favorite));
+    }
+    _updateResetBtn();
+    _updateFilterResultCount();
+  },
+
+  toggleReplayFilter: () => {
+    State.filters.replay = !State.filters.replay;
+    renderCards({ resetScroll: true }); _updateFilterToggleLabel(); _updateFilterModalHeader();
+    const btn = document.querySelector('#fm-marker-chips [data-marker="replay"]');
+    if (btn) {
+      btn.classList.toggle("active", State.filters.replay);
+      btn.setAttribute("aria-pressed", String(State.filters.replay));
+    }
     _updateResetBtn();
     _updateFilterResultCount();
   },
@@ -5249,6 +5295,7 @@ window.UI = {
     State.filters.status = DEFAULT_LIBRARY_STATUS;
     State.filters.sort = "created_at";
     State.filters.favorite = false;
+    State.filters.replay = false;
     State.filters.year = "all";
     State.filters.month = "all";
     State.filters.rating = "all";

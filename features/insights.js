@@ -123,10 +123,15 @@ export function journalMonthSummary(events, entries, monthKey) {
   const average = rated.length
     ? rated.reduce((sum, entry) => sum + Number(entry.rating), 0) / rated.length
     : null;
-  const favorite = [...rated].sort((a, b) =>
+  // Le résumé doit refléter la collection telle qu'elle est maintenant :
+  // une œuvre relancée et repassée « En cours » n'est plus un favori terminé.
+  const finishedRated = rated.filter(entry => entry.status === "finished");
+  const favorite = [...finishedRated].sort((a, b) =>
     Number(Boolean(b.is_favorite)) - Number(Boolean(a.is_favorite))
     || Number(b.rating || 0) - Number(a.rating || 0)
-  )[0] || monthEvents.map(event => entryById.get(event.media_id)).find(entry => entry?.is_favorite) || null;
+  )[0] || monthEvents
+    .map(event => entryById.get(event.media_id))
+    .find(entry => entry?.status === "finished" && entry.is_favorite) || null;
   return { completed, rated: rated.length, average, favorite };
 }
 
