@@ -59,12 +59,17 @@ body { background-color: var(--system-bar-color); }
   visibility: hidden !important;
   opacity: 0 !important;
 }
+.is-cover-transition-handoff {
+  transition: none !important;
+}
 .modal-overlay.has-cover-transition .detail-modal {
   animation: detailSharedShellIn 340ms var(--ease-interface) both;
 }
 @keyframes detailSharedShellIn {
-  from { opacity: .38; transform: translateY(10px) scale(.992); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  /* La jaquette porte déjà le mouvement. Garder la géométrie de la fiche
+     fixe garantit que sa destination ne se déplace pas pendant la course. */
+  from { opacity: .38; }
+  to { opacity: 1; }
 }
 .modal-overlay.has-cover-transition.is-cover-transition-closing {
   animation: detailSharedOverlayOut 340ms var(--ease-interface) both;
