@@ -35,6 +35,15 @@ export function yearMonthOf(value) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Un bilan mensuel n'est définitif qu'une fois le mois entièrement écoulé.
+// La comparaison sur YYYY-MM reste volontairement locale afin de ne pas faire
+// apparaître le récapitulatif quelques heures trop tôt sur mobile.
+export function isClosedMonth(monthKey, now = new Date()) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(monthKey || ""))) return false;
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return monthKey < currentMonth;
+}
+
 // Une œuvre terminée sans date de fin ne doit jamais être attribuée à son mois
 // d'ajout : ce repli gonflait artificiellement certaines statistiques.
 export function entryActivityValue(entry) {
@@ -55,6 +64,57 @@ export function normalizeTitle(value) {
   return String(value || "").trim().toLocaleLowerCase("fr-FR");
 }
 
+// La recherche tolère les accents, les apostrophes et la ponctuation. Les
+// données restent intactes : seule leur représentation de recherche change.
+export function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .toLocaleLowerCase("fr-FR")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function searchableEntryParts(entry) {
+  return {
+    title: normalizeSearchText(entry?.title),
+    creators: normalizeSearchText([
+      entry?.directors,
+      entry?.author,
+      entry?.developer,
+      entry?.publisher,
+    ].filter(Boolean).join(" ")),
+    cast: normalizeSearchText(entry?.cast_members),
+    details: normalizeSearchText([
+      entry?.genre,
+      entry?.platform,
+      entry?.release_year,
+    ].filter(value => value !== null && value !== undefined).join(" ")),
+  };
+}
+
+// Le score sert à la fois de filtre et de tri. Tous les mots saisis doivent
+// être présents quelque part, tandis qu'un titre exact reste toujours premier.
+export function librarySearchScore(entry, query) {
+  const expected = normalizeSearchText(query);
+  if (!expected) return 0;
+
+  const parts = searchableEntryParts(entry);
+  const haystack = `${parts.title} ${parts.creators} ${parts.cast} ${parts.details}`.trim();
+  const tokens = expected.split(" ").filter(Boolean);
+  if (!tokens.every(token => haystack.includes(token))) return 0;
+
+  let score = 100;
+  if (parts.title === expected) score += 1000;
+  else if (parts.title.startsWith(expected)) score += 850;
+  else if (parts.title.includes(expected)) score += 700;
+  if (parts.creators.includes(expected)) score += 480;
+  if (parts.cast.includes(expected)) score += 360;
+  if (parts.details.includes(expected)) score += 240;
+  return score;
+}
+
 // La barre principale explore toujours la collection entière. Les filtres
 // restent dans l'état de l'interface, mais n'entrent de nouveau en jeu qu'une
 // fois la recherche effacée.
@@ -62,8 +122,7 @@ export function filterLibraryEntries(entries, filters = {}) {
   const source = [...(entries || [])];
   const search = String(filters.search || "").trim();
   if (search) {
-    const expected = normalizeTitle(search);
-    return source.filter(entry => normalizeTitle(entry?.title).includes(expected));
+    return source.filter(entry => librarySearchScore(entry, search) > 0);
   }
 
   return source.filter(entry => {

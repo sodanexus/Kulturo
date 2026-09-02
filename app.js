@@ -10,10 +10,12 @@ import {
   eventsForPeriod,
   filterLibraryEntries,
   isCompletionEvent,
+  isClosedMonth,
   isProfileTopEvent,
   isReplayEntry,
   journalEventPresentation,
   latestEventMonth,
+  librarySearchScore,
   localISODate,
   normalizeTitle,
   normalizedSubtype,
@@ -459,7 +461,7 @@ function renderApp() {
       </div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque" autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
@@ -565,6 +567,7 @@ function renderApp() {
             <span id="upcoming-result-count" class="section-count"></span>
           </div>
         </div>
+        <section id="upcoming-wishlist-section" class="upcoming-wishlist-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div id="upcoming-grid" class="upcoming-months"></div>
       </section>
 
@@ -1015,7 +1018,7 @@ function continueCardHTML(entry) {
     : `<span class="continue-cover-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 
   return `
-    <button type="button" class="continue-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Reprendre ${esc(entry.title)}">
+    <button type="button" class="continue-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" onclick="UI.openEditModal('${entry.id}', this)" aria-label="Reprendre ${esc(entry.title)}">
       <span class="continue-cover">${cover}<span class="continue-play" aria-hidden="true">${iconPlay()}</span></span>
       <span class="continue-card-copy">
         <strong>${esc(entry.title)}</strong>
@@ -1243,6 +1246,12 @@ function renderCards(options = {}) {
 function filterEntries(entries) {
   const f = State.filters;
   const res = filterLibraryEntries(entries, f);
+  if (f.search) {
+    return res.sort((a, b) =>
+      librarySearchScore(b, f.search) - librarySearchScore(a, f.search) ||
+      a.title.localeCompare(b.title, "fr", { sensitivity: "base" })
+    );
+  }
   // Tri local
   res.sort((a, b) => {
     switch (f.sort) {
@@ -1323,9 +1332,9 @@ function cardHTML(e, i = 0) {
   }[e.status] || "";
 
   return `
-    <article class="${classes}" data-id="${e.id}" data-key="${e.id}" data-prefetch-media="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
-      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}')"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}')}">
+    <article class="${classes}" data-id="${e.id}" data-key="${e.id}" data-prefetch-media="${e.id}" data-transition-media="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
+      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}', this)"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}',this)}">
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${iconStatus(e.status)}<span>${statusLabel}</span></span>` : ""}
@@ -1655,7 +1664,7 @@ async function renderDashboard() {
     ? topScoped.map((entry, index) => {
         const coverUrl = safeMediaUrl(entry.cover_url);
         return `
-          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" onclick="UI.openEditModal('${entry.id}')" aria-label="Ouvrir ${esc(entry.title)}">
+          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" onclick="UI.openEditModal('${entry.id}', this)" aria-label="Ouvrir ${esc(entry.title)}">
             <span class="profile-top-rank">${index + 1}</span>
             <span class="profile-top-cover">
               ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
@@ -2498,6 +2507,9 @@ async function saveEntry() {
     source_api:    selected?.source_api  ?? (keepExistingApi ? existing.source_api : "manual"),
     subtype:       selected?.subtype     ?? (keepExistingApi ? existing.subtype : null),
     release_year:  selected?.release_year ?? (keepExistingApi ? existing.release_year : null),
+    release_date:  selected?.release_date ?? (keepExistingApi ? existing.release_date : null),
+    release_date_precision: selected?.date_precision ?? selected?.release_date_precision
+      ?? (keepExistingApi ? existing.release_date_precision : "day"),
     description:   selected?.description  ?? (keepExistingApi ? existing.description : null),
   };
 
@@ -2522,7 +2534,8 @@ async function saveEntry() {
   if (existing && (selectedIdentityChanged || (!selected && !keepExistingApi))) {
     ["backdrop_url", "directors", "cast_members", "duration", "seasons_count",
      "episodes_count", "air_status", "watch_providers", "developer", "publisher",
-     "page_count", "isbn"].forEach(field => { payload[field] = null; });
+     "page_count", "isbn", "release_date"].forEach(field => { payload[field] = null; });
+    payload.release_date_precision = "day";
   }
 
   const duplicate = findMatchingEntry(payload, State.editingId);
@@ -2550,6 +2563,7 @@ async function saveEntry() {
     closeModal();
     // #13 — State.entries déjà mis à jour localement, pas besoin de refetch
     renderCards();
+    if (_currentPage === "upcoming") renderUpcomingCards();
     updateBadges();
     toast(wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓", "success");
     if (wasAdding) flashNewCard(savedTitle);
@@ -2578,6 +2592,7 @@ async function deleteEntry(id) {
     _modalDirty = false;
     closeModal();
     renderCards();
+    if (_currentPage === "upcoming") renderUpcomingCards();
     updateBadges();
     toast("Supprimé", "info");
   } catch (e) {
@@ -2628,6 +2643,8 @@ async function closeModal(force = false, options = {}) {
   }
   const overlay = document.getElementById("modal-overlay");
   const cleanup = () => {
+    finishDetailCoverFlight();
+    _activeDetailCoverTransition = null;
     document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
     const root = document.getElementById("modal-root");
     if (root) root.innerHTML = "";
@@ -2642,8 +2659,9 @@ async function closeModal(force = false, options = {}) {
   };
   if (!overlay) { cleanup(); return true; }
   if (overlay.classList.contains("is-closing")) return true;
+  const coverTransitionDuration = options.skipCoverTransition ? 0 : startDetailCoverClose(overlay);
   overlay.classList.add("is-closing");
-  setTimeout(cleanup, 180);
+  setTimeout(cleanup, coverTransitionDuration || 180);
   return true;
 }
 function closeModalOnBg(e) {
@@ -3030,6 +3048,10 @@ function upcomingKeyOf(item) {
     || `${upcomingTypeOf(item)}:${item?.source_api || "manual"}:${item?.external_id || normalizeTitle(item?.title)}:${item?.release_date || ""}`;
 }
 
+function upcomingPreviewId(item) {
+  return `upcoming-${String(upcomingKeyOf(item)).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 function readUpcomingPreferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}");
@@ -3080,6 +3102,142 @@ function daysUntilRelease(value, precision = "day") {
   const releaseUtc = Date.UTC(year, month - 1, day);
   const days = Math.round((releaseUtc - todayUtc) / 86400000);
   return days >= 0 ? days : null;
+}
+
+function releaseDayDelta(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return null;
+  const today = new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const releaseUtc = Date.UTC(year, month - 1, day);
+  return Math.round((releaseUtc - todayUtc) / 86400000);
+}
+
+function upcomingMatchesEntry(item, entry) {
+  if (!item || !entry || upcomingMediaTypeOf(item) !== entry.media_type) return false;
+  const itemSubtype = normalizedSubtype({ ...item, media_type: upcomingMediaTypeOf(item) });
+  const entrySubtype = normalizedSubtype(entry);
+  if (itemSubtype !== entrySubtype) return false;
+
+  if (item.external_id && entry.external_id && item.source_api === entry.source_api) {
+    return String(item.external_id) === String(entry.external_id);
+  }
+
+  if (normalizeTitle(item.title) !== normalizeTitle(entry.title)) return false;
+  const itemYear = Number(item.release_year) || null;
+  const entryYear = Number(entry.release_year) || null;
+  if (itemYear && entryYear && itemYear !== entryYear) return false;
+  if (item.author && entry.author && normalizeTitle(item.author) !== normalizeTitle(entry.author)) return false;
+  return true;
+}
+
+function matchingUpcomingResult(entry) {
+  return UpcomingState.results.find(item => upcomingMatchesEntry(item, entry)) || null;
+}
+
+function awaitedReleaseItems() {
+  return State.entries
+    .filter(entry => entry.status === "wishlist")
+    .map(entry => {
+      const live = matchingUpcomingResult(entry);
+      const releaseDate = live?.release_date || entry.release_date;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(releaseDate || ""))) return null;
+      return {
+        ...live,
+        ...entry,
+        release_date: releaseDate,
+        release_date_precision: live?.date_precision || entry.release_date_precision || "day",
+      };
+    })
+    .filter(Boolean)
+    .filter(entry => UpcomingState.type === "all" || upcomingTypeOf(entry) === UpcomingState.type)
+    .sort((a, b) => a.release_date.localeCompare(b.release_date));
+}
+
+function awaitedReleaseTiming(entry) {
+  const delta = releaseDayDelta(entry.release_date);
+  if (delta !== null && delta <= 0) return { label: "Disponible", available: true };
+  if (delta !== null && entry.release_date_precision !== "month") return { label: `J-${delta}`, available: false };
+  return { label: "À venir", available: false };
+}
+
+function awaitedReleaseCardHTML(entry) {
+  const type = upcomingTypeOf(entry);
+  const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
+  const timing = awaitedReleaseTiming(entry);
+  const coverUrl = safeMediaUrl(entry.cover_url);
+  const cover = coverUrl
+    ? `<img class="awaited-release-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <span class="awaited-release-placeholder" style="display:none">${typeMeta.icon}</span>`
+    : `<span class="awaited-release-placeholder">${typeMeta.icon}</span>`;
+  return `
+    <button type="button" class="awaited-release-card" data-prefetch-media="${esc(entry.id)}" data-transition-media="${esc(entry.id)}"
+      onclick="UI.openEditModal('${esc(entry.id)}', this)" aria-label="Ouvrir ${esc(entry.title)}">
+      <span class="awaited-release-visual">
+        ${cover}
+        <span class="awaited-release-timing${timing.available ? " is-available" : ""}">${esc(timing.label)}</span>
+      </span>
+      <span class="awaited-release-copy">
+        <strong>${esc(entry.title)}</strong>
+        <small>${typeMeta.icon}${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}</small>
+      </span>
+    </button>`;
+}
+
+function renderAwaitedReleases() {
+  const section = document.getElementById("upcoming-wishlist-section");
+  if (!section) return;
+  const entries = awaitedReleaseItems();
+  section.hidden = entries.length === 0;
+  if (!entries.length) {
+    section.innerHTML = "";
+    return;
+  }
+  section.innerHTML = `
+    <div class="upcoming-wishlist-heading">
+      <div><span class="section-eyebrow">Votre sélection</span><h2 id="upcoming-wishlist-title">Vos sorties attendues</h2></div>
+      <span class="section-count">${entries.length} titre${entries.length > 1 ? "s" : ""}</span>
+    </div>
+    <div class="upcoming-wishlist-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>`;
+  hydrateFadeImages(section);
+}
+
+const _wishlistReleaseSyncAttempts = new Set();
+let _wishlistReleaseSyncTimer = 0;
+function scheduleWishlistReleaseDateSync() {
+  clearTimeout(_wishlistReleaseSyncTimer);
+  _wishlistReleaseSyncTimer = setTimeout(async () => {
+    const candidates = State.entries
+      .filter(entry => entry.status === "wishlist")
+      .map(entry => ({ entry, live: matchingUpcomingResult(entry) }))
+      .filter(({ entry, live }) => live?.release_date && (
+        entry.release_date !== live.release_date ||
+        (entry.release_date_precision || "day") !== (live.date_precision || "day")
+      ))
+      .filter(({ entry, live }) => {
+        const key = `${entry.id}:${live.release_date}:${live.date_precision || "day"}`;
+        if (_wishlistReleaseSyncAttempts.has(key)) return false;
+        _wishlistReleaseSyncAttempts.add(key);
+        return true;
+      });
+    if (!candidates.length) return;
+
+    const results = await Promise.allSettled(candidates.map(async ({ entry, live }) => {
+      const changes = {
+        release_date: live.release_date,
+        release_date_precision: live.date_precision === "month" ? "month" : "day",
+      };
+      const updated = await Media.update(entry.id, changes);
+      Object.assign(entry, updated);
+    }));
+    if (results.some(result => result.status === "fulfilled")) {
+      cacheEntriesLocally();
+      renderAwaitedReleases();
+    }
+    results.filter(result => result.status === "rejected").forEach(result => {
+      console.warn("[Sorties] Date de wishlist non sauvegardée :", result.reason);
+    });
+  }, 90);
 }
 
 function isUpcomingInLibrary(it) {
@@ -3156,6 +3314,7 @@ function rebuildUpcomingResults() {
   UpcomingState.results = [...unique.values()].sort((a, b) =>
     a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
   );
+  scheduleWishlistReleaseDateSync();
 }
 
 function pendingUpcomingSourceLabels(forCurrentView = false) {
@@ -3275,6 +3434,7 @@ function renderUpcomingCards() {
   if (!grid) return;
   syncUpcomingTypeButtons();
   renderUpcomingGenreFilter();
+  renderAwaitedReleases();
   const allResults = filteredUpcomingResults();
   const results = visibleUpcomingResults();
   const affinity = buildLibraryAffinity(State.entries);
@@ -3376,7 +3536,9 @@ function renderUpcomingCards() {
 }
 
 function upcomingCardHTML(it, idx, recommendation = null) {
-  const inLibrary = isUpcomingInLibrary(it);
+  const libraryEntry = findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) });
+  const inLibrary = Boolean(libraryEntry);
+  const transitionMediaId = libraryEntry?.id || upcomingPreviewId(it);
   const days = daysUntilRelease(it.release_date, it.date_precision);
   const type = upcomingTypeOf(it);
   const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
@@ -3388,9 +3550,9 @@ function upcomingCardHTML(it, idx, recommendation = null) {
     : `<div class="card-cover-placeholder">${typeMeta.icon}</div>`;
 
   return `
-    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" role="button" tabindex="0"
-      onclick="UI.openUpcomingDetail(${idx})"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openUpcomingDetail(${idx})}">
+    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}" role="button" tabindex="0"
+      onclick="UI.openUpcomingDetail(${idx}, this)"
+      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openUpcomingDetail(${idx},this)}">
       <div class="upcoming-cover-wrap">
         ${cover}
         ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
@@ -3429,6 +3591,8 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
     cover_url: it.cover_url || null,
     description: it.description || null,
     release_year: it.release_year || null,
+    release_date: it.release_date || null,
+    release_date_precision: it.date_precision === "month" ? "month" : "day",
     genre: it.genre || null,
     author: it.author || null,
     external_id: it.external_id || null,
@@ -3541,7 +3705,7 @@ function prefetchDetail(id) {
   requestPrefetchedDetails(entry).catch(() => {});
 }
 
-async function openUpcomingDetail(idx) {
+async function openUpcomingDetail(idx, transitionSource = null) {
   const it = visibleUpcomingResults()[idx];
   if (!it) return;
 
@@ -3549,13 +3713,14 @@ async function openUpcomingDetail(idx) {
   const existing = findMatchingEntry({ ...it, media_type: mediaType });
   if (existing) {
     if (!existing.release_date) existing.release_date = it.release_date;
-    openDetailPanel(existing.id);
+    if (!existing.release_date_precision) existing.release_date_precision = it.date_precision === "month" ? "month" : "day";
+    openDetailPanel(existing.id, { transitionSource });
     return;
   }
 
   const preview = {
     ...it,
-    id: `upcoming-${String(upcomingKeyOf(it)).replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+    id: upcomingPreviewId(it),
     media_type: mediaType,
     status: null,
     rating: null,
@@ -3563,7 +3728,7 @@ async function openUpcomingDetail(idx) {
   };
 
   const detailsLoading = !preview.description && canEnrichMediaDetails(preview);
-  renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading });
+  renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading, transitionSource });
   _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
@@ -3620,6 +3785,164 @@ function resetUpcomingFilters() {
 
 
 // ── Fiche détaillée ───────────────────────────────────────────
+const DETAIL_COVER_TRANSITION_MS = 340;
+let _activeDetailCoverTransition = null;
+let _detailCoverFlight = null;
+
+function transitionCoverImage(source) {
+  if (!source) return null;
+  if (source instanceof HTMLImageElement) return source;
+  return source.querySelector?.(
+    ".card-cover, .awaited-release-cover, .continue-cover img, .profile-top-cover img, .activity-cover, img"
+  ) || null;
+}
+
+function validTransitionRect(rect) {
+  return Boolean(rect && rect.width >= 24 && rect.height >= 32 &&
+    rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth);
+}
+
+function captureDetailCoverOrigin(source, mediaId, coverUrl) {
+  if (!source || !coverUrl || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return null;
+  const image = transitionCoverImage(source);
+  if (!image || !image.complete || image.naturalWidth < 1) return null;
+  const rect = image.getBoundingClientRect();
+  if (!validTransitionRect(rect)) return null;
+  const style = getComputedStyle(image);
+  return {
+    mediaId: String(mediaId || ""),
+    sourceElement: image,
+    sourceContainer: source,
+    src: image.currentSrc || image.src || coverUrl,
+    sourceRadius: style.borderRadius || "0px",
+  };
+}
+
+function finishDetailCoverFlight() {
+  const flight = _detailCoverFlight;
+  if (!flight) return;
+  _detailCoverFlight = null;
+  try { flight.animation?.cancel(); } catch {}
+  flight.clone?.remove();
+  flight.source?.classList.remove("is-cover-transition-source");
+  flight.target?.classList.remove("is-cover-transition-target");
+  flight.overlay?.classList.remove("is-cover-transitioning");
+}
+
+function createCoverFlightClone(src, rect, radius) {
+  const clone = new Image();
+  clone.className = "detail-cover-flight";
+  clone.alt = "";
+  clone.src = src;
+  Object.assign(clone.style, {
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    borderRadius: radius || "0px",
+  });
+  document.body.appendChild(clone);
+  return clone;
+}
+
+function animateCoverFlight({ clone, fromRect, toRect, fromRadius, toRadius }) {
+  const dx = toRect.left - fromRect.left;
+  const dy = toRect.top - fromRect.top;
+  const scaleX = toRect.width / fromRect.width;
+  const scaleY = toRect.height / fromRect.height;
+  return clone.animate([
+    {
+      transform: "translate3d(0,0,0) scale(1,1)",
+      borderRadius: fromRadius,
+      boxShadow: "0 4px 18px rgba(0,0,0,.28)",
+    },
+    {
+      transform: `translate3d(${dx}px,${dy}px,0) scale(${scaleX},${scaleY})`,
+      borderRadius: toRadius,
+      boxShadow: "0 10px 30px rgba(0,0,0,.56)",
+    },
+  ], {
+    duration: DETAIL_COVER_TRANSITION_MS,
+    easing: "cubic-bezier(.2,.78,.18,1)",
+    fill: "forwards",
+  });
+}
+
+function startDetailCoverOpen(origin, target, overlay) {
+  if (!origin || !(target instanceof HTMLImageElement) || !overlay) {
+    target?.classList.remove("is-cover-transition-target");
+    return false;
+  }
+  finishDetailCoverFlight();
+  const fromRect = origin.sourceElement.getBoundingClientRect();
+  const toRect = target.getBoundingClientRect();
+  if (!validTransitionRect(fromRect) || !validTransitionRect(toRect)) {
+    target.classList.remove("is-cover-transition-target");
+    return false;
+  }
+
+  origin.sourceElement.classList.add("is-cover-transition-source");
+  target.classList.add("is-cover-transition-target");
+  overlay.classList.add("is-cover-transitioning");
+  const clone = createCoverFlightClone(origin.src, fromRect, origin.sourceRadius);
+  const toRadius = getComputedStyle(target).borderRadius || origin.sourceRadius;
+  const animation = animateCoverFlight({
+    clone,
+    fromRect,
+    toRect,
+    fromRadius: origin.sourceRadius,
+    toRadius,
+  });
+  const flight = { animation, clone, source: origin.sourceElement, target, overlay };
+  _detailCoverFlight = flight;
+  _activeDetailCoverTransition = origin;
+  animation.finished
+    .catch(() => {})
+    .finally(() => { if (_detailCoverFlight === flight) finishDetailCoverFlight(); });
+  return true;
+}
+
+function resolveDetailCoverDestination(state) {
+  if (!state) return null;
+  const direct = state.sourceElement;
+  if (direct?.isConnected && validTransitionRect(direct.getBoundingClientRect())) return direct;
+  const candidates = [...document.querySelectorAll("[data-transition-media]")]
+    .filter(element => element.dataset.transitionMedia === state.mediaId);
+  for (const candidate of candidates) {
+    const image = transitionCoverImage(candidate);
+    if (image?.complete && image.naturalWidth > 0 && validTransitionRect(image.getBoundingClientRect())) return image;
+  }
+  return null;
+}
+
+function startDetailCoverClose(overlay) {
+  if (!_activeDetailCoverTransition || !overlay || overlay.classList.contains("is-swipe-dismiss") ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return 0;
+  finishDetailCoverFlight();
+  const target = overlay.querySelector(".detail-poster");
+  const destination = resolveDetailCoverDestination(_activeDetailCoverTransition);
+  if (!(target instanceof HTMLImageElement) || !destination) return 0;
+  const fromRect = target.getBoundingClientRect();
+  const toRect = destination.getBoundingClientRect();
+  if (!validTransitionRect(fromRect) || !validTransitionRect(toRect)) return 0;
+
+  const fromRadius = getComputedStyle(target).borderRadius || "0px";
+  const toRadius = getComputedStyle(destination).borderRadius || fromRadius;
+  target.classList.add("is-cover-transition-target");
+  destination.classList.add("is-cover-transition-source");
+  overlay.classList.add("is-cover-transitioning", "is-cover-transition-closing");
+  const clone = createCoverFlightClone(target.currentSrc || target.src || _activeDetailCoverTransition.src, fromRect, fromRadius);
+  const animation = animateCoverFlight({ clone, fromRect, toRect, fromRadius, toRadius });
+  const flight = { animation, clone, source: destination, target, overlay };
+  _detailCoverFlight = flight;
+  animation.finished
+    .catch(() => {})
+    .finally(() => { if (_detailCoverFlight === flight) finishDetailCoverFlight(); });
+  // Laisse une frame de sécurité avant de retirer le DOM : le dernier état
+  // de la jaquette atteint ainsi toujours sa destination, même à 120 Hz.
+  return DETAIL_COVER_TRANSITION_MS + 34;
+}
+
 function renderDetailPanel(e, options = {}) {
   _modalDirty = false;
   const isPreview = options.preview === true;
@@ -3632,6 +3955,7 @@ function renderDetailPanel(e, options = {}) {
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
+  const transitionOrigin = captureDetailCoverOrigin(options.transitionSource, e.id, coverUrl);
 
   const externalUrl = (() => {
     const directUrl = safeMediaUrl(e.external_url);
@@ -3657,12 +3981,12 @@ function renderDetailPanel(e, options = {}) {
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image" data-fade-image onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" data-fade-image onerror="this.style.display='none'">`
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
   root.innerHTML = `
-    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
@@ -3724,6 +4048,13 @@ function renderDetailPanel(e, options = {}) {
     handles: ".detail-backdrop",
     dismiss: () => closeModal(),
   });
+  if (transitionOrigin) {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const overlay = root.querySelector("#modal-overlay");
+      const target = overlay?.querySelector(".detail-poster");
+      startDetailCoverOpen(transitionOrigin, target, overlay);
+    }));
+  }
 }
 
 function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dismiss, shouldResetBeforeDismiss = () => false }) {
@@ -4047,7 +4378,9 @@ function renderDetailInfoHTML(e, options = {}) {
 
   // Informations factuelles non interactives propres à chaque type.
   const technicalMeta = [
-    metaRow("Année", e.release_year),
+    e.release_date
+      ? metaRow("Sortie", formatReleaseDate(e.release_date, e.release_date_precision || e.date_precision || "day"))
+      : metaRow("Année", e.release_year),
     e.media_type === "movie" && e.subtype === "tv"
       ? metaRow("Saisons", e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null)
       : "",
@@ -4264,6 +4597,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     cacheEntriesLocally();
     markJournalDirty();
     renderCards();
+    if (_currentPage === "upcoming") renderUpcomingCards();
     updateBadges();
     syncOpenDetail(entry, feedback);
     return entry;
@@ -4452,13 +4786,13 @@ function _injectBackdrop(backdrop, entryId) {
   img.src = backdrop;
 }
 
-async function openDetailPanel(id) {
+async function openDetailPanel(id, options = {}) {
   const e = State.entries.find(x => x.id === id);
   if (!e) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
   const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
-  renderDetailPanel(e, { detailsLoading });
+  renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null });
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
@@ -4818,7 +5152,7 @@ function renderJournalFeed(events) {
               ${groupedItems.map(item => item.kind === "group" ? journalGroupHTML(item) : journalRowHTML(item.event)).join("")}
             </section>`;
         }).join("")}
-        ${monthKey === "unknown" ? "" : journalMonthSummaryHTML(monthKey)}
+        ${monthKey === "unknown" || !isClosedMonth(monthKey) ? "" : journalMonthSummaryHTML(monthKey)}
       </section>`;
   }).join("");
 }
@@ -4838,7 +5172,7 @@ function journalMonthSummaryHTML(monthKey) {
         <span><strong>${average}</strong><small>${summary.rated} noté${summary.rated > 1 ? "s" : ""}</small></span>
       </div>
       ${favorite ? `
-        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" onclick="UI.openJournalMedia('${esc(favorite.id)}')">
+        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" onclick="UI.openJournalMedia('${esc(favorite.id)}', this)">
           ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
           <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
           ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
@@ -4968,7 +5302,7 @@ function journalRowHTML(event, options = {}) {
 
   return `
     <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""} ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}')">
+      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}', this)">
         ${coverHTML}
         <span class="activity-info">
           <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
@@ -5013,13 +5347,13 @@ async function hideJournalEvent(id) {
   }
 }
 
-function openJournalMedia(id) {
+function openJournalMedia(id, transitionSource = null) {
   const entry = State.entries.find(item => item.id === id);
   if (!entry) {
     toast("Ce média n’est plus disponible.", "error");
     return;
   }
-  openDetailPanel(entry.id);
+  openDetailPanel(entry.id, { transitionSource });
 }
 
 async function renderCommunity() {
@@ -5073,7 +5407,7 @@ function communityRowHTML(entry) {
     ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
-  const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}')}"`;
+  const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}', this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}',this)}"`;
 
   return `
     <article class="activity-row is-clickable community-event-row" ${attributes}>
@@ -5091,10 +5425,10 @@ function communityRowHTML(entry) {
     </article>`;
 }
 
-function openCommunityMedia(id) {
+function openCommunityMedia(id, transitionSource = null) {
   const ownEntry = State.entries.find(entry => entry.id === id);
   if (ownEntry) {
-    openDetailPanel(ownEntry.id);
+    openDetailPanel(ownEntry.id, { transitionSource });
     return;
   }
 
@@ -5108,14 +5442,14 @@ function openCommunityMedia(id) {
     ...entry,
     external_id: null,
     source_api: "activity",
-  }, { readOnly: true });
+  }, { readOnly: true, transitionSource });
 }
 
 
 
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
-  openEditModal:   (id) => { openDetailPanel(id); },
+  openEditModal:   (id, transitionSource = null) => { openDetailPanel(id, { transitionSource }); },
   openJournalMedia,
   openCommunityMedia,
   openMetadataFromElement,
@@ -5128,7 +5462,7 @@ window.UI = {
     if (!e) return;
     _currentRating = e.rating || 0;
     window._apiSelected = null;
-    closeModal();
+    closeModal(true, { skipCoverTransition: true });
     setTimeout(() => openModal(e), 210);
   },
   closeModalOnBg,

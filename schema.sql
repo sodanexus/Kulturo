@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
   genre           TEXT,
   author          TEXT,
   release_year    SMALLINT,
+  release_date    DATE,
+  release_date_precision TEXT NOT NULL DEFAULT 'day'
+                    CHECK (release_date_precision IN ('day', 'month')),
   platform        TEXT,
   description     TEXT,
   backdrop_url    TEXT,
@@ -59,6 +62,8 @@ ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS publisher TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS page_count INTEGER;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS isbn TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS repeat_count SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS release_date DATE;
+ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS release_date_precision TEXT NOT NULL DEFAULT 'day';
 
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_source_api_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_source_api_check
@@ -69,6 +74,9 @@ ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_subtype_check
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_repeat_count_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_repeat_count_check
   CHECK (repeat_count BETWEEN 0 AND 999);
+ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_release_date_precision_check;
+ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_release_date_precision_check
+  CHECK (release_date_precision IN ('day', 'month'));
 
 -- ── Journal personnel ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.media_events (

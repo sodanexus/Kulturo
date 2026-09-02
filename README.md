@@ -64,9 +64,21 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.2.18**
+**3.3.0**
 
-La version actuelle poursuit le même objectif : rendre Kulturo plus clair, plus homogène et plus agréable à utiliser, surtout sur mobile.
+Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu.
+
+- recherche enrichie dans toute la bibliothèque : titres, réalisateurs, auteurs, casting, studios, genres, plateformes et années peuvent être retrouvés sans tenir compte du filtre actif ;
+- résultats de recherche classés par pertinence, avec les correspondances exactes sur le titre placées en premier ;
+- nouvelle rangée **Vos sorties attendues** dans Sorties, directement alimentée par la Wishlist et ordonnée par date ;
+- dates de sortie conservées dans la bibliothèque lors d’un ajout à la Wishlist, puis actualisées discrètement depuis les catalogues disponibles ;
+- œuvres déjà disponibles clairement signalées dans les sorties attendues, sans disparaître automatiquement de la Wishlist ;
+- transition fluide de la jaquette vers la fiche, partagée par la Bibliothèque, À reprendre, le Journal, le Profil, la Communauté et les Sorties ;
+- animation désactivée lorsque le système demande moins de mouvements et remplacée automatiquement par l’ouverture classique lorsque la jaquette n’est pas visible ;
+- **Le mois en bref** affiché uniquement pour les mois entièrement terminés, afin d’éviter un bilan encore incomplet ;
+- schéma Supabase étendu avec une date de sortie précise et son niveau de précision pour relier durablement Wishlist et Sorties.
+
+La version conserve également tous les acquis de la série 3.2 :
 
 - statistiques **Terminé** et **Replay** désormais strictement séparées, sans double comptage lors d’une reprise ;
 - définition du replay partagée par la fiche, la Bibliothèque, le Journal et les filtres, y compris pendant une première reprise encore en cours ;
@@ -97,6 +109,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.3.0** — recherche enrichie et classée, Wishlist reliée aux Sorties, transition jaquette → fiche et bilans mensuels réservés aux mois clos.
 - **3.2.18** — compteurs Terminé/Replay séparés, replay reconnu partout, filtres et barre de recherche simplifiés, icône aux trois cercles rendue transparente.
 - **3.2.17** — Replay rejoint les marqueurs de filtre et les préférés du Journal/Profil suivent désormais le statut actuel des médias.
 - **3.2.16** — code couleur sémantique étendu aux fiches et aux journaux, statut redondant retiré des fiches personnelles et commandes rapides rendues à l’accent de la jaquette.
