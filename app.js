@@ -3822,11 +3822,25 @@ function finishDetailCoverFlight() {
   const flight = _detailCoverFlight;
   if (!flight) return;
   _detailCoverFlight = null;
-  try { flight.animation?.cancel(); } catch {}
+
+  // Sur Safari, annuler une animation déjà arrivée à son terme peut renvoyer
+  // son calque à la position de départ pendant une image. On ne l'annule que
+  // lorsqu'elle est réellement encore en cours.
+  try {
+    if (flight.animation && flight.animation.playState !== "finished") flight.animation.cancel();
+  } catch {}
+
+  // Le clone et les vraies images se passent le relais dans la même frame,
+  // sans réutiliser le fondu générique de chargement des jaquettes.
+  const handoffElements = [...new Set([flight.source, flight.target].filter(Boolean))];
+  handoffElements.forEach(element => element.classList.add("is-cover-transition-handoff"));
   flight.clone?.remove();
   flight.source?.classList.remove("is-cover-transition-source");
   flight.target?.classList.remove("is-cover-transition-target");
   flight.overlay?.classList.remove("is-cover-transitioning");
+  requestAnimationFrame(() => {
+    handoffElements.forEach(element => element.classList.remove("is-cover-transition-handoff"));
+  });
 }
 
 function createCoverFlightClone(src, rect, radius) {

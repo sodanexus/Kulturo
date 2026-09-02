@@ -64,9 +64,9 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.3.0**
+**3.3.1**
 
-Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu.
+Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. Le correctif 3.3.1 stabilise aussi la fin de la transition entre la jaquette et la fiche sur Safari et dans la web app iOS.
 
 - recherche enrichie dans toute la bibliothèque : titres, réalisateurs, auteurs, casting, studios, genres, plateformes et années peuvent être retrouvés sans tenir compte du filtre actif ;
 - résultats de recherche classés par pertinence, avec les correspondances exactes sur le titre placées en premier ;
@@ -109,6 +109,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.3.1** — arrivée de la jaquette stabilisée : destination immobile et passage instantané vers l’image réelle, sans sursaut ni image vide sur iOS.
 - **3.3.0** — recherche enrichie et classée, Wishlist reliée aux Sorties, transition jaquette → fiche et bilans mensuels réservés aux mois clos.
 - **3.2.18** — compteurs Terminé/Replay séparés, replay reconnu partout, filtres et barre de recherche simplifiés, icône aux trois cercles rendue transparente.
 - **3.2.17** — Replay rejoint les marqueurs de filtre et les préférés du Journal/Profil suivent désormais le statut actuel des médias.
