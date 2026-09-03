@@ -669,6 +669,7 @@ body { background-color: var(--system-bar-color); }
 .journal-time-step:disabled { opacity: .35; }
 .journal-month-select-wrap select { width: 100%; padding: .35rem 1.8rem .35rem .65rem; }
 .journal-month-group { scroll-margin-top: 112px; }
+.journal-month-group + .journal-month-group { margin-top: 1.2rem; }
 .journal-month-heading {
   margin: 0 0 .65rem;
   color: var(--text-1);

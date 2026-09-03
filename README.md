@@ -64,9 +64,17 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.0**
+**3.4.1**
 
-Cette version consolide Kulturo sur iPad et fiabilise l’enrichissement des fiches, sans modifier les choix visuels validés. La transition jaquette → fiche conserve maintenant une destination stable pendant l’arrivée du synopsis et des métadonnées ; les ressources d’une fiche fermée sont libérées immédiatement.
+Cette version aligne **Mon journal** et **Communauté** sur une même grammaire visuelle. Les deux vues partagent désormais la navigation temporelle, le découpage par mois et par jour ainsi que la structure des cartes ; le pseudo reste la seule information propre à l’activité communautaire.
+
+- contrôle **Tout l’historique** et navigation mensuelle disponibles dans les deux onglets ;
+- période choisie mémorisée séparément pendant le passage entre Mon journal et Communauté ;
+- titres de mois, séparateurs de jours, dimensions de jaquette, badges, heure et rythme vertical uniformisés ;
+- cartes Communauté reconstruites sur le composant de Mon journal, tout en conservant le pseudo et le statut actuel du média ;
+- bilan personnel **Le mois en bref** volontairement réservé à Mon journal.
+
+La version conserve également la stabilisation introduite en 3.4.0 : la transition jaquette → fiche garde une destination fixe pendant l’arrivée du synopsis et les ressources d’une fiche fermée sont libérées immédiatement.
 
 - fiche détaillée maintenue à sa géométrie finale pendant le chargement, avec enrichissement limité au corps défilable ;
 - appels TMDb, IGDB, Open Library, Google Books et Groq annulés dès la fermeture ou le remplacement d’une fiche ;
@@ -128,6 +136,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.1** — Mon journal et Communauté réunis autour de la même navigation temporelle, des mêmes sections mois/jour et du même modèle de carte.
 - **3.4.0** — fiches stabilisées sur iPad, ressources et caches bornés, traduction des jeux centralisée et fonction Groq rendue vérifiable.
 - **3.3.3** — ancien marqueur **Pour vous**, calcul d’affinité et styles associés entièrement retirés de Sorties.
 - **3.3.2** — Sorties aligné sur les modèles Bibliothèque/À reprendre et charte commune appliquée aux boutons et sélecteurs de l’application.

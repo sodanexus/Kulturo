@@ -5240,9 +5240,19 @@ try {
 } catch {}
 let _communityEntries = [];
 let _communityLoaded = false;
-let _journalMonthTarget = "all";
-let _journalMonthKeys = [];
+const _journalPeriodState = {
+  personal: { target: "all", keys: [] },
+  community: { target: "all", keys: [] },
+};
 const _journalExpandedGroups = new Set();
+
+function journalPeriodState(mode = _journalMode) {
+  return _journalPeriodState[mode] || _journalPeriodState.personal;
+}
+
+function journalMonthDomId(mode, monthKey) {
+  return `journal-${mode}-month-${String(monthKey || "unknown").replace(/[^a-z0-9_-]+/gi, "-")}`;
+}
 
 function syncJournalMode() {
   ["personal", "community"].forEach(mode => {
@@ -5255,7 +5265,10 @@ function syncJournalMode() {
     if (panel) panel.hidden = !active;
   });
   const timeNav = document.getElementById("journal-time-nav");
-  if (timeNav) timeNav.hidden = _journalMode !== "personal";
+  if (timeNav) {
+    timeNav.hidden = false;
+    timeNav.dataset.journalMode = _journalMode;
+  }
 }
 
 function setJournalMode(mode) {
@@ -5275,13 +5288,16 @@ function visibleJournalEvents() {
 }
 
 async function renderJournal() {
+  const requestedMode = _journalMode;
   syncJournalMode();
-  if (_journalMode === "community") {
+  if (requestedMode === "community") {
     await renderCommunity();
   } else {
     await renderPersonalJournal();
   }
-  replayMotion(document.getElementById(`journal-${_journalMode}-panel`), "journal-panel-enter");
+  if (_journalMode === requestedMode) {
+    replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
+  }
 }
 
 async function renderPersonalJournal() {
@@ -5290,11 +5306,13 @@ async function renderPersonalJournal() {
 
   if (State.journalDirty) {
     container.innerHTML = loadingState("Chargement du journal…", { compact: true });
+    syncJournalTimeNavigation([], "personal");
     await refreshJournalEvents({ silent: true });
   }
 
   if (!State.journalAvailable) {
     container.innerHTML = errorState({ title: "Journal indisponible", message: "Vérifiez la table <strong>media_events</strong> dans Supabase." });
+    syncJournalTimeNavigation([], "personal");
     return;
   }
   renderCurrentJournalView();
@@ -5305,7 +5323,7 @@ function renderCurrentJournalView() {
   if (!container || !State.journalAvailable) return;
   const visible = visibleJournalEvents();
   container.innerHTML = renderJournalFeed(visible);
-  syncJournalTimeNavigation(visible);
+  syncJournalTimeNavigation(visible, "personal");
   hydrateFadeImages(container);
 }
 
@@ -5343,7 +5361,7 @@ function renderJournalFeed(events) {
       : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
           .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
     return `
-      <section class="journal-month-group" id="journal-month-${esc(monthKey)}" data-journal-month="${esc(monthKey)}">
+      <section class="journal-month-group" id="${journalMonthDomId("personal", monthKey)}" data-journal-month="${esc(monthKey)}">
         <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
         ${[...days.entries()].map(([date, items]) => {
           const groupedItems = groupJournalDayEvents(items, State.entries, 3);
@@ -5381,40 +5399,50 @@ function journalMonthSummaryHTML(monthKey) {
     </aside>`;
 }
 
-function syncJournalTimeNavigation(events) {
+function syncJournalTimeNavigation(events, mode = _journalMode) {
+  const state = journalPeriodState(mode);
+  const timestampOf = mode === "community"
+    ? item => item.created_at
+    : item => item.occurred_at;
+  state.keys = [...new Set(events.map(event => yearMonthOf(timestampOf(event))).filter(Boolean))]
+    .sort((a, b) => b.localeCompare(a));
+  if (state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
+  if (mode !== _journalMode) return;
   const select = document.getElementById("journal-month-select");
   const nav = document.getElementById("journal-time-nav");
   if (!select || !nav) return;
-  _journalMonthKeys = [...new Set(events.map(event => yearMonthOf(event.occurred_at)).filter(Boolean))]
-    .sort((a, b) => b.localeCompare(a));
-  if (_journalMonthTarget !== "all" && !_journalMonthKeys.includes(_journalMonthTarget)) _journalMonthTarget = "all";
-  select.innerHTML = `<option value="all">Tout l’historique</option>` + _journalMonthKeys.map(key => {
+  select.innerHTML = `<option value="all">Tout l’historique</option>` + state.keys.map(key => {
     const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
       .format(new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1));
     return `<option value="${key}">${esc(label[0].toUpperCase() + label.slice(1))}</option>`;
   }).join("");
-  select.value = _journalMonthTarget;
-  syncJournalTimeButtons();
+  select.value = state.target;
+  nav.dataset.journalMode = mode;
+  syncJournalTimeButtons(mode);
 }
 
-function syncJournalTimeButtons() {
-  const index = _journalMonthKeys.indexOf(_journalMonthTarget);
+function syncJournalTimeButtons(mode = _journalMode) {
+  const state = journalPeriodState(mode);
+  const index = state.keys.indexOf(state.target);
   const previous = document.getElementById("journal-time-prev");
   const next = document.getElementById("journal-time-next");
-  if (previous) previous.disabled = !_journalMonthKeys.length || (_journalMonthTarget !== "all" && index >= _journalMonthKeys.length - 1);
-  if (next) next.disabled = _journalMonthTarget === "all" || index <= 0;
+  if (previous) previous.disabled = !state.keys.length || (state.target !== "all" && index >= state.keys.length - 1);
+  if (next) next.disabled = state.target === "all" || index <= 0;
 }
 
 function jumpJournalMonth(value) {
-  if (value !== "all" && !_journalMonthKeys.includes(value)) return;
-  _journalMonthTarget = value;
+  const mode = _journalMode;
+  const state = journalPeriodState(mode);
+  if (value !== "all" && !state.keys.includes(value)) return;
+  state.target = value;
   const select = document.getElementById("journal-month-select");
   if (select) select.value = value;
-  syncJournalTimeButtons();
+  syncJournalTimeButtons(mode);
   const main = document.getElementById("main");
+  const feedId = mode === "community" ? "community-feed" : "journal-feed";
   const target = value === "all"
-    ? document.querySelector("#journal-feed .journal-month-group")
-    : document.getElementById(`journal-month-${value}`);
+    ? document.querySelector(`#${feedId} .journal-month-group`)
+    : document.getElementById(journalMonthDomId(mode, value));
   if (!main || !target) return;
   const mainRect = main.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
@@ -5424,10 +5452,11 @@ function jumpJournalMonth(value) {
 }
 
 function stepJournalMonth(direction) {
-  if (!_journalMonthKeys.length) return;
-  const currentIndex = _journalMonthTarget === "all" ? -1 : _journalMonthKeys.indexOf(_journalMonthTarget);
-  const nextIndex = Math.min(_journalMonthKeys.length - 1, Math.max(0, currentIndex + Number(direction || 0)));
-  jumpJournalMonth(_journalMonthKeys[nextIndex]);
+  const state = journalPeriodState();
+  if (!state.keys.length) return;
+  const currentIndex = state.target === "all" ? -1 : state.keys.indexOf(state.target);
+  const nextIndex = Math.min(state.keys.length - 1, Math.max(0, currentIndex + Number(direction || 0)));
+  jumpJournalMonth(state.keys[nextIndex]);
 }
 
 function journalGroupDomId(key) {
@@ -5563,17 +5592,20 @@ async function renderCommunity() {
 
   if (_communityLoaded) {
     container.innerHTML = renderCommunityFeed(_communityEntries);
+    syncJournalTimeNavigation(_communityEntries, "community");
     hydrateFadeImages(container);
     return;
   }
 
   container.innerHTML = loadingState("Chargement de la communauté…", { compact: true });
+  syncJournalTimeNavigation([], "community");
 
   try {
     const entries = await Activity.getFeed(100);
     _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
     _communityLoaded = true;
     container.innerHTML = renderCommunityFeed(_communityEntries);
+    syncJournalTimeNavigation(_communityEntries, "community");
     hydrateFadeImages(container);
   } catch {
     container.innerHTML = errorState({ title: "Communauté indisponible", message: "Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase." });
@@ -5585,19 +5617,34 @@ function renderCommunityFeed(entries) {
     return `<div class="empty-state"><div class="empty-icon">${iconMedia("media")}</div><h3>Aucune activité</h3><p>Les prochains ajouts des autres membres apparaîtront ici.</p></div>`;
   }
 
-  const groups = new Map();
+  const months = new Map();
   entries.forEach(entry => {
-    const label = journalDateLabel(entry.created_at);
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label).push(entry);
+    const key = yearMonthOf(entry.created_at) || "unknown";
+    if (!months.has(key)) months.set(key, []);
+    months.get(key).push(entry);
   });
 
-  return [...groups.entries()].map(([date, items]) => `
-    <section class="activity-date-group community-date-group">
-      <div class="activity-date-label">${esc(date)}</div>
-      ${items.map(communityRowHTML).join("")}
-    </section>
-  `).join("");
+  return [...months.entries()].map(([monthKey, monthEntries]) => {
+    const days = new Map();
+    monthEntries.forEach(entry => {
+      const label = journalDateLabel(entry.created_at);
+      if (!days.has(label)) days.set(label, []);
+      days.get(label).push(entry);
+    });
+    const monthLabel = monthKey === "unknown"
+      ? "Date inconnue"
+      : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
+          .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
+    return `
+      <section class="journal-month-group community-month-group" id="${journalMonthDomId("community", monthKey)}" data-journal-month="${esc(monthKey)}">
+        <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
+        ${[...days.entries()].map(([date, items]) => `
+          <section class="activity-date-group community-date-group">
+            <div class="activity-date-label">${esc(date)}</div>
+            ${items.map(communityRowHTML).join("")}
+          </section>`).join("")}
+      </section>`;
+  }).join("");
 }
 
 function communityRowHTML(entry) {
@@ -5608,21 +5655,23 @@ function communityRowHTML(entry) {
     ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
-  const attributes = `role="button" tabindex="0" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${entry.id}', this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();UI.openCommunityMedia('${entry.id}',this)}"`;
+  const tone = journalActionTone("added", { status: entry.status });
 
   return `
-    <article class="activity-row is-clickable community-event-row" ${attributes}>
-      ${coverHTML}
-      <div class="activity-info">
-        <div class="activity-line"><span class="activity-username">${esc(entry.username)}</span><span class="activity-verb">a ajouté</span></div>
-        <div class="activity-title">${iconMedia(entry.media_type, entry.subtype)} ${esc(entry.title)}</div>
-        <div class="activity-meta">
-          <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
-          <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
-          ${rating}${activityStateMarkersHTML(entry)}
-        </div>
-      </div>
-      <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
+    <article class="activity-row is-clickable journal-event-row community-event-row" ${tone ? `data-event-tone="${tone}"` : ""}>
+      <button type="button" class="journal-event-main" data-transition-media="${esc(entry.id)}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${esc(entry.id)}', this)">
+        ${coverHTML}
+        <span class="activity-info">
+          <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
+          <span class="activity-title">${esc(entry.title)}</span>
+          <span class="activity-meta">
+            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
+            <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
+            ${rating}${activityStateMarkersHTML(entry)}
+          </span>
+        </span>
+        <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
+      </button>
     </article>`;
 }
 

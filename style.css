@@ -4543,6 +4543,8 @@ input, textarea, select { border-radius: 12px; }
   font-weight: 750;
 }
 .activity-verb { color: var(--text-3); }
+.community-event-label { color: var(--text-3); }
+.community-event-label strong { color: var(--text-1); font-weight: 800; }
 .community-rating { font-size: var(--type-label); }
 .rating-hist-avg .rating-score { font-size: inherit; }
 .activity-detail-notice {
@@ -4675,5 +4677,4 @@ input, textarea, select { border-radius: 12px; }
   }
   .journal-mode-switch { width: 100%; margin: 0; }
   .journal-event-row { min-height: 94px; }
-  .community-event-row { min-height: 98px; }
 }
