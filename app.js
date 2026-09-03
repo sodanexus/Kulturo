@@ -538,6 +538,7 @@ function renderApp() {
             <p>Films, séries, jeux vidéo et livres attendus en France dans les six prochains mois.</p>
           </div>
         </header>
+        <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
             <div class="upcoming-type-switch" role="group" aria-label="Type de sortie">
@@ -567,7 +568,6 @@ function renderApp() {
             <span id="upcoming-result-count" class="section-count"></span>
           </div>
         </div>
-        <section id="upcoming-wishlist-section" class="upcoming-wishlist-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div id="upcoming-grid" class="upcoming-months"></div>
       </section>
 
@@ -3024,7 +3024,7 @@ function journalActionTone(action, metadata = {}) {
 
 
 // ── Prochaines sorties ────────────────────────────────────────
-const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences";
+const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences-v2";
 const UPCOMING_TYPES = ["all", "movie", "tv", "game", "book"];
 const UPCOMING_TYPE_META = {
   movie: { label: "Film",  icon: iconMedia("movie"),       mediaType: "movie", badge: "movie" },
@@ -3058,10 +3058,10 @@ function readUpcomingPreferences() {
     return {
       type: UPCOMING_TYPES.includes(saved.type) ? saved.type : "all",
       genre: typeof saved.genre === "string" && saved.genre ? saved.genre : "all",
-      hideAdded: Boolean(saved.hideAdded),
+      hideAdded: typeof saved.hideAdded === "boolean" ? saved.hideAdded : true,
     };
   } catch {
-    return { type: "all", genre: "all", hideAdded: false };
+    return { type: "all", genre: "all", hideAdded: true };
   }
 }
 
@@ -3161,6 +3161,16 @@ function awaitedReleaseTiming(entry) {
   return { label: "À venir", available: false };
 }
 
+const AWAITED_RELEASES_EXPANDED_KEY = "kulturo-awaited-releases-expanded";
+
+function readAwaitedReleasesExpanded() {
+  try {
+    const saved = localStorage.getItem(AWAITED_RELEASES_EXPANDED_KEY);
+    if (saved === "true" || saved === "false") return saved === "true";
+  } catch {}
+  return !window.matchMedia?.("(max-width: 680px)").matches;
+}
+
 function awaitedReleaseCardHTML(entry) {
   const type = upcomingTypeOf(entry);
   const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
@@ -3171,15 +3181,11 @@ function awaitedReleaseCardHTML(entry) {
        <span class="awaited-release-placeholder" style="display:none">${typeMeta.icon}</span>`
     : `<span class="awaited-release-placeholder">${typeMeta.icon}</span>`;
   return `
-    <button type="button" class="awaited-release-card" data-prefetch-media="${esc(entry.id)}" data-transition-media="${esc(entry.id)}"
-      onclick="UI.openEditModal('${esc(entry.id)}', this)" aria-label="Ouvrir ${esc(entry.title)}">
-      <span class="awaited-release-visual">
+    <button type="button" class="continue-card awaited-release-card" data-prefetch-media="${esc(entry.id)}" data-transition-media="${esc(entry.id)}"
+      onclick="UI.openEditModal('${esc(entry.id)}', this)" aria-label="Ouvrir ${esc(entry.title)}" title="${esc(entry.title)} · ${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}">
+      <span class="continue-cover awaited-release-visual">
         ${cover}
         <span class="awaited-release-timing${timing.available ? " is-available" : ""}">${esc(timing.label)}</span>
-      </span>
-      <span class="awaited-release-copy">
-        <strong>${esc(entry.title)}</strong>
-        <small>${typeMeta.icon}${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}</small>
       </span>
     </button>`;
 }
@@ -3193,13 +3199,40 @@ function renderAwaitedReleases() {
     section.innerHTML = "";
     return;
   }
+  const expanded = readAwaitedReleasesExpanded();
+  section.classList.toggle("is-expanded", expanded);
   section.innerHTML = `
-    <div class="upcoming-wishlist-heading">
-      <div><span class="section-eyebrow">Votre sélection</span><h2 id="upcoming-wishlist-title">Vos sorties attendues</h2></div>
-      <span class="section-count">${entries.length} titre${entries.length > 1 ? "s" : ""}</span>
-    </div>
-    <div class="upcoming-wishlist-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>`;
+    <button type="button" class="continue-toggle" onclick="UI.toggleAwaitedReleases()" aria-expanded="${expanded}" aria-controls="awaited-releases-content">
+      <span class="continue-heading-copy">
+        <h2 id="upcoming-wishlist-title">Mes sorties attendues</h2>
+        <span>${entries.length} dans votre wishlist</span>
+      </span>
+      <span class="continue-preview" aria-hidden="true">${entries.slice(0, 3).map(continuePreviewHTML).join("")}</span>
+      <span class="continue-chevron" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+    </button>
+    <div class="continue-expand" id="awaited-releases-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
+      <div class="continue-expand-inner">
+        <div class="continue-expanded-head">
+          <span>Les prochaines œuvres déjà ajoutées à votre wishlist.</span>
+          <button class="section-link" onclick="UI.navTo('status-wishlist')">Voir la wishlist <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="continue-track awaited-release-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>
+      </div>
+    </div>`;
   hydrateFadeImages(section);
+}
+
+function toggleAwaitedReleases() {
+  const section = document.getElementById("upcoming-wishlist-section");
+  const toggle = section?.querySelector(".continue-toggle");
+  const content = section?.querySelector(".continue-expand");
+  if (!section || !toggle || !content) return;
+  const expanded = !section.classList.contains("is-expanded");
+  section.classList.toggle("is-expanded", expanded);
+  toggle.setAttribute("aria-expanded", String(expanded));
+  content.setAttribute("aria-hidden", String(!expanded));
+  content.inert = !expanded;
+  try { localStorage.setItem(AWAITED_RELEASES_EXPANDED_KEY, String(expanded)); } catch {}
 }
 
 const _wishlistReleaseSyncAttempts = new Set();
@@ -3546,32 +3579,20 @@ function upcomingCardHTML(it, idx, recommendation = null) {
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
     ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-       <div class="card-cover-placeholder" style="display:none">${typeMeta.icon}</div>`
-    : `<div class="card-cover-placeholder">${typeMeta.icon}</div>`;
+       <span class="card-cover-placeholder" style="display:none">${typeMeta.icon}</span>`
+    : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
 
   return `
-    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}" role="button" tabindex="0"
-      onclick="UI.openUpcomingDetail(${idx}, this)"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openUpcomingDetail(${idx},this)}">
+    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}">
       <div class="upcoming-cover-wrap">
-        ${cover}
-        ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
-        ${recommendation ? `<span class="upcoming-for-you" title="${esc(recommendation.reason)}" aria-label="Pour vous : ${esc(recommendation.reason)}">✦ Pour vous</span>` : ""}
-      </div>
-      <div class="card-body">
-        <div class="card-title">${esc(it.title)}</div>
-        <div class="card-meta">
-          <span class="badge badge-${typeMeta.badge}">${typeMeta.icon} ${typeMeta.label}</span>
-          ${it.availability_label ? `<span class="upcoming-region-label">${esc(it.availability_label)}</span>` : ""}
-        </div>
-        <div class="release-date">${formatReleaseDate(it.release_date, it.date_precision)}</div>
-        ${secondary ? `<div class="upcoming-secondary">${esc(secondary)}</div>` : ""}
-        ${it.description ? `<div class="upcoming-desc">${esc(it.description)}</div>` : ""}
-        <div class="upcoming-card-actions">
-          <button class="btn ${inLibrary ? "btn-ghost" : "btn-secondary"} btn-sm upcoming-wishlist-btn" ${inLibrary ? "disabled" : ""} onclick="event.stopPropagation();UI.addUpcomingToWishlist(${idx})">
-            ${inLibrary ? "✓ Dans la bibliothèque" : "+ Wishlist"}
-          </button>
-        </div>
+        <button type="button" class="upcoming-card-open" onclick="UI.openUpcomingDetail(${idx}, this)" aria-label="Ouvrir ${esc(it.title)}">
+          ${cover}
+          ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
+          ${recommendation ? `<span class="upcoming-for-you upcoming-for-you-compact" title="Pour vous · ${esc(recommendation.reason)}" aria-label="Pour vous : ${esc(recommendation.reason)}">✦</span>` : ""}
+          <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
+        </button>
+        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
+          onclick="${inLibrary ? "" : `UI.addUpcomingToWishlist(${idx})`}">${iconStatus("wishlist")}</button>
       </div>
     </article>`;
 }
@@ -5676,6 +5697,7 @@ window.UI = {
   setUpcomingType,
   setUpcomingGenre,
   setUpcomingHideAdded,
+  toggleAwaitedReleases,
   resetUpcomingFilters,
   refreshUpcoming: () => {
     clearApiCache(key => key.includes("/discover/") || key.includes('"action":"upcoming"'));

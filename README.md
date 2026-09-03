@@ -64,13 +64,21 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.3.1**
+**3.3.2**
 
-Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. Le correctif 3.3.1 stabilise aussi la fin de la transition entre la jaquette et la fiche sur Safari et dans la web app iOS.
+Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. La 3.3.2 étend cette cohérence visuelle aux Sorties et à tous les principaux contrôles de l’application.
+
+- **Mes sorties attendues** reprend le panneau repliable, les dimensions et la rangée horizontale de **À reprendre** ;
+- la découverte des sorties adopte la grille, les proportions, les densités et le survol de la Bibliothèque ;
+- titres, dates complètes, descriptions et informations éditoriales sont retirés de la grille et restent disponibles dans la fiche ;
+- seuls les marqueurs immédiatement utiles demeurent sur les jaquettes : compte à rebours, recommandation **Pour vous** et Wishlist ;
+- les titres déjà ajoutés sont masqués par défaut du flux de découverte pour éviter leur répétition sous la rangée personnelle ;
+- une charte de contrôles commune fixe les hauteurs, rayons, espacements et états actifs des boutons de Sorties, du Journal, du Profil et des fiches ;
+- les contrôles standards mesurent 40 px, les contrôles compacts 36 px et les sélecteurs segmentés partagent les mêmes rayons 14/9 px.
 
 - recherche enrichie dans toute la bibliothèque : titres, réalisateurs, auteurs, casting, studios, genres, plateformes et années peuvent être retrouvés sans tenir compte du filtre actif ;
 - résultats de recherche classés par pertinence, avec les correspondances exactes sur le titre placées en premier ;
-- nouvelle rangée **Vos sorties attendues** dans Sorties, directement alimentée par la Wishlist et ordonnée par date ;
+- nouvelle rangée **Mes sorties attendues** dans Sorties, directement alimentée par la Wishlist et ordonnée par date ;
 - dates de sortie conservées dans la bibliothèque lors d’un ajout à la Wishlist, puis actualisées discrètement depuis les catalogues disponibles ;
 - œuvres déjà disponibles clairement signalées dans les sorties attendues, sans disparaître automatiquement de la Wishlist ;
 - transition fluide de la jaquette vers la fiche, partagée par la Bibliothèque, À reprendre, le Journal, le Profil, la Communauté et les Sorties ;
@@ -109,6 +117,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.3.2** — Sorties aligné sur les modèles Bibliothèque/À reprendre et charte commune appliquée aux boutons et sélecteurs de l’application.
 - **3.3.1** — arrivée de la jaquette stabilisée : destination immobile et passage instantané vers l’image réelle, sans sursaut ni image vide sur iOS.
 - **3.3.0** — recherche enrichie et classée, Wishlist reliée aux Sorties, transition jaquette → fiche et bilans mensuels réservés aux mois clos.
 - **3.2.18** — compteurs Terminé/Replay séparés, replay reconnu partout, filtres et barre de recherche simplifiés, icône aux trois cercles rendue transparente.
