@@ -653,7 +653,6 @@ body { background-color: var(--system-bar-color); }
   align-items: center;
   gap: .3rem;
 }
-.journal-time-nav[hidden] { display: none !important; }
 .journal-time-step,
 .journal-month-select-wrap select {
   min-height: 34px;
@@ -665,6 +664,8 @@ body { background-color: var(--system-bar-color); }
   font-size: var(--type-label);
   font-weight: 750;
 }
+.community-event-label { color: var(--text-3); }
+.community-event-label strong { color: var(--text-1); font-weight: 800; }
 .journal-time-step { display: grid; place-items: center; width: 34px; }
 .journal-time-step:disabled { opacity: .35; }
 .journal-month-select-wrap select { width: 100%; padding: .35rem 1.8rem .35rem .65rem; }
