@@ -4459,7 +4459,6 @@ input, textarea, select { border-radius: 12px; }
 /* ============================================================
    KULTURO 3.0 — JOURNAL, PROFIL INTERACTIF ET COHÉRENCE MOBILE
    ============================================================ */
-.journal-sticky-controls { margin: 1.15rem 0 1rem; }
 .journal-mode-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4526,25 +4525,6 @@ input, textarea, select { border-radius: 12px; }
 }
 .journal-date-group .activity-date-label { text-transform: capitalize; }
 .community-date-group .activity-date-label { text-transform: capitalize; }
-.activity-line {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: .3rem;
-  margin-bottom: .2rem;
-  color: var(--text-2);
-  font-size: var(--type-body);
-}
-.activity-username {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  color: var(--text-1);
-  font-weight: 750;
-}
-.activity-verb { color: var(--text-3); }
-.community-event-label { color: var(--text-3); }
-.community-event-label strong { color: var(--text-1); font-weight: 800; }
 .community-rating { font-size: var(--type-label); }
 .rating-hist-avg .rating-score { font-size: inherit; }
 .activity-detail-notice {

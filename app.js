@@ -50,6 +50,8 @@ import { cardSkeletons, emptyState, errorState, loadingState } from "./features/
 import { clearApiCache } from "./features/request-client.js";
 import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./features/journal-groups.js";
+import { createJournalNavigation } from "./features/journal-navigation.js";
+import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -177,9 +179,7 @@ function cacheEntriesLocally() {
   const key = entryCacheKey();
   if (!key) return;
   try {
-    const cleanEntries = State.entries.map(entry => Object.fromEntries(
-      Object.entries(entry).filter(([field]) => !field.startsWith("_"))
-    ));
+    const cleanEntries = entriesForStorage(State.entries);
     localStorage.setItem(key, JSON.stringify(cleanEntries));
   } catch (error) {
     console.warn("[Cache] Sauvegarde locale impossible :", error);
@@ -304,9 +304,10 @@ async function init() {
       // navigateur a suspendu l'onglet et si Supabase met quelques instants à
       // répondre. Le réseau remplace ensuite cet instantané dès qu'il arrive.
       primeEntriesFromCache();
+      const snapshot = restoreUiSnapshot();
       renderApp();
       await loadEntries();
-      restoreNavigation();
+      restoreNavigation(snapshot);
     } else {
       renderAuthPage();
     }
@@ -315,9 +316,10 @@ async function init() {
       if (event === "SIGNED_IN" && user) {
         State.username = null;
         primeEntriesFromCache();
+        const snapshot = restoreUiSnapshot();
         renderApp();
         await loadEntries();
-        restoreNavigation();
+        restoreNavigation(snapshot);
       } else if (event === "SIGNED_OUT") {
         clearUiSnapshot();
         State.entries = [];
@@ -401,8 +403,7 @@ function restoreOpenLayerHistory() {
   history.pushState(appHistoryState(_currentPage, layer), "");
 }
 
-function restoreNavigation() {
-  const snapshot = restoreUiSnapshot();
+function restoreNavigation(snapshot = restoreUiSnapshot()) {
   let saved = "library";
   try { saved = localStorage.getItem("kulturo-nav") || saved; } catch {}
   saved = snapshot?.page || saved;
@@ -411,7 +412,7 @@ function restoreNavigation() {
   const target = allowed.has(normalized) ? normalized : "library";
   const search = document.getElementById("global-search");
   if (search) search.value = State.filters.search || "";
-  navTo(target, { history: "replace", preserveFilters: true, preserveSearch: true });
+  navTo(target, { history: "replace", preserveFilters: true, preserveSearch: true, skipRender: target === "library" });
   _historyReady = true;
 }
 
@@ -581,18 +582,18 @@ function renderApp() {
 
         <div class="journal-sticky-controls">
           <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
-            <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" onclick="UI.setJournalMode('personal')">Mon journal</button>
-            <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" onclick="UI.setJournalMode('community')">Communauté</button>
+            <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" data-journal-action="mode" data-journal-mode="personal">Mon journal</button>
+            <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" data-journal-action="mode" data-journal-mode="community">Communauté</button>
           </div>
           <div class="journal-time-nav" id="journal-time-nav" aria-label="Navigation dans le temps">
-            <button type="button" class="journal-time-step" id="journal-time-prev" onclick="UI.stepJournalMonth(1)" aria-label="Mois plus ancien">←</button>
+            <button type="button" class="journal-time-step" id="journal-time-prev" data-journal-action="step-month" data-direction="1" aria-label="Mois plus ancien">←</button>
             <label class="journal-month-select-wrap">
               <span class="sr-only">Aller à un mois</span>
-              <select id="journal-month-select" onchange="UI.jumpJournalMonth(this.value)">
+              <select id="journal-month-select" data-journal-action="jump-month">
                 <option value="all">Tout l’historique</option>
               </select>
             </label>
-            <button type="button" class="journal-time-step" id="journal-time-next" onclick="UI.stepJournalMonth(-1)" aria-label="Mois plus récent">→</button>
+            <button type="button" class="journal-time-step" id="journal-time-next" data-journal-action="step-month" data-direction="-1" aria-label="Mois plus récent">→</button>
           </div>
         </div>
 
@@ -656,6 +657,9 @@ function renderApp() {
   const savedSort = localStorage.getItem("kulturo-sort");
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
   State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
+  const globalSearch = document.getElementById("global-search");
+  if (globalSearch) globalSearch.value = State.filters.search || "";
+  bindJournalInteractions();
   buildFilterBar();
   renderCards();
   updateBadges();
@@ -699,16 +703,27 @@ async function loadEntries() {
   }
   try {
     // Charge tout, le filtrage se fait localement dans filterEntries()
-    State.entries = await Media.getAll({});
+    const previousEntries = State.entries;
+    const previousFingerprint = entriesFingerprint(previousEntries);
+    const freshEntries = await Media.getAll({});
+    const entriesChanged = previousFingerprint !== entriesFingerprint(freshEntries);
+    State.entries = freshEntries;
     cacheEntriesLocally();
-    renderCards();
-    updateBadges();
+    // Un cache identique est déjà visible : ne reconstruisons ni les jaquettes,
+    // ni l'étagère « À reprendre » lors de la simple validation Supabase.
+    if (entriesChanged || previousEntries.length === 0) {
+      renderCards();
+      updateBadges();
+    }
   } catch (e) {
     const cached = readCachedEntries();
     if (cached) {
+      const entriesChanged = entriesFingerprint(State.entries) !== entriesFingerprint(cached);
       State.entries = cached;
-      renderCards();
-      updateBadges();
+      if (entriesChanged || !State.entries.length) {
+        renderCards();
+        updateBadges();
+      }
       toast("Mode hors ligne : dernière bibliothèque enregistrée affichée.", "info");
     } else {
       if (grid) grid.innerHTML = errorState({ title: "Bibliothèque indisponible", message: "Impossible de charger vos médias pour le moment." });
@@ -803,7 +818,7 @@ function navTo(key, options = {}) {
   } else {
     if (options.preserveFilters) {
       if (_currentPage !== "library") showPage("library");
-      renderCards();
+      if (!options.skipRender) renderCards();
       updateCategoryTabs(State.filters.type, State.filters.favorite);
       return;
     }
@@ -5230,53 +5245,13 @@ function setLibraryDensity(value) {
 }
 
 // ── Journal culturel personnel ────────────────────────────────
-let _journalMode = (() => {
-  try { return localStorage.getItem("kulturo-journal-mode") === "community" ? "community" : "personal"; }
-  catch { return "personal"; }
-})();
 try {
   localStorage.removeItem("kulturo-journal-view");
   localStorage.removeItem("kulturo-community-view");
 } catch {}
 let _communityEntries = [];
 let _communityLoaded = false;
-const _journalPeriodState = {
-  personal: { target: "all", keys: [] },
-  community: { target: "all", keys: [] },
-};
-const _journalExpandedGroups = new Set();
-
-function journalPeriodState(mode = _journalMode) {
-  return _journalPeriodState[mode] || _journalPeriodState.personal;
-}
-
-function journalMonthDomId(mode, monthKey) {
-  return `journal-${mode}-month-${String(monthKey || "unknown").replace(/[^a-z0-9_-]+/gi, "-")}`;
-}
-
-function syncJournalMode() {
-  ["personal", "community"].forEach(mode => {
-    const button = document.getElementById(`journal-mode-${mode}`);
-    const panel = document.getElementById(`journal-${mode}-panel`);
-    const active = _journalMode === mode;
-    button?.classList.toggle("active", active);
-    button?.setAttribute("aria-selected", String(active));
-    if (button) button.tabIndex = active ? 0 : -1;
-    if (panel) panel.hidden = !active;
-  });
-  const timeNav = document.getElementById("journal-time-nav");
-  if (timeNav) {
-    timeNav.hidden = false;
-    timeNav.dataset.journalMode = _journalMode;
-  }
-}
-
-function setJournalMode(mode) {
-  if (!["personal", "community"].includes(mode)) return;
-  _journalMode = mode;
-  try { localStorage.setItem("kulturo-journal-mode", mode); } catch {}
-  renderJournal();
-}
+const journalNavigation = createJournalNavigation();
 
 function visibleJournalEvents() {
   const existingIds = new Set(State.entries.map(entry => entry.id));
@@ -5288,14 +5263,14 @@ function visibleJournalEvents() {
 }
 
 async function renderJournal() {
-  const requestedMode = _journalMode;
-  syncJournalMode();
+  const requestedMode = journalNavigation.mode;
+  journalNavigation.syncMode();
   if (requestedMode === "community") {
     await renderCommunity();
   } else {
     await renderPersonalJournal();
   }
-  if (_journalMode === requestedMode) {
+  if (journalNavigation.mode === requestedMode) {
     replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
   }
 }
@@ -5306,13 +5281,13 @@ async function renderPersonalJournal() {
 
   if (State.journalDirty) {
     container.innerHTML = loadingState("Chargement du journal…", { compact: true });
-    syncJournalTimeNavigation([], "personal");
+    journalNavigation.syncTimeline([], "personal");
     await refreshJournalEvents({ silent: true });
   }
 
   if (!State.journalAvailable) {
     container.innerHTML = errorState({ title: "Journal indisponible", message: "Vérifiez la table <strong>media_events</strong> dans Supabase." });
-    syncJournalTimeNavigation([], "personal");
+    journalNavigation.syncTimeline([], "personal");
     return;
   }
   renderCurrentJournalView();
@@ -5323,7 +5298,7 @@ function renderCurrentJournalView() {
   if (!container || !State.journalAvailable) return;
   const visible = visibleJournalEvents();
   container.innerHTML = renderJournalFeed(visible);
-  syncJournalTimeNavigation(visible, "personal");
+  journalNavigation.syncTimeline(visible, "personal");
   hydrateFadeImages(container);
 }
 
@@ -5361,7 +5336,7 @@ function renderJournalFeed(events) {
       : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
           .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
     return `
-      <section class="journal-month-group" id="${journalMonthDomId("personal", monthKey)}" data-journal-month="${esc(monthKey)}">
+      <section class="journal-month-group" id="${journalNavigation.monthDomId("personal", monthKey)}" data-journal-month="${esc(monthKey)}">
         <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
         ${[...days.entries()].map(([date, items]) => {
           const groupedItems = groupJournalDayEvents(items, State.entries, 3);
@@ -5391,76 +5366,12 @@ function journalMonthSummaryHTML(monthKey) {
         <span><strong>${average}</strong><small>${summary.rated} noté${summary.rated > 1 ? "s" : ""}</small></span>
       </div>
       ${favorite ? `
-        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" onclick="UI.openJournalMedia('${esc(favorite.id)}', this)">
+        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" data-journal-action="open-personal" data-media-id="${esc(favorite.id)}">
           ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
           <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
           ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
         </button>` : `<p class="journal-month-no-favorite">Aucun média actuellement terminé à mettre en avant ce mois.</p>`}
     </aside>`;
-}
-
-function syncJournalTimeNavigation(events, mode = _journalMode) {
-  const state = journalPeriodState(mode);
-  const timestampOf = mode === "community"
-    ? item => item.created_at
-    : item => item.occurred_at;
-  state.keys = [...new Set(events.map(event => yearMonthOf(timestampOf(event))).filter(Boolean))]
-    .sort((a, b) => b.localeCompare(a));
-  if (state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
-  if (mode !== _journalMode) return;
-  const select = document.getElementById("journal-month-select");
-  const nav = document.getElementById("journal-time-nav");
-  if (!select || !nav) return;
-  select.innerHTML = `<option value="all">Tout l’historique</option>` + state.keys.map(key => {
-    const label = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
-      .format(new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1));
-    return `<option value="${key}">${esc(label[0].toUpperCase() + label.slice(1))}</option>`;
-  }).join("");
-  select.value = state.target;
-  nav.dataset.journalMode = mode;
-  syncJournalTimeButtons(mode);
-}
-
-function syncJournalTimeButtons(mode = _journalMode) {
-  const state = journalPeriodState(mode);
-  const index = state.keys.indexOf(state.target);
-  const previous = document.getElementById("journal-time-prev");
-  const next = document.getElementById("journal-time-next");
-  if (previous) previous.disabled = !state.keys.length || (state.target !== "all" && index >= state.keys.length - 1);
-  if (next) next.disabled = state.target === "all" || index <= 0;
-}
-
-function jumpJournalMonth(value) {
-  const mode = _journalMode;
-  const state = journalPeriodState(mode);
-  if (value !== "all" && !state.keys.includes(value)) return;
-  state.target = value;
-  const select = document.getElementById("journal-month-select");
-  if (select) select.value = value;
-  syncJournalTimeButtons(mode);
-  const main = document.getElementById("main");
-  const feedId = mode === "community" ? "community-feed" : "journal-feed";
-  const target = value === "all"
-    ? document.querySelector(`#${feedId} .journal-month-group`)
-    : document.getElementById(journalMonthDomId(mode, value));
-  if (!main || !target) return;
-  const mainRect = main.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  const stickyHeight = document.querySelector("#page-journal .journal-sticky-controls")?.offsetHeight || 0;
-  const top = Math.max(0, main.scrollTop + targetRect.top - mainRect.top - stickyHeight - 8);
-  main.scrollTo({ top, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth" });
-}
-
-function stepJournalMonth(direction) {
-  const state = journalPeriodState();
-  if (!state.keys.length) return;
-  const currentIndex = state.target === "all" ? -1 : state.keys.indexOf(state.target);
-  const nextIndex = Math.min(state.keys.length - 1, Math.max(0, currentIndex + Number(direction || 0)));
-  jumpJournalMonth(state.keys[nextIndex]);
-}
-
-function journalGroupDomId(key) {
-  return `journal-group-${String(key || "group").replace(/[^a-z0-9_-]+/gi, "-")}`;
 }
 
 function journalGroupCoverHTML(event) {
@@ -5474,12 +5385,12 @@ function journalGroupCoverHTML(event) {
 
 function journalGroupHTML(group) {
   const presentation = journalGroupPresentation(group);
-  const expanded = _journalExpandedGroups.has(group.key);
-  const domId = journalGroupDomId(group.key);
+  const expanded = journalNavigation.isGroupExpanded(group.key);
+  const domId = journalNavigation.groupDomId(group.key);
   const tone = journalActionTone(group.action);
   return `
     <section class="journal-event-group ${expanded ? "is-expanded" : ""}" id="${domId}" data-journal-group="${esc(group.key)}" ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-group-toggle" onclick="UI.toggleJournalGroup('${esc(group.key)}')" aria-expanded="${expanded}" aria-controls="${domId}-content">
+      <button type="button" class="journal-event-group-toggle" data-journal-action="toggle-group" data-group-key="${esc(group.key)}" aria-expanded="${expanded}" aria-controls="${domId}-content">
         <span class="journal-event-group-covers" aria-hidden="true">${group.events.slice(0, 3).map(journalGroupCoverHTML).join("")}</span>
         <span class="journal-event-group-copy">
           <strong><span aria-hidden="true">${iconJournalAction(group.action)}</span>${esc(presentation.label)}</strong>
@@ -5491,23 +5402,6 @@ function journalGroupHTML(group) {
         <div class="journal-event-group-inner">${group.events.map(event => journalRowHTML(event, { grouped: true })).join("")}</div>
       </div>
     </section>`;
-}
-
-function toggleJournalGroup(key) {
-  const domId = journalGroupDomId(key);
-  const group = document.getElementById(domId);
-  const content = document.getElementById(`${domId}-content`);
-  const toggle = group?.querySelector(".journal-event-group-toggle");
-  if (!group || !content || !toggle) return;
-  const expanded = !group.classList.contains("is-expanded");
-  group.classList.toggle("is-expanded", expanded);
-  toggle.setAttribute("aria-expanded", String(expanded));
-  const hint = toggle.querySelector("small");
-  if (hint) hint.textContent = expanded ? "Masquer le détail" : `Afficher les ${content.querySelectorAll(".journal-event-row").length} œuvres`;
-  content.setAttribute("aria-hidden", String(!expanded));
-  content.inert = !expanded;
-  if (expanded) _journalExpandedGroups.add(key);
-  else _journalExpandedGroups.delete(key);
 }
 
 function journalRowHTML(event, options = {}) {
@@ -5528,11 +5422,11 @@ function journalRowHTML(event, options = {}) {
   const dateOnly = Boolean(metadata.date_only || metadata.legacy);
   const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const deleteButton = event.id ? `
-    <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" onclick="event.stopPropagation();UI.hideJournalEvent('${esc(event.id)}')">${iconTrash()}</button>` : "";
+    <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" data-journal-action="hide-event" data-event-id="${esc(event.id)}">${iconTrash()}</button>` : "";
 
   return `
     <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""} ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openJournalMedia('${entry.id}', this)">
+      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-personal" data-media-id="${entry.id}">
         ${coverHTML}
         <span class="activity-info">
           <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
@@ -5592,20 +5486,20 @@ async function renderCommunity() {
 
   if (_communityLoaded) {
     container.innerHTML = renderCommunityFeed(_communityEntries);
-    syncJournalTimeNavigation(_communityEntries, "community");
+    journalNavigation.syncTimeline(_communityEntries, "community");
     hydrateFadeImages(container);
     return;
   }
 
   container.innerHTML = loadingState("Chargement de la communauté…", { compact: true });
-  syncJournalTimeNavigation([], "community");
+  journalNavigation.syncTimeline([], "community");
 
   try {
     const entries = await Activity.getFeed(100);
     _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
     _communityLoaded = true;
     container.innerHTML = renderCommunityFeed(_communityEntries);
-    syncJournalTimeNavigation(_communityEntries, "community");
+    journalNavigation.syncTimeline(_communityEntries, "community");
     hydrateFadeImages(container);
   } catch {
     container.innerHTML = errorState({ title: "Communauté indisponible", message: "Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase." });
@@ -5636,7 +5530,7 @@ function renderCommunityFeed(entries) {
       : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
           .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
     return `
-      <section class="journal-month-group community-month-group" id="${journalMonthDomId("community", monthKey)}" data-journal-month="${esc(monthKey)}">
+      <section class="journal-month-group community-month-group" id="${journalNavigation.monthDomId("community", monthKey)}" data-journal-month="${esc(monthKey)}">
         <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
         ${[...days.entries()].map(([date, items]) => `
           <section class="activity-date-group community-date-group">
@@ -5659,7 +5553,7 @@ function communityRowHTML(entry) {
 
   return `
     <article class="activity-row is-clickable journal-event-row community-event-row" ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-main" data-transition-media="${esc(entry.id)}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" onclick="UI.openCommunityMedia('${esc(entry.id)}', this)">
+      <button type="button" class="journal-event-main" data-transition-media="${esc(entry.id)}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-community" data-media-id="${esc(entry.id)}">
         ${coverHTML}
         <span class="activity-info">
           <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
@@ -5695,13 +5589,20 @@ function openCommunityMedia(id, transitionSource = null) {
   }, { readOnly: true, transitionSource });
 }
 
+function bindJournalInteractions() {
+  journalNavigation.bind(document.getElementById("page-journal"), {
+    onModeChange: () => renderJournal(),
+    onOpenPersonal: openJournalMedia,
+    onOpenCommunity: openCommunityMedia,
+    onHideEvent: hideJournalEvent,
+  });
+}
+
 
 
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   openEditModal:   (id, transitionSource = null) => { openDetailPanel(id, { transitionSource }); },
-  openJournalMedia,
-  openCommunityMedia,
   openMetadataFromElement,
   openMetadataMedia,
   closeMetadataPanel,
@@ -5923,11 +5824,6 @@ window.UI = {
   addUpcomingToWishlist,
   addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
   openUpcomingDetail,
-  setJournalMode,
-  jumpJournalMonth,
-  stepJournalMonth,
-  toggleJournalGroup,
-  hideJournalEvent,
   saveUsername,
   exportLibrary,
   setLibraryDensity,

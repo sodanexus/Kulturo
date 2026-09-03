@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v63";
+const STATIC_CACHE = "kulturo-static-v64";
 const IMAGE_CACHE = "kulturo-images-v3";
 const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
 const MAX_IMAGE_ENTRIES = 120;
@@ -82,6 +82,8 @@ self.addEventListener("fetch", e => {
 
   // JS, CSS, HTML → network-first (toujours à jour)
   if (
+    e.request.destination === "script" ||
+    e.request.destination === "style" ||
     url.pathname.endsWith(".js") ||
     url.pathname.endsWith(".css") ||
     url.pathname.endsWith(".html") ||

@@ -2,7 +2,7 @@
 // supabase.js — Client Supabase + toutes les opérations DB
 // ============================================================
 
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/+esm";
 
 let _client = null;
 

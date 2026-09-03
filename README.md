@@ -64,9 +64,21 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.1**
+**3.4.2**
 
-Cette version aligne **Mon journal** et **Communauté** sur une même grammaire visuelle. Les deux vues partagent désormais la navigation temporelle, le découpage par mois et par jour ainsi que la structure des cartes ; le pseudo reste la seule information propre à l’activité communautaire.
+Cette version inaugure le nettoyage technique progressif de Kulturo sans modifier son interface. Le démarrage ne reconstruit plus la bibliothèque lorsque Supabase confirme simplement le même contenu que le cache local déjà affiché.
+
+- comparaison stable entre l’instantané local et la réponse Supabase, indépendante de l’ordre des lignes et des propriétés JSON ;
+- rendu des cartes et de l’étagère **À reprendre** relancé uniquement lorsqu’une donnée a réellement changé ;
+- filtres et recherche restaurés avant le premier affichage de la bibliothèque ;
+- restauration finale de la navigation sans troisième rendu inutile de la page Bibliothèque ;
+- navigation temporelle, état des onglets et interactions du Journal extraits dans un module dédié ;
+- anciens gestionnaires `onclick` du Journal remplacés par une seule délégation d’événements ;
+- règles CSS Journal obsolètes retirées et styles communautaires regroupés avec le composant actif ;
+- client Supabase verrouillé sur une version exacte et scripts externes rangés dans le cache statique adapté ;
+- premiers tests techniques ajoutés pour protéger la comparaison cache/Supabase et l’état du Journal.
+
+La version conserve l’uniformisation de **Mon journal** et **Communauté** introduite en 3.4.1 : même navigation temporelle, même découpage par mois et par jour et même structure de carte.
 
 - contrôle **Tout l’historique** et navigation mensuelle disponibles dans les deux onglets ;
 - période choisie mémorisée séparément pendant le passage entre Mon journal et Communauté ;
@@ -136,6 +148,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.2** — premier nettoyage modulaire, dépendance Supabase stabilisée et suppression du bref double rendu de la bibliothèque au démarrage.
 - **3.4.1** — Mon journal et Communauté réunis autour de la même navigation temporelle, des mêmes sections mois/jour et du même modèle de carte.
 - **3.4.0** — fiches stabilisées sur iPad, ressources et caches bornés, traduction des jeux centralisée et fonction Groq rendue vérifiable.
 - **3.3.3** — ancien marqueur **Pour vous**, calcul d’affinité et styles associés entièrement retirés de Sorties.
