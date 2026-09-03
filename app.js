@@ -2640,12 +2640,32 @@ async function closeModal(force = false, options = {}) {
     if (!discard) return false;
   }
   const overlay = document.getElementById("modal-overlay");
+  const closingSessionId = _activeDetailSession?.id || 0;
   const cleanup = () => {
+    const root = document.getElementById("modal-root");
+    const currentOverlay = root?.querySelector("#modal-overlay") || null;
+    const stillOwnsRoot = !overlay || currentOverlay === overlay;
+    const stillOwnsSession = !closingSessionId || _activeDetailSession?.id === closingSessionId;
+    // Une nouvelle fiche peut avoir été ouverte pendant la fin de l'animation.
+    // L'ancien minuteur ne doit jamais démonter cette nouvelle fiche.
+    if (!stillOwnsRoot || !stillOwnsSession) {
+      overlay?.remove();
+      return;
+    }
     finishDetailCoverFlight();
     _activeDetailCoverTransition = null;
+    disposeDetailSession();
     document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
-    const root = document.getElementById("modal-root");
-    if (root) root.innerHTML = "";
+    if (root) {
+      // Safari libère plus sûrement les gros bitmaps lorsque leurs références
+      // sont retirées avant de démonter la fiche complète.
+      root.querySelectorAll("img").forEach(image => {
+        image.onload = null;
+        image.onerror = null;
+        image.removeAttribute("src");
+      });
+      root.innerHTML = "";
+    }
     _currentRating = 0;
     _wizardState = null;
     State.editingId = null;
@@ -2657,6 +2677,12 @@ async function closeModal(force = false, options = {}) {
   };
   if (!overlay) { cleanup(); return true; }
   if (overlay.classList.contains("is-closing")) return true;
+  // La jaquette peut finir son animation, mais les enrichissements de la
+  // fiche fermée n'ont plus aucune raison de continuer en arrière-plan.
+  if (_activeDetailSession) {
+    _activeDetailSession.closing = true;
+    _activeDetailSession.controller.abort();
+  }
   const coverTransitionDuration = options.skipCoverTransition ? 0 : startDetailCoverClose(overlay);
   overlay.classList.add("is-closing");
   setTimeout(cleanup, coverTransitionDuration || 180);
@@ -2825,11 +2851,6 @@ function bindGlobalEvents() {
     clearTimeout(prefetchTimer);
     if (prefetchTarget === target) prefetchTarget = null;
   });
-  document.addEventListener("pointerdown", event => {
-    const target = event.target.closest?.("[data-prefetch-media]");
-    if (target) prefetchDetail(target.dataset.prefetchMedia);
-  }, { passive: true });
-
   // Ripple effect sur les boutons
   document.addEventListener("click", e => {
     const btn = e.target.closest(".btn");
@@ -3652,12 +3673,12 @@ function canResolveMediaIdentity(entry) {
   );
 }
 
-async function repairMissingTMDbIdentity(entry) {
+async function repairMissingTMDbIdentity(entry, options = {}) {
   if (!canResolveMediaIdentity(entry)) return false;
   const expectedSubtype = entry.subtype === "tv" ? "tv" : "movie";
   const expectedTitle = normalizeTitle(entry.title);
   const expectedYear = Number(entry.release_year) || null;
-  const results = await TMDb.search(entry.title);
+  const results = await TMDb.search(entry.title, options);
   const exactMatches = results.filter(candidate =>
     normalizeTitle(candidate.title) === expectedTitle &&
     (candidate.subtype === "tv" ? "tv" : "movie") === expectedSubtype
@@ -3684,7 +3705,18 @@ async function repairMissingTMDbIdentity(entry) {
 }
 
 const DETAIL_PREFETCH_TTL = 15 * 60_000;
+const MAX_DETAIL_PREFETCH_ENTRIES = 12;
 const _detailPrefetchCache = new Map();
+
+function pruneDetailPrefetchCache() {
+  const now = Date.now();
+  for (const [key, cached] of _detailPrefetchCache) {
+    if (cached.expiresAt <= now) _detailPrefetchCache.delete(key);
+  }
+  while (_detailPrefetchCache.size > MAX_DETAIL_PREFETCH_ENTRIES) {
+    _detailPrefetchCache.delete(_detailPrefetchCache.keys().next().value);
+  }
+}
 
 function detailPrefetchKey(entry) {
   return `${entry.media_type}:${entry.subtype || ""}:${entry.source_api || ""}:${entry.external_id || normalizeTitle(entry.title)}`;
@@ -3694,25 +3726,43 @@ async function fetchMediaDetails(entry, options = {}) {
   if (entry.media_type === "movie" && entry.external_id) {
     return TMDbDetails.fetch(entry.external_id, entry.subtype || "movie", options);
   }
-  if (entry.media_type === "game" && entry.external_id) return IGDBDetails.fetch(entry.external_id);
-  if (entry.media_type === "book") return OpenLibraryDetails.fetch(entry.external_id, entry);
+  if (entry.media_type === "game" && entry.external_id) return IGDBDetails.fetch(entry.external_id, options);
+  if (entry.media_type === "book") return OpenLibraryDetails.fetch(entry.external_id, entry, options);
   return null;
 }
 
 function requestPrefetchedDetails(entry, options = {}) {
   if (!canEnrichMediaDetails(entry)) return Promise.resolve(null);
   const key = detailPrefetchKey(entry);
+  pruneDetailPrefetchCache();
   if (options.fresh) {
     _detailPrefetchCache.delete(key);
-    return fetchMediaDetails(entry, { fresh: true });
+    return fetchMediaDetails(entry, options);
   }
-  const cached = _detailPrefetchCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.promise;
-  const promise = fetchMediaDetails(entry).catch(error => {
+  let cached = _detailPrefetchCache.get(key);
+  if (cached?.signal?.aborted) {
     _detailPrefetchCache.delete(key);
+    cached = null;
+  }
+  if (cached && cached.expiresAt > Date.now()) {
+    _detailPrefetchCache.delete(key);
+    _detailPrefetchCache.set(key, cached);
+    return cached.promise;
+  }
+  let promise;
+  promise = fetchMediaDetails(entry, options).catch(error => {
+    if (_detailPrefetchCache.get(key)?.promise === promise) {
+      _detailPrefetchCache.delete(key);
+    }
     throw error;
   });
-  _detailPrefetchCache.set(key, { promise, expiresAt: Date.now() + DETAIL_PREFETCH_TTL });
+  _detailPrefetchCache.delete(key);
+  _detailPrefetchCache.set(key, {
+    promise,
+    signal: options.signal || null,
+    expiresAt: Date.now() + DETAIL_PREFETCH_TTL,
+  });
+  pruneDetailPrefetchCache();
   return promise;
 }
 
@@ -3745,11 +3795,14 @@ async function openUpcomingDetail(idx, transitionSource = null) {
   };
 
   const detailsLoading = !preview.description && canEnrichMediaDetails(preview);
-  renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading, transitionSource });
+  const detailSessionId = renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading, transitionSource });
   _scheduleSynopsisOverflowCheck(preview.id);
 
   try {
-    const details = await requestPrefetchedDetails(preview);
+    const details = await requestPrefetchedDetails(preview, {
+      signal: activeDetailSignal(detailSessionId),
+    });
+    if (!isDetailSessionActive(detailSessionId, preview.id)) return;
     if (!details) {
       refreshDetailEnrichment(preview, { detailsLoading: false });
       return;
@@ -3760,12 +3813,14 @@ async function openUpcomingDetail(idx, transitionSource = null) {
     });
     const body = document.getElementById(`detail-body-${preview.id}`);
     if (body) {
-      _injectBackdrop(preview.backdrop_url, preview.id);
+      _injectBackdrop(preview.backdrop_url, preview.id, detailSessionId);
       refreshDetailEnrichment(preview, { detailsLoading: false });
     }
   } catch (err) {
-    console.warn("[Detail upcoming] fetch error:", err);
-    refreshDetailEnrichment(preview, { detailsLoading: false });
+    if (err?.name !== "AbortError") console.warn("[Detail upcoming] fetch error:", err);
+    if (isDetailSessionActive(detailSessionId, preview.id)) {
+      refreshDetailEnrichment(preview, { detailsLoading: false });
+    }
   }
 }
 
@@ -3805,6 +3860,76 @@ function resetUpcomingFilters() {
 const DETAIL_COVER_TRANSITION_MS = 340;
 let _activeDetailCoverTransition = null;
 let _detailCoverFlight = null;
+let _detailSessionSequence = 0;
+let _activeDetailSession = null;
+
+function disposeDetailSession() {
+  const session = _activeDetailSession;
+  if (!session) return;
+  session.disposed = true;
+  session.controller.abort();
+  session.timers.forEach(timer => clearTimeout(timer));
+  session.timers.clear();
+  session.images.forEach(image => {
+    image.onload = null;
+    image.onerror = null;
+    image.removeAttribute("src");
+  });
+  session.images.clear();
+  document.querySelectorAll("#modal-root .detail-info-slot").forEach(slot => {
+    clearTimeout(slot._detailInfoTimer);
+    slot._detailInfoTimer = 0;
+  });
+  document.querySelectorAll("#modal-root .detail-backdrop-layer").forEach(layer => {
+    layer.style.backgroundImage = "none";
+  });
+  _activeDetailSession = null;
+}
+
+function beginDetailSession(entryId) {
+  disposeDetailSession();
+  const session = {
+    id: ++_detailSessionSequence,
+    entryId: String(entryId || ""),
+    timers: new Set(),
+    images: new Set(),
+    controller: new AbortController(),
+    disposed: false,
+  };
+  _activeDetailSession = session;
+  return session.id;
+}
+
+function isDetailSessionActive(sessionId, entryId = null) {
+  return Boolean(
+    _activeDetailSession &&
+    !_activeDetailSession.disposed &&
+    !_activeDetailSession.closing &&
+    _activeDetailSession.id === sessionId &&
+    (entryId == null || _activeDetailSession.entryId === String(entryId))
+  );
+}
+
+function activeDetailSessionId(entryId = null) {
+  if (!_activeDetailSession || _activeDetailSession.disposed || _activeDetailSession.closing) return 0;
+  if (entryId != null && _activeDetailSession.entryId !== String(entryId)) return 0;
+  return _activeDetailSession.id;
+}
+
+function activeDetailSignal(sessionId) {
+  return isDetailSessionActive(sessionId) ? _activeDetailSession.controller.signal : null;
+}
+
+function scheduleDetailTimer(callback, delay, sessionId = activeDetailSessionId()) {
+  const session = _activeDetailSession;
+  if (!session || session.id !== sessionId || session.disposed) return 0;
+  const timer = setTimeout(() => {
+    session.timers.delete(timer);
+    if (isDetailSessionActive(sessionId)) callback();
+  }, delay);
+  session.timers.add(timer);
+  return timer;
+}
 
 function transitionCoverImage(source) {
   if (!source) return null;
@@ -4016,6 +4141,7 @@ function renderDetailPanel(e, options = {}) {
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
+  const detailSessionId = beginDetailSession(e.id);
   root.innerHTML = `
     <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
@@ -4072,7 +4198,9 @@ function renderDetailPanel(e, options = {}) {
     const cssCoverUrl = coverUrl.replace(/["\\\n\r]/g, "");
     backdropEl.style.setProperty("--fallback-img", `url("${cssCoverUrl}")`);
   }
-  if (backdropUrl) requestAnimationFrame(() => _injectBackdrop(backdropUrl, e.id));
+  if (backdropUrl) requestAnimationFrame(() => {
+    if (isDetailSessionActive(detailSessionId, e.id)) _injectBackdrop(backdropUrl, e.id, detailSessionId);
+  });
   setupMobileSheetSwipe({
     overlay: root.querySelector("#modal-overlay"),
     sheet: root.querySelector(".detail-modal"),
@@ -4081,11 +4209,13 @@ function renderDetailPanel(e, options = {}) {
   });
   if (transitionOrigin) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!isDetailSessionActive(detailSessionId, e.id)) return;
       const overlay = root.querySelector("#modal-overlay");
       const target = overlay?.querySelector(".detail-poster");
       startDetailCoverOpen(transitionOrigin, target, overlay);
     }));
   }
+  return detailSessionId;
 }
 
 function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dismiss, shouldResetBeforeDismiss = () => false }) {
@@ -4486,6 +4616,8 @@ function renderDetailBody(e, options = {}) {
 }
 
 function replaceDetailSynopsis(entry, options = {}) {
+  const sessionId = activeDetailSessionId(entry.id);
+  if (!sessionId) return;
   const slot = document.getElementById(`detail-synopsis-slot-${entry.id}`);
   if (!slot) return;
   const nextHTML = renderDetailSynopsisHTML(entry, options);
@@ -4500,11 +4632,11 @@ function replaceDetailSynopsis(entry, options = {}) {
   if (!nextHTML) {
     if (!previous) return;
     previous.classList.add("detail-synopsis-leaving");
-    setTimeout(() => {
+    scheduleDetailTimer(() => {
       if (!slot.isConnected) return;
       slot.replaceChildren();
       slot.classList.remove("is-transitioning");
-    }, 180);
+    }, 180, sessionId);
     return;
   }
 
@@ -4520,20 +4652,22 @@ function replaceDetailSynopsis(entry, options = {}) {
     previous.classList.add("detail-synopsis-leaving");
     next.classList.add("detail-synopsis-arriving");
     slot.append(next);
-    setTimeout(() => {
+    scheduleDetailTimer(() => {
       if (!slot.isConnected) return;
       previous.remove();
       next.classList.remove("detail-synopsis-arriving");
       slot.classList.remove("is-transitioning");
-    }, 270);
+    }, 270, sessionId);
   } else {
     next.classList.add("detail-synopsis-arriving");
     slot.replaceChildren(next);
-    setTimeout(() => next.classList.remove("detail-synopsis-arriving"), 270);
+    scheduleDetailTimer(() => next.classList.remove("detail-synopsis-arriving"), 270, sessionId);
   }
 }
 
 function replaceDetailInfo(entry, options = {}) {
+  const sessionId = activeDetailSessionId(entry.id);
+  if (!sessionId) return;
   const slot = document.getElementById(`detail-info-slot-${entry.id}`);
   if (!slot) return;
   const body = slot.closest(".detail-body");
@@ -4558,23 +4692,25 @@ function replaceDetailInfo(entry, options = {}) {
     if (!slot.isConnected) return;
     slot.style.height = `${measuredNextHeight || nextHeight}px`;
   });
-  slot._detailInfoTimer = setTimeout(() => {
+  slot._detailInfoTimer = scheduleDetailTimer(() => {
     if (!slot.isConnected) return;
     current?.remove();
     next.classList.remove("detail-info-arriving");
     slot.style.height = "";
     slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-  }, 330);
+  }, 330, sessionId);
 
   if (body) body.scrollTop = previousScroll;
 }
 
 function refreshDetailEnrichment(entry, options = {}) {
+  const sessionId = activeDetailSessionId(entry.id);
+  if (!sessionId) return;
   replaceDetailSynopsis(entry, options);
   replaceDetailInfo(entry, options);
   if (entry.description) {
     // Le texte se pose d'abord ; le contrôle arrive ensuite sans clignoter.
-    setTimeout(() => _scheduleSynopsisOverflowCheck(entry.id), 90);
+    scheduleDetailTimer(() => _scheduleSynopsisOverflowCheck(entry.id), 90, sessionId);
   }
 }
 
@@ -4792,8 +4928,8 @@ function scrollExpandedSynopsisIntoView(wrap) {
   }));
 }
 
-function _injectBackdrop(backdrop, entryId) {
-  if (!backdrop) return;
+function _injectBackdrop(backdrop, entryId, sessionId = activeDetailSessionId(entryId)) {
+  if (!backdrop || !isDetailSessionActive(sessionId, entryId)) return;
   const detailBody = document.getElementById(`detail-body-${entryId}`);
   const detailModal = detailBody?.closest(".detail-modal");
   const bdEl = detailModal?.querySelector(".detail-backdrop");
@@ -4803,17 +4939,32 @@ function _injectBackdrop(backdrop, entryId) {
   // Evite de doubler la couche si déjà présente
   if (bdEl.querySelector(".detail-backdrop-layer")) return;
   const img = new Image();
+  const session = _activeDetailSession;
+  session?.images.add(img);
+  const releaseLoader = () => {
+    img.onload = null;
+    img.onerror = null;
+    session?.images.delete(img);
+  };
   img.onload = () => {
-    if (!document.getElementById(`detail-body-${entryId}`) || !bdEl.isConnected || bdEl.querySelector(".detail-backdrop-layer")) return;
+    if (!isDetailSessionActive(sessionId, entryId) || !bdEl.isConnected || bdEl.querySelector(".detail-backdrop-layer")) {
+      releaseLoader();
+      return;
+    }
     const layer = document.createElement("div");
     layer.className = "detail-backdrop-layer";
     layer.style.backgroundImage = `url(${JSON.stringify(backdrop)})`;
     layer.style.opacity = "0";
     bdEl.insertBefore(layer, bdEl.firstChild);
     bdEl.style.backgroundImage = "none"; // retire la cover inline une fois le banner chargé
-    requestAnimationFrame(() => requestAnimationFrame(() => { layer.style.opacity = "1"; }));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (isDetailSessionActive(sessionId, entryId) && layer.isConnected) layer.style.opacity = "1";
+    }));
     bdEl.classList.add("has-backdrop");
+    releaseLoader();
   };
+  img.onerror = releaseLoader;
+  img.decoding = "async";
   img.src = backdrop;
 }
 
@@ -4823,18 +4974,19 @@ async function openDetailPanel(id, options = {}) {
 
   // Affichage immédiat avec ce qu'on a déjà en base
   const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
-  renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null });
+  const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null });
+  const detailSignal = activeDetailSignal(detailSessionId);
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
   // l'arrivée des bannières. Elle bénéficie d'une unique vérification fraîche.
   const needsBackdropRepair = e.media_type === "movie" && !e.backdrop_url && !e._backdropRepairAttempted;
   if (e._detailsFetched && !needsBackdropRepair) {
-    _injectBackdrop(e.backdrop_url, e.id);
+    _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
     return;
   }
-  if (e._detailsFetching) return;
   e._detailsFetching = true;
+  e._detailsFetchingSession = detailSessionId;
 
   try {
     // Les anciens ajouts manuels n'avaient parfois pas d'identifiant TMDb.
@@ -4842,10 +4994,11 @@ async function openDetailPanel(id, options = {}) {
     // réparer Fight Club et les fiches équivalentes sans associer une œuvre au hasard.
     if (canResolveMediaIdentity(e)) {
       try {
-        await repairMissingTMDbIdentity(e);
+        await repairMissingTMDbIdentity(e, { signal: detailSignal });
       } catch (error) {
-        console.warn("[Detail] identity repair error:", error);
+        if (error?.name !== "AbortError") console.warn("[Detail] identity repair error:", error);
       }
+      if (!isDetailSessionActive(detailSessionId, e.id)) return;
     }
 
     // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on
@@ -4857,23 +5010,33 @@ async function openDetailPanel(id, options = {}) {
         delete e._detailsPending;
         e._detailsFetched = true;
         cacheEntriesLocally();
-        _injectBackdrop(e.backdrop_url, e.id);
       } catch (error) {
         console.warn("[Detail] persistence retry error:", error);
-        toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
+        if (isDetailSessionActive(detailSessionId, e.id)) {
+          toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
+        }
       }
-      if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
+      if (isDetailSessionActive(detailSessionId, e.id)) {
+        _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
+        if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
+      }
       return;
     }
 
     if (!canEnrichMediaDetails(e)) {
-      refreshDetailEnrichment(e, { detailsLoading: false });
+      if (isDetailSessionActive(detailSessionId, e.id)) {
+        refreshDetailEnrichment(e, { detailsLoading: false });
+      }
       return;
     }
 
     const refreshBackdrop = e.media_type === "movie" && !e.backdrop_url;
     if (refreshBackdrop) e._backdropRepairAttempted = true;
-    const details = await requestPrefetchedDetails(e, { fresh: refreshBackdrop });
+    const details = await requestPrefetchedDetails(e, {
+      fresh: refreshBackdrop,
+      signal: detailSignal,
+    });
+    if (!isDetailSessionActive(detailSessionId, e.id)) return;
 
     if (!details) {
       refreshDetailEnrichment(e, { detailsLoading: false });
@@ -4903,13 +5066,15 @@ async function openDetailPanel(id, options = {}) {
         persisted = false;
         e._detailsPending = { ...toSave };
         console.warn("[Detail] persistence error:", error);
-        toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
+        if (isDetailSessionActive(detailSessionId, e.id)) {
+          toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
+        }
       }
     }
     e._detailsFetched = persisted;
 
     // Injecter le backdrop en fondu
-    _injectBackdrop(e.backdrop_url, e.id);
+    _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
 
     // Seuls les emplacements enrichis changent : les actions et le scroll
     // restent montés pendant l'arrivée progressive du synopsis.
@@ -4919,10 +5084,15 @@ async function openDetailPanel(id, options = {}) {
     }
 
   } catch(err) {
-    console.warn("[Detail] fetch error:", err);
-    refreshDetailEnrichment(e, { detailsLoading: false });
+    if (err?.name !== "AbortError") console.warn("[Detail] fetch error:", err);
+    if (isDetailSessionActive(detailSessionId, e.id)) {
+      refreshDetailEnrichment(e, { detailsLoading: false });
+    }
   } finally {
-    e._detailsFetching = false;
+    if (e._detailsFetchingSession === detailSessionId) {
+      e._detailsFetching = false;
+      delete e._detailsFetchingSession;
+    }
   }
 }
 

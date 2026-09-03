@@ -11,6 +11,25 @@ export const API_CACHE_TTL = Object.freeze({
 
 const responseCache = new Map();
 const pendingRequests = new Map();
+const MAX_RESPONSE_CACHE_ENTRIES = 48;
+
+function pruneResponseCache() {
+  const now = Date.now();
+  for (const [key, value] of responseCache) {
+    if (value.expiresAt <= now) responseCache.delete(key);
+  }
+  while (responseCache.size > MAX_RESPONSE_CACHE_ENTRIES) {
+    responseCache.delete(responseCache.keys().next().value);
+  }
+}
+
+function rememberResponse(key, value, cacheTtlMs) {
+  // Réinsérer la clé la place en fin de Map : l'éviction conserve ainsi les
+  // réponses récemment consultées au lieu de retenir indéfiniment les anciennes.
+  responseCache.delete(key);
+  responseCache.set(key, { value, expiresAt: Date.now() + cacheTtlMs });
+  pruneResponseCache();
+}
 
 function abortError(message = "Requête annulée") {
   if (typeof DOMException === "function") return new DOMException(message, "AbortError");
@@ -31,6 +50,8 @@ function cachedValue(key) {
     responseCache.delete(key);
     return undefined;
   }
+  responseCache.delete(key);
+  responseCache.set(key, cached);
   return cached.value;
 }
 
@@ -44,11 +65,16 @@ function wait(ms, signal) {
       reject(abortError());
       return;
     }
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
+    const finish = () => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const onAbort = () => {
       clearTimeout(timer);
       reject(abortError());
-    }, { once: true });
+    };
+    const timer = setTimeout(finish, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -83,7 +109,7 @@ async function performRequest(url, options, key) {
       }
       const value = await response.json();
       if (cacheTtlMs > 0) {
-        responseCache.set(key, { value, expiresAt: Date.now() + cacheTtlMs });
+        rememberResponse(key, value, cacheTtlMs);
       }
       return value;
     } catch (error) {
@@ -153,8 +179,6 @@ export function clearApiCache(predicate = null) {
 }
 
 export function apiCacheStats() {
-  const now = Date.now();
-  let valid = 0;
-  for (const value of responseCache.values()) if (value.expiresAt > now) valid++;
-  return { cached: valid, pending: pendingRequests.size };
+  pruneResponseCache();
+  return { cached: responseCache.size, pending: pendingRequests.size, limit: MAX_RESPONSE_CACHE_ENTRIES };
 }

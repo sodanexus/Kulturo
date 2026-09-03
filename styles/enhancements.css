@@ -180,6 +180,29 @@ body { background-color: var(--system-bar-color); }
 .modal-overlay.has-cover-transition .detail-modal {
   animation: detailSharedShellIn 340ms var(--ease-interface) both;
 }
+
+/* La fiche réserve sa géométrie finale avant le départ de la jaquette.
+   Les enrichissements grandissent dans le corps défilable sans déplacer le
+   panneau centré, ce qui stabilise la destination sur iPad et desktop. */
+.detail-modal {
+  height: min(760px, calc(100dvh - 2rem - var(--safe-top) - var(--safe-bottom)));
+  max-height: min(760px, calc(100dvh - 2rem - var(--safe-top) - var(--safe-bottom)));
+  contain: layout paint;
+}
+.detail-modal .detail-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 680px) {
+  .detail-modal {
+    height: min(760px, calc(92dvh - var(--safe-top)));
+    max-height: min(760px, calc(92dvh - var(--safe-top)));
+  }
+}
+
 @keyframes detailSharedShellIn {
   /* La jaquette porte déjà le mouvement. Garder la géométrie de la fiche
      fixe garantit que sa destination ne se déplace pas pendant la course. */

@@ -64,9 +64,20 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.3.3**
+**3.4.0**
 
-Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. La 3.3.3 simplifie encore Sorties et retire entièrement l’ancien système de recommandations.
+Cette version consolide Kulturo sur iPad et fiabilise l’enrichissement des fiches, sans modifier les choix visuels validés. La transition jaquette → fiche conserve maintenant une destination stable pendant l’arrivée du synopsis et des métadonnées ; les ressources d’une fiche fermée sont libérées immédiatement.
+
+- fiche détaillée maintenue à sa géométrie finale pendant le chargement, avec enrichissement limité au corps défilable ;
+- appels TMDb, IGDB, Open Library, Google Books et Groq annulés dès la fermeture ou le remplacement d’une fiche ;
+- caches de réponses et de préchargement bornés pour éviter leur croissance après de nombreuses ouvertures successives ;
+- préchargement réservé au véritable survol avec une souris, sans requête anticipée au toucher ;
+- chargements d’images, minuteries et anciennes mises à jour de fiche nettoyés lors de la fermeture ;
+- traduction IGDB simplifiée autour d’un seul passage par `groq-proxy`, partagé avec les livres ;
+- fonction Groq mise à jour vers `openai/gpt-oss-20b`, avec une route de diagnostic et des erreurs exploitables dans les journaux Supabase ;
+- première passe de nettoyage technique centrée sur le cycle de vie des fiches et la couche réseau commune.
+
+La version conserve le parcours unifié introduit en 3.3 : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme un ensemble continu.
 
 - **Mes sorties attendues** reprend le panneau repliable, les dimensions et la rangée horizontale de **À reprendre** ;
 - la découverte des sorties adopte la grille, les proportions, les densités et le survol de la Bibliothèque ;
@@ -117,6 +128,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.0** — fiches stabilisées sur iPad, ressources et caches bornés, traduction des jeux centralisée et fonction Groq rendue vérifiable.
 - **3.3.3** — ancien marqueur **Pour vous**, calcul d’affinité et styles associés entièrement retirés de Sorties.
 - **3.3.2** — Sorties aligné sur les modèles Bibliothèque/À reprendre et charte commune appliquée aux boutons et sélecteurs de l’application.
 - **3.3.1** — arrivée de la jaquette stabilisée : destination immobile et passage instantané vers l’image réelle, sans sursaut ni image vide sur iOS.
@@ -137,6 +149,16 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 - **3.2.5** — en-tête mobile simplifié autour de la recherche.
 - **3.2.4** — typographie harmonisée entre le bureau et le mobile.
 - **3.2.3** — accents de couleur dérivés des jaquettes et finitions générales de l’interface.
+
+## Déployer les fonctions Supabase
+
+GitHub Pages publie l’interface, mais ne redéploie pas automatiquement les fonctions Edge. Après la mise à jour du dépôt :
+
+1. dans **Supabase → Edge Functions → `groq-proxy`**, remplacer le fichier `index.ts` par celui du dépôt puis déployer ;
+2. faire de même pour **`igdb-proxy`** afin que la traduction ne soit plus exécutée à deux endroits ;
+3. appeler `groq-proxy` avec `{ "action": "health" }` : la réponse doit indiquer la version `3.4.0`, le modèle actif et `configured: true`.
+
+Les secrets existants `GROQ_API_KEY`, `IGDB_CLIENT_ID` et `IGDB_CLIENT_SECRET` restent configurés uniquement dans Supabase. Aucune modification SQL n’est nécessaire pour cette version.
 
 ## La direction
 

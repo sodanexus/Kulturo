@@ -1,3 +1,6 @@
+const FUNCTION_VERSION = "3.4.0";
+const TRANSLATION_MODEL = "openai/gpt-oss-20b";
+
 const CORS = {
   "Access-Control-Allow-Origin": "https://sodanexus.github.io",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -22,13 +25,22 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const groqKey = Deno.env.get("GROQ_API_KEY") || "";
+
+    if (body?.action === "health") {
+      return jsonResponse({
+        ok: true,
+        version: FUNCTION_VERSION,
+        model: TRANSLATION_MODEL,
+        configured: Boolean(groqKey),
+      });
+    }
 
     if (!text) return jsonResponse({ error: "Texte requis" }, 400);
     if (text.length > 6000) {
       return jsonResponse({ error: "Texte trop long" }, 400);
     }
 
-    const groqKey = Deno.env.get("GROQ_API_KEY") || "";
     if (!groqKey) {
       return jsonResponse({ error: "Configuration Groq absente" }, 503);
     }
@@ -40,9 +52,10 @@ Deno.serve(async (req) => {
         "Authorization": `Bearer ${groqKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: TRANSLATION_MODEL,
         temperature: 0.2,
-        max_tokens: 1200,
+        max_completion_tokens: 1600,
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",
@@ -54,6 +67,8 @@ Deno.serve(async (req) => {
     });
 
     if (!response.ok) {
+      const detail = (await response.text()).slice(0, 500);
+      console.error(`[groq-proxy ${FUNCTION_VERSION}] HTTP ${response.status}: ${detail}`);
       return jsonResponse({ error: `Groq HTTP ${response.status}` }, 502);
     }
 
@@ -63,8 +78,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Réponse Groq invalide" }, 502);
     }
 
-    return jsonResponse({ translation });
-  } catch {
+    return jsonResponse({ translation, model: TRANSLATION_MODEL, version: FUNCTION_VERSION });
+  } catch (error) {
+    console.error(`[groq-proxy ${FUNCTION_VERSION}]`, error);
     return jsonResponse({ error: "Requête invalide" }, 400);
   }
 });

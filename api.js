@@ -378,7 +378,7 @@ export const OpenLibrary = {
 // BnF pour cette installation personnelle. Rien n'est stocké en base. Google
 // Books reste uniquement utilisé pour enrichir une fiche ouverte lorsqu'un
 // résumé est disponible.
-async function googleBooksProxy(payload, timeoutMs = 20000) {
+async function googleBooksProxy(payload, timeoutMs = 20000, options = {}) {
   const functionName = CONFIG?.googleBooks?.proxyFunction || "google-books-proxy";
   const proxyUrl = `${CONFIG.supabase.url}/functions/v1/${functionName}`;
   const data = await apiFetch(proxyUrl, {
@@ -387,6 +387,7 @@ async function googleBooksProxy(payload, timeoutMs = 20000) {
     body: JSON.stringify(payload),
     timeoutMs,
     cachePolicy: payload?.action === "upcoming" ? "upcoming" : "detail",
+    signal: options.signal,
   });
   if (data?.error) throw new Error(data.error);
   return Array.isArray(data?.items) ? data.items : [];
@@ -444,8 +445,8 @@ export const TMDbDetails = {
     const ep   = subtype === "tv" ? "tv" : "movie";
     const lang = "language=fr-FR";
     const detailRequest = options.fresh
-      ? { cachePolicy: "detail", cacheTtlMs: 0 }
-      : { cachePolicy: "detail" };
+      ? { cachePolicy: "detail", cacheTtlMs: 0, signal: options.signal }
+      : { cachePolicy: "detail", signal: options.signal };
 
     const [main, credits, providers] = await Promise.allSettled([
       apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, detailRequest),
@@ -456,6 +457,12 @@ export const TMDbDetails = {
     const d = main.status === "fulfilled" ? main.value : null;
     const c = credits.status === "fulfilled" ? credits.value : null;
     const p = providers.status === "fulfilled" ? providers.value : null;
+
+    if (options.signal?.aborted) {
+      const error = new Error("Requête annulée");
+      error.name = "AbortError";
+      throw error;
+    }
 
     if (!d) return null;
 
@@ -474,6 +481,11 @@ export const TMDbDetails = {
     const castExternalIds = await Promise.allSettled(topCast.map(person =>
       apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`, detailRequest)
     ));
+    if (options.signal?.aborted) {
+      const error = new Error("Requête annulée");
+      error.name = "AbortError";
+      throw error;
+    }
     const cast_people = topCast.map((person, index) => ({
       id: person.id,
       name: person.name,
@@ -514,7 +526,7 @@ export const TMDbDetails = {
 };
 
 export const IGDBDetails = {
-  async fetch(externalId) {
+  async fetch(externalId, options = {}) {
     if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
     const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
     const data = await apiFetch(proxyUrl, {
@@ -523,6 +535,7 @@ export const IGDBDetails = {
       body: JSON.stringify({ id: Number(externalId) }),
       cachePolicy: "detail",
       timeoutMs: 12_000,
+      signal: options.signal,
     });
     const g = Array.isArray(data) ? data[0] : data;
     if (!g) return null;
@@ -530,15 +543,15 @@ export const IGDBDetails = {
     const developer  = g.involved_companies?.find(c => c.developer)?.company?.name || null;
     const publisher  = g.involved_companies?.find(c => c.publisher)?.company?.name || null;
     const platform   = g.platforms?.map(x => x.name).join(", ") || null;
-    // Le proxy IGDB traduit normalement déjà le résumé. Ce second passage
-    // couvre une ancienne version du proxy encore déployée ou un texte resté anglais.
-    const description = g.summary ? await translateViaProxy(g.summary) : null;
+    // Une seule route traduit les textes externes : groq-proxy est partagée
+    // avec les livres et reste indépendante du catalogue IGDB.
+    const description = g.summary ? await translateViaProxy(g.summary, options) : null;
 
     return { developer, publisher, platform, description };
   },
 };
 
-async function translateViaProxy(text) {
+async function translateViaProxy(text, options = {}) {
   if (!text || !CONFIG?.supabase?.url) return text;
   // Détection légère : suffisamment stricte pour ne pas conserver par erreur
   // un résumé IGDB anglais, mais évite une requête si le texte est déjà français.
@@ -555,19 +568,27 @@ async function translateViaProxy(text) {
       body: JSON.stringify({ text }),
       cachePolicy: "translation",
       timeoutMs: 15_000,
+      signal: options.signal,
     });
     return data.translation?.trim() || text;
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
+    console.warn("[Traduction] groq-proxy indisponible, texte original conservé :", error);
     return text;
   }
 }
 
 export const OpenLibraryDetails = {
-  async fetch(externalId, fallback = {}) {
+  async fetch(externalId, fallback = {}, options = {}) {
     const [workResult, editionsResult] = await Promise.allSettled([
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`, { cachePolicy: "detail" }) : Promise.resolve(null),
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`, { cachePolicy: "detail" }) : Promise.resolve({ entries: [] }),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve(null),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve({ entries: [] }),
     ]);
+    if (options.signal?.aborted) {
+      const error = new Error("Requête annulée");
+      error.name = "AbortError";
+      throw error;
+    }
     const work = workResult.status === "fulfilled" ? workResult.value : null;
     const editions = editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
     const descriptionValue = value => typeof value === "string" ? value : value?.value || null;
@@ -590,7 +611,7 @@ export const OpenLibraryDetails = {
         title: fallback.title,
         author: fallback.author,
         isbn,
-      });
+      }, options);
       rawDescription = google?.description || null;
       page_count ||= google?.page_count || null;
       isbn ||= google?.isbn || null;
@@ -599,7 +620,7 @@ export const OpenLibraryDetails = {
 
     if (!work && !editions.length && !rawDescription) return null;
     const cleanDescription = plainBookDescription(rawDescription);
-    const description = cleanDescription ? await translateViaProxy(cleanDescription) : null;
+    const description = cleanDescription ? await translateViaProxy(cleanDescription, options) : null;
     return { description, page_count, isbn, publisher };
   },
 };
@@ -620,11 +641,11 @@ function plainBookDescription(value) {
   return element.value.replace(/\s+/g, " ").trim() || null;
 }
 
-async function fetchGoogleBookDetails({ title, author, isbn }) {
+async function fetchGoogleBookDetails({ title, author, isbn }, options = {}) {
   if (!title && !isbn) return null;
 
   try {
-    const items = await googleBooksProxy({ action: "details", title, author, isbn });
+    const items = await googleBooksProxy({ action: "details", title, author, isbn }, 20_000, options);
     const expectedTitle = normalizeBookText(title);
     const expectedAuthor = normalizeBookText(author);
     const candidates = items
@@ -652,7 +673,8 @@ async function fetchGoogleBookDetails({ title, author, isbn }) {
         || identifiers.find(item => item.type === "ISBN_10")?.identifier
         || null,
     };
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw error;
     return null;
   }
 }
