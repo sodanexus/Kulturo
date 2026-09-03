@@ -1,5 +1,5 @@
 // ============================================================
-// Tendances personnelles — Journal, Profil et recommandations
+// Tendances personnelles — Journal et Profil
 // ============================================================
 
 import { eventsForPeriod, isCompletionEvent, isProfileTopEvent, yearMonthOf } from "../domain.js";
@@ -16,84 +16,6 @@ export function normalizeInsightValue(value) {
 export function splitInsightValues(value) {
   if (Array.isArray(value)) return [...new Set(value.map(item => String(item || "").trim()).filter(Boolean))];
   return [...new Set(String(value || "").split(/[,;|/]+/).map(item => item.trim()).filter(Boolean))];
-}
-
-function entryWeight(entry) {
-  const rating = Number(entry?.rating || 0);
-  return 1
-    + (entry?.status === "finished" ? 1 : 0)
-    + (rating >= 7 ? 2 : 0)
-    + (rating >= 9 ? 2 : 0)
-    + (entry?.is_favorite ? 4 : 0);
-}
-
-function addAffinity(target, kind, label, weight) {
-  const key = normalizeInsightValue(label);
-  if (!key || key.length < 2) return;
-  const mapKey = `${kind}:${key}`;
-  const current = target.get(mapKey) || { kind, key, label: String(label).trim(), count: 0, weight: 0 };
-  current.count++;
-  current.weight += weight;
-  target.set(mapKey, current);
-}
-
-export function buildLibraryAffinity(entries) {
-  const affinity = new Map();
-  for (const entry of entries || []) {
-    const weight = entryWeight(entry);
-    splitInsightValues(entry.genre).forEach(value => addAffinity(affinity, "genre", value, weight));
-    if (entry.media_type === "book") {
-      splitInsightValues(entry.author).forEach(value => addAffinity(affinity, "author", value, weight));
-    } else if (entry.media_type === "game") {
-      splitInsightValues(entry.developer || entry.author).forEach(value => addAffinity(affinity, "studio", value, weight));
-    } else {
-      splitInsightValues(entry.directors || entry.author).forEach(value => addAffinity(affinity, "director", value, weight));
-    }
-    splitInsightValues(entry.developer).forEach(value => addAffinity(affinity, "studio", value, weight));
-    splitInsightValues(entry.publisher).forEach(value => addAffinity(affinity, entry.media_type === "book" ? "publisher" : "studio", value, weight));
-    splitInsightValues(entry.studio || entry.production_companies).forEach(value => addAffinity(affinity, "studio", value, weight));
-  }
-  return affinity;
-}
-
-const REASON_LABELS = {
-  genre: "le genre",
-  director: "la réalisation de",
-  author: "les œuvres de",
-  studio: "le studio",
-  publisher: "la maison",
-};
-
-export function recommendationForUpcoming(item, affinity) {
-  if (!item || !(affinity instanceof Map)) return null;
-  const candidates = [];
-  const add = (kind, value) => splitInsightValues(value).forEach(label => {
-    const match = affinity.get(`${kind}:${normalizeInsightValue(label)}`);
-    if (!match) return;
-    const strong = kind === "genre"
-      ? match.count >= 2 && match.weight >= 6
-      : match.weight >= 4;
-    if (strong) candidates.push({ ...match, itemLabel: label });
-  });
-  add("genre", item.genres || item.genre);
-  add("director", item.directors || item.director);
-  if (item.media_type === "game" || item.upcoming_type === "game") {
-    add("studio", item.studio || item.developer || item.author || item.production_companies);
-  } else {
-    add("author", item.author);
-    add("studio", item.studio || item.developer || item.production_companies);
-  }
-  add("publisher", item.publisher);
-
-  const best = candidates.sort((a, b) => b.weight - a.weight || b.count - a.count)[0];
-  if (!best) return null;
-  return {
-    label: "Pour vous",
-    reason: `${REASON_LABELS[best.kind] || "vos goûts pour"} ${best.itemLabel}`,
-    kind: best.kind,
-    value: best.itemLabel,
-    score: best.weight,
-  };
 }
 
 export function exploredGenres(entries, limit = 6) {
