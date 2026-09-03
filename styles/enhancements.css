@@ -420,20 +420,6 @@ body { background-color: var(--system-bar-color); }
   background: color-mix(in srgb, var(--accent) 20%, rgba(12,13,17,.84));
   color: var(--accent-2);
 }
-.upcoming-for-you-compact {
-  right: auto;
-  bottom: .5rem;
-  left: .5rem;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: var(--control-radius-inner);
-  font-size: var(--type-control);
-  line-height: 1;
-}
-
 @media (min-width: 681px) and (max-width: 900px) {
   .upcoming-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
@@ -454,7 +440,6 @@ body { background-color: var(--system-bar-color); }
     padding: 0;
   }
   .upcoming-wishlist-mark { right: .4rem; bottom: .4rem; width: 30px; height: 30px; }
-  .upcoming-for-you-compact { bottom: .4rem; left: .4rem; width: 26px; height: 26px; }
   .release-countdown { top: .4rem; right: .4rem; }
   html[data-library-density="compact"] .upcoming-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -464,7 +449,6 @@ body { background-color: var(--system-bar-color); }
     width: 26px;
     height: 26px;
   }
-  html[data-library-density="compact"] .upcoming-for-you-compact { width: 24px; height: 24px; }
 }
 
 /* Jaquettes : une interaction commune pour la bibliothèque, À reprendre,
@@ -837,24 +821,6 @@ body { background-color: var(--system-bar-color); }
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
   }
-}
-
-/* Sorties personnalisées ------------------------------------- */
-.upcoming-for-you {
-  position: absolute;
-  right: .55rem;
-  bottom: .55rem;
-  z-index: 3;
-  padding: .24rem .46rem;
-  border: 1px solid color-mix(in srgb, var(--brand-coral) 48%, transparent);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--brand-coral) 9%, var(--bg-2));
-  color: var(--brand-coral);
-  -webkit-backdrop-filter: blur(9px);
-  backdrop-filter: blur(9px);
-  font-size: var(--type-micro);
-  font-weight: 800;
-  box-shadow: 0 5px 16px rgba(0,0,0,.2);
 }
 
 /* Profil : habitudes et revisionnages ------------------------ */
