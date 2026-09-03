@@ -12,11 +12,126 @@
   --ease-enter: cubic-bezier(0,0,.2,1);
   --ease-exit: cubic-bezier(.4,0,1,1);
   --system-bar-color: var(--bg);
+  /* Charte des contrôles : deux tailles, deux rayons et un rythme commun. */
+  --control-height: 40px;
+  --control-height-sm: 36px;
+  --control-radius: 12px;
+  --control-radius-inner: 9px;
+  --control-padding-inline: .85rem;
+  --control-gap: .4rem;
 }
 
 html,
 body { background-color: var(--system-bar-color); }
 #app { background: var(--bg); }
+
+/* Charte commune des boutons ---------------------------------- */
+.btn {
+  min-height: var(--control-height);
+  padding-inline: var(--control-padding-inline);
+  border-radius: var(--control-radius);
+  gap: var(--control-gap);
+  font-size: var(--type-control);
+  font-weight: 700;
+}
+.btn-sm {
+  min-height: var(--control-height-sm);
+  padding: .4rem .72rem;
+  border-radius: var(--control-radius-inner);
+  font-size: var(--type-control);
+}
+.btn-icon,
+.topbar-filter-btn {
+  width: var(--control-height);
+  min-width: var(--control-height);
+  height: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0;
+  border-radius: var(--control-radius);
+}
+.filter-chip,
+.category-tab {
+  min-height: var(--control-height-sm);
+  padding: .4rem .78rem;
+  font-size: var(--type-control);
+}
+.filter-select,
+.journal-time-step,
+.journal-month-select-wrap select {
+  min-height: var(--control-height-sm);
+  border-radius: var(--control-radius-inner);
+}
+.journal-time-nav {
+  grid-template-columns: var(--control-height-sm) minmax(150px, 1fr) var(--control-height-sm);
+}
+.journal-time-step { width: var(--control-height-sm); }
+.btn-icon-only,
+.detail-delete-action {
+  width: var(--control-height);
+  min-width: var(--control-height);
+  height: var(--control-height);
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+}
+.detail-delete-action { flex-basis: var(--control-height); }
+.sidebar-add-btn { border-radius: var(--control-radius); }
+
+/* Un segment est toujours un panneau 14px contenant des boutons 9px.
+   Les couleurs restent sémantiques, mais la géométrie ne change plus
+   entre Sorties, Journal, Profil et les fiches. */
+.upcoming-type-switch,
+.journal-mode-switch,
+.profile-period-switch,
+.profile-media-switch,
+.quick-status-control,
+.modal-type-tabs {
+  gap: .25rem;
+  padding: .25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.upcoming-type-btn,
+.journal-mode-btn,
+.profile-period-switch button,
+.profile-media-switch button,
+.quick-status-btn,
+.modal-type-tab,
+.modal-wizard .wz-status-btn {
+  min-height: var(--control-height-sm);
+  padding: .4rem .65rem;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius-inner);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--type-label);
+  font-weight: 750;
+  box-shadow: none;
+}
+.upcoming-type-btn.active,
+.journal-mode-btn.active,
+.profile-period-switch button.active,
+.profile-media-switch button.active,
+.quick-status-btn.active,
+.modal-type-tab.active,
+.modal-wizard .wz-status-btn.active {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: var(--accent-glow);
+  color: var(--accent-2);
+  box-shadow: 0 2px 10px rgba(0,0,0,.16);
+}
+.upcoming-refresh-btn {
+  width: auto;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  padding-inline: .75rem;
+  border-radius: var(--control-radius);
+}
+.profile-action-card,
+.profile-category-row,
+.profile-top-cover,
+.profile-backup-panel,
+.library-density-btn { border-radius: var(--radius); }
 
 /* États communs ------------------------------------------------ */
 .ui-state {
@@ -164,61 +279,23 @@ body { background-color: var(--system-bar-color); }
 .profile-top-rank { z-index: 4; }
 .upcoming-refresh-icon .ui-icon { width: .95rem; height: .95rem; }
 
-/* Sorties attendues ------------------------------------------------ */
-.upcoming-wishlist-section {
+/* Sorties attendues : exactement le panneau et la rangée « À reprendre ». */
+.awaited-section {
   min-width: 0;
-  margin: 1rem 0 1.35rem;
-  padding: 1rem 0 .15rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+  background:
+    radial-gradient(circle at 0 0, var(--brand-coral-glow), transparent 36%),
+    var(--bg-2);
 }
-.upcoming-wishlist-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: .65rem;
+.awaited-section:hover {
+  border-color: color-mix(in srgb, var(--brand-coral) 26%, var(--border));
 }
-.upcoming-wishlist-heading h2 {
-  margin: .12rem 0 0;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: var(--type-title-sm);
-  line-height: 1.15;
-}
-.upcoming-wishlist-track {
-  display: flex;
-  gap: var(--media-rail-gap);
-  margin-inline: calc(-1 * var(--media-rail-gutter));
-  padding: .35rem var(--media-rail-gutter) .8rem;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scroll-padding-inline: var(--media-rail-gutter);
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-.upcoming-wishlist-track::-webkit-scrollbar { display: none; }
+.awaited-release-track { overscroll-behavior-inline: contain; }
 .awaited-release-card {
-  width: 112px;
-  min-width: 112px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  scroll-snap-align: start;
+  flex-basis: 128px;
 }
 .awaited-release-visual {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  overflow: hidden;
-  border-radius: var(--radius);
-  background: var(--bg-3);
-  box-shadow: var(--media-cover-shadow);
-  transform-origin: center;
-  transition: transform var(--motion-base) var(--ease-interface), box-shadow var(--motion-base) var(--ease-interface);
+  isolation: isolate;
 }
 .awaited-release-cover,
 .awaited-release-placeholder {
@@ -248,58 +325,146 @@ body { background-color: var(--system-bar-color); }
   border-color: color-mix(in srgb, var(--brand-teal) 42%, transparent);
   color: var(--brand-teal);
 }
-.awaited-release-copy {
-  display: block;
-  min-width: 0;
-  padding-top: .5rem;
-}
-.awaited-release-copy strong {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--text);
-  font-size: var(--type-label);
-  font-weight: 750;
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.awaited-release-copy small {
-  display: flex;
-  align-items: center;
-  gap: .28rem;
-  min-width: 0;
-  margin-top: .28rem;
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: var(--type-micro);
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.awaited-release-copy small .ui-icon { width: .9rem; height: .9rem; }
-.awaited-release-copy .ui-icon-movie,
-.awaited-release-copy .ui-icon-tv { color: var(--brand-coral); }
-.awaited-release-copy .ui-icon-game { color: var(--brand-teal); }
-.awaited-release-copy .ui-icon-book { color: var(--brand-gold); }
 
-@media (hover: hover) and (pointer: fine) {
-  .awaited-release-card:hover .awaited-release-visual {
-    transform: scale(var(--media-hover-scale));
-    box-shadow: var(--media-cover-shadow-hover);
-  }
+@media (max-width: 680px) {
+  .awaited-section { margin-top: .9rem; margin-bottom: .75rem; }
+  .awaited-release-card { flex-basis: 112px; }
 }
-@media (hover: none), (pointer: coarse) {
-  .awaited-release-card:active .awaited-release-visual {
-    transform: scale(var(--media-press-scale));
-    transition-duration: var(--motion-touch);
+
+/* La découverte reprend la grille de la Bibliothèque : seule la jaquette est
+   visible. Le titre, la date et les informations éditoriales restent dans la
+   fiche, tandis que les marqueurs utiles vivent directement sur l'affiche. */
+.upcoming-months { gap: 1.15rem; }
+.upcoming-month-section { min-width: 0; }
+.upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: .9rem;
+}
+.upcoming-card {
+  position: relative;
+  height: auto;
+  min-width: 0;
+  gap: 0;
+}
+.upcoming-cover-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+}
+.upcoming-card-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+}
+.upcoming-card-open > :is(.card-cover, .card-cover-placeholder) {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.upcoming-card-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.release-countdown {
+  top: .5rem;
+  right: .5rem;
+  z-index: 3;
+  padding: .25rem .44rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--type-micro);
+  line-height: 1;
+}
+.upcoming-wishlist-mark {
+  position: absolute;
+  right: .5rem;
+  bottom: .5rem;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: var(--control-radius-inner);
+  background: rgba(12,13,17,.78);
+  color: var(--text-2);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: color var(--motion-feedback) ease,
+              border-color var(--motion-feedback) ease,
+              background-color var(--motion-feedback) ease,
+              transform var(--motion-touch) ease;
+}
+.upcoming-wishlist-mark .ui-icon { width: 15px; height: 15px; }
+.upcoming-wishlist-mark:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent) 14%, rgba(12,13,17,.88));
+}
+.upcoming-wishlist-mark:active { transform: scale(.94); }
+.upcoming-wishlist-mark.is-added {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, rgba(12,13,17,.84));
+  color: var(--accent-2);
+}
+.upcoming-for-you-compact {
+  right: auto;
+  bottom: .5rem;
+  left: .5rem;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--control-radius-inner);
+  font-size: var(--type-control);
+  line-height: 1;
+}
+
+@media (min-width: 681px) and (max-width: 900px) {
+  .upcoming-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+@media (min-width: 681px) {
+  html[data-library-density="compact"] .upcoming-grid {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: .55rem;
   }
 }
 
 @media (max-width: 680px) {
-  .upcoming-wishlist-section { margin-top: .75rem; padding-top: .8rem; }
-  .upcoming-wishlist-heading { margin-bottom: .45rem; }
-  .upcoming-wishlist-heading h2 { font-size: var(--type-lead); }
-  .awaited-release-card { width: 98px; min-width: 98px; }
+  .upcoming-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  .upcoming-months { gap: 1rem; }
+  .upcoming-refresh-btn {
+    width: var(--control-height);
+    height: var(--control-height);
+    padding: 0;
+  }
+  .upcoming-wishlist-mark { right: .4rem; bottom: .4rem; width: 30px; height: 30px; }
+  .upcoming-for-you-compact { bottom: .4rem; left: .4rem; width: 26px; height: 26px; }
+  .release-countdown { top: .4rem; right: .4rem; }
+  html[data-library-density="compact"] .upcoming-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .42rem;
+  }
+  html[data-library-density="compact"] .upcoming-wishlist-mark {
+    width: 26px;
+    height: 26px;
+  }
+  html[data-library-density="compact"] .upcoming-for-you-compact { width: 24px; height: 24px; }
 }
 
 /* Jaquettes : une interaction commune pour la bibliothèque, À reprendre,
