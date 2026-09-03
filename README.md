@@ -56,7 +56,7 @@ Une lecture plus personnelle de la collection : statistiques mensuelles ou annue
 
 ### Sorties
 
-Les prochaines sorties françaises et les recommandations **Pour vous** ouvrent une fenêtre sur ce qui arrive, en s’appuyant sur les goûts déjà présents dans la bibliothèque.
+Les prochaines sorties françaises ouvrent une fenêtre simple sur ce qui arrive et se relient directement aux œuvres conservées dans la Wishlist.
 
 ### Communauté
 
@@ -64,14 +64,14 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.3.2**
+**3.3.3**
 
-Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. La 3.3.2 étend cette cohérence visuelle aux Sorties et à tous les principaux contrôles de l’application.
+Cette version relie davantage les quatre espaces de Kulturo, sans alourdir leur lecture : trouver une œuvre, attendre sa sortie, l’ouvrir puis retrouver son mois culturel forme désormais un parcours plus continu. La 3.3.3 simplifie encore Sorties et retire entièrement l’ancien système de recommandations.
 
 - **Mes sorties attendues** reprend le panneau repliable, les dimensions et la rangée horizontale de **À reprendre** ;
 - la découverte des sorties adopte la grille, les proportions, les densités et le survol de la Bibliothèque ;
 - titres, dates complètes, descriptions et informations éditoriales sont retirés de la grille et restent disponibles dans la fiche ;
-- seuls les marqueurs immédiatement utiles demeurent sur les jaquettes : compte à rebours, recommandation **Pour vous** et Wishlist ;
+- seuls les marqueurs immédiatement utiles demeurent sur les jaquettes : compte à rebours et Wishlist ;
 - les titres déjà ajoutés sont masqués par défaut du flux de découverte pour éviter leur répétition sous la rangée personnelle ;
 - une charte de contrôles commune fixe les hauteurs, rayons, espacements et états actifs des boutons de Sorties, du Journal, du Profil et des fiches ;
 - les contrôles standards mesurent 40 px, les contrôles compacts 36 px et les sélecteurs segmentés partagent les mêmes rayons 14/9 px.
@@ -101,7 +101,7 @@ La version conserve également tous les acquis de la série 3.2 :
 - en-tête des fiches personnelles allégé du statut déjà visible dans les actions rapides ; ce badge reste présent dans les fiches Communauté en lecture seule et **À venir** reste visible dans les aperçus ;
 - actions rapides et contrôle de reprise désormais accordés à la couleur extraite de la jaquette, sans détourner les couleurs fixes réservées aux informations ;
 - cœur et replay réunis comme marqueurs secondaires dans la Bibliothèque et les deux vues du Journal ; le flux Communauté transmet maintenant aussi le compteur de reprise ;
-- palette de marque désormais sémantique : or pour les actions principales, corail pour les coups de cœur et recommandations, sarcelle pour les éléments terminés, les reprises et les confirmations ;
+- palette de marque désormais sémantique : or pour les actions principales, corail pour les coups de cœur, sarcelle pour les éléments terminés, les reprises et les confirmations ;
 - symbole desktop aligné sur l’axe de la navigation latérale et shell de la web app stabilisé lors du geste de rafraîchissement tactile ;
 - identité recentrée sur une palette sombre unique : l’or du logo rejoint exactement celui de l’interface et les anciens styles du thème clair sont retirés ;
 - fiche média recentrée sur les actions immédiates : statut et reprise uniquement ; la note et le **Coup de cœur** restent réunis dans **Modifier**, sans point d’entrée redondant ;
@@ -117,6 +117,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.3.3** — ancien marqueur **Pour vous**, calcul d’affinité et styles associés entièrement retirés de Sorties.
 - **3.3.2** — Sorties aligné sur les modèles Bibliothèque/À reprendre et charte commune appliquée aux boutons et sélecteurs de l’application.
 - **3.3.1** — arrivée de la jaquette stabilisée : destination immobile et passage instantané vers l’image réelle, sans sursaut ni image vide sur iOS.
 - **3.3.0** — recherche enrichie et classée, Wishlist reliée aux Sorties, transition jaquette → fiche et bilans mensuels réservés aux mois clos.

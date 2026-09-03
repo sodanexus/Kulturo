@@ -41,10 +41,8 @@ import {
   splitMetadataValues,
 } from "./features/media-metadata.js";
 import {
-  buildLibraryAffinity,
   exploredGenres,
   journalMonthSummary,
-  recommendationForUpcoming,
   repeatCountForPeriod,
 } from "./features/insights.js";
 import { elementFromHTML, patchKeyedSurface, reconcileKeyedChildren } from "./features/dom-updates.js";
@@ -3470,7 +3468,6 @@ function renderUpcomingCards() {
   renderAwaitedReleases();
   const allResults = filteredUpcomingResults();
   const results = visibleUpcomingResults();
-  const affinity = buildLibraryAffinity(State.entries);
   const hideAdded = document.getElementById("upcoming-hide-added");
   if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   const resultCount = document.getElementById("upcoming-result-count");
@@ -3557,7 +3554,7 @@ function renderUpcomingCards() {
         <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
       </div>
       <div class="upcoming-grid">
-        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx, recommendationForUpcoming(it, affinity))).join("")}
+        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx)).join("")}
       </div>
     </section>`).join("");
   requestAnimationFrame(() => {
@@ -3568,7 +3565,7 @@ function renderUpcomingCards() {
   });
 }
 
-function upcomingCardHTML(it, idx, recommendation = null) {
+function upcomingCardHTML(it, idx) {
   const libraryEntry = findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) });
   const inLibrary = Boolean(libraryEntry);
   const transitionMediaId = libraryEntry?.id || upcomingPreviewId(it);
@@ -3588,7 +3585,6 @@ function upcomingCardHTML(it, idx, recommendation = null) {
         <button type="button" class="upcoming-card-open" onclick="UI.openUpcomingDetail(${idx}, this)" aria-label="Ouvrir ${esc(it.title)}">
           ${cover}
           ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
-          ${recommendation ? `<span class="upcoming-for-you upcoming-for-you-compact" title="Pour vous · ${esc(recommendation.reason)}" aria-label="Pour vous : ${esc(recommendation.reason)}">✦</span>` : ""}
           <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
         </button>
         <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
