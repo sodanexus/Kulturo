@@ -4,10 +4,13 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v64";
-const IMAGE_CACHE = "kulturo-images-v3";
-const CURRENT_CACHES = new Set([STATIC_CACHE, IMAGE_CACHE]);
-const MAX_IMAGE_ENTRIES = 120;
+const STATIC_CACHE = "kulturo-static-v65";
+const COVER_CACHE = "kulturo-covers-v1";
+const BACKDROP_CACHE = "kulturo-backdrops-v1";
+const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
+const LEGACY_IMAGE_CACHES = ["kulturo-images-v3"];
+const MAX_COVER_ENTRIES = 240;
+const MAX_BACKDROP_ENTRIES = 36;
 const STATIC_ASSETS = [
   "/Kulturo/",
   "/Kulturo/logo.svg",
@@ -31,26 +34,82 @@ self.addEventListener("message", e => {
   if (e.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
-// Activate — supprime uniquement les anciens caches appartenant à Kulturo.
+function mediaImageCache(url) {
+  const isBackdrop = /\/t\/p\/(?:w780|w1280|original)\//i.test(url.pathname);
+  return isBackdrop
+    ? { name: BACKDROP_CACHE, limit: MAX_BACKDROP_ENTRIES }
+    : { name: COVER_CACHE, limit: MAX_COVER_ENTRIES };
+}
+
+function looksLikeImage(request, response) {
+  const url = new URL(request.url);
+  const contentType = response?.headers?.get("content-type") || "";
+  return request.destination === "image" ||
+    contentType.startsWith("image/") ||
+    ["image.tmdb.org", "images.igdb.com", "covers.openlibrary.org"].includes(url.hostname) ||
+    url.hostname.endsWith("googleusercontent.com") ||
+    /\.(?:avif|gif|jpe?g|png|webp)(?:$|\?)/i.test(url.href);
+}
+
+async function trimCache(cacheName, limit) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const overflow = keys.length - limit;
+  if (overflow > 0) await Promise.all(keys.slice(0, overflow).map(key => cache.delete(key)));
+}
+
+async function migrateLegacyImages() {
+  const existingCaches = await caches.keys();
+  for (const legacyName of LEGACY_IMAGE_CACHES) {
+    if (!existingCaches.includes(legacyName)) continue;
+    const legacy = await caches.open(legacyName);
+    const requests = await legacy.keys();
+    for (const request of requests) {
+      const response = await legacy.match(request);
+      if (!response || !looksLikeImage(request, response)) continue;
+      const target = mediaImageCache(new URL(request.url));
+      const cache = await caches.open(target.name);
+      await cache.put(request, response);
+    }
+    await caches.delete(legacyName);
+  }
+  await Promise.all([
+    trimCache(COVER_CACHE, MAX_COVER_ENTRIES),
+    trimCache(BACKDROP_CACHE, MAX_BACKDROP_ENTRIES),
+  ]);
+}
+
+// Activate — migre les anciennes images puis supprime uniquement les caches
+// Kulturo devenus obsolètes.
 self.addEventListener("activate", e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys
-        .filter(k => k.startsWith(CACHE_PREFIX) && !CURRENT_CACHES.has(k))
-        .map(k => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    await migrateLegacyImages();
+    const keys = await caches.keys();
+    await Promise.all(keys
+      .filter(key => key.startsWith(CACHE_PREFIX) && !CURRENT_CACHES.has(key))
+      .map(key => caches.delete(key))
+    );
+    await self.clients.claim();
+  })());
 });
 
-async function cacheImage(request, response) {
-  const cache = await caches.open(IMAGE_CACHE);
+function isNetworkOnlyUrl(url) {
+  return (
+    url.hostname.includes("supabase.co") ||
+    url.hostname.includes("api.themoviedb.org") ||
+    url.hostname === "openlibrary.org" ||
+    url.hostname === "www.googleapis.com" ||
+    url.hostname === "books.googleapis.com" ||
+    url.hostname.includes("api.groq.com") ||
+    url.hostname === "id.twitch.tv" ||
+    url.hostname === "api.igdb.com"
+  );
+}
+
+async function cacheBounded(request, response, cacheName, limit) {
+  const cache = await caches.open(cacheName);
   await cache.put(request, response);
-  const keys = await cache.keys();
-  const overflow = keys.length - MAX_IMAGE_ENTRIES;
-  if (overflow > 0) {
-    await Promise.all(keys.slice(0, overflow).map(key => cache.delete(key)));
-  }
+  await trimCache(cacheName, limit);
 }
 
 // Fetch — stratégie selon la requête
@@ -60,15 +119,7 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
 
   // Supabase & APIs externes → network-only
-  if (
-    url.hostname.includes("supabase.co") ||
-    url.hostname.includes("api.themoviedb.org") ||
-    url.hostname.includes("openlibrary.org") ||
-    url.hostname.includes("googleapis.com") ||
-    url.hostname.includes("api.groq.com") ||
-    url.hostname.includes("twitch.tv") ||
-    url.hostname.includes("igdb.com")
-  ) {
+  if (isNetworkOnlyUrl(url)) {
     e.respondWith(
       fetch(e.request).catch(() =>
         new Response(JSON.stringify({ error: "offline" }), {
@@ -87,6 +138,8 @@ self.addEventListener("fetch", e => {
     url.pathname.endsWith(".js") ||
     url.pathname.endsWith(".css") ||
     url.pathname.endsWith(".html") ||
+    url.pathname.endsWith(".json") ||
+    e.request.destination === "manifest" ||
     url.pathname === "/Kulturo/" ||
     url.pathname === "/Kulturo"
   ) {
@@ -111,6 +164,8 @@ self.addEventListener("fetch", e => {
     return;
   }
 
+  const imageCache = mediaImageCache(url);
+
   // L'analyse de couleur demande explicitement les jaquettes en mode CORS.
   // Une ancienne réponse opaque, mise en cache par un <img> classique, peut
   // s'afficher mais ne peut pas être lue dans un canvas. Ces requêtes passent
@@ -121,7 +176,7 @@ self.addEventListener("fetch", e => {
       fetch(e.request)
         .then(response => {
           if (response.ok && response.type !== "opaque") {
-            cacheImage(e.request, response.clone()).catch(() => {});
+            cacheBounded(e.request, response.clone(), imageCache.name, imageCache.limit).catch(() => {});
           }
           return response;
         })
@@ -130,16 +185,31 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Images et polices → cache-first avec une limite pour ne pas grossir sans fin.
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        if (!response || (!response.ok && response.type !== "opaque")) return response;
-        const clone = response.clone();
-        cacheImage(e.request, clone).catch(() => {});
+  // Jaquettes et arrière-plans disposent de budgets séparés : parcourir les
+  // grandes bannières d'une fiche ne peut plus évincer toute la bibliothèque.
+  if (e.request.destination === "image") {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(response => {
+          if (!response || (!response.ok && response.type !== "opaque")) return response;
+          const clone = response.clone();
+          cacheBounded(e.request, clone, imageCache.name, imageCache.limit).catch(() => {});
+          return response;
+        }).catch(() => new Response(null, { status: 504 }));
+      })
+    );
+    return;
+  }
+
+  // Les polices restent avec les ressources statiques et ne consomment plus
+  // le quota réservé aux jaquettes.
+  if (e.request.destination === "font") {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(response => {
+        if (response?.ok) caches.open(STATIC_CACHE).then(cache => cache.put(e.request, response.clone()));
         return response;
-      }).catch(() => new Response(null, { status: 504 }));
-    })
-  );
+      }))
+    );
+  }
 });

@@ -64,9 +64,21 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.2**
+**3.4.3**
 
-Cette version inaugure le nettoyage technique progressif de Kulturo sans modifier son interface. Le démarrage ne reconstruit plus la bibliothèque lorsque Supabase confirme simplement le même contenu que le cache local déjà affiché.
+Cette version poursuit le nettoyage technique de Kulturo autour de la fiche média et du cache d’images, sans modifier l’interface ni les données personnelles.
+
+- cycle de vie des fiches isolé dans un gestionnaire dédié : requêtes, signaux d’annulation, minuteries et images temporaires sont libérés ensemble ;
+- protection explicite contre une ancienne fermeture qui tenterait de démonter une nouvelle fiche déjà ouverte ;
+- fusion des informations TMDb, IGDB et Open Library extraite et testée afin de ne jamais écraser une donnée personnelle existante ;
+- jaquettes et grands arrière-plans répartis dans deux caches distincts avec des limites adaptées ;
+- capacité portée à 240 jaquettes, tandis que les 36 arrière-plans les plus récents restent disponibles sans évincer la bibliothèque ;
+- couvertures IGDB et Open Library désormais réellement éligibles au cache hors ligne ;
+- polices retirées du quota des images et conservées avec les ressources statiques ;
+- ancien cache d’images migré automatiquement lors de la mise à jour pour éviter un premier lancement à froid ;
+- sept tests techniques valident désormais le démarrage, le Journal, l’enrichissement des fiches, leur fermeture et la politique de cache.
+
+La version conserve le démarrage stabilisé introduit en 3.4.2 : Supabase ne déclenche aucun nouveau rendu lorsqu’il confirme simplement le même contenu que le cache local déjà affiché.
 
 - comparaison stable entre l’instantané local et la réponse Supabase, indépendante de l’ordre des lignes et des propriétés JSON ;
 - rendu des cartes et de l’étagère **À reprendre** relancé uniquement lorsqu’une donnée a réellement changé ;
@@ -148,6 +160,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.3** — cycle de vie des fiches isolé, enrichissement non destructif testé et caches séparés pour les jaquettes et les arrière-plans.
 - **3.4.2** — premier nettoyage modulaire, dépendance Supabase stabilisée et suppression du bref double rendu de la bibliothèque au démarrage.
 - **3.4.1** — Mon journal et Communauté réunis autour de la même navigation temporelle, des mêmes sections mois/jour et du même modèle de carte.
 - **3.4.0** — fiches stabilisées sur iPad, ressources et caches bornés, traduction des jeux centralisée et fonction Groq rendue vérifiable.

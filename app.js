@@ -52,6 +52,8 @@ import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js"
 import { groupJournalDayEvents, journalGroupPresentation } from "./features/journal-groups.js";
 import { createJournalNavigation } from "./features/journal-navigation.js";
 import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
+import { createDetailSessionManager } from "./features/detail-session.js";
+import { collectDetailUpdates } from "./features/detail-enrichment.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -2655,12 +2657,12 @@ async function closeModal(force = false, options = {}) {
     if (!discard) return false;
   }
   const overlay = document.getElementById("modal-overlay");
-  const closingSessionId = _activeDetailSession?.id || 0;
+  const closingSessionId = detailSessions.currentId();
   const cleanup = () => {
     const root = document.getElementById("modal-root");
     const currentOverlay = root?.querySelector("#modal-overlay") || null;
     const stillOwnsRoot = !overlay || currentOverlay === overlay;
-    const stillOwnsSession = !closingSessionId || _activeDetailSession?.id === closingSessionId;
+    const stillOwnsSession = !closingSessionId || detailSessions.isCurrent(closingSessionId);
     // Une nouvelle fiche peut avoir été ouverte pendant la fin de l'animation.
     // L'ancien minuteur ne doit jamais démonter cette nouvelle fiche.
     if (!stillOwnsRoot || !stillOwnsSession) {
@@ -2669,7 +2671,7 @@ async function closeModal(force = false, options = {}) {
     }
     finishDetailCoverFlight();
     _activeDetailCoverTransition = null;
-    disposeDetailSession();
+    detailSessions.dispose(closingSessionId);
     document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
     if (root) {
       // Safari libère plus sûrement les gros bitmaps lorsque leurs références
@@ -2694,10 +2696,7 @@ async function closeModal(force = false, options = {}) {
   if (overlay.classList.contains("is-closing")) return true;
   // La jaquette peut finir son animation, mais les enrichissements de la
   // fiche fermée n'ont plus aucune raison de continuer en arrière-plan.
-  if (_activeDetailSession) {
-    _activeDetailSession.closing = true;
-    _activeDetailSession.controller.abort();
-  }
+  detailSessions.startClosing(closingSessionId);
   const coverTransitionDuration = options.skipCoverTransition ? 0 : startDetailCoverClose(overlay);
   overlay.classList.add("is-closing");
   setTimeout(cleanup, coverTransitionDuration || 180);
@@ -3815,9 +3814,9 @@ async function openUpcomingDetail(idx, transitionSource = null) {
 
   try {
     const details = await requestPrefetchedDetails(preview, {
-      signal: activeDetailSignal(detailSessionId),
+      signal: detailSessions.signal(detailSessionId),
     });
-    if (!isDetailSessionActive(detailSessionId, preview.id)) return;
+    if (!detailSessions.isActive(detailSessionId, preview.id)) return;
     if (!details) {
       refreshDetailEnrichment(preview, { detailsLoading: false });
       return;
@@ -3833,7 +3832,7 @@ async function openUpcomingDetail(idx, transitionSource = null) {
     }
   } catch (err) {
     if (err?.name !== "AbortError") console.warn("[Detail upcoming] fetch error:", err);
-    if (isDetailSessionActive(detailSessionId, preview.id)) {
+    if (detailSessions.isActive(detailSessionId, preview.id)) {
       refreshDetailEnrichment(preview, { detailsLoading: false });
     }
   }
@@ -3875,22 +3874,8 @@ function resetUpcomingFilters() {
 const DETAIL_COVER_TRANSITION_MS = 340;
 let _activeDetailCoverTransition = null;
 let _detailCoverFlight = null;
-let _detailSessionSequence = 0;
-let _activeDetailSession = null;
 
-function disposeDetailSession() {
-  const session = _activeDetailSession;
-  if (!session) return;
-  session.disposed = true;
-  session.controller.abort();
-  session.timers.forEach(timer => clearTimeout(timer));
-  session.timers.clear();
-  session.images.forEach(image => {
-    image.onload = null;
-    image.onerror = null;
-    image.removeAttribute("src");
-  });
-  session.images.clear();
+function releaseDetailDomResources() {
   document.querySelectorAll("#modal-root .detail-info-slot").forEach(slot => {
     clearTimeout(slot._detailInfoTimer);
     slot._detailInfoTimer = 0;
@@ -3898,53 +3883,9 @@ function disposeDetailSession() {
   document.querySelectorAll("#modal-root .detail-backdrop-layer").forEach(layer => {
     layer.style.backgroundImage = "none";
   });
-  _activeDetailSession = null;
 }
 
-function beginDetailSession(entryId) {
-  disposeDetailSession();
-  const session = {
-    id: ++_detailSessionSequence,
-    entryId: String(entryId || ""),
-    timers: new Set(),
-    images: new Set(),
-    controller: new AbortController(),
-    disposed: false,
-  };
-  _activeDetailSession = session;
-  return session.id;
-}
-
-function isDetailSessionActive(sessionId, entryId = null) {
-  return Boolean(
-    _activeDetailSession &&
-    !_activeDetailSession.disposed &&
-    !_activeDetailSession.closing &&
-    _activeDetailSession.id === sessionId &&
-    (entryId == null || _activeDetailSession.entryId === String(entryId))
-  );
-}
-
-function activeDetailSessionId(entryId = null) {
-  if (!_activeDetailSession || _activeDetailSession.disposed || _activeDetailSession.closing) return 0;
-  if (entryId != null && _activeDetailSession.entryId !== String(entryId)) return 0;
-  return _activeDetailSession.id;
-}
-
-function activeDetailSignal(sessionId) {
-  return isDetailSessionActive(sessionId) ? _activeDetailSession.controller.signal : null;
-}
-
-function scheduleDetailTimer(callback, delay, sessionId = activeDetailSessionId()) {
-  const session = _activeDetailSession;
-  if (!session || session.id !== sessionId || session.disposed) return 0;
-  const timer = setTimeout(() => {
-    session.timers.delete(timer);
-    if (isDetailSessionActive(sessionId)) callback();
-  }, delay);
-  session.timers.add(timer);
-  return timer;
-}
+const detailSessions = createDetailSessionManager({ onDispose: releaseDetailDomResources });
 
 function transitionCoverImage(source) {
   if (!source) return null;
@@ -4156,7 +4097,7 @@ function renderDetailPanel(e, options = {}) {
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
-  const detailSessionId = beginDetailSession(e.id);
+  const detailSessionId = detailSessions.begin(e.id);
   root.innerHTML = `
     <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
       <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
@@ -4214,7 +4155,7 @@ function renderDetailPanel(e, options = {}) {
     backdropEl.style.setProperty("--fallback-img", `url("${cssCoverUrl}")`);
   }
   if (backdropUrl) requestAnimationFrame(() => {
-    if (isDetailSessionActive(detailSessionId, e.id)) _injectBackdrop(backdropUrl, e.id, detailSessionId);
+    if (detailSessions.isActive(detailSessionId, e.id)) _injectBackdrop(backdropUrl, e.id, detailSessionId);
   });
   setupMobileSheetSwipe({
     overlay: root.querySelector("#modal-overlay"),
@@ -4224,7 +4165,7 @@ function renderDetailPanel(e, options = {}) {
   });
   if (transitionOrigin) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (!isDetailSessionActive(detailSessionId, e.id)) return;
+      if (!detailSessions.isActive(detailSessionId, e.id)) return;
       const overlay = root.querySelector("#modal-overlay");
       const target = overlay?.querySelector(".detail-poster");
       startDetailCoverOpen(transitionOrigin, target, overlay);
@@ -4631,7 +4572,7 @@ function renderDetailBody(e, options = {}) {
 }
 
 function replaceDetailSynopsis(entry, options = {}) {
-  const sessionId = activeDetailSessionId(entry.id);
+  const sessionId = detailSessions.activeId(entry.id);
   if (!sessionId) return;
   const slot = document.getElementById(`detail-synopsis-slot-${entry.id}`);
   if (!slot) return;
@@ -4647,7 +4588,7 @@ function replaceDetailSynopsis(entry, options = {}) {
   if (!nextHTML) {
     if (!previous) return;
     previous.classList.add("detail-synopsis-leaving");
-    scheduleDetailTimer(() => {
+    detailSessions.schedule(() => {
       if (!slot.isConnected) return;
       slot.replaceChildren();
       slot.classList.remove("is-transitioning");
@@ -4667,7 +4608,7 @@ function replaceDetailSynopsis(entry, options = {}) {
     previous.classList.add("detail-synopsis-leaving");
     next.classList.add("detail-synopsis-arriving");
     slot.append(next);
-    scheduleDetailTimer(() => {
+    detailSessions.schedule(() => {
       if (!slot.isConnected) return;
       previous.remove();
       next.classList.remove("detail-synopsis-arriving");
@@ -4676,12 +4617,12 @@ function replaceDetailSynopsis(entry, options = {}) {
   } else {
     next.classList.add("detail-synopsis-arriving");
     slot.replaceChildren(next);
-    scheduleDetailTimer(() => next.classList.remove("detail-synopsis-arriving"), 270, sessionId);
+    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), 270, sessionId);
   }
 }
 
 function replaceDetailInfo(entry, options = {}) {
-  const sessionId = activeDetailSessionId(entry.id);
+  const sessionId = detailSessions.activeId(entry.id);
   if (!sessionId) return;
   const slot = document.getElementById(`detail-info-slot-${entry.id}`);
   if (!slot) return;
@@ -4707,7 +4648,7 @@ function replaceDetailInfo(entry, options = {}) {
     if (!slot.isConnected) return;
     slot.style.height = `${measuredNextHeight || nextHeight}px`;
   });
-  slot._detailInfoTimer = scheduleDetailTimer(() => {
+  slot._detailInfoTimer = detailSessions.schedule(() => {
     if (!slot.isConnected) return;
     current?.remove();
     next.classList.remove("detail-info-arriving");
@@ -4719,13 +4660,13 @@ function replaceDetailInfo(entry, options = {}) {
 }
 
 function refreshDetailEnrichment(entry, options = {}) {
-  const sessionId = activeDetailSessionId(entry.id);
+  const sessionId = detailSessions.activeId(entry.id);
   if (!sessionId) return;
   replaceDetailSynopsis(entry, options);
   replaceDetailInfo(entry, options);
   if (entry.description) {
     // Le texte se pose d'abord ; le contrôle arrive ensuite sans clignoter.
-    scheduleDetailTimer(() => _scheduleSynopsisOverflowCheck(entry.id), 90, sessionId);
+    detailSessions.schedule(() => _scheduleSynopsisOverflowCheck(entry.id), 90, sessionId);
   }
 }
 
@@ -4943,8 +4884,8 @@ function scrollExpandedSynopsisIntoView(wrap) {
   }));
 }
 
-function _injectBackdrop(backdrop, entryId, sessionId = activeDetailSessionId(entryId)) {
-  if (!backdrop || !isDetailSessionActive(sessionId, entryId)) return;
+function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(entryId)) {
+  if (!backdrop || !detailSessions.isActive(sessionId, entryId)) return;
   const detailBody = document.getElementById(`detail-body-${entryId}`);
   const detailModal = detailBody?.closest(".detail-modal");
   const bdEl = detailModal?.querySelector(".detail-backdrop");
@@ -4954,15 +4895,14 @@ function _injectBackdrop(backdrop, entryId, sessionId = activeDetailSessionId(en
   // Evite de doubler la couche si déjà présente
   if (bdEl.querySelector(".detail-backdrop-layer")) return;
   const img = new Image();
-  const session = _activeDetailSession;
-  session?.images.add(img);
+  const releaseTrackedImage = detailSessions.trackImage(img, sessionId);
   const releaseLoader = () => {
     img.onload = null;
     img.onerror = null;
-    session?.images.delete(img);
+    releaseTrackedImage();
   };
   img.onload = () => {
-    if (!isDetailSessionActive(sessionId, entryId) || !bdEl.isConnected || bdEl.querySelector(".detail-backdrop-layer")) {
+    if (!detailSessions.isActive(sessionId, entryId) || !bdEl.isConnected || bdEl.querySelector(".detail-backdrop-layer")) {
       releaseLoader();
       return;
     }
@@ -4973,7 +4913,7 @@ function _injectBackdrop(backdrop, entryId, sessionId = activeDetailSessionId(en
     bdEl.insertBefore(layer, bdEl.firstChild);
     bdEl.style.backgroundImage = "none"; // retire la cover inline une fois le banner chargé
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (isDetailSessionActive(sessionId, entryId) && layer.isConnected) layer.style.opacity = "1";
+      if (detailSessions.isActive(sessionId, entryId) && layer.isConnected) layer.style.opacity = "1";
     }));
     bdEl.classList.add("has-backdrop");
     releaseLoader();
@@ -4990,7 +4930,7 @@ async function openDetailPanel(id, options = {}) {
   // Affichage immédiat avec ce qu'on a déjà en base
   const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
   const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null });
-  const detailSignal = activeDetailSignal(detailSessionId);
+  const detailSignal = detailSessions.signal(detailSessionId);
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
@@ -5013,7 +4953,7 @@ async function openDetailPanel(id, options = {}) {
       } catch (error) {
         if (error?.name !== "AbortError") console.warn("[Detail] identity repair error:", error);
       }
-      if (!isDetailSessionActive(detailSessionId, e.id)) return;
+      if (!detailSessions.isActive(detailSessionId, e.id)) return;
     }
 
     // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on
@@ -5027,11 +4967,11 @@ async function openDetailPanel(id, options = {}) {
         cacheEntriesLocally();
       } catch (error) {
         console.warn("[Detail] persistence retry error:", error);
-        if (isDetailSessionActive(detailSessionId, e.id)) {
+        if (detailSessions.isActive(detailSessionId, e.id)) {
           toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
         }
       }
-      if (isDetailSessionActive(detailSessionId, e.id)) {
+      if (detailSessions.isActive(detailSessionId, e.id)) {
         _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
         if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
       }
@@ -5039,7 +4979,7 @@ async function openDetailPanel(id, options = {}) {
     }
 
     if (!canEnrichMediaDetails(e)) {
-      if (isDetailSessionActive(detailSessionId, e.id)) {
+      if (detailSessions.isActive(detailSessionId, e.id)) {
         refreshDetailEnrichment(e, { detailsLoading: false });
       }
       return;
@@ -5051,7 +4991,7 @@ async function openDetailPanel(id, options = {}) {
       fresh: refreshBackdrop,
       signal: detailSignal,
     });
-    if (!isDetailSessionActive(detailSessionId, e.id)) return;
+    if (!detailSessions.isActive(detailSessionId, e.id)) return;
 
     if (!details) {
       refreshDetailEnrichment(e, { detailsLoading: false });
@@ -5059,18 +4999,8 @@ async function openDetailPanel(id, options = {}) {
     }
     if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
-    const toSave = {};
-    const fields = ["backdrop_url","description","directors","cast_members","duration",
-                    "seasons_count","episodes_count","air_status","watch_providers",
-                    "developer","publisher","page_count","isbn","platform"];
-    for (const f of fields) {
-      const richerTranslatedDescription = f === "description" &&
-        ["openlibrary", "igdb"].includes(e.source_api) && details[f] && details[f] !== e[f];
-      if (details[f] != null && (!e[f] || richerTranslatedDescription)) {
-        e[f] = details[f];
-        toSave[f] = details[f];
-      }
-    }
+    const toSave = collectDetailUpdates(e, details);
+    Object.assign(e, toSave);
     let persisted = true;
     if (Object.keys(toSave).length) {
       try {
@@ -5081,7 +5011,7 @@ async function openDetailPanel(id, options = {}) {
         persisted = false;
         e._detailsPending = { ...toSave };
         console.warn("[Detail] persistence error:", error);
-        if (isDetailSessionActive(detailSessionId, e.id)) {
+        if (detailSessions.isActive(detailSessionId, e.id)) {
           toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
         }
       }
@@ -5100,7 +5030,7 @@ async function openDetailPanel(id, options = {}) {
 
   } catch(err) {
     if (err?.name !== "AbortError") console.warn("[Detail] fetch error:", err);
-    if (isDetailSessionActive(detailSessionId, e.id)) {
+    if (detailSessions.isActive(detailSessionId, e.id)) {
       refreshDetailEnrichment(e, { detailsLoading: false });
     }
   } finally {
