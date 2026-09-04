@@ -4,20 +4,17 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v66";
+const STATIC_CACHE = "kulturo-static-v67";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
 const LEGACY_IMAGE_CACHES = ["kulturo-images-v3"];
 const MAX_COVER_ENTRIES = 240;
 const MAX_BACKDROP_ENTRIES = 36;
-const STATIC_ASSETS = [
-  "/Kulturo/",
-  "/Kulturo/logo.svg",
-  "/Kulturo/icon.svg",
-  "/Kulturo/icon-192.png",
-  "/Kulturo/icon-512.png"
-];
+const APP_SCOPE = new URL(self.registration?.scope || "./", self.location?.href || "https://kulturo.local/");
+const appAsset = path => new URL(path, APP_SCOPE).href;
+const APP_HOME = appAsset("./");
+const STATIC_ASSETS = ["./", "logo.svg", "icon.svg", "icon-192.png", "icon-512.png"].map(appAsset);
 
 // Install — met en cache uniquement les assets statiques lourds
 self.addEventListener("install", e => {
@@ -140,8 +137,7 @@ self.addEventListener("fetch", e => {
     url.pathname.endsWith(".html") ||
     url.pathname.endsWith(".json") ||
     e.request.destination === "manifest" ||
-    url.pathname === "/Kulturo/" ||
-    url.pathname === "/Kulturo"
+    e.request.mode === "navigate"
   ) {
     e.respondWith(
       fetch(e.request)
@@ -156,7 +152,7 @@ self.addEventListener("fetch", e => {
           const cached = await caches.match(e.request);
           if (cached) return cached;
           if (e.request.mode === "navigate") {
-            return (await caches.match("/Kulturo/")) || new Response("Hors ligne", { status: 503 });
+            return (await caches.match(APP_HOME)) || new Response("Hors ligne", { status: 503 });
           }
           return new Response("Hors ligne", { status: 503 });
         })

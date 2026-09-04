@@ -220,6 +220,28 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
   padding-right: max(2rem, calc(1rem + var(--safe-right)));
   flex-shrink: 0;
 }
+.network-status {
+  position: fixed;
+  top: calc(var(--safe-top) + var(--topbar-height) + .55rem);
+  right: max(1rem, var(--safe-right));
+  z-index: 180;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 30px;
+  padding: .35rem .65rem;
+  border: 1px solid color-mix(in srgb, var(--brand-coral) 38%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-2) 94%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--brand-coral);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.network-status[hidden] { display: none; }
+.network-status svg { width: 15px; height: 15px; flex: 0 0 auto; }
 .topbar-tagline {
   font-size: var(--type-brandline);
   font-weight: 500;
@@ -2018,6 +2040,14 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 
 /* ── Mobile (max-width: 680px) — consolidated ─────────────── */
 @media (max-width: 680px) {
+  .network-status {
+    top: calc(var(--safe-top) + var(--topbar-height) + .4rem);
+    right: max(.9rem, var(--safe-right));
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+  .network-status > span { display: none; }
   /* Layout — une seule colonne */
   #app {
     grid-template-columns: 1fr;
@@ -4045,6 +4075,54 @@ input, textarea, select { border-radius: 12px; }
 .profile-backup-panel > div { display: flex; flex-direction: column; min-width: 0; }
 .profile-backup-panel strong { color: var(--text-1); font-size: var(--type-label); }
 .profile-backup-panel span { color: var(--text-3); font-size: var(--type-caption); }
+.profile-backup-actions { display: flex; align-items: center; gap: .5rem; flex: 0 0 auto; }
+.profile-backup-actions .btn { min-width: 118px; justify-content: center; }
+
+.backup-restore-modal { --modal-max-width: 520px; }
+.backup-restore-heading { min-width: 0; }
+.backup-restore-heading > span {
+  display: block;
+  margin-bottom: .15rem;
+  color: var(--text-3);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.backup-restore-heading h3 { margin: 0; }
+.backup-restore-body { display: grid; gap: .9rem; }
+.backup-restore-body > p { margin: 0; color: var(--text-2); font-size: var(--type-control); line-height: 1.55; }
+.backup-restore-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
+.backup-restore-count {
+  display: grid;
+  gap: .08rem;
+  min-width: 0;
+  padding: .75rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-3);
+  text-align: center;
+}
+.backup-restore-count strong { color: var(--text-1); font-size: var(--type-title-sm); }
+.backup-restore-count span { color: var(--text-3); font-size: var(--type-caption); }
+.backup-restore-count.is-added strong { color: var(--brand-gold); }
+.backup-restore-count.is-updated strong { color: var(--brand-coral); }
+.backup-restore-rule,
+.backup-restore-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  padding: .7rem .8rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-teal) 9%, var(--bg-3));
+  color: var(--text-2);
+  font-size: var(--type-caption);
+  line-height: 1.45;
+}
+.backup-restore-rule > span:first-child { color: var(--brand-teal); font-weight: 800; }
+.backup-restore-warning { background: color-mix(in srgb, var(--brand-coral) 9%, var(--bg-3)); color: var(--brand-coral); }
+.backup-restore-progress { min-height: 1.2em; color: var(--text-3); font-size: var(--type-caption); text-align: center; }
+.backup-restore-footer .btn { min-width: 118px; justify-content: center; }
 .profile-account-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--text-3); font-size: var(--type-caption); }
 
 @media (max-width: 900px) {
@@ -4134,7 +4212,10 @@ input, textarea, select { border-radius: 12px; }
   .profile-username-row { flex-wrap: wrap; }
   .profile-username-row input { width: min(190px, 100%); }
   .profile-backup-panel { align-items: flex-start; flex-direction: column; }
-  .profile-backup-panel .btn { width: 100%; justify-content: center; }
+  .profile-backup-actions { width: 100%; }
+  .profile-backup-actions .btn { width: 100%; min-width: 0; justify-content: center; }
+  .backup-restore-counts { gap: .4rem; }
+  .backup-restore-count { padding: .65rem .35rem; }
 
   /* La fiche montre les actions plus tôt, sans masquer aucune information. */
   .detail-backdrop { height: 158px; }

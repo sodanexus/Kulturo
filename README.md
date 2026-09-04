@@ -64,9 +64,20 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.4**
+**3.4.5**
 
-Cette version fiabilise les interactions de toute l’application et consolide la structure CSS des modales, sans modifier l’interface ni les données personnelles.
+Cette version renforce la fiabilité de Kulturo au clavier, sécurise les sauvegardes et rend l’installation plus portable, sans modifier le modèle de données.
+
+- toutes les fenêtres conservent désormais le focus, gèrent `Tab` et `Échap` de manière identique et rendent le focus à la jaquette d’origine après fermeture ;
+- chaque modale possède un titre accessible explicite, y compris les fiches, les filtres et la restauration ;
+- la sauvegarde JSON peut maintenant être restaurée après un aperçu clair des médias ajoutés, mis à jour, inchangés ou ignorés ;
+- la restauration fusionne les données sans aucune suppression automatique et ne remplace jamais le Journal existant ;
+- l’ensemble de la logique **Sorties** — sources, filtres, Wishlist, synchronisation, rendu et aperçu — quitte `app.js` pour un module dédié ;
+- manifeste, démarrage et service worker n’utilisent plus le chemin fixe `/Kulturo/` et restent valides si le dépôt est renommé ou déplacé ;
+- un indicateur discret apparaît uniquement lorsque l’application passe hors connexion ;
+- quatorze tests protègent désormais ces comportements ainsi que les acquis des nettoyages précédents.
+
+La version conserve le nettoyage d’interface introduit en 3.4.4 :
 
 - les 95 gestionnaires `onclick` restants sont remplacés par une délégation d’événements unique et testable ;
 - formulaires, listes, cases à cocher, navigation clavier et clics sur les fonds de modale suivent désormais le même mécanisme ;
@@ -170,6 +181,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.5** — modales accessibles, restauration JSON sans suppression, Sorties extrait, PWA portable et état hors connexion discret.
 - **3.4.4** — interactions déléguées sans JavaScript inline et structure CSS des modales consolidée à rendu identique.
 - **3.4.3** — cycle de vie des fiches isolé, enrichissement non destructif testé et caches séparés pour les jaquettes et les arrière-plans.
 - **3.4.2** — premier nettoyage modulaire, dépendance Supabase stabilisée et suppression du bref double rendu de la bibliothèque au démarrage.

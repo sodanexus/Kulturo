@@ -9,6 +9,7 @@ import {
   entryActivityYear,
   eventsForPeriod,
   filterLibraryEntries,
+  formatReleaseDate,
   isCompletionEvent,
   isClosedMonth,
   isProfileTopEvent,
@@ -55,6 +56,9 @@ import { entriesFingerprint, entriesForStorage } from "./features/library-cache.
 import { createDetailSessionManager } from "./features/detail-session.js";
 import { collectDetailUpdates } from "./features/detail-enrichment.js";
 import { createUiActionDispatcher } from "./features/ui-actions.js";
+import { createDialogFocusManager } from "./features/dialog-focus.js";
+import { buildRestorePlan, parseKulturoBackup } from "./features/backup-restore.js";
+import { createUpcomingFeature } from "./features/upcoming.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -68,6 +72,42 @@ document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
 const DEFAULT_LIBRARY_STATUS = "finished";
 const uiActionDispatcher = createUiActionDispatcher(() => window.UI);
+const dialogFocus = createDialogFocusManager(document);
+let _modalReturnFocus = null;
+let _modalReturnMediaId = null;
+let _modalReturnControlId = null;
+
+function rememberModalReturnFocus(preferred = null, mediaId = null) {
+  if (document.getElementById("modal-overlay")) return;
+  if (_modalReturnFocus?.isConnected) return;
+  const candidate = preferred?.closest?.("button, a, [tabindex], [role='button']") || preferred || document.activeElement;
+  _modalReturnFocus = candidate && candidate !== document.body ? candidate : null;
+  _modalReturnMediaId = mediaId == null ? null : String(mediaId);
+  _modalReturnControlId = _modalReturnFocus?.id || null;
+}
+
+function modalReturnFocusTarget() {
+  if (_modalReturnFocus?.isConnected) return _modalReturnFocus;
+  if (_modalReturnControlId) {
+    const replacement = document.getElementById(_modalReturnControlId);
+    if (replacement) return replacement;
+  }
+  if (!_modalReturnMediaId) return null;
+  const surface = [...document.querySelectorAll("[data-transition-media]")]
+    .find(element => element.dataset.transitionMedia === _modalReturnMediaId);
+  return surface?.matches?.("button, a, [tabindex], [role='button']")
+    ? surface
+    : surface?.querySelector?.("button, a, [tabindex], [role='button']") || null;
+}
+
+function activateDialog(dialog, options = {}) {
+  if (!dialog) return;
+  dialogFocus.activate(dialog, {
+    returnFocus: options.returnFocus || modalReturnFocusTarget,
+    initialFocus: options.initialFocus,
+    onEscape: options.onEscape || (() => closeModal()),
+  });
+}
 
 function readLibraryDensity() {
   try {
@@ -468,6 +508,10 @@ function renderApp() {
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
+        <span class="network-status" id="network-status" role="status" aria-live="polite" aria-label="Hors connexion" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 2 20 20"/><path d="M8.5 8.5A8.4 8.4 0 0 1 12 7.8c3.4 0 6.5 1.4 8.7 3.7M5.3 11.5c.4-.4.8-.7 1.3-1M8.6 14.8A5.2 5.2 0 0 1 12 13.6c1.4 0 2.7.5 3.6 1.3M12 19h.01"/></svg>
+          <span>Hors connexion</span>
+        </span>
         <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
@@ -668,6 +712,7 @@ function renderApp() {
   renderCards();
   updateBadges();
   syncUpdateBanner();
+  syncNetworkStatus();
   document.getElementById("main")?.addEventListener("scroll", syncBackToTop, { passive: true });
   syncBackToTop();
 }
@@ -899,7 +944,7 @@ function showPage(name) {
   }
 
   if (name === "dashboard") renderDashboard();
-  if (name === "upcoming")  renderUpcoming();
+  if (name === "upcoming")  upcomingFeature.render();
   if (name === "journal")   renderJournal();
   requestAnimationFrame(syncBackToTop);
 }
@@ -1422,6 +1467,10 @@ let _profileMedia = "all";
 let _profileMonthAutoResolve = true;
 const _profileNumberValues = new Map();
 const LAST_BACKUP_KEY = "kulturo-last-backup";
+const MAX_BACKUP_IMPORT_BYTES = 10 * 1024 * 1024;
+let _pendingRestorePlan = null;
+let _pendingRestoreEntries = null;
+let _restoreInProgress = false;
 const PROFILE_MEDIA_OPTIONS = [
   ["all", "Tout"],
   ["film", "Films"],
@@ -1863,7 +1912,11 @@ async function renderDashboard() {
         </div>
         <div class="profile-backup-panel">
           <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
-          <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary")}>↓ Sauvegarder</button>
+          <div class="profile-backup-actions">
+            <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary")}>↓ Sauvegarder</button>
+            <button class="btn btn-secondary btn-sm" id="backup-restore-picker" ${uiAction("chooseBackupFile")}>↑ Restaurer</button>
+            <input class="sr-only" id="backup-import-input" type="file" accept=".json,application/json" ${uiAction("previewBackupRestore", [], { change: true, control: true })} />
+          </div>
         </div>
         <div class="profile-account-footer">
           <span>Kulturo ${esc(CONFIG?.app?.version || "")}</span>
@@ -1882,6 +1935,7 @@ async function renderDashboard() {
 }
 
 function openModal(entry = null, prefillTitle = null) {
+  rememberModalReturnFocus();
   _modalDirty = false;
   const isEdit = !!entry;
   State.editingId = isEdit ? entry.id : null;
@@ -1999,6 +2053,8 @@ function _renderWizard() {
       <button class="btn btn-primary wz-submit-btn" ${uiAction("saveEntry")}>Ajouter à ma bibliothèque</button>`;
   }
 
+  const previousDialog = root.querySelector("#modal-overlay .modal");
+  if (previousDialog) dialogFocus.deactivate(previousDialog, { restoreFocus: false });
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal modal-wizard" data-step="${s.step}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
@@ -2046,6 +2102,9 @@ function _renderWizard() {
     dismiss: () => closeModal(),
     shouldResetBeforeDismiss: () => _modalDirty,
   });
+  activateDialog(root.querySelector(".modal-wizard"), {
+    initialFocus: s.step === 1 ? "#f-api-search" : ".wz-status-btn.active",
+  });
 }
 
 function _openModalClassic(entry) {
@@ -2053,10 +2112,10 @@ function _openModalClassic(entry) {
   const entryCoverUrl = safeMediaUrl(entry.cover_url);
   root.innerHTML = `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true">
+      <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="edit-sheet-title">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" ${uiAction("setEditDetailsView", [false])} aria-label="Revenir à la modification principale">←</button>
-          <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
+          <h3 id="edit-sheet-title"><span class="edit-title-main">Modifier ${esc(entry.title || "ce média")}</span><span class="edit-title-details">Détails facultatifs — ${esc(entry.title || "média")}</span></h3>
           <button class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
         </div>
         <div class="modal-body">
@@ -2159,6 +2218,7 @@ function _openModalClassic(entry) {
     dismiss: () => closeModal(),
     shouldResetBeforeDismiss: () => _modalDirty,
   });
+  activateDialog(root.querySelector(".edit-modal"), { initialFocus: ".modal-header .btn-icon:last-child" });
 }
 
 function syncEditDetailsSummary() {
@@ -2591,7 +2651,7 @@ async function saveEntry() {
     closeModal();
     // #13 — State.entries déjà mis à jour localement, pas besoin de refetch
     renderCards();
-    if (_currentPage === "upcoming") renderUpcomingCards();
+    if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
     toast(wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓", "success");
     if (wasAdding) flashNewCard(savedTitle);
@@ -2620,7 +2680,7 @@ async function deleteEntry(id) {
     _modalDirty = false;
     closeModal();
     renderCards();
-    if (_currentPage === "upcoming") renderUpcomingCards();
+    if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
     toast("Supprimé", "info");
   } catch (e) {
@@ -2653,6 +2713,10 @@ async function toggleFav(id) {
 
 // ── Modal helpers ─────────────────────────────────────────────
 async function closeModal(force = false, options = {}) {
+  if (_restoreInProgress && document.querySelector("#modal-overlay .backup-restore-modal")) {
+    toast("La restauration est en cours, gardez cette fenêtre ouverte.", "info");
+    return false;
+  }
   if (!options.fromHistory && historyOwnsLayer("modal")) {
     history.back();
     return true;
@@ -2670,6 +2734,7 @@ async function closeModal(force = false, options = {}) {
     if (!discard) return false;
   }
   const overlay = document.getElementById("modal-overlay");
+  const closingDialog = overlay?.querySelector("[role='dialog'], [role='alertdialog']") || null;
   const closingSessionId = detailSessions.currentId();
   const cleanup = () => {
     const root = document.getElementById("modal-root");
@@ -2680,6 +2745,7 @@ async function closeModal(force = false, options = {}) {
     // L'ancien minuteur ne doit jamais démonter cette nouvelle fiche.
     if (!stillOwnsRoot || !stillOwnsSession) {
       overlay?.remove();
+      if (closingDialog) dialogFocus.deactivate(closingDialog, { restoreFocus: false });
       return;
     }
     finishDetailCoverFlight();
@@ -2696,6 +2762,10 @@ async function closeModal(force = false, options = {}) {
       });
       root.innerHTML = "";
     }
+    if (closingDialog) dialogFocus.deactivate(closingDialog, { restoreFocus: true });
+    _modalReturnFocus = null;
+    _modalReturnMediaId = null;
+    _modalReturnControlId = null;
     _currentRating = 0;
     _wizardState = null;
     State.editingId = null;
@@ -2703,6 +2773,9 @@ async function closeModal(force = false, options = {}) {
     window._apiResults = [];
     _modalDirty = false;
     _modalClosePromptOpen = false;
+    _pendingRestorePlan = null;
+    _pendingRestoreEntries = null;
+    _restoreInProgress = false;
     syncSystemBar(_currentPage, null);
   };
   if (!overlay) { cleanup(); return true; }
@@ -2724,6 +2797,7 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
   return new Promise(resolve => {
     const root = document.getElementById("modal-root");
     const parentModal = root.querySelector("#modal-overlay .modal");
+    const returnFocus = document.activeElement;
     if (parentModal) parentModal.inert = true;
     root.insertAdjacentHTML("beforeend", `
       <div class="modal-overlay confirm-overlay" id="confirm-overlay">
@@ -2746,12 +2820,14 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
         </div>
       </div>`);
     const overlay = document.getElementById("confirm-overlay");
+    const confirmModal = overlay.querySelector(".confirm-modal");
     const cleanup = (result) => {
       if (overlay.classList.contains("is-closing")) return;
       overlay.classList.add("is-closing");
       setTimeout(() => {
         overlay.remove();
         if (parentModal) parentModal.inert = false;
+        dialogFocus.deactivate(confirmModal, { restoreFocus: true });
         resolve(result);
       }, 180);
     };
@@ -2761,10 +2837,14 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
     overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(false); });
     setupMobileSheetSwipe({
       overlay,
-      sheet: overlay.querySelector(".confirm-modal"),
+      sheet: confirmModal,
       dismiss: () => cleanup(false),
     });
-    document.getElementById("confirm-ok").focus();
+    dialogFocus.activate(confirmModal, {
+      returnFocus,
+      initialFocus: "#confirm-ok",
+      onEscape: () => cleanup(false),
+    });
   });
 }
 
@@ -2927,15 +3007,8 @@ function bindGlobalEvents() {
     e.returnValue = "";
   });
   window.addEventListener("popstate", handleSmartBack);
-  document.addEventListener("keydown", e => {
-    if (e.key !== "Escape") return;
-    const confirmCancel = document.getElementById("confirm-cancel");
-    if (confirmCancel) confirmCancel.click();
-    else if (document.getElementById("metadata-overlay")) closeMetadataPanel();
-    else if (document.getElementById("filter-modal-overlay")) UI.closeFilterModal();
-    else closeModal();
-  });
-
+  window.addEventListener("online", syncNetworkStatus);
+  window.addEventListener("offline", syncNetworkStatus);
   // La largeur de la fiche peut changer (rotation mobile, redimensionnement
   // desktop). On recalcule alors le vrai débordement du synopsis.
   let synopsisResizeTimer;
@@ -2949,6 +3022,14 @@ function bindGlobalEvents() {
   });
 
   hydrateFadeImages(document);
+}
+
+function syncNetworkStatus() {
+  const indicator = document.getElementById("network-status");
+  if (!indicator) return;
+  const offline = navigator.onLine === false;
+  indicator.hidden = !offline;
+  document.documentElement.classList.toggle("is-offline", offline);
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -3016,6 +3097,7 @@ function uiAction(action, args = [], options = {}) {
   if (args.length) attributes.push(`data-ui-args="${esc(JSON.stringify(args))}"`);
   if (options.value) attributes.push('data-ui-trigger="change"', 'data-ui-value="true"');
   if (options.checked) attributes.push('data-ui-trigger="change"', 'data-ui-checked="true"');
+  if (options.change) attributes.push('data-ui-trigger="change"');
   if (options.control) attributes.push('data-ui-control="true"');
   if (options.event) attributes.push('data-ui-event="true"');
   if (options.self) attributes.push('data-ui-self="true"');
@@ -3089,622 +3171,6 @@ function journalActionTone(action, metadata = {}) {
     : "";
 }
 
-
-// ── Prochaines sorties ────────────────────────────────────────
-const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences-v2";
-const UPCOMING_TYPES = ["all", "movie", "tv", "game", "book"];
-const UPCOMING_TYPE_META = {
-  movie: { label: "Film",  icon: iconMedia("movie"),       mediaType: "movie", badge: "movie" },
-  tv:    { label: "Série", icon: iconMedia("movie", "tv"), mediaType: "movie", badge: "movie" },
-  game:  { label: "Jeu",   icon: iconMedia("game"),        mediaType: "game",  badge: "game" },
-  book:  { label: "Livre", icon: iconMedia("book"),        mediaType: "book",  badge: "book" },
-};
-
-function upcomingTypeOf(item) {
-  if (UPCOMING_TYPE_META[item?.upcoming_type]) return item.upcoming_type;
-  if (item?.media_type === "game" || item?.media_type === "book") return item.media_type;
-  return item?.subtype === "tv" ? "tv" : "movie";
-}
-
-function upcomingMediaTypeOf(item) {
-  return UPCOMING_TYPE_META[upcomingTypeOf(item)]?.mediaType || "movie";
-}
-
-function upcomingKeyOf(item) {
-  return item?.upcoming_id
-    || `${upcomingTypeOf(item)}:${item?.source_api || "manual"}:${item?.external_id || normalizeTitle(item?.title)}:${item?.release_date || ""}`;
-}
-
-function upcomingPreviewId(item) {
-  return `upcoming-${String(upcomingKeyOf(item)).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-}
-
-function readUpcomingPreferences() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(UPCOMING_PREFS_KEY) || "{}");
-    return {
-      type: UPCOMING_TYPES.includes(saved.type) ? saved.type : "all",
-      genre: typeof saved.genre === "string" && saved.genre ? saved.genre : "all",
-      hideAdded: typeof saved.hideAdded === "boolean" ? saved.hideAdded : true,
-    };
-  } catch {
-    return { type: "all", genre: "all", hideAdded: true };
-  }
-}
-
-function persistUpcomingPreferences() {
-  try {
-    localStorage.setItem(UPCOMING_PREFS_KEY, JSON.stringify({
-      type: UpcomingState.type,
-      genre: UpcomingState.genre,
-      hideAdded: UpcomingState.hideAdded,
-    }));
-  } catch {}
-}
-
-const _upcomingPreferences = readUpcomingPreferences();
-const UpcomingState = {
-  ..._upcomingPreferences,
-  results: [],
-  sourceResults: {},
-  loading: false,
-  loaded: false,
-  adding: new Set(),
-  sourceStatus: {},
-};
-
-function formatReleaseDate(value, precision = "day") {
-  if (!value) return "Date à confirmer";
-  const options = precision === "month"
-    ? { month: "long", year: "numeric" }
-    : { day: "numeric", month: "long", year: "numeric" };
-  return new Intl.DateTimeFormat("fr-FR", options).format(new Date(`${value}T12:00:00`));
-}
-
-function daysUntilRelease(value, precision = "day") {
-  if (!value || precision !== "day") return null;
-  const today = new Date();
-  const [year, month, day] = value.split("-").map(Number);
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const releaseUtc = Date.UTC(year, month - 1, day);
-  const days = Math.round((releaseUtc - todayUtc) / 86400000);
-  return days >= 0 ? days : null;
-}
-
-function releaseDayDelta(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return null;
-  const today = new Date();
-  const [year, month, day] = value.split("-").map(Number);
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const releaseUtc = Date.UTC(year, month - 1, day);
-  return Math.round((releaseUtc - todayUtc) / 86400000);
-}
-
-function upcomingMatchesEntry(item, entry) {
-  if (!item || !entry || upcomingMediaTypeOf(item) !== entry.media_type) return false;
-  const itemSubtype = normalizedSubtype({ ...item, media_type: upcomingMediaTypeOf(item) });
-  const entrySubtype = normalizedSubtype(entry);
-  if (itemSubtype !== entrySubtype) return false;
-
-  if (item.external_id && entry.external_id && item.source_api === entry.source_api) {
-    return String(item.external_id) === String(entry.external_id);
-  }
-
-  if (normalizeTitle(item.title) !== normalizeTitle(entry.title)) return false;
-  const itemYear = Number(item.release_year) || null;
-  const entryYear = Number(entry.release_year) || null;
-  if (itemYear && entryYear && itemYear !== entryYear) return false;
-  if (item.author && entry.author && normalizeTitle(item.author) !== normalizeTitle(entry.author)) return false;
-  return true;
-}
-
-function matchingUpcomingResult(entry) {
-  return UpcomingState.results.find(item => upcomingMatchesEntry(item, entry)) || null;
-}
-
-function awaitedReleaseItems() {
-  return State.entries
-    .filter(entry => entry.status === "wishlist")
-    .map(entry => {
-      const live = matchingUpcomingResult(entry);
-      const releaseDate = live?.release_date || entry.release_date;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(releaseDate || ""))) return null;
-      return {
-        ...live,
-        ...entry,
-        release_date: releaseDate,
-        release_date_precision: live?.date_precision || entry.release_date_precision || "day",
-      };
-    })
-    .filter(Boolean)
-    .filter(entry => UpcomingState.type === "all" || upcomingTypeOf(entry) === UpcomingState.type)
-    .sort((a, b) => a.release_date.localeCompare(b.release_date));
-}
-
-function awaitedReleaseTiming(entry) {
-  const delta = releaseDayDelta(entry.release_date);
-  if (delta !== null && delta <= 0) return { label: "Disponible", available: true };
-  if (delta !== null && entry.release_date_precision !== "month") return { label: `J-${delta}`, available: false };
-  return { label: "À venir", available: false };
-}
-
-const AWAITED_RELEASES_EXPANDED_KEY = "kulturo-awaited-releases-expanded";
-
-function readAwaitedReleasesExpanded() {
-  try {
-    const saved = localStorage.getItem(AWAITED_RELEASES_EXPANDED_KEY);
-    if (saved === "true" || saved === "false") return saved === "true";
-  } catch {}
-  return !window.matchMedia?.("(max-width: 680px)").matches;
-}
-
-function awaitedReleaseCardHTML(entry) {
-  const type = upcomingTypeOf(entry);
-  const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
-  const timing = awaitedReleaseTiming(entry);
-  const coverUrl = safeMediaUrl(entry.cover_url);
-  const cover = coverUrl
-    ? `<img class="awaited-release-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy">
-       <span class="awaited-release-placeholder" style="display:none">${typeMeta.icon}</span>`
-    : `<span class="awaited-release-placeholder">${typeMeta.icon}</span>`;
-  return `
-    <button type="button" class="continue-card awaited-release-card" data-prefetch-media="${esc(entry.id)}" data-transition-media="${esc(entry.id)}"
-      ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Ouvrir ${esc(entry.title)}" title="${esc(entry.title)} · ${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}">
-      <span class="continue-cover awaited-release-visual">
-        ${cover}
-        <span class="awaited-release-timing${timing.available ? " is-available" : ""}">${esc(timing.label)}</span>
-      </span>
-    </button>`;
-}
-
-function renderAwaitedReleases() {
-  const section = document.getElementById("upcoming-wishlist-section");
-  if (!section) return;
-  const entries = awaitedReleaseItems();
-  section.hidden = entries.length === 0;
-  if (!entries.length) {
-    section.innerHTML = "";
-    return;
-  }
-  const expanded = readAwaitedReleasesExpanded();
-  section.classList.toggle("is-expanded", expanded);
-  section.innerHTML = `
-    <button type="button" class="continue-toggle" ${uiAction("toggleAwaitedReleases")} aria-expanded="${expanded}" aria-controls="awaited-releases-content">
-      <span class="continue-heading-copy">
-        <h2 id="upcoming-wishlist-title">Mes sorties attendues</h2>
-        <span>${entries.length} dans votre wishlist</span>
-      </span>
-      <span class="continue-preview" aria-hidden="true">${entries.slice(0, 3).map(continuePreviewHTML).join("")}</span>
-      <span class="continue-chevron" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
-    </button>
-    <div class="continue-expand" id="awaited-releases-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
-      <div class="continue-expand-inner">
-        <div class="continue-expanded-head">
-          <span>Les prochaines œuvres déjà ajoutées à votre wishlist.</span>
-          <button class="section-link" ${uiAction("navTo", ["status-wishlist"])}>Voir la wishlist <span aria-hidden="true">→</span></button>
-        </div>
-        <div class="continue-track awaited-release-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>
-      </div>
-    </div>`;
-  hydrateFadeImages(section);
-}
-
-function toggleAwaitedReleases() {
-  const section = document.getElementById("upcoming-wishlist-section");
-  const toggle = section?.querySelector(".continue-toggle");
-  const content = section?.querySelector(".continue-expand");
-  if (!section || !toggle || !content) return;
-  const expanded = !section.classList.contains("is-expanded");
-  section.classList.toggle("is-expanded", expanded);
-  toggle.setAttribute("aria-expanded", String(expanded));
-  content.setAttribute("aria-hidden", String(!expanded));
-  content.inert = !expanded;
-  try { localStorage.setItem(AWAITED_RELEASES_EXPANDED_KEY, String(expanded)); } catch {}
-}
-
-const _wishlistReleaseSyncAttempts = new Set();
-let _wishlistReleaseSyncTimer = 0;
-function scheduleWishlistReleaseDateSync() {
-  clearTimeout(_wishlistReleaseSyncTimer);
-  _wishlistReleaseSyncTimer = setTimeout(async () => {
-    const candidates = State.entries
-      .filter(entry => entry.status === "wishlist")
-      .map(entry => ({ entry, live: matchingUpcomingResult(entry) }))
-      .filter(({ entry, live }) => live?.release_date && (
-        entry.release_date !== live.release_date ||
-        (entry.release_date_precision || "day") !== (live.date_precision || "day")
-      ))
-      .filter(({ entry, live }) => {
-        const key = `${entry.id}:${live.release_date}:${live.date_precision || "day"}`;
-        if (_wishlistReleaseSyncAttempts.has(key)) return false;
-        _wishlistReleaseSyncAttempts.add(key);
-        return true;
-      });
-    if (!candidates.length) return;
-
-    const results = await Promise.allSettled(candidates.map(async ({ entry, live }) => {
-      const changes = {
-        release_date: live.release_date,
-        release_date_precision: live.date_precision === "month" ? "month" : "day",
-      };
-      const updated = await Media.update(entry.id, changes);
-      Object.assign(entry, updated);
-    }));
-    if (results.some(result => result.status === "fulfilled")) {
-      cacheEntriesLocally();
-      renderAwaitedReleases();
-    }
-    results.filter(result => result.status === "rejected").forEach(result => {
-      console.warn("[Sorties] Date de wishlist non sauvegardée :", result.reason);
-    });
-  }, 90);
-}
-
-function isUpcomingInLibrary(it) {
-  return Boolean(findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) }));
-}
-
-function upcomingGenresForItem(it) {
-  if (Array.isArray(it.genres)) return it.genres.filter(Boolean);
-  return String(it.genre || "")
-    .split(",")
-    .map(genre => genre.trim())
-    .filter(Boolean);
-}
-
-function availableUpcomingGenres() {
-  const items = UpcomingState.type === "all"
-    ? UpcomingState.results
-    : UpcomingState.results.filter(it => upcomingTypeOf(it) === UpcomingState.type);
-  return [...new Set(items.flatMap(upcomingGenresForItem))]
-    .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-}
-
-function syncUpcomingTypeButtons() {
-  UPCOMING_TYPES.forEach(type => {
-    const btn = document.getElementById(`upcoming-filter-${type}`);
-    if (!btn) return;
-    const isActive = type === UpcomingState.type;
-    btn.classList.toggle("active", isActive);
-    btn.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function syncUpcomingLoadingState() {
-  const toolbar = document.querySelector(".upcoming-toolbar");
-  const grid = document.getElementById("upcoming-grid");
-  const refreshBtn = document.getElementById("upcoming-refresh-btn");
-  const hideAdded = document.getElementById("upcoming-hide-added");
-  toolbar?.setAttribute("aria-busy", String(UpcomingState.loading));
-  grid?.setAttribute("aria-busy", String(UpcomingState.loading));
-  if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
-  if (refreshBtn) {
-    refreshBtn.disabled = UpcomingState.loading;
-    refreshBtn.classList.toggle("is-loading", UpcomingState.loading);
-  }
-}
-
-function renderUpcomingGenreFilter() {
-  const select = document.getElementById("upcoming-genre-select");
-  const wrap = document.getElementById("upcoming-genre-wrap");
-  if (!select) return;
-
-  const genres = availableUpcomingGenres();
-  if (UpcomingState.genre !== "all" && !genres.includes(UpcomingState.genre)) {
-    UpcomingState.genre = "all";
-    persistUpcomingPreferences();
-  }
-  select.innerHTML = [
-    `<option value="all">Tous les genres</option>`,
-    ...genres.map(genre => `<option value="${esc(genre)}">${esc(genre)}</option>`),
-  ].join("");
-  select.value = UpcomingState.genre;
-  select.disabled = genres.length === 0;
-  wrap?.classList.toggle("has-filter", UpcomingState.genre !== "all");
-}
-
-function rebuildUpcomingResults() {
-  const unique = new Map();
-  Object.values(UpcomingState.sourceResults).flat().forEach(item => {
-    if (!item?.title || !item?.release_date) return;
-    const key = upcomingKeyOf(item);
-    const current = unique.get(key);
-    if (!current || Number(item.popularity || 0) > Number(current.popularity || 0)) unique.set(key, item);
-  });
-  UpcomingState.results = [...unique.values()].sort((a, b) =>
-    a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
-  );
-  scheduleWishlistReleaseDateSync();
-}
-
-function pendingUpcomingSourceLabels(forCurrentView = false) {
-  const pending = [];
-  const type = UpcomingState.type;
-  const include = sourceType => !forCurrentView || type === "all" || type === sourceType
-    || (sourceType === "movie" && type === "tv");
-  if (include("movie") && (UpcomingState.sourceStatus.movie === "loading" || UpcomingState.sourceStatus.tv === "loading")) {
-    pending.push("films et séries");
-  }
-  if (include("game") && UpcomingState.sourceStatus.game === "loading") pending.push("jeux");
-  if (include("book") && UpcomingState.sourceStatus.book === "loading") pending.push("livres");
-  return pending;
-}
-
-function filteredUpcomingResults() {
-  let filtered = UpcomingState.type === "all"
-    ? UpcomingState.results
-    : UpcomingState.results.filter(it => upcomingTypeOf(it) === UpcomingState.type);
-  if (UpcomingState.genre !== "all") {
-    filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
-  }
-  if (UpcomingState.hideAdded) filtered = filtered.filter(it => !isUpcomingInLibrary(it));
-  return filtered;
-}
-
-function visibleUpcomingResults() {
-  const filtered = filteredUpcomingResults();
-  if (UpcomingState.type !== "all") return filtered.slice(0, 36);
-
-  // Le flux "Tout" doit rester culturellement varié : réserver d'abord une
-  // place équitable à chaque type, puis compléter avec les prochaines dates.
-  const selected = [];
-  const selectedKeys = new Set();
-  UPCOMING_TYPES.slice(1).forEach(type => {
-    filtered
-      .filter(item => upcomingTypeOf(item) === type)
-      .slice(0, 12)
-      .forEach(item => {
-        selected.push(item);
-        selectedKeys.add(upcomingKeyOf(item));
-      });
-  });
-  for (const item of filtered) {
-    if (selected.length >= 48) break;
-    const key = upcomingKeyOf(item);
-    if (selectedKeys.has(key)) continue;
-    selected.push(item);
-    selectedKeys.add(key);
-  }
-  return selected.sort((a, b) =>
-    a.release_date.localeCompare(b.release_date) || Number(b.popularity || 0) - Number(a.popularity || 0)
-  );
-}
-
-async function renderUpcoming(force = false) {
-  const grid = document.getElementById("upcoming-grid");
-  if (!grid || _currentPage !== "upcoming") return;
-  syncUpcomingTypeButtons();
-  syncUpcomingLoadingState();
-
-  if (UpcomingState.loaded && !force) {
-    renderUpcomingCards();
-    return;
-  }
-  if (UpcomingState.loading) return;
-
-  UpcomingState.loading = true;
-  UpcomingState.loaded = false;
-  const sources = [
-    { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming() },
-    { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming() },
-    { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming() },
-  ];
-  UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
-    source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
-  ));
-  sources.filter(source => !source.enabled).forEach(source => { delete UpcomingState.sourceResults[source.key]; });
-  rebuildUpcomingResults();
-  syncUpcomingLoadingState();
-  renderUpcomingCards();
-  loadingStart();
-
-  const loadSource = async source => {
-    try {
-      const value = await source.load();
-      const sourceItems = Array.isArray(value) ? value : [];
-      UpcomingState.sourceResults[source.key] = sourceItems;
-      source.types.forEach(type => {
-        UpcomingState.sourceStatus[type] = sourceItems.some(item => upcomingTypeOf(item) === type)
-          ? "ok"
-          : "empty";
-      });
-    } catch (error) {
-      source.types.forEach(type => { UpcomingState.sourceStatus[type] = "error"; });
-      if (!Array.isArray(UpcomingState.sourceResults[source.key])) UpcomingState.sourceResults[source.key] = [];
-      console.warn(`[Sorties/${source.key}]`, error);
-    } finally {
-      rebuildUpcomingResults();
-      renderUpcomingCards();
-    }
-  };
-
-  try {
-    await Promise.all(sources.filter(source => source.enabled).map(loadSource));
-  } finally {
-    UpcomingState.loading = false;
-    UpcomingState.loaded = true;
-    syncUpcomingLoadingState();
-    renderUpcomingCards();
-    loadingDone();
-  }
-}
-
-function renderUpcomingCards() {
-  const grid = document.getElementById("upcoming-grid");
-  if (!grid) return;
-  syncUpcomingTypeButtons();
-  renderUpcomingGenreFilter();
-  renderAwaitedReleases();
-  const allResults = filteredUpcomingResults();
-  const results = visibleUpcomingResults();
-  const hideAdded = document.getElementById("upcoming-hide-added");
-  if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
-  const resultCount = document.getElementById("upcoming-result-count");
-  if (resultCount) {
-    const count = allResults.length > results.length
-      ? `${results.length} affichés sur ${allResults.length}`
-      : `${results.length} sortie${results.length > 1 ? "s" : ""}`;
-    resultCount.textContent = UpcomingState.loading && pendingUpcomingSourceLabels(true).length
-      ? `${count} · chargement…`
-      : count;
-  }
-
-  if (!results.length) {
-    const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
-    const pendingLabels = pendingUpcomingSourceLabels(true);
-    if (pendingLabels.length) {
-      grid.innerHTML = loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`);
-      return;
-    }
-    const statuses = UpcomingState.type === "all"
-      ? ["movie", "tv", "game", "book"].map(type => UpcomingState.sourceStatus[type]).filter(Boolean)
-      : [UpcomingState.sourceStatus[UpcomingState.type]].filter(Boolean);
-    const sourceStatus = UpcomingState.type === "all"
-      ? (statuses.length && statuses.every(status => status === "error" || status === "unavailable")
-          ? "error"
-          : statuses.length && statuses.every(status => status === "empty" || status === "unavailable") ? "empty" : null)
-      : statuses[0];
-    const unavailableMessages = {
-      movie: "Ajoutez une clé TMDb dans config.js pour charger les sorties cinéma.",
-      tv: "Ajoutez une clé TMDb dans config.js pour charger les nouvelles séries.",
-      game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
-      book: "Déployez la dernière fonction google-books-proxy pour charger les annonces de livres de la BnF.",
-    };
-    const emptyMessages = {
-      movie: "Aucune sortie cinéma française vérifiable n’a été trouvée sur cette période.",
-      tv: "Aucune nouvelle série diffusée en France n’a été trouvée sur cette période.",
-      game: "IGDB n’a renvoyé aucune sortie Europe, Monde ou internationale vérifiable sur cette période.",
-      book: "La BnF n’a annoncé aucune parution future exploitable dans ses flux Livres et Jeunesse pour cette période.",
-    };
-    const sourceMessage = sourceStatus === "error"
-      ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."
-      : sourceStatus === "unavailable"
-        ? (unavailableMessages[UpcomingState.type] || "La source nécessaire n’est pas configurée sur cette installation.")
-        : sourceStatus === "empty"
-          ? (emptyMessages[UpcomingState.type] || "Aucune sortie vérifiable n’est disponible pour cette période.")
-        : "Aucune sortie ne correspond à ces filtres actuellement.";
-    const emptyTitle = sourceStatus === "error"
-      ? "Catalogue indisponible"
-      : sourceStatus === "empty" && UpcomingState.type === "book"
-        ? "Aucune date française fiable"
-        : "Aucune sortie trouvée";
-    const stateOptions = {
-      icon: "◇",
-      title: emptyTitle,
-      message: sourceMessage,
-      actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" ${uiAction("resetUpcomingFilters")}>Tout afficher</button>` : "",
-    };
-    grid.innerHTML = sourceStatus === "error" ? errorState(stateOptions) : emptyState(stateOptions);
-    return;
-  }
-
-  const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
-  const groups = new Map();
-  results.forEach((it, idx) => {
-    const date = it.release_date ? new Date(`${it.release_date}T12:00:00`) : null;
-    const key = date && !Number.isNaN(date.getTime())
-      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-      : "unknown";
-    const label = date && !Number.isNaN(date.getTime())
-      ? monthFormatter.format(date)
-      : "Date à confirmer";
-    if (!groups.has(key)) groups.set(key, { label, items: [] });
-    groups.get(key).items.push({ it, idx });
-  });
-
-  const pendingLabels = pendingUpcomingSourceLabels(true);
-  const progress = pendingLabels.length
-    ? `<div class="upcoming-progress" role="status"><div class="spinner"></div><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
-    : "";
-  grid.innerHTML = progress + [...groups.values()].map(group => `
-    <section class="upcoming-month-section">
-      <div class="upcoming-month-heading">
-        <h2>${esc(group.label)}</h2>
-        <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
-      </div>
-      <div class="upcoming-grid">
-        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx)).join("")}
-      </div>
-    </section>`).join("");
-  requestAnimationFrame(() => {
-    grid.querySelectorAll(".upcoming-card").forEach((card, i) => {
-      card.style.animationDelay = `${Math.min(i * 40, 480)}ms`;
-    });
-    hydrateFadeImages(grid);
-  });
-}
-
-function upcomingCardHTML(it, idx) {
-  const libraryEntry = findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) });
-  const inLibrary = Boolean(libraryEntry);
-  const transitionMediaId = libraryEntry?.id || upcomingPreviewId(it);
-  const days = daysUntilRelease(it.release_date, it.date_precision);
-  const type = upcomingTypeOf(it);
-  const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
-  const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
-  const coverUrl = safeMediaUrl(it.cover_url);
-  const cover = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy">
-       <span class="card-cover-placeholder" style="display:none">${typeMeta.icon}</span>`
-    : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
-
-  return `
-    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}">
-      <div class="upcoming-cover-wrap">
-        <button type="button" class="upcoming-card-open" ${uiAction("openUpcomingDetail", [idx], { control: true })} aria-label="Ouvrir ${esc(it.title)}">
-          ${cover}
-          ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
-          <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
-        </button>
-        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
-          ${inLibrary ? "" : uiAction("addUpcomingToWishlist", [idx])}>${iconStatus("wishlist")}</button>
-      </div>
-    </article>`;
-}
-
-async function addUpcomingToWishlist(idx, closeAfter = false) {
-  const it = visibleUpcomingResults()[idx];
-  if (!it || isUpcomingInLibrary(it)) return;
-  const addingKey = upcomingKeyOf(it);
-  if (UpcomingState.adding.has(addingKey)) return;
-  UpcomingState.adding.add(addingKey);
-  const mediaType = upcomingMediaTypeOf(it);
-  const payload = {
-    title: it.title,
-    media_type: mediaType,
-    subtype: mediaType === "movie" ? (it.subtype || "movie") : null,
-    status: "wishlist",
-    cover_url: it.cover_url || null,
-    description: it.description || null,
-    release_year: it.release_year || null,
-    release_date: it.release_date || null,
-    release_date_precision: it.date_precision === "month" ? "month" : "day",
-    genre: it.genre || null,
-    author: it.author || null,
-    external_id: it.external_id || null,
-    source_api: it.source_api || "manual",
-    is_favorite: false,
-    rating: null,
-    notes: null,
-    platform: it.platform || null,
-  };
-  if (it.publisher) payload.publisher = it.publisher;
-
-  try {
-    const created = await Media.create(payload);
-    State.entries.unshift(created);
-    cacheEntriesLocally();
-    markJournalDirty();
-    updateBadges();
-    renderUpcomingCards();
-    toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
-    if (closeAfter) closeModal();
-  } catch (e) {
-    toast("Erreur : " + e.message, "error");
-  } finally {
-    UpcomingState.adding.delete(addingKey);
-  }
-}
 
 function canEnrichMediaDetails(entry) {
   if (!entry) return false;
@@ -3819,90 +3285,6 @@ function prefetchDetail(id) {
   if (!entry || entry._detailsFetched || entry._detailsPending || !canEnrichMediaDetails(entry)) return;
   requestPrefetchedDetails(entry).catch(() => {});
 }
-
-async function openUpcomingDetail(idx, transitionSource = null) {
-  const it = visibleUpcomingResults()[idx];
-  if (!it) return;
-
-  const mediaType = upcomingMediaTypeOf(it);
-  const existing = findMatchingEntry({ ...it, media_type: mediaType });
-  if (existing) {
-    if (!existing.release_date) existing.release_date = it.release_date;
-    if (!existing.release_date_precision) existing.release_date_precision = it.date_precision === "month" ? "month" : "day";
-    openDetailPanel(existing.id, { transitionSource });
-    return;
-  }
-
-  const preview = {
-    ...it,
-    id: upcomingPreviewId(it),
-    media_type: mediaType,
-    status: null,
-    rating: null,
-    is_favorite: false,
-  };
-
-  const detailsLoading = !preview.description && canEnrichMediaDetails(preview);
-  const detailSessionId = renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading, transitionSource });
-  _scheduleSynopsisOverflowCheck(preview.id);
-
-  try {
-    const details = await requestPrefetchedDetails(preview, {
-      signal: detailSessions.signal(detailSessionId),
-    });
-    if (!detailSessions.isActive(detailSessionId, preview.id)) return;
-    if (!details) {
-      refreshDetailEnrichment(preview, { detailsLoading: false });
-      return;
-    }
-
-    Object.entries(details).forEach(([field, value]) => {
-      if (value != null && !preview[field]) preview[field] = value;
-    });
-    const body = document.getElementById(`detail-body-${preview.id}`);
-    if (body) {
-      _injectBackdrop(preview.backdrop_url, preview.id, detailSessionId);
-      refreshDetailEnrichment(preview, { detailsLoading: false });
-    }
-  } catch (err) {
-    if (err?.name !== "AbortError") console.warn("[Detail upcoming] fetch error:", err);
-    if (detailSessions.isActive(detailSessionId, preview.id)) {
-      refreshDetailEnrichment(preview, { detailsLoading: false });
-    }
-  }
-}
-
-function setUpcomingType(type) {
-  if (!UPCOMING_TYPES.includes(type)) return;
-  UpcomingState.type = type;
-  persistUpcomingPreferences();
-  syncUpcomingTypeButtons();
-  renderUpcomingCards();
-}
-
-function setUpcomingGenre(genre) {
-  const allowed = new Set(["all", ...availableUpcomingGenres()]);
-  if (!allowed.has(genre)) return;
-  UpcomingState.genre = genre;
-  persistUpcomingPreferences();
-  renderUpcomingCards();
-}
-
-function setUpcomingHideAdded(value) {
-  UpcomingState.hideAdded = Boolean(value);
-  persistUpcomingPreferences();
-  renderUpcomingCards();
-}
-
-function resetUpcomingFilters() {
-  UpcomingState.type = "all";
-  UpcomingState.genre = "all";
-  UpcomingState.hideAdded = false;
-  persistUpcomingPreferences();
-  syncUpcomingTypeButtons();
-  renderUpcomingCards();
-}
-
 
 // ── Fiche détaillée ───────────────────────────────────────────
 const DETAIL_COVER_TRANSITION_MS = 340;
@@ -4090,6 +3472,7 @@ function startDetailCoverClose(overlay) {
 }
 
 function renderDetailPanel(e, options = {}) {
+  rememberModalReturnFocus(options.transitionSource, e.id);
   _modalDirty = false;
   const isPreview = options.preview === true;
   const isReadOnly = options.readOnly === true;
@@ -4131,10 +3514,12 @@ function renderDetailPanel(e, options = {}) {
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
+  const previousDetailDialog = root.querySelector("#modal-overlay .detail-modal");
+  if (previousDetailDialog) dialogFocus.deactivate(previousDetailDialog, { restoreFocus: false });
   const detailSessionId = detailSessions.begin(e.id);
   root.innerHTML = `
     <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
+      <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -4143,7 +3528,7 @@ function renderDetailPanel(e, options = {}) {
           <div class="detail-backdrop-content">
             ${posterHTML}
             <div class="detail-backdrop-info">
-              <h2 class="detail-title">${esc(e.title)}</h2>
+              <h2 class="detail-title" id="detail-sheet-title">${esc(e.title)}</h2>
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
@@ -4197,6 +3582,7 @@ function renderDetailPanel(e, options = {}) {
     handles: ".detail-backdrop",
     dismiss: () => closeModal(),
   });
+  activateDialog(root.querySelector(".detail-modal"), { initialFocus: ".detail-close-btn" });
   if (transitionOrigin) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (!detailSessions.isActive(detailSessionId, e.id)) return;
@@ -4391,6 +3777,8 @@ function openMetadataFromElement(element) {
   const definition = metadataDefinition(kind);
   if (!definition || !value) return;
 
+  const previousMetadataDialog = document.querySelector("#metadata-overlay .metadata-sheet");
+  if (previousMetadataDialog) dialogFocus.deactivate(previousMetadataDialog, { restoreFocus: false });
   document.getElementById("metadata-overlay")?.remove();
   _metadataReturnFocus = element;
   const matches = entriesForMetadata(State.entries, kind, value);
@@ -4449,7 +3837,11 @@ function openMetadataFromElement(element) {
     dismiss: () => closeMetadataPanel(),
   });
   requestAnimationFrame(() => overlay?.classList.add("is-open"));
-  setTimeout(() => overlay?.querySelector(".metadata-sheet .btn-icon")?.focus({ preventScroll: true }), 180);
+  dialogFocus.activate(overlay?.querySelector(".metadata-sheet"), {
+    returnFocus: _metadataReturnFocus,
+    initialFocus: ".metadata-sheet .btn-icon",
+    onEscape: () => closeMetadataPanel(),
+  });
 }
 
 function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
@@ -4458,11 +3850,12 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
     return;
   }
   const overlay = document.getElementById("metadata-overlay");
+  const metadataDialog = overlay?.querySelector(".metadata-sheet") || null;
   const finish = () => {
     overlay?.remove();
     const detailModal = document.querySelector("#modal-overlay .detail-modal");
     if (detailModal) detailModal.inert = false;
-    if (restoreFocus) _metadataReturnFocus?.focus?.({ preventScroll: true });
+    if (metadataDialog) dialogFocus.deactivate(metadataDialog, { restoreFocus });
     _metadataReturnFocus = null;
   };
   if (!overlay || immediate) { finish(); return; }
@@ -4754,7 +4147,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     cacheEntriesLocally();
     markJournalDirty();
     renderCards();
-    if (_currentPage === "upcoming") renderUpcomingCards();
+    if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
     syncOpenDetail(entry, feedback);
     return entry;
@@ -5198,6 +4591,139 @@ function exportLibrary() {
   toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
 }
 
+function chooseBackupFile() {
+  if (navigator.onLine === false) {
+    toast("La restauration nécessite une connexion à Supabase.", "info");
+    return;
+  }
+  const input = document.getElementById("backup-import-input");
+  if (!input) return;
+  rememberModalReturnFocus(document.activeElement);
+  input.value = "";
+  input.click();
+}
+
+function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
+  const previousDialog = document.querySelector("#modal-overlay .backup-restore-modal");
+  const alreadyOpen = Boolean(previousDialog);
+  if (previousDialog) dialogFocus.deactivate(previousDialog, { restoreFocus: false });
+  else rememberModalReturnFocus();
+  _pendingRestorePlan = plan;
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `
+    <div class="modal-overlay backup-restore-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
+      <div class="modal backup-restore-modal" role="dialog" aria-modal="true" aria-labelledby="backup-restore-title" aria-describedby="backup-restore-description">
+        <div class="modal-header">
+          <div class="backup-restore-heading">
+            <span>Restauration sécurisée</span>
+            <h3 id="backup-restore-title">Aperçu de l’import</h3>
+          </div>
+          <button type="button" class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
+        </div>
+        <div class="modal-body backup-restore-body">
+          <p id="backup-restore-description">${esc(fileName)} a été vérifié. Rien ne sera supprimé et le Journal existant ne sera jamais écrasé.</p>
+          <div class="backup-restore-counts" aria-label="Résumé de la restauration">
+            <div class="backup-restore-count is-added"><strong>${plan.added.length}</strong><span>à ajouter</span></div>
+            <div class="backup-restore-count is-updated"><strong>${plan.updated.length}</strong><span>à mettre à jour</span></div>
+            <div class="backup-restore-count is-unchanged"><strong>${plan.unchanged.length}</strong><span>inchangé${plan.unchanged.length > 1 ? "s" : ""}</span></div>
+          </div>
+          ${plan.invalid.length ? `<p class="backup-restore-warning" role="status">${plan.invalid.length} ligne${plan.invalid.length > 1 ? "s" : ""} invalide${plan.invalid.length > 1 ? "s" : ""} sera${plan.invalid.length > 1 ? "ont" : ""} ignorée${plan.invalid.length > 1 ? "s" : ""}.</p>` : ""}
+          <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>Les médias absents de ce fichier restent dans votre bibliothèque.</span></div>
+          <div class="backup-restore-progress" id="backup-restore-progress" role="status" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer backup-restore-footer">
+          <button type="button" class="btn btn-secondary" ${uiAction("closeModal")}>Annuler</button>
+          <button type="button" class="btn btn-primary" id="backup-restore-confirm" ${(plan.added.length + plan.updated.length) ? uiAction("restoreBackup") : "disabled"}>
+            ${(plan.added.length + plan.updated.length) ? "Restaurer" : "Rien à restaurer"}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  if (!alreadyOpen) pushHistoryLayer("modal", { modal: "backup-restore" });
+  activateDialog(root.querySelector(".backup-restore-modal"), { initialFocus: "#backup-restore-confirm:not([disabled])" });
+  setupMobileSheetSwipe({
+    overlay: root.querySelector("#modal-overlay"),
+    sheet: root.querySelector(".backup-restore-modal"),
+    dismiss: () => closeModal(),
+  });
+}
+
+async function previewBackupRestore(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > MAX_BACKUP_IMPORT_BYTES) throw new Error("Le fichier dépasse la limite de 10 Mo.");
+    const backup = parseKulturoBackup(await file.text());
+    _pendingRestoreEntries = backup.entries;
+    const plan = buildRestorePlan(backup.entries, State.entries);
+    renderBackupRestorePreview(plan, file.name);
+  } catch (error) {
+    _pendingRestorePlan = null;
+    _pendingRestoreEntries = null;
+    toast(error.message || "Sauvegarde illisible.", "error");
+  } finally {
+    input.value = "";
+  }
+}
+
+async function restoreBackup() {
+  if (!_pendingRestorePlan || !_pendingRestoreEntries) return;
+  if (navigator.onLine === false) {
+    toast("Connexion requise pour restaurer la sauvegarde.", "error");
+    return;
+  }
+  const button = document.getElementById("backup-restore-confirm");
+  const progress = document.getElementById("backup-restore-progress");
+  const operations = [
+    ..._pendingRestorePlan.added.map(item => ({ type: "add", ...item })),
+    ..._pendingRestorePlan.updated.map(item => ({ type: "update", ...item })),
+  ];
+  if (!operations.length) return;
+  _restoreInProgress = true;
+  document.querySelector(".backup-restore-modal")?.setAttribute("aria-busy", "true");
+  document.querySelectorAll(".backup-restore-footer .btn").forEach(control => { control.disabled = true; });
+  if (button) button.textContent = "Restauration…";
+  let completed = 0;
+  const failures = [];
+  for (const operation of operations) {
+    try {
+      if (operation.type === "add") {
+        const created = await Media.create(operation.payload);
+        State.entries.unshift(created);
+      } else {
+        const updated = await Media.update(operation.id, operation.changes);
+        const index = State.entries.findIndex(entry => entry.id === operation.id);
+        if (index >= 0) State.entries[index] = updated;
+      }
+      completed += 1;
+    } catch (error) {
+      failures.push({ title: operation.title, error });
+    }
+    if (progress) progress.textContent = `${completed + failures.length}/${operations.length} traité${operations.length > 1 ? "s" : ""}…`;
+  }
+  cacheEntriesLocally();
+  markJournalDirty();
+  await refreshJournalEvents({ silent: true });
+  renderCards();
+  updateBadges();
+  if (_currentPage === "dashboard") renderDashboard();
+  if (_currentPage === "upcoming") upcomingFeature.renderCards();
+
+  if (failures.length) {
+    _restoreInProgress = false;
+    _pendingRestorePlan = buildRestorePlan(_pendingRestoreEntries, State.entries);
+    renderBackupRestorePreview(_pendingRestorePlan, "Sauvegarde partiellement restaurée");
+    toast(`${completed} élément${completed > 1 ? "s" : ""} restauré${completed > 1 ? "s" : ""}, ${failures.length} échec${failures.length > 1 ? "s" : ""}.`, "error");
+    return;
+  }
+  _pendingRestorePlan = null;
+  _pendingRestoreEntries = null;
+  _restoreInProgress = false;
+  _modalDirty = false;
+  closeModal();
+  toast(`${completed} média${completed > 1 ? "s" : ""} restauré${completed > 1 ? "s" : ""} ✓`, "success");
+}
+
 function setLibraryDensity(value) {
   const density = applyLibraryDensity(value);
   try { localStorage.setItem(LIBRARY_DENSITY_KEY, density); } catch {}
@@ -5562,7 +5088,44 @@ function bindJournalInteractions() {
   });
 }
 
-
+const upcomingFeature = createUpcomingFeature({
+  State,
+  Media,
+  TMDb,
+  IGDB,
+  GoogleBooks,
+  getCurrentPage: () => _currentPage,
+  normalizeTitle,
+  normalizedSubtype,
+  formatReleaseDate,
+  findMatchingEntry,
+  safeMediaUrl,
+  esc,
+  uiAction,
+  iconMedia,
+  iconStatus,
+  continuePreviewHTML,
+  hydrateFadeImages,
+  loadingState,
+  emptyState,
+  errorState,
+  loadingStart,
+  loadingDone,
+  cacheEntriesLocally,
+  markJournalDirty,
+  updateBadges,
+  toast,
+  closeModal,
+  openDetailPanel,
+  canEnrichMediaDetails,
+  renderDetailPanel,
+  scheduleSynopsisOverflowCheck: _scheduleSynopsisOverflowCheck,
+  requestPrefetchedDetails,
+  detailSessions,
+  injectBackdrop: _injectBackdrop,
+  refreshDetailEnrichment,
+  clearApiCache,
+});
 
 window.UI = {
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
@@ -5641,7 +5204,7 @@ window.UI = {
 
       return `
         <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" ${uiAction("closeFilterModal", [], { self: true })}>
-          <div class="modal filter-modal" role="dialog" aria-modal="true">
+          <div class="modal filter-modal" role="dialog" aria-modal="true" aria-labelledby="fm-title">
             <div class="modal-header">
               <h3 id="fm-title">${headerLabel}</h3>
               <button class="btn-icon" ${uiAction("closeFilterModal")} aria-label="Fermer">${iconX()}</button>
@@ -5692,6 +5255,11 @@ window.UI = {
       sheet: overlay?.querySelector(".filter-modal"),
       dismiss: () => UI.closeFilterModal(),
     });
+    dialogFocus.activate(overlay?.querySelector(".filter-modal"), {
+      returnFocus: document.getElementById("btn-filter-toggle") || document.activeElement,
+      initialFocus: ".filter-modal .btn-icon",
+      onEscape: () => UI.closeFilterModal(),
+    });
   },
 
 
@@ -5724,8 +5292,12 @@ window.UI = {
     const overlay = document.getElementById("filter-modal-overlay");
     if (!overlay) return;
     if (overlay.classList.contains("is-closing")) return;
+    const filterDialog = overlay.querySelector(".filter-modal");
     overlay.classList.add("is-closing");
-    setTimeout(() => overlay.remove(), 180);
+    setTimeout(() => {
+      overlay.remove();
+      if (filterDialog) dialogFocus.deactivate(filterDialog, { restoreFocus: true });
+    }, 180);
   },
 
   toggleFavFilter: () => {
@@ -5774,22 +5346,20 @@ window.UI = {
   setProfileMedia,
   openProfileCollection,
   openRatingCollection,
-  setUpcomingType,
-  setUpcomingGenre,
-  setUpcomingHideAdded,
-  toggleAwaitedReleases,
-  resetUpcomingFilters,
-  refreshUpcoming: () => {
-    clearApiCache(key => key.includes("/discover/") || key.includes('"action":"upcoming"'));
-    UpcomingState.loaded = false;
-    UpcomingState.results = [];
-    renderUpcoming(true);
-  },
-  addUpcomingToWishlist,
-  addUpcomingToWishlistFromModal: (idx) => addUpcomingToWishlist(idx, true),
-  openUpcomingDetail,
+  setUpcomingType: upcomingFeature.setType,
+  setUpcomingGenre: upcomingFeature.setGenre,
+  setUpcomingHideAdded: upcomingFeature.setHideAdded,
+  toggleAwaitedReleases: upcomingFeature.toggleAwaitedReleases,
+  resetUpcomingFilters: upcomingFeature.resetFilters,
+  refreshUpcoming: upcomingFeature.refresh,
+  addUpcomingToWishlist: upcomingFeature.addToWishlist,
+  addUpcomingToWishlistFromModal: upcomingFeature.addToWishlistFromModal,
+  openUpcomingDetail: upcomingFeature.openDetail,
   saveUsername,
   exportLibrary,
+  chooseBackupFile,
+  previewBackupRestore,
+  restoreBackup,
   setLibraryDensity,
   applyAppUpdate,
   dismissUpdateBanner,

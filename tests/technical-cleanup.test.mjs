@@ -8,6 +8,8 @@ import { createJournalNavigation } from "../features/journal-navigation.js";
 import { collectDetailUpdates } from "../features/detail-enrichment.js";
 import { createDetailSessionManager } from "../features/detail-session.js";
 import { createUiActionDispatcher } from "../features/ui-actions.js";
+import { nextFocusIndex } from "../features/dialog-focus.js";
+import { buildRestorePlan, parseKulturoBackup } from "../features/backup-restore.js";
 
 test("le cache ignore l'ordre JSON et les champs internes", () => {
   const first = [
@@ -106,6 +108,77 @@ test("les actions déléguées transmettent des arguments typés sans code inlin
   control.dataset.uiSelf = "true";
   assert.equal(dispatcher.invoke(control, { target: {} }), false);
   assert.equal(calls.length, 1);
+});
+
+test("le piège de focus boucle dans les deux sens", () => {
+  assert.equal(nextFocusIndex(3, 2, false), 0);
+  assert.equal(nextFocusIndex(3, 0, true), 2);
+  assert.equal(nextFocusIndex(3, -1, false), 0);
+  assert.equal(nextFocusIndex(0, 0, false), -1);
+});
+
+test("la restauration fusionne sans suppression et sans muter l’aperçu courant", () => {
+  const current = [
+    { id: "1", title: "Dune", media_type: "movie", subtype: "movie", source_api: "tmdb", external_id: "438631", status: "finished", rating: 8, is_favorite: false },
+    { id: "2", title: "Silo", media_type: "movie", subtype: "tv", source_api: "tmdb", external_id: "125988", status: "playing", is_favorite: false },
+  ];
+  const backup = parseKulturoBackup(JSON.stringify({
+    app: "Kulturo",
+    version: "3.4.5",
+    entries: [
+      { ...current[0], rating: 9 },
+      { ...current[1] },
+      { id: "old-id", title: "La Horde du Contrevent", media_type: "book", status: "wishlist", author: "Alain Damasio", is_favorite: true },
+      { title: "Ligne cassée", media_type: "podcast" },
+    ],
+  }));
+  const plan = buildRestorePlan(backup.entries, current);
+  assert.equal(plan.added.length, 1);
+  assert.equal(plan.updated.length, 1);
+  assert.deepEqual(plan.updated[0].changes, { rating: 9 });
+  assert.equal(plan.unchanged.length, 1);
+  assert.equal(plan.invalid.length, 1);
+  assert.equal(Object.hasOwn(plan, "deleted"), false);
+  assert.equal(current[0].rating, 8);
+  assert.equal(Object.hasOwn(plan.added[0].payload, "id"), false);
+  assert.equal(Object.hasOwn(plan.added[0].payload, "user_id"), false);
+});
+
+test("les fenêtres déclarées possèdent toutes un titre accessible", () => {
+  const source = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const dialogs = source.match(/<[^>]+role="(?:alert)?dialog"[^>]*>/g) || [];
+  assert.ok(dialogs.length >= 7);
+  dialogs.forEach(dialog => assert.match(dialog, /aria-labelledby="[^"]+"/));
+});
+
+test("la PWA reste portable quel que soit le nom du dépôt", () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+  const worker = fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  assert.equal(worker.includes("/Kulturo/"), false);
+  assert.equal(html.includes('register("/Kulturo/'), false);
+  const context = {
+    URL,
+    self: {
+      registration: { scope: "https://example.test/depot-renomme/" },
+      location: { href: "https://example.test/depot-renomme/sw.js" },
+      addEventListener() {},
+    },
+  };
+  vm.runInNewContext(`${worker}\n;globalThis.__home = APP_HOME; globalThis.__assets = STATIC_ASSETS;`, context);
+  assert.equal(context.__home, "https://example.test/depot-renomme/");
+  assert.ok(context.__assets.every(asset => asset.startsWith(context.__home)));
+});
+
+test("l’onglet Sorties vit dans son module dédié", () => {
+  const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const upcoming = fs.readFileSync(new URL("../features/upcoming.js", import.meta.url), "utf8");
+  assert.equal(app.includes("const UpcomingState"), false);
+  assert.equal(app.includes("function renderUpcoming("), false);
+  assert.match(upcoming, /export function createUpcomingFeature/);
+  assert.match(upcoming, /function renderUpcoming\(/);
 });
 
 test("l’interface générée ne contient plus de gestionnaire d’événement inline", () => {

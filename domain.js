@@ -64,6 +64,18 @@ export function normalizeTitle(value) {
   return String(value || "").trim().toLocaleLowerCase("fr-FR");
 }
 
+export function formatReleaseDate(value, precision = "day") {
+  if (!value) return "Date à confirmer";
+  const options = precision === "month"
+    ? { month: "long", year: "numeric" }
+    : precision === "year"
+      ? { year: "numeric" }
+      : { day: "numeric", month: "long", year: "numeric" };
+  const raw = String(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T12:00:00`) : new Date(raw);
+  return Number.isNaN(date.getTime()) ? "Date à confirmer" : new Intl.DateTimeFormat("fr-FR", options).format(date);
+}
+
 // La recherche tolère les accents, les apostrophes et la ponctuation. Les
 // données restent intactes : seule leur représentation de recherche change.
 export function normalizeSearchText(value) {
