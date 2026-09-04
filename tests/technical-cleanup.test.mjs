@@ -7,6 +7,7 @@ import { entriesFingerprint, entriesForStorage } from "../features/library-cache
 import { createJournalNavigation } from "../features/journal-navigation.js";
 import { collectDetailUpdates } from "../features/detail-enrichment.js";
 import { createDetailSessionManager } from "../features/detail-session.js";
+import { createUiActionDispatcher } from "../features/ui-actions.js";
 
 test("le cache ignore l'ordre JSON et les champs internes", () => {
   const first = [
@@ -79,6 +80,38 @@ test("une ancienne fermeture ne peut pas détruire la nouvelle fiche", () => {
   assert.equal(sessions.dispose(first), false);
   assert.equal(sessions.currentId(), second);
   assert.deepEqual(disposed, [first]);
+});
+
+test("les actions déléguées transmettent des arguments typés sans code inline", () => {
+  const calls = [];
+  const dispatcher = createUiActionDispatcher(() => ({
+    open: (...args) => calls.push(args),
+  }));
+  const control = {
+    disabled: false,
+    dataset: {
+      uiAction: "open",
+      uiArgs: '["media-1",2]',
+      uiValue: "true",
+      uiControl: "true",
+      uiEvent: "true",
+    },
+    value: "finished",
+    getAttribute: () => null,
+  };
+  const event = { target: control };
+  assert.equal(dispatcher.invoke(control, event), true);
+  assert.deepEqual(calls[0], ["media-1", 2, "finished", control, event]);
+
+  control.dataset.uiSelf = "true";
+  assert.equal(dispatcher.invoke(control, { target: {} }), false);
+  assert.equal(calls.length, 1);
+});
+
+test("l’interface générée ne contient plus de gestionnaire d’événement inline", () => {
+  const source = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  assert.equal(/\son(?:click|change|submit|keydown|mouseenter|focus|error)\s*=/.test(source), false);
+  assert.equal(source.includes('getAttribute("onclick")'), false);
 });
 
 test("les jaquettes et les arrière-plans utilisent des caches distincts", () => {

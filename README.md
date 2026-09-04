@@ -64,9 +64,19 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.3**
+**3.4.4**
 
-Cette version poursuit le nettoyage technique de Kulturo autour de la fiche média et du cache d’images, sans modifier l’interface ni les données personnelles.
+Cette version fiabilise les interactions de toute l’application et consolide la structure CSS des modales, sans modifier l’interface ni les données personnelles.
+
+- les 95 gestionnaires `onclick` restants sont remplacés par une délégation d’événements unique et testable ;
+- formulaires, listes, cases à cocher, navigation clavier et clics sur les fonds de modale suivent désormais le même mécanisme ;
+- les erreurs de chargement des jaquettes sont gérées à un seul endroit, sans JavaScript injecté dans le HTML ;
+- aucun attribut d’événement inline ne subsiste dans l’application ;
+- largeur et espacements internes des fiches, filtres, confirmations et parcours d’ajout reposent sur les mêmes variables CSS ;
+- les anciennes définitions visuelles des segments de modale, déjà remplacées par la charte commune, sont retirées ;
+- huit tests techniques protègent maintenant le cache, le Journal, les fiches, les interactions et le service worker.
+
+La version conserve le cycle de vie renforcé introduit en 3.4.3 :
 
 - cycle de vie des fiches isolé dans un gestionnaire dédié : requêtes, signaux d’annulation, minuteries et images temporaires sont libérés ensemble ;
 - protection explicite contre une ancienne fermeture qui tenterait de démonter une nouvelle fiche déjà ouverte ;
@@ -76,7 +86,7 @@ Cette version poursuit le nettoyage technique de Kulturo autour de la fiche méd
 - couvertures IGDB et Open Library désormais réellement éligibles au cache hors ligne ;
 - polices retirées du quota des images et conservées avec les ressources statiques ;
 - ancien cache d’images migré automatiquement lors de la mise à jour pour éviter un premier lancement à froid ;
-- sept tests techniques valident désormais le démarrage, le Journal, l’enrichissement des fiches, leur fermeture et la politique de cache.
+- les tests techniques valident le démarrage, le Journal, l’enrichissement des fiches, leur fermeture et la politique de cache.
 
 La version conserve le démarrage stabilisé introduit en 3.4.2 : Supabase ne déclenche aucun nouveau rendu lorsqu’il confirme simplement le même contenu que le cache local déjà affiché.
 
@@ -160,6 +170,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.4** — interactions déléguées sans JavaScript inline et structure CSS des modales consolidée à rendu identique.
 - **3.4.3** — cycle de vie des fiches isolé, enrichissement non destructif testé et caches séparés pour les jaquettes et les arrière-plans.
 - **3.4.2** — premier nettoyage modulaire, dépendance Supabase stabilisée et suppression du bref double rendu de la bibliothèque au démarrage.
 - **3.4.1** — Mon journal et Communauté réunis autour de la même navigation temporelle, des mêmes sections mois/jour et du même modèle de carte.

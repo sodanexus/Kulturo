@@ -54,6 +54,7 @@ import { createJournalNavigation } from "./features/journal-navigation.js";
 import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
 import { createDetailSessionManager } from "./features/detail-session.js";
 import { collectDetailUpdates } from "./features/detail-enrichment.js";
+import { createUiActionDispatcher } from "./features/ui-actions.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -66,6 +67,7 @@ document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY
 
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
 const DEFAULT_LIBRARY_STATUS = "finished";
+const uiActionDispatcher = createUiActionDispatcher(() => window.UI);
 
 function readLibraryDensity() {
   try {
@@ -429,7 +431,7 @@ function renderAuthPage() {
         <div class="logo">Kulturo</div>
         <p class="tagline">Votre journal culturel personnel</p>
         <h1 class="auth-title">Connexion</h1>
-        <form class="auth-form" id="auth-form" onsubmit="event.preventDefault(); UI.handleAuth()">
+        <form class="auth-form" id="auth-form" ${uiAction("handleAuth")}>
           <div class="form-group">
             <label for="auth-email">Email</label>
             <input type="email" id="auth-email" placeholder="vous@exemple.com" autocomplete="email" required />
@@ -466,7 +468,7 @@ function renderApp() {
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
-        <button class="topbar-filter-btn" id="btn-filter-toggle" onclick="UI.toggleFilterDrawer()" aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
+        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
       </div>
@@ -476,24 +478,24 @@ function renderApp() {
     <nav id="sidebar">
       <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
       <div class="nav-items-group">
-        <button type="button" class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" aria-current="page" onclick="UI.navTo('library')">
+        <button type="button" class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
           <span class="nav-icon">${iconGrid()}</span>
           <span class="nav-label">Bibliothèque</span>
         </button>
-        <button type="button" class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" onclick="UI.navTo('upcoming')">
+        <button type="button" class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" ${uiAction("navTo", ["upcoming"])}>
           <span class="nav-icon">${iconCalendar()}</span>
           <span class="nav-label">Sorties</span>
         </button>
-        <button type="button" class="nav-item" data-nav="journal" data-tooltip="Journal" aria-label="Journal" onclick="UI.navTo('journal')">
+        <button type="button" class="nav-item" data-nav="journal" data-tooltip="Journal" aria-label="Journal" ${uiAction("navTo", ["journal"])}>
           <span class="nav-icon">${iconJournal()}</span>
           <span class="nav-label">Journal</span>
         </button>
-        <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" onclick="UI.navTo('dashboard')">
+        <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" ${uiAction("navTo", ["dashboard"])}>
           <span class="nav-icon">${iconChart()}</span>
           <span class="nav-label">Profil</span>
         </button>
       </div>
-      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" onclick="UI.openAddModal()">
+      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" ${uiAction("openAddModal")}>
         ${iconPlus()}
       </button>
     </nav>
@@ -543,26 +545,26 @@ function renderApp() {
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
             <div class="upcoming-type-switch" role="group" aria-label="Type de sortie">
-              <button class="upcoming-type-btn active" id="upcoming-filter-all" onclick="UI.setUpcomingType('all')" aria-pressed="true">Tout</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-movie" onclick="UI.setUpcomingType('movie')" aria-pressed="false">Films</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-tv" onclick="UI.setUpcomingType('tv')" aria-pressed="false">Séries</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-game" onclick="UI.setUpcomingType('game')" aria-pressed="false">Jeux</button>
-              <button class="upcoming-type-btn" id="upcoming-filter-book" onclick="UI.setUpcomingType('book')" aria-pressed="false">Livres</button>
+              <button class="upcoming-type-btn active" id="upcoming-filter-all" ${uiAction("setUpcomingType", ["all"])} aria-pressed="true">Tout</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-movie" ${uiAction("setUpcomingType", ["movie"])} aria-pressed="false">Films</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-tv" ${uiAction("setUpcomingType", ["tv"])} aria-pressed="false">Séries</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-game" ${uiAction("setUpcomingType", ["game"])} aria-pressed="false">Jeux</button>
+              <button class="upcoming-type-btn" id="upcoming-filter-book" ${uiAction("setUpcomingType", ["book"])} aria-pressed="false">Livres</button>
             </div>
-            <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" onclick="UI.refreshUpcoming()" title="Actualiser les sorties" aria-label="Actualiser les sorties">
+            <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" ${uiAction("refreshUpcoming")} title="Actualiser les sorties" aria-label="Actualiser les sorties">
               <span class="upcoming-refresh-icon" aria-hidden="true">${iconRefresh()}</span>
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
           <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
             <span>Genre</span>
-            <select id="upcoming-genre-select" onchange="UI.setUpcomingGenre(this.value)" disabled>
+            <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
               <option value="all">Tous les genres</option>
             </select>
           </label>
           <div class="upcoming-toolbar-meta">
             <label class="compact-toggle">
-              <input type="checkbox" id="upcoming-hide-added" onchange="UI.setUpcomingHideAdded(this.checked)" />
+              <input type="checkbox" id="upcoming-hide-added" ${uiAction("setUpcomingHideAdded", [], { checked: true })} />
               <span class="compact-toggle-track" aria-hidden="true"><span></span></span>
               <span>Masquer les titres ajoutés</span>
             </label>
@@ -622,33 +624,33 @@ function renderApp() {
         <strong>Nouvelle version disponible</strong>
         <span>Quelques secondes suffisent pour l’installer.</span>
       </div>
-      <button class="btn btn-primary btn-sm" id="apply-update-btn" onclick="UI.applyAppUpdate()">Mettre à jour</button>
-      <button class="update-banner-close" onclick="UI.dismissUpdateBanner()" aria-label="Masquer">${iconX()}</button>
+      <button class="btn btn-primary btn-sm" id="apply-update-btn" ${uiAction("applyAppUpdate")}>Mettre à jour</button>
+      <button class="update-banner-close" ${uiAction("dismissUpdateBanner")} aria-label="Masquer">${iconX()}</button>
     </aside>
 
-    <button id="back-to-top" class="back-to-top" onclick="UI.scrollToTop()" aria-label="Revenir en haut" title="Revenir en haut" hidden>
+    <button id="back-to-top" class="back-to-top" ${uiAction("scrollToTop")} aria-label="Revenir en haut" title="Revenir en haut" hidden>
       <span aria-hidden="true">↑</span>
     </button>
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
-      <button type="button" class="bottom-nav-item active" data-nav="library" onclick="UI.navTo('library')" aria-label="Bibliothèque" aria-current="page">
+      <button type="button" class="bottom-nav-item active" data-nav="library" ${uiAction("navTo", ["library"])} aria-label="Bibliothèque" aria-current="page">
         ${iconGrid()}
         <span>Bibliothèque</span>
       </button>
-      <button type="button" class="bottom-nav-item" data-nav="upcoming" onclick="UI.navTo('upcoming')" aria-label="Sorties">
+      <button type="button" class="bottom-nav-item" data-nav="upcoming" ${uiAction("navTo", ["upcoming"])} aria-label="Sorties">
         ${iconCalendar()}
         <span>Sorties</span>
       </button>
-      <button type="button" class="bottom-nav-item bottom-nav-add" onclick="UI.openAddModal()" aria-label="Ajouter un média">
+      <button type="button" class="bottom-nav-item bottom-nav-add" ${uiAction("openAddModal")} aria-label="Ajouter un média">
         ${iconPlus()}
         <span class="sr-only">Ajouter</span>
       </button>
-      <button type="button" class="bottom-nav-item" data-nav="journal" onclick="UI.navTo('journal')" aria-label="Journal">
+      <button type="button" class="bottom-nav-item" data-nav="journal" ${uiAction("navTo", ["journal"])} aria-label="Journal">
         ${iconJournal()}
         <span>Journal</span>
       </button>
-      <button type="button" class="bottom-nav-item" data-nav="dashboard" onclick="UI.navTo('dashboard')" aria-label="Mon profil">
+      <button type="button" class="bottom-nav-item" data-nav="dashboard" ${uiAction("navTo", ["dashboard"])} aria-label="Mon profil">
         ${iconUser()}
         <span>Profil</span>
       </button>
@@ -923,7 +925,7 @@ function buildFilterBar() {
     const statuses = ["finished","wishlist","playing","dropped"];
     chipsEl.innerHTML = statuses.map(s => {
       return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-                      onclick="UI.setStatusChip('${s}')">${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
+                      ${uiAction("setStatusChip", [s])}>${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
     }).join("");
   }
   // Met à jour le label actif sur le bouton toggle
@@ -1021,19 +1023,19 @@ function readContinueExpanded() {
 function continuePreviewHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
-    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><span class="continue-preview-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span></span>`
+    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="grid" class="fade-image"><span class="continue-preview-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span></span>`
     : `<span class="continue-preview-cover continue-preview-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 }
 
 function continueCardHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="flex" class="fade-image">
        <span class="continue-cover-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span>`
     : `<span class="continue-cover-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 
   return `
-    <button type="button" class="continue-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" onclick="UI.openEditModal('${entry.id}', this)" aria-label="Reprendre ${esc(entry.title)}">
+    <button type="button" class="continue-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Reprendre ${esc(entry.title)}">
       <span class="continue-cover">${cover}<span class="continue-play" aria-hidden="true">${iconPlay()}</span></span>
       <span class="continue-card-copy">
         <strong>${esc(entry.title)}</strong>
@@ -1062,7 +1064,7 @@ function renderContinueSection() {
   section.hidden = false;
   section.classList.toggle("is-expanded", expanded);
   section.innerHTML = `
-    <button type="button" class="continue-toggle" onclick="UI.toggleContinueSection()" aria-expanded="${expanded}" aria-controls="continue-content">
+    <button type="button" class="continue-toggle" ${uiAction("toggleContinueSection")} aria-expanded="${expanded}" aria-controls="continue-content">
       <span class="continue-heading-copy">
         <h2 id="continue-title">À reprendre</h2>
         <span>${esc(countLabel)}</span>
@@ -1074,7 +1076,7 @@ function renderContinueSection() {
       <div class="continue-expand-inner">
         <div class="continue-expanded-head">
           <span>Reprenez là où vous vous êtes arrêté.</span>
-          <button class="section-link" onclick="UI.navTo('status-playing')">Voir tout <span aria-hidden="true">→</span></button>
+          <button class="section-link" ${uiAction("navTo", ["status-playing"])}>Voir tout <span aria-hidden="true">→</span></button>
         </div>
         <div class="continue-track">${items.map(continueCardHTML).join("")}</div>
       </div>
@@ -1148,11 +1150,11 @@ function renderActiveFilters() {
     <span class="active-filter-label">${State.filters.search ? "Recherche globale" : "Filtres actifs"}</span>
     <div class="active-filter-chips">
       ${filters.map(([key, label]) => `
-        <button type="button" class="active-filter-chip" onclick="UI.clearLibraryFilter('${key}')" aria-label="Retirer le filtre ${esc(label)}">
+        <button type="button" class="active-filter-chip" ${uiAction("clearLibraryFilter", [key])} aria-label="Retirer le filtre ${esc(label)}">
           ${esc(label)} <span aria-hidden="true">×</span>
         </button>`).join("")}
     </div>
-    <button type="button" class="active-filter-reset" onclick="UI.clearAllLibraryFilters()">Tout effacer</button>` : "";
+    <button type="button" class="active-filter-reset" ${uiAction("clearAllLibraryFilters")}>Tout effacer</button>` : "";
 }
 
 function clearLibraryFilter(key) {
@@ -1222,7 +1224,7 @@ function renderCards(options = {}) {
   if (!entries.length) {
     const f = State.filters;
     let emptyMsg = "Ajoutez votre premier film, jeu ou livre pour commencer.";
-    let emptyBtn = `<button class="btn btn-primary" onclick="UI.openAddModal()">${iconPlus()} Ajouter</button>`;
+    let emptyBtn = `<button class="btn btn-primary" ${uiAction("openAddModal")}>${iconPlus()} Ajouter</button>`;
     if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
     else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>★ ${f.rating}/10</strong>.`;
     else if (f.favorite && f.replay) emptyMsg = "Aucun média ne réunit les marqueurs Coup de cœur et Replay.";
@@ -1243,7 +1245,7 @@ function renderCards(options = {}) {
         <h3>Rien ici</h3>
         <p>${emptyMsg}</p>
         ${f.search || f.favorite || f.replay || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
-          ? `<button class="btn btn-secondary" onclick="UI.navTo('library')">Voir tout</button>`
+          ? `<button class="btn btn-secondary" ${uiAction("navTo", ["library"])}>Voir tout</button>`
           : emptyBtn}
       </div>`;
     return;
@@ -1326,7 +1328,7 @@ function activityStateMarkersHTML(entry) {
 function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy">
        <div class="card-cover-placeholder" style="display:none">${iconMedia(e.media_type, e.subtype)}</div>`
     : `<div class="card-cover-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
@@ -1348,8 +1350,7 @@ function cardHTML(e, i = 0) {
 
   return `
     <article class="${classes}" data-id="${e.id}" data-key="${e.id}" data-prefetch-media="${e.id}" data-transition-media="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
-      style="animation-delay:${Math.min(i*25,250)}ms" onclick="UI.openEditModal('${e.id}', this)"
-      onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();UI.openEditModal('${e.id}',this)}">
+      style="animation-delay:${Math.min(i*25,250)}ms" ${uiAction("openEditModal", [e.id], { control: true })}>
       ${coverHTML}
       <span class="card-title sr-only">${esc(e.title)}</span>
       ${statusLabel ? `<span class="card-status-label">${iconStatus(e.status)}<span>${statusLabel}</span></span>` : ""}
@@ -1679,7 +1680,7 @@ async function renderDashboard() {
     ? topScoped.map((entry, index) => {
         const coverUrl = safeMediaUrl(entry.cover_url);
         return `
-          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" onclick="UI.openEditModal('${entry.id}', this)" aria-label="Ouvrir ${esc(entry.title)}">
+          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Ouvrir ${esc(entry.title)}">
             <span class="profile-top-rank">${index + 1}</span>
             <span class="profile-top-cover">
               ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
@@ -1698,7 +1699,7 @@ async function renderDashboard() {
   ];
   const categoryMax = Math.max(...categories.map(category => category.count), 1);
   const categoryHTML = categories.map(category => `
-    <button type="button" class="profile-category-row" onclick="UI.openProfileCollection('${category.key}', ${_profileYear}, '${periodMonth}', '${category.key}')">
+    <button type="button" class="profile-category-row" ${uiAction("openProfileCollection", [category.key, _profileYear, periodMonth, category.key])}>
       <span class="profile-category-icon" style="color:${category.color}" aria-hidden="true">${category.icon}</span>
       <span class="profile-category-copy">
         <span><strong>${category.label}</strong><em>${category.count}</em></span>
@@ -1737,7 +1738,7 @@ async function renderDashboard() {
     const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
     const isPeak = n > 0 && n === Math.max(...ratingCounts);
     return `
-      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `onclick="UI.openRatingCollection(${note})" aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
+      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `${uiAction("openRatingCollection", [note])} aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
         <div class="rating-hist-count">${n || ""}</div>
         <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
       </button>`;
@@ -1767,17 +1768,17 @@ async function renderDashboard() {
           <h2>${_profilePeriod === "month" ? "Votre mois" : "Votre année"} · ${esc(periodLabel)}</h2>
         </div>
         <div class="profile-date-controls">
-          <select class="filter-select profile-year-inline" aria-label="Année" onchange="UI.setProfileYear(this.value)">${yearOptions}</select>
-          ${_profilePeriod === "month" ? `<select class="filter-select profile-month-inline" aria-label="Mois" onchange="UI.setProfileMonth(this.value)">${monthOptions}</select>` : ""}
+          <select class="filter-select profile-year-inline" aria-label="Année" ${uiAction("setProfileYear", [], { value: true })}>${yearOptions}</select>
+          ${_profilePeriod === "month" ? `<select class="filter-select profile-month-inline" aria-label="Mois" ${uiAction("setProfileMonth", [], { value: true })}>${monthOptions}</select>` : ""}
         </div>
       </div>
       <div class="profile-scope-toolbar">
         <div class="profile-period-switch" role="group" aria-label="Période des statistiques">
-          <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" onclick="UI.setProfilePeriod('year')" aria-pressed="${_profilePeriod === "year"}">Annuel</button>
-          <button type="button" class="${_profilePeriod === "month" ? "active" : ""}" onclick="UI.setProfilePeriod('month')" aria-pressed="${_profilePeriod === "month"}">Mensuel</button>
+          <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" ${uiAction("setProfilePeriod", ["year"])} aria-pressed="${_profilePeriod === "year"}">Annuel</button>
+          <button type="button" class="${_profilePeriod === "month" ? "active" : ""}" ${uiAction("setProfilePeriod", ["month"])} aria-pressed="${_profilePeriod === "month"}">Mensuel</button>
         </div>
         <div class="profile-media-switch" role="group" aria-label="Type de média">
-          ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" onclick="UI.setProfileMedia('${value}')" aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
+          ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" ${uiAction("setProfileMedia", [value])} aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
         </div>
       </div>
       <div class="profile-year-summary">
@@ -1799,7 +1800,7 @@ async function renderDashboard() {
           ["favorite", scopedFavs.length, "Coups de cœur"],
           ["wishlist", scopedWishlist.length, "Wishlist"],
         ].map(([key, value, label]) => `
-          <button type="button" class="profile-action-card" onclick="UI.openProfileCollection('${key}', ${_profileYear}, '${periodMonth}', '${_profileMedia}')">
+          <button type="button" class="profile-action-card" ${uiAction("openProfileCollection", [key, _profileYear, periodMonth, _profileMedia])}>
             <span class="profile-action-icon" aria-hidden="true">${iconStatus(key)}</span>
             <strong>${profileNumberHTML(`action-${key}`, value)}</strong>
             <span>${label}</span>
@@ -1856,17 +1857,17 @@ async function renderDashboard() {
             <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
             <div class="profile-username-row">
               <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
-              <button class="btn btn-primary btn-sm" onclick="UI.saveUsername()">Enregistrer</button>
+              <button class="btn btn-primary btn-sm" ${uiAction("saveUsername")}>Enregistrer</button>
             </div>
           </div>
         </div>
         <div class="profile-backup-panel">
           <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
-          <button class="btn btn-secondary btn-sm" onclick="UI.exportLibrary()">↓ Sauvegarder</button>
+          <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary")}>↓ Sauvegarder</button>
         </div>
         <div class="profile-account-footer">
           <span>Kulturo ${esc(CONFIG?.app?.version || "")}</span>
-          <button class="btn btn-ghost btn-sm" onclick="UI.signOut()">Se déconnecter</button>
+          <button class="btn btn-ghost btn-sm" ${uiAction("signOut")}>Se déconnecter</button>
         </div>
       </div>
     </details>
@@ -1929,7 +1930,7 @@ function _renderWizard() {
         <span>Nouvel ajout</span>
         <h3 id="add-sheet-title">Que souhaitez-vous ajouter ?</h3>
       </div>
-      <button type="button" class="btn-icon" onclick="UI.closeModal()" aria-label="Fermer">${iconX()}</button>`;
+      <button type="button" class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>`;
     bodyHTML = `
       <div class="api-search-wrap wz-universal-search">
         <span class="wz-search-icon" aria-hidden="true">${iconSearch()}</span>
@@ -1947,20 +1948,20 @@ function _renderWizard() {
     const title = s.apiSelected?.title || s.title;
     const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
     const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, label }) => `
-      <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
+      <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" ${uiAction("wzSetStatus", [value])} aria-pressed="${value === s._status}">
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
       </button>`).join("");
     const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value, label }) => `
-      <button type="button" class="wz-status-btn wz-status-secondary ${value === s._status ? "active" : ""}" data-status="${value}" onclick="UI.wzSetStatus('${value}')" aria-pressed="${value === s._status}">
+      <button type="button" class="wz-status-btn wz-status-secondary ${value === s._status ? "active" : ""}" data-status="${value}" ${uiAction("wzSetStatus", [value])} aria-pressed="${value === s._status}">
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
       </button>`).join("");
     headerHTML = `
-      <button type="button" class="btn-icon wz-back-btn" onclick="UI.wzBack()" aria-label="Changer de média">←</button>
+      <button type="button" class="btn-icon wz-back-btn" ${uiAction("wzBack")} aria-label="Changer de média">←</button>
       <div class="wz-header-copy">
         <span>Nouvel ajout</span>
         <h3 id="add-sheet-title">Ajouter à la bibliothèque</h3>
       </div>
-      <button type="button" class="btn-icon" onclick="UI.closeModal()" aria-label="Fermer">${iconX()}</button>`;
+      <button type="button" class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>`;
     bodyHTML = `
       <div class="wz-selected-card">
         ${cover
@@ -1970,7 +1971,7 @@ function _renderWizard() {
           <strong>${esc(title)}</strong>
           <span>${esc(subtitle)}</span>
         </div>
-        <button type="button" class="wz-change-btn" onclick="UI.wzBack()">Changer</button>
+        <button type="button" class="wz-change-btn" ${uiAction("wzBack")}>Changer</button>
       </div>
 
       <section class="wz-compact-section">
@@ -1995,11 +1996,11 @@ function _renderWizard() {
         </label>
       </section>`;
     footerHTML = `
-      <button class="btn btn-primary wz-submit-btn" onclick="UI.saveEntry()">Ajouter à ma bibliothèque</button>`;
+      <button class="btn btn-primary wz-submit-btn" ${uiAction("saveEntry")}>Ajouter à ma bibliothèque</button>`;
   }
 
   root.innerHTML = `
-    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal modal-wizard" data-step="${s.step}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
         <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
@@ -2051,20 +2052,20 @@ function _openModalClassic(entry) {
   const root = document.getElementById("modal-root");
   const entryCoverUrl = safeMediaUrl(entry.cover_url);
   root.innerHTML = `
-    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true">
         <div class="modal-header">
-          <button type="button" class="btn-icon edit-details-back" onclick="UI.setEditDetailsView(false)" aria-label="Revenir à la modification principale">←</button>
+          <button type="button" class="btn-icon edit-details-back" ${uiAction("setEditDetailsView", [false])} aria-label="Revenir à la modification principale">←</button>
           <h3><span class="edit-title-main">Modifier</span><span class="edit-title-details">Détails facultatifs</span></h3>
-          <button class="btn-icon" onclick="UI.closeModal()">${iconX()}</button>
+          <button class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
         </div>
         <div class="modal-body">
           <div class="edit-primary-view">
             <div class="form-group modal-search-unified">
               <div class="modal-type-tabs">
-                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" onclick="UI.setModalType('movie')">${iconMedia("movie")} Film / Série</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" onclick="UI.setModalType('game')">${iconMedia("game")} Jeu</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" onclick="UI.setModalType('book')">${iconMedia("book")} Livre</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" ${uiAction("setModalType", ["movie"])}>${iconMedia("movie")} Film / Série</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" ${uiAction("setModalType", ["game"])}>${iconMedia("game")} Jeu</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" ${uiAction("setModalType", ["book"])}>${iconMedia("book")} Livre</button>
               </div>
               <div class="api-search-wrap">
                 <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
@@ -2094,7 +2095,7 @@ function _openModalClassic(entry) {
                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
               </span>
             </label>
-            <button type="button" class="edit-details-trigger" onclick="UI.setEditDetailsView(true)">
+            <button type="button" class="edit-details-trigger" ${uiAction("setEditDetailsView", [true])}>
               <span class="edit-details-trigger-icon" aria-hidden="true">＋</span>
               <span class="edit-details-trigger-copy">
                 <strong>Détails facultatifs</strong>
@@ -2128,9 +2129,9 @@ function _openModalClassic(entry) {
           </details>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-danger btn-sm" onclick="UI.deleteEntry('${entry.id}')">Supprimer</button>
-          <button class="btn btn-secondary" onclick="UI.closeModal()">Annuler</button>
-          <button class="btn btn-primary" onclick="UI.saveEntry()">Enregistrer</button>
+          <button class="btn btn-danger btn-sm" ${uiAction("deleteEntry", [entry.id])}>Supprimer</button>
+          <button class="btn btn-secondary" ${uiAction("closeModal")}>Annuler</button>
+          <button class="btn btn-primary" ${uiAction("saveEntry")}>Enregistrer</button>
         </div>
       </div>
     </div>`;
@@ -2229,21 +2230,33 @@ function buildRatingStars(current) {
           <polygon class="star-half-fill" points="10,2 12.9,7.6 19,8.5 14.5,12.9 15.6,19 10,16 4.4,19 5.5,12.9 1,8.5 7.1,7.6" fill="${halfColor}" clip-path="url(#hc${i}x)"/>
         </svg>
         <button type="button" class="star-zone star-zone-half"
-          onclick="UI.setRating(${half})"
-          onmouseenter="UI.previewRating(${half})"
-          onfocus="UI.previewRating(${half})"
+          data-rating-value="${half}"
           aria-label="Noter ${half} sur 10"
           aria-pressed="${current === half}"></button>
         <button type="button" class="star-zone star-zone-full"
-          onclick="UI.setRating(${full})"
-          onmouseenter="UI.previewRating(${full})"
-          onfocus="UI.previewRating(${full})"
+          data-rating-value="${full}"
           aria-label="Noter ${full} sur 10"
           aria-pressed="${current === full}"></button>
       </span>`;
   }).join("");
 
   if (current) showRatingLabel(current);
+
+  if (!wrap.dataset.ratingBound) {
+    wrap.dataset.ratingBound = "true";
+    wrap.addEventListener("click", event => {
+      const zone = event.target.closest?.("[data-rating-value]");
+      if (zone && wrap.contains(zone)) setRating(Number(zone.dataset.ratingValue));
+    });
+    wrap.addEventListener("pointerover", event => {
+      const zone = event.target.closest?.("[data-rating-value]");
+      if (zone && wrap.contains(zone)) previewRating(Number(zone.dataset.ratingValue));
+    });
+    wrap.addEventListener("focusin", event => {
+      const zone = event.target.closest?.("[data-rating-value]");
+      if (zone && wrap.contains(zone)) previewRating(Number(zone.dataset.ratingValue));
+    });
+  }
 
   // L'aperçu est réinitialisé uniquement à la sortie de la rangée complète.
   // Le faire sur chaque demi-étoile reconstruisait le DOM entre deux zones et
@@ -2374,7 +2387,7 @@ function setupWizardUniversalSearch() {
       const resultItems = items.map((item, index) => {
         const coverUrl = safeMediaUrl(item.cover_url);
         return `
-          <button type="button" class="api-result-item wz-universal-result" onclick="UI.fillFromApi(${index})">
+          <button type="button" class="api-result-item wz-universal-result" ${uiAction("fillFromApi", [index])}>
             ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
             <span class="api-result-info">
               <strong class="api-result-title">${esc(item.title)}</strong>
@@ -2387,9 +2400,9 @@ function setupWizardUniversalSearch() {
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
-            <button type="button" onclick="UI.wzUseManualType('movie')">${iconMedia("movie")} Film / Série</button>
-            <button type="button" onclick="UI.wzUseManualType('game')">${iconMedia("game")} Jeu</button>
-            <button type="button" onclick="UI.wzUseManualType('book')">${iconMedia("book")} Livre</button>
+            <button type="button" ${uiAction("wzUseManualType", ["movie"])}>${iconMedia("movie")} Film / Série</button>
+            <button type="button" ${uiAction("wzUseManualType", ["game"])}>${iconMedia("game")} Jeu</button>
+            <button type="button" ${uiAction("wzUseManualType", ["book"])}>${iconMedia("book")} Livre</button>
           </div>
         </div>`;
     }, immediate ? 0 : 320);
@@ -2431,7 +2444,7 @@ function setupApiSearch() {
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
-        <button type="button" class="api-result-item" onclick="UI.fillFromApi(${idx})">
+        <button type="button" class="api-result-item" ${uiAction("fillFromApi", [idx])}>
           ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
@@ -2784,8 +2797,9 @@ function setStatusChip(status) {
   const fmChips = document.getElementById("fm-status-chips");
   if (fmChips) {
     fmChips.querySelectorAll(".filter-chip").forEach(b => {
-      const s = b.getAttribute("onclick").match(/'([^']+)'/)?.[1];
+      const s = b.dataset.value;
       b.classList.toggle("active", s === status);
+      b.setAttribute("aria-pressed", String(s === status));
     });
   }
   _updateResetBtn();
@@ -2799,8 +2813,9 @@ function setSort(val) {
   const fmChips = document.getElementById("fm-sort-chips");
   if (fmChips) {
     fmChips.querySelectorAll(".filter-chip").forEach(b => {
-      const v = b.getAttribute("onclick").match(/'([^']+)'/)?.[1];
+      const v = b.dataset.value;
       b.classList.toggle("active", v === val);
+      b.setAttribute("aria-pressed", String(v === val));
     });
   }
   _updateResetBtn();
@@ -2843,10 +2858,18 @@ async function handleSmartBack(event) {
 }
 
 function bindGlobalEvents() {
+  uiActionDispatcher.bind(document);
   document.addEventListener("load", event => {
     if (event.target instanceof HTMLImageElement && event.target.matches("[data-fade-image]")) {
       event.target.classList.add("is-loaded");
     }
+  }, true);
+  document.addEventListener("error", event => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.matches("[data-image-fallback]")) return;
+    image.style.display = "none";
+    const display = image.dataset.imageFallback;
+    if (display !== "hide" && image.nextElementSibling) image.nextElementSibling.style.display = display;
   }, true);
 
   let prefetchTimer = 0;
@@ -2986,6 +3009,17 @@ function applyAppUpdate() {
 function esc(str) {
   if (!str) return "";
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function uiAction(action, args = [], options = {}) {
+  const attributes = [`data-ui-action="${esc(action)}"`];
+  if (args.length) attributes.push(`data-ui-args="${esc(JSON.stringify(args))}"`);
+  if (options.value) attributes.push('data-ui-trigger="change"', 'data-ui-value="true"');
+  if (options.checked) attributes.push('data-ui-trigger="change"', 'data-ui-checked="true"');
+  if (options.control) attributes.push('data-ui-control="true"');
+  if (options.event) attributes.push('data-ui-event="true"');
+  if (options.self) attributes.push('data-ui-self="true"');
+  return attributes.join(" ");
 }
 
 // ── Icons (inline SVG minifiés) ───────────────────────────────
@@ -3210,12 +3244,12 @@ function awaitedReleaseCardHTML(entry) {
   const timing = awaitedReleaseTiming(entry);
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
-    ? `<img class="awaited-release-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img class="awaited-release-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy">
        <span class="awaited-release-placeholder" style="display:none">${typeMeta.icon}</span>`
     : `<span class="awaited-release-placeholder">${typeMeta.icon}</span>`;
   return `
     <button type="button" class="continue-card awaited-release-card" data-prefetch-media="${esc(entry.id)}" data-transition-media="${esc(entry.id)}"
-      onclick="UI.openEditModal('${esc(entry.id)}', this)" aria-label="Ouvrir ${esc(entry.title)}" title="${esc(entry.title)} · ${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}">
+      ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Ouvrir ${esc(entry.title)}" title="${esc(entry.title)} · ${esc(formatReleaseDate(entry.release_date, entry.release_date_precision))}">
       <span class="continue-cover awaited-release-visual">
         ${cover}
         <span class="awaited-release-timing${timing.available ? " is-available" : ""}">${esc(timing.label)}</span>
@@ -3235,7 +3269,7 @@ function renderAwaitedReleases() {
   const expanded = readAwaitedReleasesExpanded();
   section.classList.toggle("is-expanded", expanded);
   section.innerHTML = `
-    <button type="button" class="continue-toggle" onclick="UI.toggleAwaitedReleases()" aria-expanded="${expanded}" aria-controls="awaited-releases-content">
+    <button type="button" class="continue-toggle" ${uiAction("toggleAwaitedReleases")} aria-expanded="${expanded}" aria-controls="awaited-releases-content">
       <span class="continue-heading-copy">
         <h2 id="upcoming-wishlist-title">Mes sorties attendues</h2>
         <span>${entries.length} dans votre wishlist</span>
@@ -3247,7 +3281,7 @@ function renderAwaitedReleases() {
       <div class="continue-expand-inner">
         <div class="continue-expanded-head">
           <span>Les prochaines œuvres déjà ajoutées à votre wishlist.</span>
-          <button class="section-link" onclick="UI.navTo('status-wishlist')">Voir la wishlist <span aria-hidden="true">→</span></button>
+          <button class="section-link" ${uiAction("navTo", ["status-wishlist"])}>Voir la wishlist <span aria-hidden="true">→</span></button>
         </div>
         <div class="continue-track awaited-release-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>
       </div>
@@ -3558,7 +3592,7 @@ function renderUpcomingCards() {
       icon: "◇",
       title: emptyTitle,
       message: sourceMessage,
-      actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" onclick="UI.resetUpcomingFilters()">Tout afficher</button>` : "",
+      actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" ${uiAction("resetUpcomingFilters")}>Tout afficher</button>` : "",
     };
     grid.innerHTML = sourceStatus === "error" ? errorState(stateOptions) : emptyState(stateOptions);
     return;
@@ -3610,20 +3644,20 @@ function upcomingCardHTML(it, idx) {
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy">
        <span class="card-cover-placeholder" style="display:none">${typeMeta.icon}</span>`
     : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
 
   return `
     <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}">
       <div class="upcoming-cover-wrap">
-        <button type="button" class="upcoming-card-open" onclick="UI.openUpcomingDetail(${idx}, this)" aria-label="Ouvrir ${esc(it.title)}">
+        <button type="button" class="upcoming-card-open" ${uiAction("openUpcomingDetail", [idx], { control: true })} aria-label="Ouvrir ${esc(it.title)}">
           ${cover}
           ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
           <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
         </button>
         <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
-          onclick="${inLibrary ? "" : `UI.addUpcomingToWishlist(${idx})`}">${iconStatus("wishlist")}</button>
+          ${inLibrary ? "" : uiAction("addUpcomingToWishlist", [idx])}>${iconStatus("wishlist")}</button>
       </div>
     </article>`;
 }
@@ -4093,19 +4127,19 @@ function renderDetailPanel(e, options = {}) {
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" data-fade-image onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" data-fade-image data-image-fallback="hide">`
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
   const detailSessionId = detailSessions.begin(e.id);
   root.innerHTML = `
-    <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" onclick="UI.closeModalOnBg(event)">
+    <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
-          <button class="detail-close-btn btn-icon" onclick="UI.closeModal()">${iconX()}</button>
+          <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
           <div class="detail-backdrop-content">
             ${posterHTML}
             <div class="detail-backdrop-info">
@@ -4130,16 +4164,16 @@ function renderDetailPanel(e, options = {}) {
           ${isReadOnly ? `
             <div class="detail-footer-actions detail-footer-actions-readonly">
               ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" onclick="UI.closeModal()">Fermer</button>
+              <button class="btn btn-primary btn-sm" ${uiAction("closeModal")}>Fermer</button>
             </div>` : isPreview ? `
             <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" onclick="UI.addUpcomingToWishlistFromModal(${options.upcomingIdx})">+ Wishlist</button>
+              <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingIdx])}>+ Wishlist</button>
             </div>` : `
-            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer ce média" aria-label="Supprimer ce média" onclick="UI.deleteEntry('${e.id}')"><span class="detail-delete-icon">${iconTrash()}</span></button>
+            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer ce média" aria-label="Supprimer ce média" ${uiAction("deleteEntry", [e.id])}><span class="detail-delete-icon">${iconTrash()}</span></button>
             <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" onclick="UI.openEditFromDetail('${e.id}')">${iconEdit()} Modifier</button>
+              <button class="btn btn-primary btn-sm" ${uiAction("openEditFromDetail", [e.id])}>${iconEdit()} Modifier</button>
             </div>`}
         </div>
       </div>
@@ -4284,7 +4318,7 @@ function quickActionsHTML(entry) {
       </div>
       <div class="quick-status-control" role="group" aria-label="Statut">
         ${statusOptions.map(([value, label]) => `
-          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" data-status="${value}" onclick="UI.quickSetStatus('${entry.id}', '${value}')" aria-pressed="${entry.status === value}">
+          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" data-status="${value}" ${uiAction("quickSetStatus", [entry.id, value])} aria-pressed="${entry.status === value}">
             <span aria-hidden="true">${iconStatus(value)}</span>${label}
           </button>`).join("")}
       </div>
@@ -4321,9 +4355,9 @@ function quickRepeatHTML(entry) {
     : info.action;
   return `
     <div class="quick-repeat-stepper ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
-      <button type="button" class="quick-repeat-adjust" onclick="UI.quickAdjustRepeat('${entry.id}', -1)" ${canAdjustDown ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
+      <button type="button" class="quick-repeat-adjust" ${uiAction("quickAdjustRepeat", [entry.id, -1])} ${canAdjustDown ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
       <span class="quick-repeat-value" title="${esc(fullLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
-      <button type="button" class="quick-repeat-adjust quick-repeat-add" onclick="UI.quickAdjustRepeat('${entry.id}', 1)" ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
+      <button type="button" class="quick-repeat-adjust quick-repeat-add" ${uiAction("quickAdjustRepeat", [entry.id, 1])} ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
     </div>`;
 }
 
@@ -4342,7 +4376,7 @@ function metadataChipHTML(entry, kind, value) {
       data-meta-kind="${esc(kind)}"
       data-meta-value="${esc(cleanValue)}"
       data-meta-external="${esc(directUrl)}"
-      onclick="UI.openMetadataFromElement(this)">
+      ${uiAction("openMetadataFromElement", [], { control: true })}>
       <span>${esc(cleanValue)}</span><span aria-hidden="true">›</span>
     </button>`;
 }
@@ -4366,7 +4400,7 @@ function openMetadataFromElement(element) {
   const mediaRows = matches.map(entry => {
     const coverUrl = safeMediaUrl(entry.cover_url);
     return `
-      <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" data-prefetch-media="${esc(entry.id)}" onclick="UI.openMetadataMedia(this.dataset.mediaId)">
+      <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" data-prefetch-media="${esc(entry.id)}" ${uiAction("openMetadataMedia", [entry.id])}>
         ${coverUrl
           ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">`
           : `<span class="metadata-media-cover" aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`}
@@ -4382,7 +4416,7 @@ function openMetadataFromElement(element) {
     : "Aucun média correspondant dans votre bibliothèque";
 
   document.body.insertAdjacentHTML("beforeend", `
-    <div class="metadata-overlay" id="metadata-overlay" onclick="if(event.target.id==='metadata-overlay') UI.closeMetadataPanel()">
+    <div class="metadata-overlay" id="metadata-overlay" ${uiAction("closeMetadataPanel", [], { self: true })}>
       <section class="metadata-sheet" role="dialog" aria-modal="true" aria-labelledby="metadata-sheet-title">
         <div class="metadata-sheet-handle" aria-hidden="true"></div>
         <header class="metadata-sheet-header">
@@ -4391,7 +4425,7 @@ function openMetadataFromElement(element) {
             <h3 id="metadata-sheet-title">${esc(value)}</h3>
             <p>${esc(countLabel)}</p>
           </div>
-          <button type="button" class="btn-icon" onclick="UI.closeMetadataPanel()" aria-label="Fermer">${iconX()}</button>
+          <button type="button" class="btn-icon" ${uiAction("closeMetadataPanel")} aria-label="Fermer">${iconX()}</button>
         </header>
         <div class="metadata-sheet-body">
           ${mediaRows || `<div class="metadata-empty">Cette information deviendra utile lorsque votre bibliothèque contiendra une autre œuvre correspondante.</div>`}
@@ -4458,7 +4492,7 @@ function renderDetailSynopsisHTML(e, options = {}) {
         <div class="detail-synopsis-clip" id="${synId}-clip">
           <p class="detail-synopsis-text" id="${synId}-text">${esc(e.description)}</p>
         </div>
-        <button type="button" class="detail-synopsis-toggle" onclick="UI.toggleSynopsis('${synId}')" aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
+        <button type="button" class="detail-synopsis-toggle" ${uiAction("toggleSynopsis", [synId])} aria-controls="${synId}-clip" aria-expanded="false" hidden>Voir plus</button>
       </div>`,
       "detail-synopsis-section"
     );
@@ -5309,7 +5343,7 @@ function journalGroupCoverHTML(event) {
   if (!entry) return "";
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="hide" class="fade-image">`
     : `<span aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 }
 
@@ -5340,7 +5374,7 @@ function journalRowHTML(event, options = {}) {
   const presentation = journalEventPresentation(event, entry);
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
     : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
   const tone = journalActionTone(event.event_type, metadata);
@@ -5476,7 +5510,7 @@ function communityRowHTML(entry) {
   const status = STATUS_LABELS[entry.status] || "Ajouté";
   const coverUrl = safeMediaUrl(entry.cover_url);
   const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image alt="" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
     : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
   const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
   const tone = journalActionTone("added", { status: entry.status });
@@ -5580,7 +5614,7 @@ window.UI = {
       const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l,icon]) =>
         `<button class="filter-chip ${State.filters.type === v ? "active" : ""}" data-value="${v}" aria-pressed="${State.filters.type === v}"
-          onclick="UI.setTypeFilter('${v}')">${icon}${l}</button>`
+          ${uiAction("setTypeFilter", [v])}>${icon}${l}</button>`
       ).join("");
 
       const activeCount = _countActiveFilters();
@@ -5588,29 +5622,29 @@ window.UI = {
 
       const markerChips = `
         <button type="button" class="filter-chip favorite-filter-chip ${State.filters.favorite ? "active" : ""}"
-          data-marker="favorite" aria-pressed="${State.filters.favorite}" onclick="UI.toggleFavFilter()">${iconStatus("favorite")}Coups de cœur</button>
+          data-marker="favorite" aria-pressed="${State.filters.favorite}" ${uiAction("toggleFavFilter")}>${iconStatus("favorite")}Coups de cœur</button>
         <button type="button" class="filter-chip replay-filter-chip ${State.filters.replay ? "active" : ""}"
-          data-marker="replay" aria-pressed="${State.filters.replay}" onclick="UI.toggleReplayFilter()">${iconRepeat()}Replay</button>`;
+          data-marker="replay" aria-pressed="${State.filters.replay}" ${uiAction("toggleReplayFilter")}>${iconRepeat()}Replay</button>`;
 
       const statusChips = statuses.map(s => {
         return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
-          onclick="UI.setStatusChip('${s}')">${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
+          aria-pressed="${State.filters.status === s}" ${uiAction("setStatusChip", [s])}>${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
       }).join("");
 
       const sortChips = sorts.map(([v, l]) =>
-        `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}"
-          onclick="UI.setSort('${v}')">${l}</button>`
+        `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}" data-value="${v}"
+          aria-pressed="${State.filters.sort === v}" ${uiAction("setSort", [v])}>${l}</button>`
       ).join("");
 
       const hasActive = activeCount > 0;
       const resultCount = filterEntries(State.entries || []).length;
 
       return `
-        <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" onclick="if(event.target.id==='filter-modal-overlay') UI.closeFilterModal()">
+        <div class="modal-overlay filter-modal-overlay" id="filter-modal-overlay" ${uiAction("closeFilterModal", [], { self: true })}>
           <div class="modal filter-modal" role="dialog" aria-modal="true">
             <div class="modal-header">
               <h3 id="fm-title">${headerLabel}</h3>
-              <button class="btn-icon" onclick="UI.closeFilterModal()">${iconX()}</button>
+              <button class="btn-icon" ${uiAction("closeFilterModal")} aria-label="Fermer">${iconX()}</button>
             </div>
             <div class="modal-body">
               <div class="filter-modal-section">
@@ -5633,18 +5667,18 @@ window.UI = {
               <div class="filter-modal-section">
                 <div class="filter-modal-label">Densité de la bibliothèque</div>
                 <div class="library-density-control" role="group" aria-label="Densité de la grille">
-                  <button type="button" class="library-density-btn ${libraryDensity === "standard" ? "active" : ""}" data-density="standard" aria-pressed="${libraryDensity === "standard"}" onclick="UI.setLibraryDensity('standard')">
+                  <button type="button" class="library-density-btn ${libraryDensity === "standard" ? "active" : ""}" data-density="standard" aria-pressed="${libraryDensity === "standard"}" ${uiAction("setLibraryDensity", ["standard"])}>
                     <span aria-hidden="true">▦</span><span><strong>Standard</strong><small>Affiches plus grandes</small></span>
                   </button>
-                  <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" onclick="UI.setLibraryDensity('compact')">
+                  <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" ${uiAction("setLibraryDensity", ["compact"])}>
                     <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus de médias à l’écran</small></span>
                   </button>
                 </div>
               </div>
             </div>
             <div class="modal-footer">
-              <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" onclick="UI.resetFilters()">Réinitialiser</button>
-              <button class="btn btn-primary" id="fm-apply-btn" onclick="UI.applyFilters()">Voir ${resultCount} résultat${resultCount > 1 ? "s" : ""}</button>
+              <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" ${uiAction("resetFilters")}>Réinitialiser</button>
+              <button class="btn btn-primary" id="fm-apply-btn" ${uiAction("applyFilters")}>Voir ${resultCount} résultat${resultCount > 1 ? "s" : ""}</button>
             </div>
           </div>
         </div>`;

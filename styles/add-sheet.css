@@ -3,8 +3,9 @@
    ============================================================ */
 
 .modal-wizard {
+  --modal-max-width: 500px;
   width: min(100%, 500px);
-  max-width: 500px;
+  max-width: var(--modal-max-width);
   max-height: min(88dvh, 760px);
   overflow: hidden;
 }
@@ -214,21 +215,10 @@
   justify-content: center;
   gap: .3rem;
   min-width: 0;
-  min-height: 42px;
-  padding: .42rem .3rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: var(--bg-2);
-  color: var(--text-3);
-  font-size: var(--type-label);
-  font-weight: 700;
 }
 
 .modal-wizard .wz-status-btn:hover { border-color: var(--border-2); color: var(--text); }
 .modal-wizard .wz-status-btn.active {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: var(--accent-glow);
-  color: var(--accent-2);
   animation: addStatusPop var(--motion-feedback) var(--ease-interface);
 }
 
