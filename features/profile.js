@@ -487,6 +487,9 @@ export function createProfileFeature({
         </div>
       </details>
     `;
+    // L'état d'attente n'appartient pas à la surface statistique indexée :
+    // le retirer explicitement avant de réconcilier les blocs du Profil.
+    container.querySelector(":scope > .ui-state-loading")?.remove();
     const changedBlocks = patchKeyedSurface(container, dashboardHTML);
     changedBlocks.forEach(block => {
       replayMotion(block, "profile-block-enter");

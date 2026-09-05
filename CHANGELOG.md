@@ -5,6 +5,7 @@
 ## 3.4.7
 
 - États de chargement, d’erreur et de collection vide partagés par la Bibliothèque, les Sorties et le Journal.
+- L’état d’attente du Profil disparaît dès que ses statistiques sont rendues.
 - Squelettes limités aux jaquettes, avec les mêmes proportions et densités que les cartes finales.
 - Actions adaptées au contexte : Réessayer, Effacer la recherche ou Réinitialiser les filtres.
 - Modifier devient une étape de la fiche : Enregistrer ou Annuler ramène à la fiche, avec le synopsis déplié et la position de lecture conservés.
