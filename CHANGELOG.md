@@ -2,6 +2,21 @@
 
 [Revenir à la présentation](README.md)
 
+## 3.4.9
+
+- La réconciliation des cartes conserve désormais les nœuds déjà à leur place : filtrer, rechercher ou actualiser ne redéclenche plus inutilement la peinture et le décodage de toutes les jaquettes.
+- Les cartes inchangées sont reconnues par leur contenu utile et la recherche globale regroupe les frappes dans une seule mise à jour par image d’animation.
+- Toutes les requêtes Supabase disposent d’un délai maximal, d’une annulation effective et, pour les écritures média, d’un verrou explicite sur le compte courant.
+- Le contexte restauré, les ajouts Wishlist, les actions de fiche, le Journal et la restauration de sauvegarde ignorent toute réponse arrivée après une déconnexion ou un changement de compte.
+- L’export JSON vérifie et recharge le Journal avant de créer le fichier afin de ne jamais présenter une sauvegarde partielle comme complète.
+- Les homonymes et remakes partageant un titre ne sont plus confondus lorsque leurs identifiants externes, années ou auteurs les distinguent.
+- Le service worker regroupe l’élagage des caches d’images par rafale, conserve ses écritures jusqu’à leur terme et limite l’attente du shell avant de reprendre sa copie hors ligne.
+- Les images générées par l’interface sont décodées de manière asynchrone ; l’enregistrement du service worker contourne aussi le cache HTTP de son propre script.
+- Passer d’une fiche à une autre depuis une métadonnée ne tente plus de refermer la seconde vers la jaquette d’origine de la première.
+- Trente tests techniques et un parcours de quarante ouvertures successives protègent désormais ces corrections.
+
+**Mise à jour depuis 3.4.6, 3.4.7 ou 3.4.8 :** aucun changement SQL ni redéploiement de fonction Edge.
+
 ## 3.4.8
 
 - Les chargements de la Bibliothèque, du Journal, de la Communauté, du Profil et des Sorties possèdent désormais un cycle de vie explicite : la requête précédente est annulée et une réponse tardive ne peut plus modifier l’état ou le DOM.

@@ -71,6 +71,35 @@ function withAbortSignal(query, signal) {
   return signal && typeof query?.abortSignal === "function" ? query.abortSignal(signal) : query;
 }
 
+async function executeQuery(query, options = {}) {
+  const signal = options.signal || null;
+  if (signal?.aborted) throw new DOMException("Chargement annulé", "AbortError");
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort();
+  let timedOut = false;
+  const timeoutMs = Math.max(1_000, Number(options.timeoutMs) || 15_000);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  signal?.addEventListener("abort", relayAbort, { once: true });
+
+  try {
+    return await withAbortSignal(query, controller.signal);
+  } catch (error) {
+    if (signal?.aborted) throw new DOMException("Chargement annulé", "AbortError");
+    if (timedOut) {
+      const timeoutError = new Error(`Supabase ne répond pas après ${timeoutMs} ms`);
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", relayAbort);
+  }
+}
+
 // ── Media CRUD ───────────────────────────────────────────────
 export const Media = {
   async getAll(filters = {}) {
@@ -93,20 +122,20 @@ export const Media = {
     const sort = sortMap[filters.sort] || sortMap.created_at;
     q = q.order(sort.col, { ascending: sort.asc });
 
-    q = withAbortSignal(q, filters.signal);
-    const { data, error } = await q;
+    const { data, error } = await executeQuery(q, filters);
     if (error) throw error;
     return data || [];
   },
 
-  async create(entry) {
+  async create(entry, options = {}) {
     const user = await requireCurrentUser();
     const payload = { ...entry, user_id: user.id };
-    const { data, error } = await _client
+    let query = _client
       .from("media_entries")
       .insert(payload)
       .select()
       .single();
+    const { data, error } = await executeQuery(query, options);
     if (error) {
       console.error("[Supabase] insert error:", error, "\npayload:", payload);
       throw new Error(error.message + (error.details ? " — " + error.details : ""));
@@ -114,29 +143,38 @@ export const Media = {
     return data;
   },
 
-  async update(id, changes) {
-    const { data, error } = await _client
+  async update(id, changes, options = {}) {
+    const user = await requireCurrentUser();
+    let query = _client
       .from("media_entries")
       .update(changes)
       .eq("id", id)
+      .eq("user_id", user.id)
       .select()
       .single();
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return data;
   },
 
-  async delete(id) {
-    const { error } = await _client
+  async delete(id, options = {}) {
+    const user = await requireCurrentUser();
+    let query = _client
       .from("media_entries")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
+    const { error } = await executeQuery(query, options);
     if (error) throw error;
   },
 
-  async getStats() {
-    const { data, error } = await _client
+  async getStats(options = {}) {
+    const user = await requireCurrentUser();
+    let query = _client
       .from("media_entries")
-      .select("media_type, status, rating, is_favorite");
+      .select("media_type, status, rating, is_favorite")
+      .eq("user_id", user.id);
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return computeStats(data || []);
   },
@@ -150,18 +188,20 @@ export const Profiles = {
       .select("id, username")
       .eq("id", userId)
       .maybeSingle();
-    query = withAbortSignal(query, options.signal);
-    const { data, error } = await query;
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return data || null;
   },
 
-  async upsert(userId, username) {
-    const { data, error } = await _client
+  async upsert(userId, username, options = {}) {
+    const user = await requireCurrentUser();
+    if (String(user.id) !== String(userId)) throw new Error("Session utilisateur incohérente");
+    let query = _client
       .from("profiles")
       .upsert({ id: userId, username })
       .select()
       .single();
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return data;
   },
@@ -181,8 +221,7 @@ export const Journal = {
         .eq("user_id", user.id)
         .order("occurred_at", { ascending: false })
         .range(from, from + pageSize - 1);
-      query = withAbortSignal(query, options.signal);
-      const { data, error } = await query;
+      const { data, error } = await executeQuery(query, options);
       if (error) throw error;
       events.push(...(data || []));
       if (!data || data.length < pageSize) break;
@@ -193,9 +232,9 @@ export const Journal = {
 
   // Retire uniquement la ligne du Journal visible. L'événement reste présent
   // pour les statistiques et le statut du média n'est jamais modifié.
-  async hide(eventId, metadata = {}) {
+  async hide(eventId, metadata = {}, options = {}) {
     const user = await requireCurrentUser();
-    const { data, error } = await _client
+    let query = _client
       .from("media_events")
       .update({
         metadata: {
@@ -208,6 +247,7 @@ export const Journal = {
       .eq("user_id", user.id)
       .select("id, media_id, event_type, occurred_at, metadata")
       .single();
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return data;
   },
@@ -215,8 +255,9 @@ export const Journal = {
 
 // ── Restauration atomique ──────────────────────────────────
 export const Backup = {
-  async restore(plan, events = []) {
-    const { data, error } = await _client.rpc("restore_kulturo_backup", {
+  async restore(plan, events = [], options = {}) {
+    await requireCurrentUser();
+    let query = _client.rpc("restore_kulturo_backup", {
       p_added: (plan?.added || []).map(item => ({
         sourceId: item.sourceId || null,
         payload: item.payload || {},
@@ -232,6 +273,7 @@ export const Backup = {
       })),
       p_events: events || [],
     });
+    const { data, error } = await executeQuery(query, { ...options, timeoutMs: options.timeoutMs || 30_000 });
     if (error) throw error;
     return data || { added_count: 0, updated_count: 0, events_restored: 0, events_skipped: 0 };
   },
@@ -243,8 +285,7 @@ export const Activity = {
   async getFeed(limit = 50, options = {}) {
     const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
     let query = _client.rpc("get_activity_feed", { p_limit: safeLimit });
-    query = withAbortSignal(query, options.signal);
-    const { data, error } = await query;
+    const { data, error } = await executeQuery(query, options);
     if (error) throw error;
     return data || [];
   },

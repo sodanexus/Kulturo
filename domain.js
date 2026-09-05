@@ -88,6 +88,39 @@ export function normalizeSearchText(value) {
     .replace(/\s+/g, " ");
 }
 
+// Deux résultats portant le même titre ne désignent pas forcément la même
+// œuvre (remakes, rééditions, homonymes). Quand les deux sources fournissent
+// un identifiant fiable, il prime et une différence interdit le rapprochement.
+export function sameMediaIdentity(candidate, entry) {
+  if (!candidate || !entry) return false;
+  const candidateType = candidate.media_type || "movie";
+  const entryType = entry.media_type || "movie";
+  if (candidateType !== entryType) return false;
+
+  const candidateSubtype = normalizedSubtype({ ...candidate, media_type: candidateType });
+  const entrySubtype = normalizedSubtype({ ...entry, media_type: entryType });
+  if (candidateSubtype && entrySubtype && candidateSubtype !== entrySubtype) return false;
+
+  const candidateId = candidate.external_id == null ? "" : String(candidate.external_id);
+  const entryId = entry.external_id == null ? "" : String(entry.external_id);
+  const candidateSource = String(candidate.source_api || "");
+  const entrySource = String(entry.source_api || "");
+  if (candidateId && entryId && candidateSource && candidateSource === entrySource) {
+    return candidateId === entryId;
+  }
+
+  const candidateTitle = normalizeSearchText(candidate.title);
+  if (!candidateTitle || candidateTitle !== normalizeSearchText(entry.title)) return false;
+
+  const candidateYear = Number(candidate.release_year) || null;
+  const entryYear = Number(entry.release_year) || null;
+  if (candidateYear && entryYear && candidateYear !== entryYear) return false;
+
+  if (candidateType === "book" && candidate.author && entry.author &&
+      normalizeSearchText(candidate.author) !== normalizeSearchText(entry.author)) return false;
+  return true;
+}
+
 function searchableEntryParts(entry) {
   return {
     title: normalizeSearchText(entry?.title),

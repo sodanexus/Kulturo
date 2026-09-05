@@ -14,6 +14,7 @@ import {
   normalizedSubtype,
   repeatInfo,
   repeatProgressLabel,
+  sameMediaIdentity,
   statusTransitionChanges,
 } from "./domain.js";
 import {
@@ -182,6 +183,7 @@ function persistUiSnapshot() {
   try {
     sessionStorage.setItem(UI_SNAPSHOT_KEY, JSON.stringify({
       savedAt: Date.now(),
+      ownerId: State.user.id,
       page,
       scrollPos: State.scrollPos,
       filters: State.filters,
@@ -202,7 +204,13 @@ function scheduleUiSnapshot() {
 function restoreUiSnapshot() {
   try {
     const snapshot = JSON.parse(sessionStorage.getItem(UI_SNAPSHOT_KEY) || "null");
-    if (!snapshot || Date.now() - Number(snapshot.savedAt || 0) > 24 * 60 * 60_000) return null;
+    const ownerId = String(State.user?.id || "");
+    const expired = !snapshot || Date.now() - Number(snapshot.savedAt || 0) > 24 * 60 * 60_000;
+    const wrongOwner = snapshot && String(snapshot.ownerId || "") !== ownerId;
+    if (expired || wrongOwner) {
+      sessionStorage.removeItem(UI_SNAPSHOT_KEY);
+      return null;
+    }
     const allowedPages = new Set(["library", "dashboard", "upcoming", "journal"]);
     if (allowedPages.has(snapshot.page)) {
       const safeScroll = Object.fromEntries(Object.entries(snapshot.scrollPos || {})
@@ -358,22 +366,7 @@ function hydrateFadeImages(root = document) {
 }
 
 function findMatchingEntry(candidate, excludeId = null) {
-  const candidateType = candidate.media_type || "movie";
-  const candidateSubtype = normalizedSubtype({ ...candidate, media_type: candidateType });
-  const title = normalizeTitle(candidate.title);
-
-  return State.entries.find(entry => {
-    if (entry.id === excludeId || entry.media_type !== candidateType) return false;
-    const sameSubtype = normalizedSubtype(entry) === candidateSubtype;
-    const sameExternalId = candidate.external_id && entry.external_id &&
-      candidate.source_api === entry.source_api &&
-      String(candidate.external_id) === String(entry.external_id) &&
-      sameSubtype;
-    if (sameExternalId) return true;
-
-    const subtypeCompatible = sameSubtype || !entry.subtype || !candidate.subtype;
-    return Boolean(title && subtypeCompatible && normalizeTitle(entry.title) === title);
-  }) || null;
+  return State.entries.find(entry => entry.id !== excludeId && sameMediaIdentity(candidate, entry)) || null;
 }
 
 // ── Init ──────────────────────────────────────────────────────
@@ -425,23 +418,45 @@ async function init() {
           await loadEntries();
           if (!authFlowGate.isCurrent(authTask) || !sameOwner(user.id, State.user?.id)) return;
         } else if (event === "SIGNED_OUT") {
+          cancelScheduledLibraryRender();
+          clearTimeout(_uiSnapshotTimer);
+          _uiSnapshotTimer = 0;
+          document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
+          detailSessions?.dispose();
+          mediaDetailFeature?.finishCoverFlight();
+          dialogFocus.clear({ restoreFocus: false });
           libraryLoadGate.cancel();
           journalLoadGate.cancel();
           profileFeature.cancel();
           journalFeature.cancel();
-          upcomingFeature.cancel();
+          upcomingFeature.reset();
           clearCachedEntries(previousUserId);
           clearUiSnapshot();
           _remoteSyncUnavailable = false;
           State.entries = [];
           State.libraryStatus = "loading";
           State.events = [];
+          State.scrollPos = {};
+          Object.assign(State.filters, {
+            type: "all", subtype: "all", status: DEFAULT_LIBRARY_STATUS,
+            favorite: false, replay: false, search: "", sort: "created_at",
+            year: "all", month: "all", rating: "all",
+          });
           journalFeature.reset();
           profileFeature.reset();
           State.journalAvailable = false;
           State.journalError = null;
           State.journalDirty = true;
           State.username = null;
+          _saveInProgress = false;
+          _restoreInProgress = false;
+          _modalDirty = false;
+          _pendingRestorePlan = null;
+          _pendingRestoreEvents = null;
+          _modalReturnFocus = null;
+          _modalReturnMediaId = null;
+          _modalReturnControlId = null;
+          _historyReady = false;
           renderAuthPage();
         }
       } finally {
@@ -778,7 +793,8 @@ function renderApp() {
   `;
 
   // Restaure le tri mémorisé
-  const savedSort = localStorage.getItem("kulturo-sort");
+  let savedSort = null;
+  try { savedSort = localStorage.getItem("kulturo-sort"); } catch {}
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
   State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
   const globalSearch = document.getElementById("global-search");
@@ -943,7 +959,7 @@ function navTo(key, options = {}) {
   }
 
   // Sauvegarde la nav active
-  localStorage.setItem("kulturo-nav", primaryKey);
+  try { localStorage.setItem("kulturo-nav", primaryKey); } catch {}
 
   if (key === "dashboard") {
     showPage("dashboard");
@@ -1198,14 +1214,14 @@ function readContinueExpanded() {
 function continuePreviewHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   return coverUrl
-    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="grid" class="fade-image"><span class="continue-preview-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span></span>`
+    ? `<span class="continue-preview-cover"><img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async" data-fade-image data-image-fallback="grid" class="fade-image"><span class="continue-preview-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span></span>`
     : `<span class="continue-preview-cover continue-preview-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 }
 
 function continueCardHTML(entry) {
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="flex" class="fade-image">
+    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async" data-fade-image data-image-fallback="flex" class="fade-image">
        <span class="continue-cover-placeholder" style="display:none">${iconMedia(entry.media_type, entry.subtype)}</span>`
     : `<span class="continue-cover-placeholder">${iconMedia(entry.media_type, entry.subtype)}</span>`;
 
@@ -1342,7 +1358,7 @@ function clearLibraryFilter(key) {
   else if (key === "replay") State.filters.replay = false;
   else if (key === "sort") {
     State.filters.sort = "created_at";
-    localStorage.setItem("kulturo-sort", "created_at");
+    try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
   } else if (key === "rating") State.filters.rating = "all";
   else if (key === "search") {
     State.filters.search = "";
@@ -1370,7 +1386,7 @@ function clearAllLibraryFilters() {
   State.filters.sort = "created_at";
   State.filters.year = "all";
   State.filters.month = "all";
-  localStorage.setItem("kulturo-sort", "created_at");
+  try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
   const search = document.getElementById("global-search");
   if (search) search.value = "";
   syncFilterChips();
@@ -1380,7 +1396,22 @@ function clearAllLibraryFilters() {
 }
 
 // ── Rendu grille ──────────────────────────────────────────────
+let _libraryRenderFrame = 0;
+function scheduleLibraryRender(options = {}) {
+  if (_libraryRenderFrame) cancelAnimationFrame(_libraryRenderFrame);
+  _libraryRenderFrame = requestAnimationFrame(() => {
+    _libraryRenderFrame = 0;
+    renderCards(options);
+  });
+}
+
+function cancelScheduledLibraryRender() {
+  if (_libraryRenderFrame) cancelAnimationFrame(_libraryRenderFrame);
+  _libraryRenderFrame = 0;
+}
+
 function renderCards(options = {}) {
+  cancelScheduledLibraryRender();
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
@@ -1438,7 +1469,7 @@ function renderCards(options = {}) {
   if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
   reconcileKeyedChildren(grid, entries, {
     key: entry => entry.id,
-    create: (entry, index) => elementFromHTML(cardHTML(entry, index)),
+    create: (entry, index) => createMediaCardNode(entry, index),
     update: (node, entry) => patchMediaCardNode(node, entry),
   });
   hydrateFadeImages(grid);
@@ -1512,7 +1543,7 @@ function activityStateMarkersHTML(entry) {
 function cardHTML(e, i = 0) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const coverHTML = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy">
+    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" decoding="async">
        <div class="card-cover-placeholder" style="display:none">${iconMedia(e.media_type, e.subtype)}</div>`
     : `<div class="card-cover-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
@@ -1542,7 +1573,23 @@ function cardHTML(e, i = 0) {
     </article>`;
 }
 
+function mediaCardSignature(entry) {
+  return JSON.stringify([
+    entry.id, entry.title, entry.cover_url, entry.rating, entry.is_favorite,
+    entry.repeat_count, entry.date_finished, entry.status, entry.media_type,
+    entry.subtype,
+  ]);
+}
+
+function createMediaCardNode(entry, index = 0) {
+  const node = elementFromHTML(cardHTML(entry, index));
+  if (node) node._kulturoRenderSignature = mediaCardSignature(entry);
+  return node;
+}
+
 function patchMediaCardNode(node, entry) {
+  const signature = mediaCardSignature(entry);
+  if (node?._kulturoRenderSignature === signature) return;
   const next = elementFromHTML(cardHTML(entry));
   if (!node || !next) return;
   node.className = next.className;
@@ -1555,8 +1602,12 @@ function patchMediaCardNode(node, entry) {
   const currentCover = node.querySelector(".card-cover, .card-cover-placeholder");
   const nextCover = next.querySelector(".card-cover, .card-cover-placeholder");
   const coverChanged = currentCover?.tagName !== nextCover?.tagName
-    || (currentCover?.tagName === "IMG" && currentCover.getAttribute("src") !== nextCover.getAttribute("src"));
+    || (currentCover?.tagName === "IMG" && currentCover.getAttribute("src") !== nextCover.getAttribute("src"))
+    || (currentCover?.tagName !== "IMG" && currentCover?.innerHTML !== nextCover?.innerHTML);
   if (coverChanged && currentCover && nextCover) currentCover.replaceWith(nextCover);
+  else if (currentCover?.tagName === "IMG" && nextCover?.tagName === "IMG") {
+    currentCover.alt = nextCover.alt;
+  }
 
   const currentStatus = node.querySelector(".card-status-label");
   const nextStatus = next.querySelector(".card-status-label");
@@ -1572,6 +1623,7 @@ function patchMediaCardNode(node, entry) {
   if (currentBottom && nextBottom) currentBottom.replaceWith(nextBottom);
   else if (currentBottom && !nextBottom) currentBottom.remove();
   else if (!currentBottom && nextBottom) node.append(nextBottom);
+  node._kulturoRenderSignature = signature;
 }
 
 // ── Badges sidebar ────────────────────────────────────────────
@@ -1726,7 +1778,7 @@ function _renderWizard() {
     bodyHTML = `
       <div class="wz-selected-card">
         ${cover
-          ? `<img src="${esc(cover)}" class="wz-selected-cover" alt="">`
+          ? `<img src="${esc(cover)}" class="wz-selected-cover" alt="" decoding="async">`
           : `<div class="wz-selected-cover wz-selected-placeholder" aria-hidden="true">${iconMedia(s.type)}</div>`}
         <div class="wz-selected-copy">
           <strong>${esc(title)}</strong>
@@ -2161,7 +2213,7 @@ function setupWizardUniversalSearch() {
         const coverUrl = safeMediaUrl(item.cover_url);
         return `
           <button type="button" class="api-result-item wz-universal-result" ${uiAction("fillFromApi", [index])}>
-            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
+            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
             <span class="api-result-info">
               <strong class="api-result-title">${esc(item.title)}</strong>
               <small class="api-result-sub">${esc(getTypeLabel(item))}${item.release_year ? ` · ${esc(item.release_year)}` : ""}${item.author ? ` · ${esc(item.author)}` : ""}</small>
@@ -2216,14 +2268,23 @@ function setupApiSearch() {
       activeController?.abort();
       activeController = new AbortController();
       const { signal } = activeController;
-      const items = await searchMedia(q, type, { signal });
+      let items;
+      try {
+        items = await searchMedia(q, type, { signal });
+      } catch (error) {
+        if (signal.aborted || !input.isConnected || seq !== requestSeq) return;
+        results.style.display = "block";
+        results.innerHTML = '<div class="wz-search-empty">Recherche momentanément indisponible.</div>';
+        console.warn("[Recherche média]", error);
+        return;
+      }
       if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
           (document.getElementById("f-type")?.value || "game") !== type) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" ${uiAction("fillFromApi", [idx])}>
-          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
+          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
@@ -2348,9 +2409,17 @@ async function saveEntry() {
   }
 
   _saveInProgress = true;
+  const saveOwner = State.user?.id;
+  const editingId = State.editingId;
+  if (!saveOwner) {
+    _saveInProgress = false;
+    setButtonBusy(saveBtn, false);
+    return;
+  }
   try {
-    if (State.editingId) {
-      const updated = await Media.update(State.editingId, payload);
+    if (editingId) {
+      const updated = await Media.update(editingId, payload);
+      if (!sameOwner(saveOwner, State.user?.id)) return;
       // Une simple note ou un cœur ne justifie pas un nouvel enrichissement.
       // Les marqueurs internes ne sont jamais envoyés à Supabase.
       if (keepExistingApi) {
@@ -2358,10 +2427,11 @@ async function saveEntry() {
           if (existing[key] !== undefined) updated[key] = existing[key];
         }
       }
-      const idx = State.entries.findIndex(e => e.id === State.editingId);
+      const idx = State.entries.findIndex(e => e.id === editingId);
       if (idx !== -1) State.entries[idx] = updated;
     } else {
       const created = await Media.create(payload);
+      if (!sameOwner(saveOwner, State.user?.id)) return;
       State.entries.unshift(created);
     }
     cacheEntriesLocally();
@@ -2380,6 +2450,7 @@ async function saveEntry() {
     if (wasAdding) flashNewCard(savedTitle);
     if (justFinished) launchConfetti();
   } catch (e) {
+    if (!sameOwner(saveOwner, State.user?.id)) return;
     const saveBtn = document.querySelector(".modal-footer .btn-primary");
     setButtonBusy(saveBtn, false);
     toast("Erreur : " + e.message, "error");
@@ -2391,6 +2462,8 @@ async function saveEntry() {
 async function deleteEntry(id) {
   const confirmed = await confirmDialog("Supprimer ce média ?", "Cette action est irréversible.", "Supprimer", "danger");
   if (!confirmed) return;
+  const deleteOwner = State.user?.id;
+  if (!deleteOwner) return;
   try {
     // Anime la card avant suppression
     const cardEl = document.querySelector(`.media-card[data-id="${id}"]`);
@@ -2398,7 +2471,9 @@ async function deleteEntry(id) {
       cardEl.classList.add("card-exit");
       await new Promise(r => setTimeout(r, 300));
     }
+    if (!sameOwner(deleteOwner, State.user?.id)) return;
     await Media.delete(id);
+    if (!sameOwner(deleteOwner, State.user?.id)) return;
     State.entries = State.entries.filter(e => e.id !== id);
     cacheEntriesLocally();
     markJournalDirty();
@@ -2409,7 +2484,7 @@ async function deleteEntry(id) {
     updateBadges();
     toast("Supprimé", "info");
   } catch (e) {
-    toast("Erreur : " + e.message, "error");
+    if (sameOwner(deleteOwner, State.user?.id)) toast("Erreur : " + e.message, "error");
   }
 }
 
@@ -2613,7 +2688,7 @@ function setSort(val) {
   }
   _updateResetBtn();
   _updateFilterResultCount();
-  localStorage.setItem("kulturo-sort", val);
+  try { localStorage.setItem("kulturo-sort", val); } catch {}
   renderCards({ resetScroll: true });
 }
 
@@ -2703,7 +2778,7 @@ function bindGlobalEvents() {
       _updateFilterToggleLabel();
       // Si on tape depuis une autre page, synchronise aussi toute la navigation.
       if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveFilters: true, preserveSearch: true });
-      else if (_currentPage === "library") renderCards({ resetScroll: true });
+      else if (_currentPage === "library") scheduleLibraryRender({ resetScroll: true });
     }
   });
   document.addEventListener("change", e => {
@@ -3036,9 +3111,11 @@ let _loadingSequence = 0;
 const _loadingOperations = new Set();
 function loadingStart() {
   const token = ++_loadingSequence;
+  const startsSequence = _loadingOperations.size === 0;
   _loadingOperations.add(token);
   const bar = document.getElementById("loading-bar-fill");
   if (!bar) return token;
+  if (!startsSequence) return token;
   if (_loadingTimer) clearTimeout(_loadingTimer);
   if (_loadingResetTimer) clearTimeout(_loadingResetTimer);
   bar.style.transition = "none";
@@ -3100,36 +3177,56 @@ function updateCategoryTabs() {
 // ── Taille des cartes (small / medium) ───────────────────────
 
 
-function exportLibrary() {
-  const cleanEntries = State.entries.map(entry => Object.fromEntries(
-    Object.entries(entry).filter(([field]) => !field.startsWith("_"))
-  ));
-  const backup = {
-    app: "Kulturo",
-    version: CONFIG?.app?.version || null,
-    exported_at: new Date().toISOString(),
-    entries: cleanEntries,
-    events: State.events.map(event => ({
-      id: event.id,
-      media_id: event.media_id,
-      event_type: event.event_type,
-      occurred_at: event.occurred_at,
-      metadata: event.metadata || {},
-    })),
-  };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `kulturo-sauvegarde-${localISODate()}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  try { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); } catch {}
-  const backupLabel = document.getElementById("last-backup-label");
-  if (backupLabel) backupLabel.textContent = formatLastBackup();
-  toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
+async function exportLibrary(button = null) {
+  if (button?.disabled) return;
+  const owner = State.user?.id;
+  if (!owner) return;
+  setButtonBusy(button, true);
+  try {
+    // Une sauvegarde doit être complète : ne jamais exporter silencieusement
+    // un Journal vide simplement parce qu'il n'avait pas encore été chargé.
+    if (State.journalDirty) await refreshJournalEvents({ silent: true });
+    if (!sameOwner(owner, State.user?.id)) return;
+    if (!State.journalAvailable) {
+      toast("Sauvegarde reportée : le Journal n’a pas pu être chargé.", "error");
+      return;
+    }
+
+    const cleanEntries = State.entries.map(entry => Object.fromEntries(
+      Object.entries(entry).filter(([field]) => !field.startsWith("_"))
+    ));
+    const backup = {
+      app: "Kulturo",
+      version: CONFIG?.app?.version || null,
+      exported_at: new Date().toISOString(),
+      entries: cleanEntries,
+      events: State.events.map(event => ({
+        id: event.id,
+        media_id: event.media_id,
+        event_type: event.event_type,
+        occurred_at: event.occurred_at,
+        metadata: event.metadata || {},
+      })),
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `kulturo-sauvegarde-${localISODate()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Safari peut démarrer le téléchargement après le retour de l'événement.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    try { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); } catch {}
+    const backupLabel = document.getElementById("last-backup-label");
+    if (backupLabel) backupLabel.textContent = formatLastBackup();
+    toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
+  } catch (error) {
+    if (sameOwner(owner, State.user?.id)) toast("Sauvegarde impossible : " + error.message, "error");
+  } finally {
+    if (button?.isConnected) setButtonBusy(button, false);
+  }
 }
 
 function chooseBackupFile() {
@@ -3238,9 +3335,13 @@ function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
 async function previewBackupRestore(input) {
   const file = input?.files?.[0];
   if (!file) return;
+  const owner = State.user?.id;
+  if (!owner) return;
   try {
     if (file.size > MAX_BACKUP_IMPORT_BYTES) throw new Error("Le fichier dépasse la limite de 10 Mo.");
-    const backup = parseKulturoBackup(await file.text());
+    const contents = await file.text();
+    if (!sameOwner(owner, State.user?.id)) return;
+    const backup = parseKulturoBackup(contents);
     const plan = buildRestorePlan(backup.entries, State.entries);
     const eventPlan = sanitizeBackupEvents(backup.events);
     const mappedSourceIds = new Set([
@@ -3257,7 +3358,7 @@ async function previewBackupRestore(input) {
   } catch (error) {
     _pendingRestorePlan = null;
     _pendingRestoreEvents = null;
-    toast(error.message || "Sauvegarde illisible.", "error");
+    if (sameOwner(owner, State.user?.id)) toast(error.message || "Sauvegarde illisible.", "error");
   } finally {
     input.value = "";
   }
@@ -3274,6 +3375,8 @@ async function restoreBackup() {
   const mediaCount = _pendingRestorePlan.added.length + _pendingRestorePlan.updated.length;
   const journalCount = _pendingRestoreEvents.length;
   if (!mediaCount && !journalCount) return;
+  const owner = State.user?.id;
+  if (!owner) return;
   _restoreInProgress = true;
   document.querySelector(".backup-restore-modal")?.setAttribute("aria-busy", "true");
   document.querySelectorAll(".backup-restore-footer .btn").forEach(control => { control.disabled = true; });
@@ -3281,7 +3384,15 @@ async function restoreBackup() {
   if (progress) progress.textContent = "Vérification finale et restauration atomique…";
   try {
     const result = await Backup.restore(_pendingRestorePlan, _pendingRestoreEvents);
+    if (!sameOwner(owner, State.user?.id)) {
+      _restoreInProgress = false;
+      return;
+    }
     await loadEntries();
+    if (!sameOwner(owner, State.user?.id)) {
+      _restoreInProgress = false;
+      return;
+    }
     renderCards();
     updateBadges();
     if (_currentPage === "dashboard") await renderDashboard();
@@ -3298,6 +3409,7 @@ async function restoreBackup() {
     toast(`${restoredMedia} média${restoredMedia > 1 ? "s" : ""} et ${restoredEvents} événement${restoredEvents > 1 ? "s" : ""} restaurés ✓`, "success");
   } catch (error) {
     _restoreInProgress = false;
+    if (!sameOwner(owner, State.user?.id)) return;
     document.querySelector(".backup-restore-modal")?.removeAttribute("aria-busy");
     document.querySelectorAll(".backup-restore-footer .btn").forEach(control => { control.disabled = false; });
     if (button) button.textContent = "Réessayer";
@@ -3357,6 +3469,7 @@ mediaDetailFeature = createMediaDetailFeature({
   renderUpcomingCards: () => upcomingFeature.renderCards(),
   toast,
   launchConfetti,
+  sameOwner,
   markModalPristine: () => { _modalDirty = false; },
 });
 ({
@@ -3400,6 +3513,7 @@ const journalFeature = createJournalFeature({
   getCurrentPage: () => _currentPage,
   onContextChange: persistUiSnapshot,
   onViewReady: restorePageScroll,
+  sameOwner,
 });
 const { render: renderJournal, bind: bindJournalInteractions } = journalFeature;
 
@@ -3411,7 +3525,7 @@ const upcomingFeature = createUpcomingFeature({
   GoogleBooks,
   getCurrentPage: () => _currentPage,
   normalizeTitle,
-  normalizedSubtype,
+  sameMediaIdentity,
   formatReleaseDate,
   findMatchingEntry,
   safeMediaUrl,
@@ -3442,6 +3556,7 @@ const upcomingFeature = createUpcomingFeature({
   clearApiCache,
   onContextChange: persistUiSnapshot,
   onViewReady: restorePageScroll,
+  sameOwner,
 });
 
 window.UI = {
@@ -3649,7 +3764,7 @@ window.UI = {
     State.filters.year = "all";
     State.filters.month = "all";
     State.filters.rating = "all";
-    localStorage.setItem("kulturo-sort", "created_at");
+    try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },

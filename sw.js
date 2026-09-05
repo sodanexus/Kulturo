@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v3.4.8";
+const STATIC_CACHE = "kulturo-static-v3.4.9";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -48,12 +48,9 @@ const STATIC_ASSETS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg",
-  "icon.svg?v=3.4.8",
-  "icon-192.png",
-  "icon-192.png?v=3.4.8",
-  "icon-512.png",
-  "icon-512.png?v=3.4.8",
+  "icon.svg?v=3.4.9",
+  "icon-192.png?v=3.4.9",
+  "icon-512.png?v=3.4.9",
 ].map(appAsset);
 const EXTERNAL_APP_ASSETS = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/+esm",
@@ -99,6 +96,20 @@ async function trimCache(cacheName, limit) {
   const keys = await cache.keys();
   const overflow = keys.length - limit;
   if (overflow > 0) await Promise.all(keys.slice(0, overflow).map(key => cache.delete(key)));
+}
+
+// Plusieurs jaquettes arrivent souvent dans la même poignée de millisecondes.
+// Une taille de cache était auparavant recalculée après chacune d'elles ; on
+// regroupe désormais ces parcours coûteux en une seule opération par rafale.
+const pendingCacheTrims = new Map();
+function scheduleCacheTrim(cacheName, limit) {
+  const pending = pendingCacheTrims.get(cacheName);
+  if (pending) return pending;
+  const task = new Promise(resolve => setTimeout(resolve, 160))
+    .then(() => trimCache(cacheName, limit))
+    .finally(() => pendingCacheTrims.delete(cacheName));
+  pendingCacheTrims.set(cacheName, task);
+  return task;
 }
 
 async function migrateLegacyImages() {
@@ -152,7 +163,25 @@ function isNetworkOnlyUrl(url) {
 async function cacheBounded(request, response, cacheName, limit) {
   const cache = await caches.open(cacheName);
   await cache.put(request, response);
-  await trimCache(cacheName, limit);
+  await scheduleCacheTrim(cacheName, limit);
+}
+
+function keepCacheWriteAlive(event, responsePromise, cacheWrite) {
+  event.waitUntil(responsePromise.then(() => cacheWrite()).catch(() => {}));
+}
+
+async function fetchWithTimeout(request, timeoutMs = 6_000) {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort();
+  request.signal?.addEventListener("abort", relayAbort, { once: true });
+  if (request.signal?.aborted) controller.abort();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    request.signal?.removeEventListener("abort", relayAbort);
+  }
 }
 
 // Fetch — stratégie selon la requête
@@ -185,12 +214,12 @@ self.addEventListener("fetch", e => {
     e.request.destination === "manifest" ||
     e.request.mode === "navigate"
   ) {
-    e.respondWith(
-      fetch(e.request)
+    let write = Promise.resolve();
+    const responsePromise = fetchWithTimeout(e.request)
         .then(response => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(STATIC_CACHE).then(cache => cache.put(e.request, clone));
+            write = caches.open(STATIC_CACHE).then(cache => cache.put(e.request, clone));
           }
           return response;
         })
@@ -201,8 +230,9 @@ self.addEventListener("fetch", e => {
             return (await caches.match(APP_HOME)) || new Response("Hors ligne", { status: 503 });
           }
           return new Response("Hors ligne", { status: 503 });
-        })
-    );
+        });
+    e.respondWith(responsePromise);
+    keepCacheWriteAlive(e, responsePromise, () => write);
     return;
   }
 
@@ -214,44 +244,47 @@ self.addEventListener("fetch", e => {
   // donc d'abord par le réseau et remplacent l'éventuelle copie opaque par une
   // réponse CORS exploitable lorsque le serveur d'images l'autorise.
   if (e.request.destination === "image" && e.request.mode === "cors") {
-    e.respondWith(
-      fetch(e.request)
+    let write = Promise.resolve();
+    const responsePromise = fetch(e.request)
         .then(response => {
           if (response.ok && response.type !== "opaque") {
-            cacheBounded(e.request, response.clone(), imageCache.name, imageCache.limit).catch(() => {});
+            write = cacheBounded(e.request, response.clone(), imageCache.name, imageCache.limit);
           }
           return response;
         })
-        .catch(async () => (await caches.match(e.request)) || new Response(null, { status: 504 }))
-    );
+        .catch(async () => (await caches.match(e.request)) || new Response(null, { status: 504 }));
+    e.respondWith(responsePromise);
+    keepCacheWriteAlive(e, responsePromise, () => write);
     return;
   }
 
   // Jaquettes et arrière-plans disposent de budgets séparés : parcourir les
   // grandes bannières d'une fiche ne peut plus évincer toute la bibliothèque.
   if (e.request.destination === "image") {
-    e.respondWith(
-      caches.match(e.request).then(cached => {
+    let write = Promise.resolve();
+    const responsePromise = caches.match(e.request).then(cached => {
         if (cached) return cached;
         return fetch(e.request).then(response => {
           if (!response || (!response.ok && response.type !== "opaque")) return response;
           const clone = response.clone();
-          cacheBounded(e.request, clone, imageCache.name, imageCache.limit).catch(() => {});
+          write = cacheBounded(e.request, clone, imageCache.name, imageCache.limit);
           return response;
         }).catch(() => new Response(null, { status: 504 }));
-      })
-    );
+      });
+    e.respondWith(responsePromise);
+    keepCacheWriteAlive(e, responsePromise, () => write);
     return;
   }
 
   // Les polices restent avec les ressources statiques et ne consomment plus
   // le quota réservé aux jaquettes.
   if (e.request.destination === "font") {
-    e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request).then(response => {
-        if (response?.ok) caches.open(STATIC_CACHE).then(cache => cache.put(e.request, response.clone()));
+    let write = Promise.resolve();
+    const responsePromise = caches.match(e.request).then(cached => cached || fetch(e.request).then(response => {
+        if (response?.ok) write = caches.open(STATIC_CACHE).then(cache => cache.put(e.request, response.clone()));
         return response;
-      }))
-    );
+      }).catch(() => new Response(null, { status: 504 })));
+    e.respondWith(responsePromise);
+    keepCacheWriteAlive(e, responsePromise, () => write);
   }
 });
