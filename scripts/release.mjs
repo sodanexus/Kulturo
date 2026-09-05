@@ -67,6 +67,7 @@ requireMatch("README.md", new RegExp(`Version actuelle · ${VERSION.replaceAll("
 requireMatch("CHANGELOG.md", new RegExp(`^## ${VERSION.replaceAll(".", "\\.")}$`, "m"), "une entrée d'historique");
 requireMatch("DEPLOYMENT.md", new RegExp(`archive \\*\\*${VERSION.replaceAll(".", "\\.")}\\*\\*`), "l'archive à publier");
 requireMatch("tests/README.md", new RegExp(`archive ${VERSION.replaceAll(".", "\\.")}`, "i"), "la version validée");
+requireMatch("tests/browser-server.mjs", new RegExp(`version:\\s*["']${VERSION.replaceAll(".", "\\.")}-test["']`), "la version du serveur de parcours");
 
 function walk(directory, files = []) {
   for (const name of readdirSync(directory).sort((a, b) => a.localeCompare(b, "en"))) {
@@ -81,6 +82,8 @@ function walk(directory, files = []) {
 }
 
 const projectFiles = walk(ROOT);
+const archiveNames = projectFiles.map(path => relative(ROOT, path).split(sep).join("/"));
+if (new Set(archiveNames).size !== archiveNames.length) fail("deux fichiers produisent le même chemin dans l'archive.");
 const javascriptFiles = projectFiles.filter(path => /\.(?:m?js)$/.test(path));
 for (const file of javascriptFiles) {
   const result = spawnSync(process.execPath, ["--check", file], { cwd: ROOT, stdio: "inherit" });
@@ -169,6 +172,8 @@ const temporary = `${output}.tmp`;
 writeFileSync(temporary, archive);
 if (existsSync(output)) unlinkSync(output);
 renameSync(temporary, output);
-const digest = createHash("sha256").update(archive).digest("hex");
+const savedArchive = readFileSync(output);
+if (!savedArchive.equals(archive)) fail("l'archive écrite diffère du contenu validé.");
+const digest = createHash("sha256").update(savedArchive).digest("hex");
 console.log(`\nArchive créée : ${output}`);
 console.log(`${projectFiles.length} fichiers · ${archive.length} octets · SHA-256 ${digest}`);
