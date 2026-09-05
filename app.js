@@ -5,17 +5,9 @@
 import { initSupabase, Auth, Media, Profiles, Journal, Backup, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 import {
-  entryActivityMonth,
-  entryActivityYear,
-  eventsForPeriod,
   filterLibraryEntries,
   formatReleaseDate,
-  isCompletionEvent,
-  isClosedMonth,
-  isProfileTopEvent,
   isReplayEntry,
-  journalEventPresentation,
-  latestEventMonth,
   librarySearchScore,
   localISODate,
   normalizeTitle,
@@ -23,8 +15,6 @@ import {
   repeatInfo,
   repeatProgressLabel,
   statusTransitionChanges,
-  uniqueEntriesForEvents,
-  yearMonthOf,
 } from "./domain.js";
 import {
   ADD_PRIMARY_STATUSES,
@@ -41,17 +31,10 @@ import {
   metadataExternalLink,
   splitMetadataValues,
 } from "./features/media-metadata.js";
-import {
-  exploredGenres,
-  journalMonthSummary,
-  repeatCountForPeriod,
-} from "./features/insights.js";
-import { elementFromHTML, patchKeyedSurface, reconcileKeyedChildren } from "./features/dom-updates.js";
-import { cardSkeletons, emptyState, errorState, loadingState } from "./features/ui-states.js";
+import { elementFromHTML, reconcileKeyedChildren } from "./features/dom-updates.js";
+import { cardSkeletons, emptyState, errorState, loadingState, setButtonBusy } from "./features/ui-states.js";
 import { clearApiCache } from "./features/request-client.js";
 import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js";
-import { groupJournalDayEvents, journalGroupPresentation } from "./features/journal-groups.js";
-import { createJournalNavigation } from "./features/journal-navigation.js";
 import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
 import { createDetailSessionManager } from "./features/detail-session.js";
 import { collectDetailUpdates } from "./features/detail-enrichment.js";
@@ -59,6 +42,8 @@ import { createUiActionDispatcher } from "./features/ui-actions.js";
 import { createDialogFocusManager } from "./features/dialog-focus.js";
 import { buildRestorePlan, parseKulturoBackup, sanitizeBackupEvents } from "./features/backup-restore.js";
 import { createUpcomingFeature } from "./features/upcoming.js";
+import { createProfileFeature, LAST_BACKUP_KEY, formatLastBackup } from "./features/profile.js";
+import { createJournalFeature } from "./features/journal.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -147,6 +132,7 @@ const State = {
   user:       null,
   username:   null,
   entries:    [],
+  libraryStatus: "loading",
   events:     [],
   journalAvailable: false,
   journalError: null,
@@ -391,9 +377,10 @@ async function init() {
         clearUiSnapshot();
         _remoteSyncUnavailable = false;
         State.entries = [];
+        State.libraryStatus = "loading";
         State.events = [];
-        _communityEntries = [];
-        _communityLoaded = false;
+        journalFeature.reset();
+        profileFeature.reset();
         State.journalAvailable = false;
         State.journalError = null;
         State.journalDirty = true;
@@ -466,7 +453,7 @@ function restoreOpenLayerHistory() {
   let layer = null;
   if (document.getElementById("metadata-overlay")) layer = "metadata";
   else if (document.getElementById("filter-modal-overlay")) layer = "filters";
-  else if (document.getElementById("modal-overlay")) layer = "modal";
+  else if (document.getElementById("modal-overlay")) layer = _detailEditContext ? "edit" : "modal";
   history.pushState(appHistoryState(_currentPage, layer), "");
 }
 
@@ -760,7 +747,7 @@ async function refreshJournalEvents({ silent = false } = {}) {
 
 function markJournalDirty() {
   State.journalDirty = true;
-  _communityLoaded = false;
+  journalFeature.invalidate();
   setTimeout(() => {
     if (_currentPage === "journal") renderJournal();
     else if (_currentPage === "dashboard") renderDashboard();
@@ -768,16 +755,16 @@ function markJournalDirty() {
 }
 
 async function loadEntries() {
-  // Show skeletons while loading
+  State.libraryStatus = "loading";
   const grid = document.getElementById("cards-grid");
-  if (grid && !State.entries.length) {
-    grid.innerHTML = cardSkeletons(8);
-  }
+  grid?.setAttribute("aria-busy", "true");
+  if (!State.entries.length) renderCards();
   try {
     // Charge tout, le filtrage se fait localement dans filterEntries()
     const previousEntries = State.entries;
     const previousFingerprint = entriesFingerprint(previousEntries);
     const freshEntries = await Media.getAll({});
+    State.libraryStatus = "ready";
     _remoteSyncUnavailable = false;
     syncNetworkStatus();
     const entriesChanged = previousFingerprint !== entriesFingerprint(freshEntries);
@@ -794,6 +781,7 @@ async function loadEntries() {
     syncNetworkStatus();
     const cached = readCachedEntries();
     if (cached) {
+      State.libraryStatus = "ready";
       const entriesChanged = entriesFingerprint(State.entries) !== entriesFingerprint(cached);
       State.entries = cached;
       if (entriesChanged || !State.entries.length) {
@@ -802,9 +790,14 @@ async function loadEntries() {
       }
       toast("Mode hors ligne : dernière bibliothèque enregistrée affichée.", "info");
     } else {
-      if (grid) grid.innerHTML = errorState({ title: "Bibliothèque indisponible", message: "Impossible de charger vos médias pour le moment." });
-      toast("Erreur de chargement : " + e.message, "error");
+      State.libraryStatus = "error";
+      renderCards();
+      console.warn("[Bibliothèque] chargement impossible", e);
     }
+  } finally {
+    // La confirmation du cache ne reconstruit pas les cartes, mais termine
+    // tout de même l'annonce de chargement pour les lecteurs d'écran.
+    grid?.setAttribute("aria-busy", "false");
   }
   await refreshJournalEvents({ silent: true });
 }
@@ -1281,6 +1274,20 @@ function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
+  grid.setAttribute("aria-busy", String(State.libraryStatus === "loading"));
+  if (!State.entries.length && State.libraryStatus === "loading") {
+    grid.innerHTML = cardSkeletons(8) + '<span class="sr-only" role="status">Chargement de la bibliothèque…</span>';
+    return;
+  }
+  if (!State.entries.length && State.libraryStatus === "error") {
+    grid.innerHTML = errorState({
+      title: "Bibliothèque indisponible",
+      message: "Impossible de charger vos médias pour le moment.",
+      actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryLibrary") + '>Réessayer</button>',
+    });
+    return;
+  }
+
   if (options.resetScroll) {
     const main = document.getElementById("main");
     if (main) main.scrollTop = 0;
@@ -1295,31 +1302,26 @@ function renderCards(options = {}) {
 
   if (!entries.length) {
     const f = State.filters;
-    let emptyMsg = "Ajoutez votre premier film, jeu ou livre pour commencer.";
-    let emptyBtn = `<button class="btn btn-primary" ${uiAction("openAddModal")}>${iconPlus()} Ajouter</button>`;
-    if (f.search)                    emptyMsg = `Aucun résultat pour "<strong>${esc(f.search)}</strong>".`;
-    else if (f.rating !== "all")   emptyMsg = `Aucun média noté <strong>★ ${f.rating}/10</strong>.`;
-    else if (f.favorite && f.replay) emptyMsg = "Aucun média ne réunit les marqueurs Coup de cœur et Replay.";
-    else if (f.favorite)             emptyMsg = "Aucun coup de cœur pour l'instant. Marquez vos préférés avec ♥.";
-    else if (f.replay)               emptyMsg = "Aucun média rejoué, relu ou revisionné pour l'instant.";
-    else if (f.month !== "all")     emptyMsg = "Aucun média ne correspond à ce mois.";
-    else if (f.year !== "all")      emptyMsg = `Aucun média ne correspond à l’année <strong>${esc(String(f.year))}</strong>.`;
-    else if (f.subtype === "movie") emptyMsg = "Aucun film ne correspond à ces filtres.";
-    else if (f.subtype === "tv")    emptyMsg = "Aucune série ne correspond à ces filtres.";
-    else if (f.status !== DEFAULT_LIBRARY_STATUS) emptyMsg = `Aucun média avec le statut "<strong>${STATUS_LABELS[f.status]}</strong>".`;
-    else if (f.status === DEFAULT_LIBRARY_STATUS) emptyMsg = "Aucun média terminé pour le moment.";
-    else if (f.type === "game")      emptyMsg = "Aucun jeu dans votre bibliothèque.";
-    else if (f.type === "movie")     emptyMsg = "Aucun film ou série dans votre bibliothèque.";
-    else if (f.type === "book")      emptyMsg = "Aucun livre dans votre bibliothèque.";
-    grid.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">${iconMedia("media")}</div>
-        <h3>Rien ici</h3>
-        <p>${emptyMsg}</p>
-        ${f.search || f.favorite || f.replay || f.status !== DEFAULT_LIBRARY_STATUS || f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all"
-          ? `<button class="btn btn-secondary" ${uiAction("navTo", ["library"])}>Voir tout</button>`
-          : emptyBtn}
-      </div>`;
+    const hasFilters = f.favorite || f.replay || f.status !== DEFAULT_LIBRARY_STATUS ||
+      f.type !== "all" || f.subtype !== "all" || f.year !== "all" || f.month !== "all" || f.rating !== "all";
+    const searchEmpty = Boolean(f.search);
+    const libraryEmpty = State.entries.length === 0;
+    const title = searchEmpty ? "Aucun résultat" : libraryEmpty ? "Votre bibliothèque commence ici" :
+      hasFilters ? "Aucun média correspondant" : "Aucun média terminé";
+    const message = searchEmpty ? 'Aucun résultat pour « ' + esc(f.search) + ' ».' :
+      libraryEmpty ? "Ajoutez un film, une série, un jeu ou un livre pour commencer." :
+      hasFilters ? "Essayez d’élargir vos filtres pour retrouver vos médias." :
+      "Vos médias terminés apparaîtront ici. Vous pouvez consulter ceux que vous suivez déjà.";
+    const action = searchEmpty ? uiAction("clearLibraryFilter", ["search"]) :
+      libraryEmpty ? uiAction("openAddModal") :
+      hasFilters ? uiAction("clearAllLibraryFilters") : uiAction("navTo", ["status-all"]);
+    const label = searchEmpty ? "Effacer la recherche" :
+      libraryEmpty ? "Ajouter un média" :
+      hasFilters ? "Réinitialiser les filtres" : "Voir mes médias";
+    grid.innerHTML = emptyState({
+      icon: searchEmpty ? "search" : "collection", title, message,
+      actionHTML: '<button class="btn ' + (libraryEmpty && !searchEmpty ? "btn-primary" : "btn-secondary") + '" ' + action + '>' + label + '</button>',
+    });
     return;
   }
 
@@ -1486,480 +1488,10 @@ function updateBadges() {
 }
 
 // ── Dashboard / Profil ────────────────────────────────────────
-const _profileToday = new Date();
-let _profileYear = _profileToday.getFullYear();
-let _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
-let _profilePeriod = "month";
-let _profileMedia = "all";
-let _profileMonthAutoResolve = true;
-const _profileNumberValues = new Map();
-const LAST_BACKUP_KEY = "kulturo-last-backup";
 const MAX_BACKUP_IMPORT_BYTES = 10 * 1024 * 1024;
 let _pendingRestorePlan = null;
 let _pendingRestoreEvents = null;
 let _restoreInProgress = false;
-const PROFILE_MEDIA_OPTIONS = [
-  ["all", "Tout"],
-  ["film", "Films"],
-  ["tv", "Séries"],
-  ["game", "Jeux"],
-  ["book", "Livres"],
-];
-
-function profileNumberHTML(key, value, options = {}) {
-  const numeric = Number(value) || 0;
-  const decimals = Number(options.decimals || 0);
-  const display = numeric.toFixed(decimals);
-  return `<span class="profile-animated-number" data-profile-number="${esc(key)}" data-profile-value="${numeric}" data-profile-decimals="${decimals}" data-profile-prefix="${esc(options.prefix || "")}" data-profile-suffix="${esc(options.suffix || "")}">${esc(options.prefix || "")}${display}${esc(options.suffix || "")}</span>`;
-}
-
-function animateProfileNumbers(root) {
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  root?.querySelectorAll?.("[data-profile-number]").forEach(element => {
-    const key = element.dataset.profileNumber;
-    const target = Number(element.dataset.profileValue || 0);
-    const decimals = Number(element.dataset.profileDecimals || 0);
-    const prefix = element.dataset.profilePrefix || "";
-    const suffix = element.dataset.profileSuffix || "";
-    const previous = _profileNumberValues.get(key);
-    _profileNumberValues.set(key, target);
-    if (previous == null || previous === target || reduced) return;
-    const start = performance.now();
-    const duration = 440;
-    const draw = now => {
-      const progress = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const value = previous + (target - previous) * eased;
-      element.textContent = `${prefix}${value.toFixed(decimals)}${suffix}`;
-      if (progress < 1 && element.isConnected) requestAnimationFrame(draw);
-    };
-    requestAnimationFrame(draw);
-  });
-}
-
-function profileMediaMatches(entry, media = _profileMedia) {
-  if (media === "all") return true;
-  if (media === "film") return entry.media_type === "movie" && entry.subtype !== "tv";
-  if (media === "tv") return entry.media_type === "movie" && entry.subtype === "tv";
-  return entry.media_type === media;
-}
-
-function profileEntriesForPeriod(entries, year, month = "all") {
-  if (State.journalAvailable) {
-    return uniqueEntriesForEvents(entries, eventsForPeriod(State.events, year, month));
-  }
-  return entries.filter(entry => {
-    if (entryActivityYear(entry) !== Number(year)) return false;
-    return month === "all" || entryActivityMonth(entry) === `${year}-${String(month).padStart(2, "0")}`;
-  });
-}
-
-function profileTopEntriesForPeriod(entries, year, month = "all") {
-  if (State.journalAvailable) {
-    const topEvents = eventsForPeriod(State.events, year, month).filter(isProfileTopEvent);
-    return uniqueEntriesForEvents(entries, topEvents)
-      .filter(entry => profileMediaMatches(entry) && Boolean(entry.rating));
-  }
-  return profileEntriesForPeriod(entries, year, month)
-    .filter(entry => profileMediaMatches(entry) && Boolean(entry.rating));
-}
-
-function latestProfileMonthBefore(entries, anchorMonth) {
-  if (State.journalAvailable) {
-    return latestEventMonth(
-      State.events,
-      entries,
-      anchorMonth,
-      entry => profileMediaMatches(entry) && Boolean(entry.rating),
-      isProfileTopEvent,
-    );
-  }
-  return entries
-    .filter(entry => profileMediaMatches(entry) && entry.rating)
-    .map(entryActivityMonth)
-    .filter(month => month && month < anchorMonth)
-    .sort((a, b) => b.localeCompare(a))[0] || null;
-}
-
-function setProfileYear(y) {
-  const year = Number.parseInt(y, 10);
-  if (!Number.isFinite(year)) return;
-  _profileYear = year;
-  _profileMonthAutoResolve = false;
-  renderDashboard();
-}
-
-function setProfileMonth(month) {
-  const normalized = String(month).padStart(2, "0");
-  if (!/^(0[1-9]|1[0-2])$/.test(normalized)) return;
-  _profileMonth = normalized;
-  _profileMonthAutoResolve = false;
-  renderDashboard();
-}
-
-function setProfilePeriod(period) {
-  if (!['year', 'month'].includes(period) || period === _profilePeriod) return;
-  _profilePeriod = period;
-  if (period === "month") _profileMonthAutoResolve = true;
-  renderDashboard();
-}
-
-function setProfileMedia(media) {
-  if (!PROFILE_MEDIA_OPTIONS.some(([value]) => value === media) || media === _profileMedia) return;
-  _profileMedia = media;
-  renderDashboard();
-}
-
-function formatLastBackup() {
-  try {
-    const raw = localStorage.getItem(LAST_BACKUP_KEY);
-    if (!raw) return "Aucune sauvegarde récente sur cet appareil";
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return "Aucune sauvegarde récente sur cet appareil";
-    return `Dernière sauvegarde : ${date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
-  } catch {
-    return "Historique local indisponible";
-  }
-}
-
-function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
-  navTo("library");
-  State.filters.type = "all";
-  State.filters.subtype = "all";
-  State.filters.status = "all";
-  State.filters.favorite = false;
-  State.filters.replay = false;
-  State.filters.search = "";
-  State.filters.rating = "all";
-  State.filters.year = Number(year) || "all";
-  State.filters.month = /^(0[1-9]|1[0-2])$/.test(String(month)) && State.filters.year !== "all"
-    ? `${State.filters.year}-${month}`
-    : "all";
-  const search = document.getElementById("global-search");
-  if (search) search.value = "";
-
-  const applyMedia = media => {
-    if (media === "game" || media === "book") State.filters.type = media;
-    else if (media === "film") {
-      State.filters.type = "movie";
-      State.filters.subtype = "movie";
-    } else if (media === "tv") {
-      State.filters.type = "movie";
-      State.filters.subtype = "tv";
-    }
-  };
-
-  if (["finished", "playing", "wishlist"].includes(kind)) {
-    State.filters.status = kind;
-    applyMedia(mediaFilter);
-  } else if (kind === "favorite") {
-    State.filters.favorite = true;
-    applyMedia(mediaFilter);
-  } else if (kind === "game" || kind === "book") State.filters.type = kind;
-  else if (kind === "film") {
-    State.filters.type = "movie";
-    State.filters.subtype = "movie";
-  } else if (kind === "tv") {
-    State.filters.type = "movie";
-    State.filters.subtype = "tv";
-  }
-
-  syncFilterChips();
-  updateCategoryTabs(State.filters.type, State.filters.favorite);
-  renderCards({ resetScroll: true });
-  _updateFilterToggleLabel();
-}
-
-function openRatingCollection(value) {
-  const rating = Number.parseInt(value, 10);
-  if (!Number.isInteger(rating) || rating < 1 || rating > 10) return;
-  navTo("library");
-  // L'histogramme couvre toutes les œuvres notées, quel que soit leur statut.
-  // Le lien doit donc montrer exactement le même ensemble, même si la vue
-  // normale de la Bibliothèque démarre désormais sur « Terminé ».
-  State.filters.status = "all";
-  State.filters.rating = rating;
-  syncFilterChips();
-  renderCards({ resetScroll: true });
-  _updateFilterToggleLabel();
-}
-
-async function renderDashboard() {
-  const container = document.getElementById("dashboard-content");
-  if (!container) return;
-
-  if (State.journalDirty) await refreshJournalEvents({ silent: true });
-
-  // Charge le username AVANT le rendu pour éviter le flash
-  if (State.user && State.username === null) {
-    try {
-      const p = await Profiles.get(State.user.id);
-      State.username = p?.username || "";
-    } catch {}
-  }
-  const cachedUsername = State.username || "";
-
-  const all = State.entries;
-
-  // À l'ouverture de la vue mensuelle, un mois courant vide bascule vers le
-  // dernier mois réellement renseigné. Un choix manuel vide reste respecté.
-  if (_profilePeriod === "month" && _profileMonthAutoResolve) {
-    const anchorMonth = `${_profileYear}-${_profileMonth}`;
-    const currentEntries = profileTopEntriesForPeriod(all, _profileYear, _profileMonth);
-    if (!currentEntries.length) {
-      const fallbackMonth = latestProfileMonthBefore(all, anchorMonth);
-      if (fallbackMonth) {
-        _profileYear = Number(fallbackMonth.slice(0, 4));
-        _profileMonth = fallbackMonth.slice(5, 7);
-      }
-    }
-    _profileMonthAutoResolve = false;
-  }
-
-  const eventYears = State.journalAvailable
-    ? State.events.map(event => Number(yearMonthOf(event.occurred_at)?.slice(0, 4))).filter(Number.isFinite)
-    : [];
-  const years = [...new Set([...all.map(entryActivityYear).filter(Boolean), ...eventYears])]
-    .sort((a,b)=>b-a);
-  if (!years.includes(_profileYear)) years.unshift(_profileYear);
-  const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
-
-  const monthOptions = Array.from({ length: 12 }, (_, index) => {
-    const value = String(index + 1).padStart(2, "0");
-    const label = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(new Date(2024, index, 1));
-    return `<option value="${value}" ${value === _profileMonth ? "selected" : ""}>${label[0].toUpperCase()}${label.slice(1)}</option>`;
-  }).join("");
-  const periodMonth = _profilePeriod === "month" ? _profileMonth : "all";
-  const periodLabel = _profilePeriod === "month"
-    ? new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(_profileYear, Number(_profileMonth) - 1, 1))
-    : String(_profileYear);
-  const dateScopedEntries = profileEntriesForPeriod(all, _profileYear, periodMonth);
-  const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
-  const periodEvents = State.journalAvailable ? eventsForPeriod(State.events, _profileYear, periodMonth) : [];
-  const scopedFinished = State.journalAvailable
-    ? uniqueEntriesForEvents(scopedEntries, periodEvents.filter(isCompletionEvent))
-    : scopedEntries.filter(entry => entry.status === "finished" && entry.date_finished);
-  const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
-  const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
-  const scopedFavs = scopedEntries.filter(entry => entry.is_favorite);
-  const scopedRated = profileTopEntriesForPeriod(all, _profileYear, periodMonth);
-  const scopedAverage = scopedRated.length
-    ? (scopedRated.reduce((sum, entry) => sum + entry.rating, 0) / scopedRated.length).toFixed(1)
-    : "—";
-  // « Vos préférés » représente les œuvres actuellement terminées. Une œuvre
-  // relancée reste comptée dans les statistiques, mais quitte temporairement ce Top.
-  const topScoped = scopedRated
-    .filter(entry => entry.status === "finished")
-    .sort((a,b) => b.rating - a.rating)
-    .slice(0, 6);
-  const topHTML = topScoped.length
-    ? topScoped.map((entry, index) => {
-        const coverUrl = safeMediaUrl(entry.cover_url);
-        return `
-          <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Ouvrir ${esc(entry.title)}">
-            <span class="profile-top-rank">${index + 1}</span>
-            <span class="profile-top-cover">
-              ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
-            </span>
-            <strong>${esc(entry.title)}</strong>
-            <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
-          </button>`;
-      }).join("")
-    : `<div class="profile-inline-empty">Aucun média terminé et noté en ${esc(periodLabel)}.</div>`;
-
-  const categories = [
-    { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
-    { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
-    { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--brand-teal)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
-    { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--brand-gold)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
-  ];
-  const categoryMax = Math.max(...categories.map(category => category.count), 1);
-  const categoryHTML = categories.map(category => `
-    <button type="button" class="profile-category-row" ${uiAction("openProfileCollection", [category.key, _profileYear, periodMonth, category.key])}>
-      <span class="profile-category-icon" style="color:${category.color}" aria-hidden="true">${category.icon}</span>
-      <span class="profile-category-copy">
-        <span><strong>${category.label}</strong><em>${category.count}</em></span>
-        <span class="profile-category-track"><i style="width:${Math.round(category.count / categoryMax * 100)}%;background:${category.color}"></i></span>
-      </span>
-      <span class="profile-category-arrow" aria-hidden="true">→</span>
-    </button>`).join("");
-
-  const scopedRepeatCount = repeatCountForPeriod(
-    State.journalAvailable ? State.events : [],
-    scopedEntries,
-    _profileYear,
-    periodMonth,
-  );
-  const genreInsights = exploredGenres(scopedEntries, 6);
-  const maxGenreCount = Math.max(...genreInsights.map(item => item.count), 1);
-  const genresHTML = genreInsights.length ? genreInsights.map(item => `
-    <div class="profile-genre-row">
-      <span><strong>${esc(item.label)}</strong><em>${item.count}</em></span>
-      <span class="profile-genre-track"><i style="width:${Math.round(item.count / maxGenreCount * 100)}%"></i></span>
-    </div>`).join("") : `<p class="profile-inline-empty">Pas encore assez de genres renseignés sur cette période.</p>`;
-
-  // Histogramme des notes (toutes années)
-  const ratedAll      = all.filter(e => e.rating);
-  const ratingCounts  = Array(10).fill(0);
-  ratedAll.forEach(e => { if (e.rating >= 1 && e.rating <= 10) ratingCounts[e.rating - 1]++; });
-  const maxRatingCount = Math.max(...ratingCounts, 1);
-  const totalRated     = ratedAll.length;
-  const avgRating      = totalRated
-    ? (ratedAll.reduce((s, e) => s + e.rating, 0) / totalRated).toFixed(1)
-    : null;
-  const BAR_MAX_PX = 72;
-
-  const ratingBars = ratingCounts.map((n, i) => {
-    const note   = i + 1;
-    const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
-    const isPeak = n > 0 && n === Math.max(...ratingCounts);
-    return `
-      <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `${uiAction("openRatingCollection", [note])} aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
-        <div class="rating-hist-count">${n || ""}</div>
-        <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
-      </button>`;
-  }).join("");
-
-  const ratingsHTML = totalRated > 0 ? `
-    <section class="profile-dashboard-card profile-ratings-card" data-ui-key="profile-ratings">
-      <div class="rating-hist-header">
-        <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
-        <div class="rating-hist-meta">
-          <span class="rating-hist-total">${totalRated} notés</span>
-          ${avgRating ? `<span class="rating-hist-avg">moy. ${ratingScoreHTML(avgRating, "rating-average")}</span>` : ""}
-        </div>
-      </div>
-      <div class="rating-hist">${ratingBars}</div>
-      <div class="rating-hist-legend">
-        <span>★ 1/10</span>
-        <span>★ 10/10</span>
-      </div>
-    </section>` : "";
-
-  const dashboardHTML = `
-    <section class="profile-year-overview" data-ui-key="profile-overview">
-      <div class="profile-year-header">
-        <div>
-          <span class="section-eyebrow">En un coup d’œil</span>
-          <h2>${_profilePeriod === "month" ? "Votre mois" : "Votre année"} · ${esc(periodLabel)}</h2>
-        </div>
-        <div class="profile-date-controls">
-          <select class="filter-select profile-year-inline" aria-label="Année" ${uiAction("setProfileYear", [], { value: true })}>${yearOptions}</select>
-          ${_profilePeriod === "month" ? `<select class="filter-select profile-month-inline" aria-label="Mois" ${uiAction("setProfileMonth", [], { value: true })}>${monthOptions}</select>` : ""}
-        </div>
-      </div>
-      <div class="profile-scope-toolbar">
-        <div class="profile-period-switch" role="group" aria-label="Période des statistiques">
-          <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" ${uiAction("setProfilePeriod", ["year"])} aria-pressed="${_profilePeriod === "year"}">Annuel</button>
-          <button type="button" class="${_profilePeriod === "month" ? "active" : ""}" ${uiAction("setProfilePeriod", ["month"])} aria-pressed="${_profilePeriod === "month"}">Mensuel</button>
-        </div>
-        <div class="profile-media-switch" role="group" aria-label="Type de média">
-          ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" ${uiAction("setProfileMedia", [value])} aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
-        </div>
-      </div>
-      <div class="profile-year-summary">
-        <div class="profile-year-primary">
-          <strong>${profileNumberHTML("finished", scopedFinished.length)}</strong>
-          <span>média${scopedFinished.length > 1 ? "s" : ""} terminé${scopedFinished.length > 1 ? "s" : ""}</span>
-          <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""} au total sur cette période</small>
-        </div>
-        <div class="profile-year-secondary">
-          <span>Note moyenne</span>
-          <strong>${scopedAverage === "—" ? "—" : profileNumberHTML("average", scopedAverage, { decimals: 1, prefix: "★ ", suffix: "/10" })}</strong>
-          <small>${scopedRated.length} média${scopedRated.length > 1 ? "s" : ""} noté${scopedRated.length > 1 ? "s" : ""}</small>
-        </div>
-      </div>
-      <div class="profile-action-grid">
-        ${[
-          ["finished", scopedFinished.length, "Terminés"],
-          ["playing", scopedPlaying.length, "En cours"],
-          ["favorite", scopedFavs.length, "Coups de cœur"],
-          ["wishlist", scopedWishlist.length, "Wishlist"],
-        ].map(([key, value, label]) => `
-          <button type="button" class="profile-action-card" ${uiAction("openProfileCollection", [key, _profileYear, periodMonth, _profileMedia])}>
-            <span class="profile-action-icon" aria-hidden="true">${iconStatus(key)}</span>
-            <strong>${profileNumberHTML(`action-${key}`, value)}</strong>
-            <span>${label}</span>
-            <i aria-hidden="true">→</i>
-          </button>`).join("")}
-      </div>
-    </section>
-
-    ${ratingsHTML}
-
-    <div class="profile-insights-grid" data-ui-key="profile-insights">
-      <section class="profile-dashboard-card profile-top-section">
-        <div class="profile-card-heading">
-          <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
-          <span class="section-count">${topScoped.length} média${topScoped.length !== 1 ? "s" : ""}</span>
-        </div>
-        <div class="profile-top-track">${topHTML}</div>
-      </section>
-
-      <section class="profile-dashboard-card profile-categories-section">
-        <div class="profile-card-heading">
-          <div><span class="section-eyebrow">Répartition</span><h3>Par catégorie</h3></div>
-          <span class="section-count">${dateScopedEntries.length} au total</span>
-        </div>
-        <div class="profile-category-list">${categoryHTML}</div>
-      </section>
-    </div>
-
-    <div class="profile-habits-grid" data-ui-key="profile-habits">
-      <section class="profile-dashboard-card profile-genres-section">
-        <div class="profile-card-heading">
-          <div><span class="section-eyebrow">Vos terrains</span><h3>Genres les plus explorés</h3></div>
-          <span class="section-count">${genreInsights.length} genre${genreInsights.length > 1 ? "s" : ""}</span>
-        </div>
-        <div class="profile-genre-list">${genresHTML}</div>
-      </section>
-      <section class="profile-dashboard-card profile-repeat-section">
-        <span class="section-eyebrow">Revoir, relire, rejouer</span>
-        <div class="profile-repeat-value">${profileNumberHTML("repeats", scopedRepeatCount)}</div>
-        <h3>reprise${scopedRepeatCount === 1 ? "" : "s"}</h3>
-        <p>Revisionnages, relectures et nouvelles parties terminés sur cette période.</p>
-      </section>
-    </div>
-
-    <details class="profile-account-details" data-ui-key="profile-account">
-      <summary>
-        <span><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
-        <span aria-hidden="true">⌄</span>
-      </summary>
-      <div class="profile-account-body">
-        <div class="profile-account-main">
-          <div class="profile-avatar-circle">${iconUser()}</div>
-          <div class="profile-identity-meta">
-            <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
-            <div class="profile-username-row">
-              <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
-              <button class="btn btn-primary btn-sm" ${uiAction("saveUsername")}>Enregistrer</button>
-            </div>
-          </div>
-        </div>
-        <div class="profile-backup-panel">
-          <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
-          <div class="profile-backup-actions">
-            <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary")}>↓ Sauvegarder</button>
-            <button class="btn btn-secondary btn-sm" id="backup-restore-picker" ${uiAction("chooseBackupFile")}>↑ Restaurer</button>
-            <input class="sr-only" id="backup-import-input" type="file" accept=".json,application/json" ${uiAction("previewBackupRestore", [], { change: true, control: true })} />
-          </div>
-        </div>
-        <div class="profile-account-footer">
-          <span>Kulturo ${esc(CONFIG?.app?.version || "")}</span>
-          <button class="btn btn-ghost btn-sm" ${uiAction("signOut")}>Se déconnecter</button>
-        </div>
-      </div>
-    </details>
-  `;
-  const changedBlocks = patchKeyedSurface(container, dashboardHTML);
-  changedBlocks.forEach(block => {
-    replayMotion(block, "profile-block-enter");
-    block.addEventListener("animationend", () => block.classList.remove("profile-block-enter"), { once: true });
-  });
-  animateProfileNumbers(container);
-  hydrateFadeImages(container);
-}
 
 function openModal(entry = null, prefillTitle = null) {
   rememberModalReturnFocus();
@@ -1984,6 +1516,44 @@ function openModal(entry = null, prefillTitle = null) {
 let _wizardState = null;
 let _modalDirty = false;
 let _modalClosePromptOpen = false;
+let _detailEditContext = null;
+let _saveInProgress = false;
+
+function openEditFromDetail(id) {
+  const entry = State.entries.find(item => item.id === id);
+  const detail = document.querySelector("#modal-overlay .detail-modal");
+  if (!entry || !detail || _detailEditContext) return;
+  _detailEditContext = {
+    id,
+    scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
+    synopsisExpanded: Boolean(detail.querySelector(".detail-synopsis-wrap.expanded")),
+    coverOrigin: _activeDetailCoverTransition,
+  };
+  finishDetailCoverFlight();
+  detailSessions.dispose();
+  dialogFocus.deactivate(detail, { restoreFocus: false });
+  window._apiSelected = null;
+  openModal(entry);
+  document.getElementById("modal-overlay")?.classList.add("is-modal-replacement");
+}
+
+function returnToDetail() {
+  const context = _detailEditContext;
+  if (!context || !State.entries.some(entry => entry.id === context.id)) return false;
+  _detailEditContext = null;
+  const edit = document.querySelector("#modal-overlay .edit-modal");
+  if (edit) dialogFocus.deactivate(edit, { restoreFocus: false });
+  document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
+  _wizardState = null;
+  State.editingId = null;
+  _currentRating = 0;
+  _modalDirty = false;
+  window._apiSelected = null;
+  window._apiResults = [];
+  _activeDetailCoverTransition = context.coverOrigin;
+  openDetailPanel(context.id, { restoreView: context });
+  return true;
+}
 
 function markModalDirty() {
   if (document.getElementById("modal-overlay") && (_wizardState || State.editingId)) _modalDirty = true;
@@ -2221,7 +1791,7 @@ function _openModalClassic(entry) {
         </div>
       </div>
     </div>`;
-  pushHistoryLayer("modal", { modal: "edit", mediaId: entry.id });
+  pushHistoryLayer(_detailEditContext ? "edit" : "modal", { modal: "edit", mediaId: entry.id });
   syncSystemBar(_currentPage, null);
   bindCoverAccent(root.querySelector(".edit-modal"), entryCoverUrl);
   _currentRating = entry.rating || 0;
@@ -2237,13 +1807,14 @@ function _openModalClassic(entry) {
   });
   // Sur mobile, ne pas ouvrir le clavier dès l’arrivée : la fiche reste entière.
   if (!window.matchMedia?.("(max-width: 680px)")?.matches) {
-    setTimeout(() => document.getElementById("f-api-search")?.focus(), 100);
+    const searchInput = root.querySelector("#f-api-search");
+    setTimeout(() => { if (searchInput?.isConnected) searchInput.focus({ preventScroll: true }); }, 100);
   }
   setupMobileSheetSwipe({
     overlay: root.querySelector("#modal-overlay"),
     sheet: root.querySelector(".edit-modal"),
     dismiss: () => closeModal(),
-    shouldResetBeforeDismiss: () => _modalDirty,
+    shouldResetBeforeDismiss: () => _modalDirty || _saveInProgress,
   });
   activateDialog(root.querySelector(".edit-modal"), { initialFocus: ".modal-header .btn-icon:last-child" });
 }
@@ -2429,7 +2000,11 @@ function setupWizardUniversalSearch() {
   let requestSeq = 0;
   let activeController = null;
   input.dataset.kulturoSearch = "true";
-  input._kulturoAbortSearch = () => activeController?.abort();
+  input._kulturoAbortSearch = () => {
+    clearTimeout(timer);
+    requestSeq++;
+    activeController?.abort();
+  };
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
@@ -2447,6 +2022,7 @@ function setupWizardUniversalSearch() {
     if (start) start.hidden = true;
 
     timer = setTimeout(async () => {
+      if (!input.isConnected) return;
       const seq = ++requestSeq;
       activeController?.abort();
       activeController = new AbortController();
@@ -2467,7 +2043,7 @@ function setupWizardUniversalSearch() {
         }
       });
       const grouped = await Promise.all(requests);
-      if (signal.aborted || seq !== requestSeq || input.value.trim() !== query) return;
+      if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== query) return;
 
       const items = grouped.flat().filter(item => !findMatchingEntry(item));
       window._apiResults = items;
@@ -2508,7 +2084,11 @@ function setupApiSearch() {
   let requestSeq = 0;
   let activeController = null;
   input.dataset.kulturoSearch = "true";
-  input._kulturoAbortSearch = () => activeController?.abort();
+  input._kulturoAbortSearch = () => {
+    clearTimeout(timer);
+    requestSeq++;
+    activeController?.abort();
+  };
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
@@ -2520,13 +2100,14 @@ function setupApiSearch() {
       return;
     }
     timer = setTimeout(async () => {
+      if (!input.isConnected) return;
       const type  = document.getElementById("f-type")?.value || "game";
       const seq = ++requestSeq;
       activeController?.abort();
       activeController = new AbortController();
       const { signal } = activeController;
       const items = await searchMedia(q, type, { signal });
-      if (signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
+      if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
           (document.getElementById("f-type")?.value || "game") !== type) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
@@ -2593,11 +2174,7 @@ async function saveEntry() {
   // #7 — protection double-submit
   const saveBtn = document.querySelector(".modal-footer .btn-primary");
   if (saveBtn?.disabled) return;
-  if (saveBtn) {
-    saveBtn.dataset.originalText = saveBtn.textContent;
-    saveBtn.disabled = true;
-    saveBtn.textContent = "…";
-  }
+  setButtonBusy(saveBtn, true);
 
   const existing = State.editingId ? State.entries.find(e => e.id === State.editingId) : null;
   const selected = window._apiSelected || null;
@@ -2655,14 +2232,22 @@ async function saveEntry() {
 
   const duplicate = findMatchingEntry(payload, State.editingId);
   if (duplicate) {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtn.dataset.originalText || (State.editingId ? "Enregistrer" : "Ajouter"); }
+    setButtonBusy(saveBtn, false);
     toast(`"${duplicate.title}" est déjà dans votre bibliothèque.`, "info");
     return;
   }
 
+  _saveInProgress = true;
   try {
     if (State.editingId) {
       const updated = await Media.update(State.editingId, payload);
+      // Une simple note ou un cœur ne justifie pas un nouvel enrichissement.
+      // Les marqueurs internes ne sont jamais envoyés à Supabase.
+      if (keepExistingApi) {
+        for (const key of ["_detailsFetched", "_backdropRepairAttempted", "cast_people"]) {
+          if (existing[key] !== undefined) updated[key] = existing[key];
+        }
+      }
       const idx = State.entries.findIndex(e => e.id === State.editingId);
       if (idx !== -1) State.entries[idx] = updated;
     } else {
@@ -2673,8 +2258,9 @@ async function saveEntry() {
     markJournalDirty();
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
-    const justFinished = payload.status === "finished";
+    const justFinished = payload.status === "finished" && existing?.status !== "finished";
     _modalDirty = false;
+    _saveInProgress = false;
     closeModal();
     // #13 — State.entries déjà mis à jour localement, pas besoin de refetch
     renderCards();
@@ -2685,8 +2271,10 @@ async function saveEntry() {
     if (justFinished) launchConfetti();
   } catch (e) {
     const saveBtn = document.querySelector(".modal-footer .btn-primary");
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtn.dataset.originalText || (State.editingId ? "Enregistrer" : "Ajouter"); }
+    setButtonBusy(saveBtn, false);
     toast("Erreur : " + e.message, "error");
+  } finally {
+    _saveInProgress = false;
   }
 }
 
@@ -2717,12 +2305,17 @@ async function deleteEntry(id) {
 
 // ── Modal helpers ─────────────────────────────────────────────
 async function closeModal(force = false, options = {}) {
+  if (_saveInProgress) {
+    toast("Enregistrement en cours…", "info");
+    return false;
+  }
   if (_restoreInProgress && document.querySelector("#modal-overlay .backup-restore-modal")) {
     toast("La restauration est en cours, gardez cette fenêtre ouverte.", "info");
     return false;
   }
-  if (!options.fromHistory && historyOwnsLayer("modal")) {
-    history.back();
+  if (!options.fromHistory && (historyOwnsLayer("modal") || historyOwnsLayer("edit"))) {
+    if (_detailEditContext && !State.entries.some(entry => entry.id === _detailEditContext.id)) history.go(-2);
+    else history.back();
     return true;
   }
   if (_modalDirty && !force) {
@@ -2737,6 +2330,8 @@ async function closeModal(force = false, options = {}) {
     _modalClosePromptOpen = false;
     if (!discard) return false;
   }
+  if (returnToDetail()) return true;
+  _detailEditContext = null;
   const overlay = document.getElementById("modal-overlay");
   const closingDialog = overlay?.querySelector("[role='dialog'], [role='alertdialog']") || null;
   const closingSessionId = detailSessions.currentId();
@@ -3598,7 +3193,25 @@ function renderDetailPanel(e, options = {}) {
     handles: ".detail-backdrop",
     dismiss: () => closeModal(),
   });
-  activateDialog(root.querySelector(".detail-modal"), { initialFocus: ".detail-close-btn" });
+  if (options.restoreView) {
+    const overlay = root.querySelector("#modal-overlay");
+    overlay.classList.add("is-modal-replacement", "is-restoring-view");
+    const synopsis = root.querySelector(".detail-synopsis-wrap");
+    if (synopsis && options.restoreView.synopsisExpanded) {
+      synopsis.classList.add("expanded");
+      const toggle = synopsis.querySelector(".detail-synopsis-toggle");
+      if (toggle) { toggle.textContent = "Voir moins"; toggle.setAttribute("aria-expanded", "true"); }
+    }
+    // La hauteur dépliée doit être connue avant scrollTop : sinon Safari
+    // borne la position à la hauteur du synopsis encore replié.
+    _checkSynopsisOverflow(e.id);
+    const body = root.querySelector(".detail-body");
+    if (body) body.scrollTop = options.restoreView.scrollTop;
+    requestAnimationFrame(() => overlay.classList.remove("is-restoring-view"));
+  }
+  activateDialog(root.querySelector(".detail-modal"), {
+    initialFocus: options.restoreView ? '[data-ui-action="openEditFromDetail"]' : ".detail-close-btn",
+  });
   if (transitionOrigin) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (!detailSessions.isActive(detailSessionId, e.id)) return;
@@ -4374,7 +3987,7 @@ async function openDetailPanel(id, options = {}) {
 
   // Affichage immédiat avec ce qu'on a déjà en base
   const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
-  const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null });
+  const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
   const detailSignal = detailSessions.signal(detailSessionId);
   _scheduleSynopsisOverflowCheck(e.id);
 
@@ -4564,18 +4177,6 @@ function updateCategoryTabs(type, isFav = false) {
 // ── Vue grille / liste ────────────────────────────────────────
 // ── Taille des cartes (small / medium) ───────────────────────
 
-
-async function saveUsername() {
-  const val = document.getElementById("input-username")?.value?.trim();
-  if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
-  try {
-    await Profiles.upsert(State.user.id, val);
-    State.username = val;
-    toast("Pseudo enregistré ✓", "success");
-  } catch (e) {
-    toast("Erreur : " + e.message, "error");
-  }
-}
 
 function exportLibrary() {
   const cleanEntries = State.entries.map(entry => Object.fromEntries(
@@ -4797,358 +4398,24 @@ function setLibraryDensity(value) {
 }
 
 // ── Journal culturel personnel ────────────────────────────────
-try {
-  localStorage.removeItem("kulturo-journal-view");
-  localStorage.removeItem("kulturo-community-view");
-} catch {}
-let _communityEntries = [];
-let _communityLoaded = false;
-const journalNavigation = createJournalNavigation();
+const profileFeature = createProfileFeature({
+  State, Profiles, refreshJournalEvents, reloadEntries: loadEntries, navTo, syncFilterChips,
+  updateCategoryTabs, renderCards, updateFilterToggleLabel: _updateFilterToggleLabel,
+  safeMediaUrl, esc, uiAction, iconMedia, iconStatus, iconUser,
+  ratingScoreHTML, replayMotion, hydrateFadeImages, toast,
+});
+const {
+  render: renderDashboard, setProfileYear, setProfileMonth, setProfilePeriod,
+  setProfileMedia, openProfileCollection, openRatingCollection, saveUsername,
+} = profileFeature;
 
-function visibleJournalEvents() {
-  const existingIds = new Set(State.entries.map(entry => entry.id));
-  // Les notations restent dans State.events pour les Tops et les sauvegardes.
-  return State.events.filter(event => {
-    const metadata = event?.metadata && typeof event.metadata === "object" ? event.metadata : {};
-    return event.event_type !== "rated" && !metadata.hidden_from_journal && existingIds.has(event.media_id);
-  });
-}
-
-async function renderJournal() {
-  const requestedMode = journalNavigation.mode;
-  journalNavigation.syncMode();
-  if (requestedMode === "community") {
-    await renderCommunity();
-  } else {
-    await renderPersonalJournal();
-  }
-  if (journalNavigation.mode === requestedMode) {
-    replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
-  }
-}
-
-async function renderPersonalJournal() {
-  const container = document.getElementById("journal-feed");
-  if (!container) return;
-
-  if (State.journalDirty) {
-    container.innerHTML = loadingState("Chargement du journal…", { compact: true });
-    journalNavigation.syncTimeline([], "personal");
-    await refreshJournalEvents({ silent: true });
-  }
-
-  if (!State.journalAvailable) {
-    container.innerHTML = errorState({ title: "Journal indisponible", message: "Vérifiez la table <strong>media_events</strong> dans Supabase." });
-    journalNavigation.syncTimeline([], "personal");
-    return;
-  }
-  renderCurrentJournalView();
-}
-
-function renderCurrentJournalView() {
-  const container = document.getElementById("journal-feed");
-  if (!container || !State.journalAvailable) return;
-  const visible = visibleJournalEvents();
-  container.innerHTML = renderJournalFeed(visible);
-  journalNavigation.syncTimeline(visible, "personal");
-  hydrateFadeImages(container);
-}
-
-function journalDateLabel(value) {
-  const date = new Date(value);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) return "Aujourd’hui";
-  if (date.toDateString() === yesterday.toDateString()) return "Hier";
-  return date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-}
-
-function renderJournalFeed(events) {
-  if (!events.length) {
-    return emptyState({ icon: "◇", title: "Journal vide", message: "Vos prochaines actions apparaîtront ici." });
-  }
-
-  const months = new Map();
-  events.forEach(event => {
-    const key = yearMonthOf(event.occurred_at) || "unknown";
-    if (!months.has(key)) months.set(key, []);
-    months.get(key).push(event);
-  });
-
-  return [...months.entries()].map(([monthKey, monthEvents]) => {
-    const days = new Map();
-    monthEvents.forEach(event => {
-      const label = journalDateLabel(event.occurred_at);
-      if (!days.has(label)) days.set(label, []);
-      days.get(label).push(event);
-    });
-    const monthLabel = monthKey === "unknown"
-      ? "Date inconnue"
-      : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
-          .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
-    return `
-      <section class="journal-month-group" id="${journalNavigation.monthDomId("personal", monthKey)}" data-journal-month="${esc(monthKey)}">
-        <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
-        ${[...days.entries()].map(([date, items]) => {
-          const groupedItems = groupJournalDayEvents(items, State.entries, 3);
-          return `
-            <section class="activity-date-group journal-date-group">
-              <div class="activity-date-label">${esc(date)}</div>
-              ${groupedItems.map(item => item.kind === "group" ? journalGroupHTML(item) : journalRowHTML(item.event)).join("")}
-            </section>`;
-        }).join("")}
-        ${monthKey === "unknown" || !isClosedMonth(monthKey) ? "" : journalMonthSummaryHTML(monthKey)}
-      </section>`;
-  }).join("");
-}
-
-function journalMonthSummaryHTML(monthKey) {
-  const summary = journalMonthSummary(State.events, State.entries, monthKey);
-  const average = summary.average == null ? "—" : `★ ${summary.average.toFixed(1)}/10`;
-  const favorite = summary.favorite;
-  const favoriteCover = safeMediaUrl(favorite?.cover_url);
-  const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" })
-    .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
-  return `
-    <aside class="journal-month-summary" aria-label="Récapitulatif du mois">
-      <div class="journal-month-summary-heading"><span>Le mois en bref</span><strong>${esc(monthLabel)}</strong></div>
-      <div class="journal-month-summary-stats">
-        <span><strong>${summary.completed}</strong><small>terminé${summary.completed > 1 ? "s" : ""}</small></span>
-        <span><strong>${average}</strong><small>${summary.rated} noté${summary.rated > 1 ? "s" : ""}</small></span>
-      </div>
-      ${favorite ? `
-        <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" data-journal-action="open-personal" data-media-id="${esc(favorite.id)}">
-          ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
-          <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
-          ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
-        </button>` : `<p class="journal-month-no-favorite">Aucun média actuellement terminé à mettre en avant ce mois.</p>`}
-    </aside>`;
-}
-
-function journalGroupCoverHTML(event) {
-  const entry = State.entries.find(item => item.id === event?.media_id);
-  if (!entry) return "";
-  const coverUrl = safeMediaUrl(entry.cover_url);
-  return coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="hide" class="fade-image">`
-    : `<span aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`;
-}
-
-function journalGroupHTML(group) {
-  const presentation = journalGroupPresentation(group);
-  const expanded = journalNavigation.isGroupExpanded(group.key);
-  const domId = journalNavigation.groupDomId(group.key);
-  const tone = journalActionTone(group.action);
-  return `
-    <section class="journal-event-group ${expanded ? "is-expanded" : ""}" id="${domId}" data-journal-group="${esc(group.key)}" ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-group-toggle" data-journal-action="toggle-group" data-group-key="${esc(group.key)}" aria-expanded="${expanded}" aria-controls="${domId}-content">
-        <span class="journal-event-group-covers" aria-hidden="true">${group.events.slice(0, 3).map(journalGroupCoverHTML).join("")}</span>
-        <span class="journal-event-group-copy">
-          <strong><span aria-hidden="true">${iconJournalAction(group.action)}</span>${esc(presentation.label)}</strong>
-          <small>${expanded ? "Masquer le détail" : `Afficher les ${group.events.length} œuvres`}</small>
-        </span>
-        <span class="journal-event-group-chevron" aria-hidden="true">⌄</span>
-      </button>
-      <div class="journal-event-group-expand" id="${domId}-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
-        <div class="journal-event-group-inner">${group.events.map(event => journalRowHTML(event, { grouped: true })).join("")}</div>
-      </div>
-    </section>`;
-}
-
-function journalRowHTML(event, options = {}) {
-  const entry = State.entries.find(item => item.id === event.media_id);
-  if (!entry) return "";
-  const presentation = journalEventPresentation(event, entry);
-  const coverUrl = safeMediaUrl(entry.cover_url);
-  const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
-    : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
-  const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
-  const tone = journalActionTone(event.event_type, metadata);
-  const currentRating = Number(entry.rating);
-  const ratingBadge = Number.isInteger(currentRating) && currentRating >= 1 && currentRating <= 10
-    ? ratingScoreHTML(currentRating, "journal-rating-badge")
-    : "";
-  const type = getTypeLabel(entry);
-  const dateOnly = Boolean(metadata.date_only || metadata.legacy);
-  const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const deleteButton = event.id ? `
-    <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" data-journal-action="hide-event" data-event-id="${esc(event.id)}">${iconTrash()}</button>` : "";
-
-  return `
-    <article class="activity-row is-clickable journal-event-row ${options.grouped ? "is-grouped" : ""}" ${event.id ? `data-journal-event-id="${esc(event.id)}"` : ""} ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-personal" data-media-id="${entry.id}">
-        ${coverHTML}
-        <span class="activity-info">
-          <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
-          <span class="activity-title">${esc(entry.title)}</span>
-          <span class="activity-meta">
-            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
-            ${ratingBadge}
-            ${activityStateMarkersHTML(entry)}
-          </span>
-        </span>
-        ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
-      </button>
-      ${deleteButton}
-    </article>`;
-}
-
-async function hideJournalEvent(id) {
-  const journalEvent = State.events.find(event => event.id === id);
-  if (!journalEvent) return;
-  const confirmed = await confirmDialog(
-    "Retirer cet événement du Journal ?",
-    "Le média, son statut et vos statistiques ne seront pas modifiés.",
-    "Retirer",
-    "danger",
-  );
-  if (!confirmed) return;
-
-  const rows = [...document.querySelectorAll("[data-journal-event-id]")]
-    .filter(row => row.dataset.journalEventId === id);
-  rows.forEach(row => row.classList.add("is-removing"));
-  try {
-    const updated = await Journal.hide(id, journalEvent.metadata || {});
-    Object.assign(journalEvent, updated);
-    setTimeout(() => renderCurrentJournalView(), 150);
-    toast("Événement retiré du Journal", "info");
-  } catch (error) {
-    rows.forEach(row => row.classList.remove("is-removing"));
-    const permissionMissing = /permission|policy|row-level|42501/i.test(String(error?.message || ""));
-    toast(permissionMissing
-      ? "Autorisation Journal manquante dans Supabase."
-      : "Impossible de retirer l’événement : " + error.message, "error");
-  }
-}
-
-function openJournalMedia(id, transitionSource = null) {
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry) {
-    toast("Ce média n’est plus disponible.", "error");
-    return;
-  }
-  openDetailPanel(entry.id, { transitionSource });
-}
-
-async function renderCommunity() {
-  const container = document.getElementById("community-feed");
-  if (!container) return;
-
-  if (_communityLoaded) {
-    container.innerHTML = renderCommunityFeed(_communityEntries);
-    journalNavigation.syncTimeline(_communityEntries, "community");
-    hydrateFadeImages(container);
-    return;
-  }
-
-  container.innerHTML = loadingState("Chargement de la communauté…", { compact: true });
-  journalNavigation.syncTimeline([], "community");
-
-  try {
-    const entries = await Activity.getFeed(100);
-    _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
-    _communityLoaded = true;
-    container.innerHTML = renderCommunityFeed(_communityEntries);
-    journalNavigation.syncTimeline(_communityEntries, "community");
-    hydrateFadeImages(container);
-  } catch {
-    container.innerHTML = errorState({ title: "Communauté indisponible", message: "Vérifiez la fonction <strong>get_activity_feed</strong> dans Supabase." });
-  }
-}
-
-function renderCommunityFeed(entries) {
-  if (!entries.length) {
-    return `<div class="empty-state"><div class="empty-icon">${iconMedia("media")}</div><h3>Aucune activité</h3><p>Les prochains ajouts des autres membres apparaîtront ici.</p></div>`;
-  }
-
-  const months = new Map();
-  entries.forEach(entry => {
-    const key = yearMonthOf(entry.created_at) || "unknown";
-    if (!months.has(key)) months.set(key, []);
-    months.get(key).push(entry);
-  });
-
-  return [...months.entries()].map(([monthKey, monthEntries]) => {
-    const days = new Map();
-    monthEntries.forEach(entry => {
-      const label = journalDateLabel(entry.created_at);
-      if (!days.has(label)) days.set(label, []);
-      days.get(label).push(entry);
-    });
-    const monthLabel = monthKey === "unknown"
-      ? "Date inconnue"
-      : new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" })
-          .format(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 1));
-    return `
-      <section class="journal-month-group community-month-group" id="${journalNavigation.monthDomId("community", monthKey)}" data-journal-month="${esc(monthKey)}">
-        <h2 class="journal-month-heading">${esc(monthLabel)}</h2>
-        ${[...days.entries()].map(([date, items]) => `
-          <section class="activity-date-group community-date-group">
-            <div class="activity-date-label">${esc(date)}</div>
-            ${items.map(communityRowHTML).join("")}
-          </section>`).join("")}
-      </section>`;
-  }).join("");
-}
-
-function communityRowHTML(entry) {
-  const type = entry.media_type === "movie" && !entry.subtype ? "Film / Série" : getTypeLabel(entry);
-  const status = STATUS_LABELS[entry.status] || "Ajouté";
-  const coverUrl = safeMediaUrl(entry.cover_url);
-  const coverHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
-    : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
-  const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
-  const tone = journalActionTone("added", { status: entry.status });
-
-  return `
-    <article class="activity-row is-clickable journal-event-row community-event-row" ${tone ? `data-event-tone="${tone}"` : ""}>
-      <button type="button" class="journal-event-main" data-transition-media="${esc(entry.id)}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-community" data-media-id="${esc(entry.id)}">
-        ${coverHTML}
-        <span class="activity-info">
-          <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
-          <span class="activity-title">${esc(entry.title)}</span>
-          <span class="activity-meta">
-            <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
-            <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
-            ${rating}${activityStateMarkersHTML(entry)}
-          </span>
-        </span>
-        <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
-      </button>
-    </article>`;
-}
-
-function openCommunityMedia(id, transitionSource = null) {
-  const ownEntry = State.entries.find(entry => entry.id === id);
-  if (ownEntry) {
-    openDetailPanel(ownEntry.id, { transitionSource });
-    return;
-  }
-
-  const entry = _communityEntries.find(item => item.id === id);
-  if (!entry) {
-    toast("Ce média n’est plus disponible dans la communauté.", "error");
-    return;
-  }
-
-  renderDetailPanel({
-    ...entry,
-    external_id: null,
-    source_api: "activity",
-  }, { readOnly: true, transitionSource });
-}
-
-function bindJournalInteractions() {
-  journalNavigation.bind(document.getElementById("page-journal"), {
-    onModeChange: () => renderJournal(),
-    onOpenPersonal: openJournalMedia,
-    onOpenCommunity: openCommunityMedia,
-    onHideEvent: hideJournalEvent,
-  });
-}
+const journalFeature = createJournalFeature({
+  State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
+  esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
+  journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
+  STATUS_LABELS, confirmDialog, toast, openDetailPanel, renderDetailPanel,
+});
+const { render: renderJournal, bind: bindJournalInteractions } = journalFeature;
 
 const upcomingFeature = createUpcomingFeature({
   State,
@@ -5197,14 +4464,7 @@ window.UI = {
   closeMetadataPanel,
   setEditDetailsView,
   closeModal,
-  openEditFromDetail: (id) => {
-    const e = State.entries.find(x => x.id === id);
-    if (!e) return;
-    _currentRating = e.rating || 0;
-    window._apiSelected = null;
-    closeModal(true, { skipCoverTransition: true });
-    setTimeout(() => openModal(e), 210);
-  },
+  openEditFromDetail,
   closeModalOnBg,
   saveEntry,
   deleteEntry,
@@ -5218,6 +4478,9 @@ window.UI = {
   scrollToTop,
   clearLibraryFilter,
   clearAllLibraryFilters,
+  retryLibrary: loadEntries,
+  retryJournal: () => journalFeature.retry(),
+  retryProfile: () => profileFeature.retry(),
 
   setTypeFilter,
   setStatusChip,

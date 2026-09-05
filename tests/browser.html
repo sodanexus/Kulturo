@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kulturo — Tests de parcours</title>
+<style>
+body { margin: 20px; background: #0c0d11; color: #f4f2ed; font: 15px system-ui; }
+button { background: #d8b46a; color: #141414; border: 0; border-radius: 10px; padding: 12px 18px; font: inherit; cursor: pointer; }
+button:disabled { opacity: .5; } #results li { margin: 8px 0; } .pass { color: #69d4a2; } .fail { color: #ff7f96; }
+iframe { display: block; margin-top: 20px; border: 1px solid #383e4c; border-radius: 12px; background: #13151b; }
+</style>
+<h1>Kulturo — Tests de parcours</h1>
+<p>Interface réelle, comptes et catalogues fictifs. Aucune connexion à Supabase.</p>
+<button id="run">Lancer les parcours</button>
+<p id="status" role="status">Prêt</p><ol id="results"></ol>
+<iframe id="app-frame" title="Kulturo en test" width="1120" height="850"></iframe>
+<script type="module" src="browser-runner.js"></script></html>

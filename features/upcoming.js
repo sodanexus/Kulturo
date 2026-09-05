@@ -2,6 +2,8 @@
 // Onglet Sorties : chargement, filtres, wishlist et rendu
 // ============================================================
 
+import { cardSkeletons } from "./ui-states.js";
+
 export function createUpcomingFeature(dependencies) {
   const {
     State,
@@ -487,6 +489,7 @@ function renderUpcomingCards() {
   renderAwaitedReleases();
   const allResults = filteredUpcomingResults();
   const results = visibleUpcomingResults();
+  grid.setAttribute("aria-busy", String(pendingUpcomingSourceLabels(true).length > 0));
   const hideAdded = document.getElementById("upcoming-hide-added");
   if (hideAdded) hideAdded.checked = UpcomingState.hideAdded;
   const resultCount = document.getElementById("upcoming-result-count");
@@ -503,7 +506,7 @@ function renderUpcomingCards() {
     const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
-      grid.innerHTML = loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`);
+      grid.innerHTML = '<div class="upcoming-loading">' + loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`) + '<div class="upcoming-grid">' + cardSkeletons(8) + '</div></div>';
       return;
     }
     const statuses = UpcomingState.type === "all"
@@ -514,37 +517,21 @@ function renderUpcomingCards() {
           ? "error"
           : statuses.length && statuses.every(status => status === "empty" || status === "unavailable") ? "empty" : null)
       : statuses[0];
-    const unavailableMessages = {
-      movie: "Ajoutez une clé TMDb dans config.js pour charger les sorties cinéma.",
-      tv: "Ajoutez une clé TMDb dans config.js pour charger les nouvelles séries.",
-      game: "Configurez IGDB puis redéployez la fonction igdb-proxy pour charger les jeux.",
-      book: "Déployez la dernière fonction google-books-proxy pour charger les annonces de livres de la BnF.",
-    };
-    const emptyMessages = {
-      movie: "Aucune sortie cinéma française vérifiable n’a été trouvée sur cette période.",
-      tv: "Aucune nouvelle série diffusée en France n’a été trouvée sur cette période.",
-      game: "IGDB n’a renvoyé aucune sortie Europe, Monde ou internationale vérifiable sur cette période.",
-      book: "La BnF n’a annoncé aucune parution future exploitable dans ses flux Livres et Jeunesse pour cette période.",
-    };
-    const sourceMessage = sourceStatus === "error"
-      ? "Le catalogue correspondant n’a pas pu être joint. Réessayez après avoir actualisé."
-      : sourceStatus === "unavailable"
-        ? (unavailableMessages[UpcomingState.type] || "La source nécessaire n’est pas configurée sur cette installation.")
-        : sourceStatus === "empty"
-          ? (emptyMessages[UpcomingState.type] || "Aucune sortie vérifiable n’est disponible pour cette période.")
-        : "Aucune sortie ne correspond à ces filtres actuellement.";
-    const emptyTitle = sourceStatus === "error"
-      ? "Catalogue indisponible"
-      : sourceStatus === "empty" && UpcomingState.type === "book"
-        ? "Aucune date française fiable"
-        : "Aucune sortie trouvée";
+    const failed = sourceStatus === "error" || sourceStatus === "unavailable";
+    const filteredOut = UpcomingState.results.length > 0 && hasFilter;
     const stateOptions = {
-      icon: "◇",
-      title: emptyTitle,
-      message: sourceMessage,
-      actionHTML: hasFilter ? `<button class="btn btn-secondary btn-sm" ${uiAction("resetUpcomingFilters")}>Tout afficher</button>` : "",
+      title: failed ? "Catalogue indisponible" : "Aucune sortie trouvée",
+      message: failed
+        ? "Impossible de charger ce catalogue pour le moment."
+        : filteredOut ? "Aucune sortie ne correspond à ces filtres."
+        : "Aucune nouvelle sortie annoncée sur cette période.",
+      actionHTML: failed
+        ? '<button class="btn btn-secondary" ' + uiAction("refreshUpcoming") + '>Réessayer</button>'
+        : filteredOut
+          ? '<button class="btn btn-secondary" ' + uiAction("resetUpcomingFilters") + '>Réinitialiser les filtres</button>'
+          : "",
     };
-    grid.innerHTML = sourceStatus === "error" ? errorState(stateOptions) : emptyState(stateOptions);
+    grid.innerHTML = failed ? errorState(stateOptions) : emptyState(stateOptions);
     return;
   }
 

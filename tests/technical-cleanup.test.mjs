@@ -262,6 +262,22 @@ test("le premier démarrage hors ligne précharge tout le shell local", () => {
     "styles/add-sheet.css", "styles/mobile-polish.css", "styles/enhancements.css",
     "features/upcoming.js", "features/backup-restore.js", "features/dialog-focus.js",
   ].forEach(asset => assert.ok(paths.includes(asset), `${asset} doit être préchargé`));
+  // Parcourir les imports réels protège aussi les futures extractions : un
+  // module oublié dans le cache empêche tout le démarrage hors connexion.
+  const visited = new Set();
+  const root = new URL("../", import.meta.url);
+  function visit(module) {
+    if (visited.has(module.href)) return;
+    visited.add(module.href);
+    const relative = module.href.slice(root.href.length);
+    assert.ok(paths.includes(relative), `${relative} importé doit être préchargé`);
+    const source = fs.readFileSync(module, "utf8");
+    for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)["'](\.[^"']+)["']/g)) {
+      visit(new URL(match[1], module));
+    }
+  }
+  visit(new URL("app.js", root));
+  paths.forEach(asset => assert.ok(fs.existsSync(new URL(asset, root)), `${asset} préchargé doit exister`));
 });
 
 test("le schéma fournit une restauration atomique et neutralise les faux événements", () => {

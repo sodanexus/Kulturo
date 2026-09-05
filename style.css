@@ -1741,24 +1741,15 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
   border-radius: var(--radius);
 }
 .skeleton-card {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  min-width: 0;
+  align-self: start;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 .skeleton-cover {
   width: 100%;
   aspect-ratio: 2/3;
 }
-.skeleton-body {
-  padding: .75rem;
-  display: flex;
-  flex-direction: column;
-  gap: .5rem;
-}
-.skeleton-line { height: 10px; border-radius: 99px; }
-.skeleton-line.short { width: 60%; }
-.skeleton-line.xshort { width: 40%; }
 
 /* ── Modal — entrée spring ────────────────────────────────── */
 .modal-overlay {

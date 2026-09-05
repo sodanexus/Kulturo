@@ -135,15 +135,52 @@ body { background-color: var(--system-bar-color); }
 
 /* États communs ------------------------------------------------ */
 .ui-state {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: .75rem;
   min-height: 150px;
   color: var(--text-3);
+  padding: 2.5rem 1rem;
+  text-align: center;
+  font-size: var(--type-body);
 }
 .ui-state.is-compact { min-height: 88px; padding: 1rem; }
 .ui-state-empty { flex-direction: column; }
+.ui-state .empty-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  color: var(--text-3);
+}
+.ui-state .empty-icon svg { width: 25px; height: 25px; }
+.ui-state h3 { color: var(--text-2); font-size: var(--type-lead); font-weight: 700; }
+.ui-state p { max-width: 32ch; font-size: var(--type-body); }
+.ui-state-actions { margin-top: .25rem; display: flex; justify-content: center; gap: .5rem; }
+.btn.is-saving { position: relative; color: transparent; }
+.btn.is-saving::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 8px);
+  top: calc(50% - 8px);
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  color: var(--text);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+.modal-overlay.is-modal-replacement,
+.modal-overlay.is-modal-replacement .modal { animation: none; }
+.is-restoring-view .detail-synopsis-clip { transition: none; }
+.upcoming-loading { min-width: 0; }
+.upcoming-loading > .ui-state { min-height: 44px; padding: .35rem 0 .75rem; justify-content: flex-start; font-size: var(--type-control); }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 .ui-state-error .empty-icon {
   background: color-mix(in srgb, var(--danger) 13%, var(--bg-3));
   color: var(--danger);
