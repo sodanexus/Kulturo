@@ -10,6 +10,8 @@ import { createDetailSessionManager } from "../features/detail-session.js";
 import { createUiActionDispatcher } from "../features/ui-actions.js";
 import { dialogKeyIntent, nextFocusIndex } from "../features/dialog-focus.js";
 import { createAsyncGate, sameOwner } from "../features/async-gate.js";
+import { reconcileKeyedChildren } from "../features/dom-updates.js";
+import { sameMediaIdentity } from "../domain.js";
 import {
   buildRestorePlan,
   parseKulturoBackup,
@@ -34,6 +36,57 @@ test("une vraie modification Supabase change l'empreinte", () => {
   const cached = [{ id: "1", title: "Film", status: "playing" }];
   const remote = [{ id: "1", title: "Film", status: "finished" }];
   assert.notEqual(entriesFingerprint(cached), entriesFingerprint(remote));
+});
+
+test("les homonymes et remakes ne sont plus confondus", () => {
+  const dune1984 = { media_type: "movie", subtype: "movie", title: "Dune", release_year: 1984, source_api: "tmdb", external_id: "841" };
+  const dune2021 = { media_type: "movie", subtype: "movie", title: "Dune", release_year: 2021, source_api: "tmdb", external_id: "438631" };
+  assert.equal(sameMediaIdentity(dune1984, dune2021), false);
+  assert.equal(sameMediaIdentity(
+    { media_type: "book", title: "L’Étranger", release_year: 1942, author: "Albert Camus" },
+    { media_type: "book", title: "L Etranger", release_year: 1942, author: "Albert Camus" },
+  ), true);
+  assert.equal(sameMediaIdentity(
+    { media_type: "book", title: "Le Livre", author: "Autrice A" },
+    { media_type: "book", title: "Le Livre", author: "Auteur B" },
+  ), false);
+});
+
+test("une grille déjà ordonnée ne déplace plus ses jaquettes", () => {
+  class FakeNode {
+    constructor(key) { this.dataset = { key }; this.parentNode = null; }
+    get nextElementSibling() {
+      const siblings = this.parentNode?.children || [];
+      return siblings[siblings.indexOf(this) + 1] || null;
+    }
+    remove() {
+      if (!this.parentNode) return;
+      const index = this.parentNode.children.indexOf(this);
+      if (index >= 0) this.parentNode.children.splice(index, 1);
+      this.parentNode = null;
+    }
+  }
+  const nodes = ["a", "b", "c"].map(key => new FakeNode(key));
+  const container = {
+    children: nodes,
+    moves: 0,
+    get firstElementChild() { return this.children[0] || null; },
+    insertBefore(node, reference) {
+      this.moves++;
+      if (node.parentNode) node.remove();
+      const index = reference ? this.children.indexOf(reference) : this.children.length;
+      this.children.splice(index < 0 ? this.children.length : index, 0, node);
+      node.parentNode = this;
+    },
+  };
+  nodes.forEach(node => { node.parentNode = container; });
+  const options = { key: item => item, create: () => null, update() {} };
+
+  reconcileKeyedChildren(container, ["a", "b", "c"], options);
+  assert.equal(container.moves, 0);
+  reconcileKeyedChildren(container, ["b", "a", "c"], options);
+  assert.equal(container.moves, 1);
+  assert.deepEqual(container.children.map(node => node.dataset.key), ["b", "a", "c"]);
 });
 
 test("la navigation du Journal conserve son mode et ses identifiants sûrs", () => {
@@ -141,6 +194,21 @@ test("une réponse asynchrone tardive ne peut plus modifier la vue", () => {
   assert.equal(gate.isCurrent(second), false);
   assert.equal(sameOwner("compte-1", "compte-1"), true);
   assert.equal(sameOwner("compte-1", "compte-2"), false);
+});
+
+test("les écritures Supabase sont bornées et limitées au compte courant", () => {
+  const source = fs.readFileSync(new URL("../supabase.js", import.meta.url), "utf8");
+  assert.match(source, /async function executeQuery[\s\S]+timeoutMs[\s\S]+controller\.abort\(\)/);
+  assert.match(source, /async update\(id, changes, options = \{\}\)[\s\S]+?\.eq\("id", id\)[\s\S]+?\.eq\("user_id", user\.id\)/);
+  assert.match(source, /async delete\(id, options = \{\}\)[\s\S]+?\.eq\("id", id\)[\s\S]+?\.eq\("user_id", user\.id\)/);
+  assert.match(source, /async getStats\(options = \{\}\)[\s\S]+?\.eq\("user_id", user\.id\)/);
+});
+
+test("le contexte restauré est rattaché explicitement à son propriétaire", () => {
+  const source = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(source, /ownerId: State\.user\.id/);
+  assert.match(source, /String\(snapshot\.ownerId \|\| ""\) !== ownerId/);
+  assert.match(source, /Sauvegarde reportée : le Journal n’a pas pu être chargé/);
 });
 
 test("la restauration fusionne sans suppression et sans muter l’aperçu courant", () => {
@@ -363,6 +431,25 @@ test("les jaquettes et les arrière-plans utilisent des caches distincts", () =>
   assert.equal(context.__networkOnly(new URL("https://covers.openlibrary.org/b/id/123-M.jpg")), false);
   assert.equal(context.__networkOnly(new URL("https://api.igdb.com/v4/games")), true);
   assert.equal(context.__looksLikeImage({ url: "https://books.google.com/books/content?id=1", destination: "image" }, null), true);
+});
+
+test("l’élagage du cache d’images est regroupé par rafale", async () => {
+  let keyReads = 0;
+  const cache = {
+    async keys() { keyReads++; return []; },
+    async delete() { return true; },
+  };
+  const context = {
+    URL,
+    setTimeout,
+    clearTimeout,
+    self: { addEventListener() {} },
+    caches: { async open() { return cache; } },
+  };
+  const source = fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  vm.runInNewContext(`${source}\n;globalThis.__scheduleTrim = scheduleCacheTrim;`, context);
+  await Promise.all(Array.from({ length: 24 }, () => context.__scheduleTrim("covers", 240)));
+  assert.equal(keyReads, 1);
 });
 
 test("la mise à jour migre les anciennes images sans conserver les scripts égarés", async () => {

@@ -122,16 +122,18 @@ start.addEventListener("click", async () => {
     assert(doc.querySelector("#cards-grid").getAttribute("aria-busy") === "false", "Chargement encore annoncé");
   });
 
-  await test("Quinze fiches successives sans fenêtre orpheline", async () => {
+  await test("Quarante ouvertures successives sans ressource orpheline", async () => {
     await mount(768); await ready();
-    const cards = [...doc.querySelectorAll("#cards-grid .media-card")].slice(0, 15);
-    for (const card of cards) {
+    const cards = [...doc.querySelectorAll("#cards-grid .media-card")];
+    for (let index = 0; index < 40; index++) {
+      const card = cards[index % cards.length];
       card.click();
       await waitFor(() => doc.querySelector(".detail-title")?.textContent === card.querySelector(".card-title").textContent, "Mauvais média ouvert");
       await waitFor(() => doc.querySelector(".detail-modal")?.contains(doc.activeElement), "Focus absent de la fiche");
       await closeDetail();
       assert(doc.activeElement === card, "Focus non rendu à la jaquette");
       assert(!doc.querySelector("#main").inert, "Arrière-plan resté inerte");
+      assert(!doc.querySelector(".detail-cover-flight"), "Clone de transition resté monté");
     }
     assert(doc.querySelectorAll(".detail-modal").length === 0, "Ancienne fiche encore montée");
   });

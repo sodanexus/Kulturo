@@ -10,7 +10,7 @@ Depuis la racine de Kulturo, avec Node.js 22 ou ultérieur :
 node --test tests/technical-cleanup.test.mjs
 ```
 
-Ils couvrent le cache, les règles de restauration, la navigation du Journal, le cycle de vie des fiches, le focus, les interactions et les ressources hors ligne de la PWA.
+Ils couvrent le cache, les règles de restauration, la navigation du Journal, le cycle de vie des fiches, le focus, les interactions, l’isolation des comptes et les ressources hors ligne de la PWA.
 
 ## Parcours dans un navigateur
 
@@ -26,7 +26,7 @@ Les parcours vérifient :
 
 - les proportions des squelettes et des jaquettes, les densités et l’absence de débordement à 390, 768 et 1120 pixels ;
 - les actions proposées après une recherche vide, des filtres sans résultat et un échec de chargement ;
-- quinze ouvertures et fermetures successives de fiches, avec restauration du focus ;
+- quarante ouvertures et fermetures successives de fiches, avec restauration du focus et sans clone de transition orphelin ;
 - le retour à la fiche après modification ou annulation, la note, le cœur et la position de lecture ;
 - Tab, Maj+Tab, Échap et la confirmation d’abandon du brouillon ;
 - une requête d’enregistrement interrompue avant écriture, puis un nouvel essai sans doublon ;
@@ -34,6 +34,6 @@ Les parcours vérifient :
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 3.4.8
+## Validation de l’archive 3.4.9
 
-Les tests techniques et les contrôles de syntaxe ont été exécutés avec succès. Les parcours navigateur sont fournis mais **n’ont pas pu être exécutés dans l’environnement de préparation**, qui bloque l’accès du navigateur à la page locale. Une validation Safari/iPad reste donc à effectuer.
+Les tests techniques et les contrôles de syntaxe ont été exécutés avec succès. Les parcours navigateur sont fournis mais **n’ont pas pu être exécutés dans l’environnement de préparation**, qui ne contient aucun exécutable de navigateur. Une validation Safari/iPad reste donc à effectuer.
