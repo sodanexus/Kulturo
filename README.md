@@ -64,18 +64,32 @@ Un espace discret pour découvrir l’activité des autres membres, séparé du 
 
 ## Version en cours
 
-**3.4.5**
+**3.4.6**
 
-Cette version renforce la fiabilité de Kulturo au clavier, sécurise les sauvegardes et rend l’installation plus portable, sans modifier le modèle de données.
+Cette version corrige les anomalies révélées par l’examen technique de la 3.4.5 et rend la restauration réellement complète, sans modifier la structure des tables.
+
+- bibliothèque et Journal sont restaurés ensemble dans une transaction atomique Supabase : aucune restauration partielle n’est conservée ;
+- les anciens identifiants sont remappés de manière idempotente afin qu’un nouvel essai après une coupure ne crée aucun doublon ;
+- homonymes et correspondances ambiguës deviennent des conflits ignorés, visibles dans l’aperçu, au lieu de modifier le mauvais média ;
+- le JSON est contrôlé selon le schéma réel : types, dates, sources, tailles et profondeur des métadonnées sont validés avant toute écriture ;
+- l’aperçu détaille les titres ajoutés, les médias mis à jour, les champs concernés, les conflits et le nombre d’événements du Journal ;
+- les fiches **Sorties** utilisent une clé stable : l’arrivée tardive d’une autre source ne peut plus déplacer le média ajouté à la Wishlist ;
+- le service worker précharge l’intégralité du shell local pour permettre un premier lancement installé hors ligne ;
+- le contenu derrière les modales devient réellement inerte, y compris pour VoiceOver, et les claviers d’iPad sont mieux reconnus ;
+- l’interface issue du cache répond immédiatement pendant la validation Supabase et l’indicateur distingue désormais hors connexion et synchronisation indisponible ;
+- le cache privé de la bibliothèque est supprimé à la déconnexion et les anciens restes du bouton favori ont été retirés ;
+- vingt-deux tests automatisés protègent désormais ces comportements.
+
+La version conserve les améliorations introduites en 3.4.5 :
 
 - toutes les fenêtres conservent désormais le focus, gèrent `Tab` et `Échap` de manière identique et rendent le focus à la jaquette d’origine après fermeture ;
 - chaque modale possède un titre accessible explicite, y compris les fiches, les filtres et la restauration ;
 - la sauvegarde JSON peut maintenant être restaurée après un aperçu clair des médias ajoutés, mis à jour, inchangés ou ignorés ;
-- la restauration fusionne les données sans aucune suppression automatique et ne remplace jamais le Journal existant ;
+- la restauration fusionne les données sans aucune suppression automatique ;
 - l’ensemble de la logique **Sorties** — sources, filtres, Wishlist, synchronisation, rendu et aperçu — quitte `app.js` pour un module dédié ;
 - manifeste, démarrage et service worker n’utilisent plus le chemin fixe `/Kulturo/` et restent valides si le dépôt est renommé ou déplacé ;
 - un indicateur discret apparaît uniquement lorsque l’application passe hors connexion ;
-- quatorze tests protègent désormais ces comportements ainsi que les acquis des nettoyages précédents.
+- les tests protègent ces comportements ainsi que les acquis des nettoyages précédents.
 
 La version conserve le nettoyage d’interface introduit en 3.4.4 :
 
@@ -181,6 +195,7 @@ Les densités **Standard** et **Compact** conservent leur présentation épurée
 
 ## Dernières évolutions
 
+- **3.4.6** — restauration atomique de la bibliothèque et du Journal, conflits sécurisés, Sorties stabilisé et premier lancement PWA hors ligne.
 - **3.4.5** — modales accessibles, restauration JSON sans suppression, Sorties extrait, PWA portable et état hors connexion discret.
 - **3.4.4** — interactions déléguées sans JavaScript inline et structure CSS des modales consolidée à rendu identique.
 - **3.4.3** — cycle de vie des fiches isolé, enrichissement non destructif testé et caches séparés pour les jaquettes et les arrière-plans.

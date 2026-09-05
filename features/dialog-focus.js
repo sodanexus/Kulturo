@@ -33,6 +33,16 @@ export function nextFocusIndex(length, currentIndex, backwards = false) {
   return currentIndex < 0 || currentIndex >= length - 1 ? 0 : currentIndex + 1;
 }
 
+export function dialogKeyIntent(event = {}) {
+  const keys = new Set([event.key, event.code, event.keyIdentifier].filter(Boolean));
+  if (event.keyCode === 27) keys.add("Escape");
+  if (event.keyCode === 9) keys.add("Tab");
+  return {
+    escape: ["Escape", "Esc", "U+001B"].some(key => keys.has(key)),
+    tab: keys.has("Tab"),
+  };
+}
+
 export function createDialogFocusManager(doc = document) {
   const stack = [];
   let listening = false;
@@ -41,7 +51,7 @@ export function createDialogFocusManager(doc = document) {
   const safeFocus = element => {
     try { if (typeof element === "function") element = element(); }
     catch { return false; }
-    if (!element?.focus || element.isConnected === false || element.inert) return false;
+    if (!element?.focus || element.isConnected === false || element.inert || element.closest?.("[inert], [aria-hidden='true']")) return false;
     try {
       element.focus({ preventScroll: true });
       return true;
@@ -63,8 +73,8 @@ export function createDialogFocusManager(doc = document) {
   function onKeydown(event) {
     const record = current();
     if (!record?.dialog?.isConnected) return;
-    const key = event.key || event.code || event.keyIdentifier || (event.keyCode === 27 ? "Escape" : event.keyCode === 9 ? "Tab" : "");
-    if (key === "Escape" || key === "Esc" || key === "U+001B") {
+    const { escape: isEscape, tab: isTab } = dialogKeyIntent(event);
+    if (isEscape) {
       if (typeof record.onEscape !== "function") return;
       event.preventDefault();
       event.stopPropagation();
@@ -72,7 +82,7 @@ export function createDialogFocusManager(doc = document) {
       record.onEscape();
       return;
     }
-    if (key !== "Tab") return;
+    if (!isTab) return;
 
     const items = focusableElements(record.dialog);
     if (!items.length) {

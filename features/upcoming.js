@@ -258,10 +258,14 @@ function scheduleWishlistReleaseDateSync() {
         entry.release_date !== live.release_date ||
         (entry.release_date_precision || "day") !== (live.date_precision || "day")
       ))
-      .filter(({ entry, live }) => {
-        const key = `${entry.id}:${live.release_date}:${live.date_precision || "day"}`;
-        if (_wishlistReleaseSyncAttempts.has(key)) return false;
-        _wishlistReleaseSyncAttempts.add(key);
+      .map(({ entry, live }) => ({
+        entry,
+        live,
+        syncKey: `${entry.id}:${live.release_date}:${live.date_precision || "day"}`,
+      }))
+      .filter(({ syncKey }) => {
+        if (_wishlistReleaseSyncAttempts.has(syncKey)) return false;
+        _wishlistReleaseSyncAttempts.add(syncKey);
         return true;
       });
     if (!candidates.length) return;
@@ -278,7 +282,9 @@ function scheduleWishlistReleaseDateSync() {
       cacheEntriesLocally();
       renderAwaitedReleases();
     }
-    results.filter(result => result.status === "rejected").forEach(result => {
+    results.forEach((result, index) => {
+      if (result.status !== "rejected") return;
+      _wishlistReleaseSyncAttempts.delete(candidates[index].syncKey);
       console.warn("[Sorties] Date de wishlist non sauvegardée :", result.reason);
     });
   }, 90);
@@ -544,7 +550,7 @@ function renderUpcomingCards() {
 
   const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
   const groups = new Map();
-  results.forEach((it, idx) => {
+  results.forEach(it => {
     const date = it.release_date ? new Date(`${it.release_date}T12:00:00`) : null;
     const key = date && !Number.isNaN(date.getTime())
       ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
@@ -553,7 +559,7 @@ function renderUpcomingCards() {
       ? monthFormatter.format(date)
       : "Date à confirmer";
     if (!groups.has(key)) groups.set(key, { label, items: [] });
-    groups.get(key).items.push({ it, idx });
+    groups.get(key).items.push(it);
   });
 
   const pendingLabels = pendingUpcomingSourceLabels(true);
@@ -567,7 +573,7 @@ function renderUpcomingCards() {
         <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
       </div>
       <div class="upcoming-grid">
-        ${group.items.map(({ it, idx }) => upcomingCardHTML(it, idx)).join("")}
+        ${group.items.map(upcomingCardHTML).join("")}
       </div>
     </section>`).join("");
   requestAnimationFrame(() => {
@@ -578,13 +584,14 @@ function renderUpcomingCards() {
   });
 }
 
-function upcomingCardHTML(it, idx) {
+function upcomingCardHTML(it) {
   const libraryEntry = findMatchingEntry({ ...it, media_type: upcomingMediaTypeOf(it) });
   const inLibrary = Boolean(libraryEntry);
   const transitionMediaId = libraryEntry?.id || upcomingPreviewId(it);
   const days = daysUntilRelease(it.release_date, it.date_precision);
   const type = upcomingTypeOf(it);
   const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
+  const upcomingKey = upcomingKeyOf(it);
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
@@ -593,21 +600,21 @@ function upcomingCardHTML(it, idx) {
     : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
 
   return `
-    <article class="media-card upcoming-card" data-upcoming-idx="${idx}" data-transition-media="${esc(transitionMediaId)}">
+    <article class="media-card upcoming-card" data-upcoming-key="${esc(upcomingKey)}" data-transition-media="${esc(transitionMediaId)}">
       <div class="upcoming-cover-wrap">
-        <button type="button" class="upcoming-card-open" ${uiAction("openUpcomingDetail", [idx], { control: true })} aria-label="Ouvrir ${esc(it.title)}">
+        <button type="button" class="upcoming-card-open" ${uiAction("openUpcomingDetail", [upcomingKey], { control: true })} aria-label="Ouvrir ${esc(it.title)}">
           ${cover}
           ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
           <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
         </button>
         <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
-          ${inLibrary ? "" : uiAction("addUpcomingToWishlist", [idx])}>${iconStatus("wishlist")}</button>
+          ${inLibrary ? "" : uiAction("addUpcomingToWishlist", [upcomingKey])}>${iconStatus("wishlist")}</button>
       </div>
     </article>`;
 }
 
-async function addUpcomingToWishlist(idx, closeAfter = false) {
-  const it = visibleUpcomingResults()[idx];
+async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
+  const it = UpcomingState.results.find(item => upcomingKeyOf(item) === upcomingKey);
   if (!it || isUpcomingInLibrary(it)) return;
   const addingKey = upcomingKeyOf(it);
   if (UpcomingState.adding.has(addingKey)) return;
@@ -650,8 +657,8 @@ async function addUpcomingToWishlist(idx, closeAfter = false) {
   }
 }
 
-async function openUpcomingDetail(idx, transitionSource = null) {
-  const it = visibleUpcomingResults()[idx];
+async function openUpcomingDetail(upcomingKey, transitionSource = null) {
+  const it = UpcomingState.results.find(item => upcomingKeyOf(item) === upcomingKey);
   if (!it) return;
 
   const mediaType = upcomingMediaTypeOf(it);
@@ -673,7 +680,7 @@ async function openUpcomingDetail(idx, transitionSource = null) {
   };
 
   const detailsLoading = !preview.description && canEnrichMediaDetails(preview);
-  const detailSessionId = renderDetailPanel(preview, { preview: true, upcomingIdx: idx, detailsLoading, transitionSource });
+  const detailSessionId = renderDetailPanel(preview, { preview: true, upcomingKey, detailsLoading, transitionSource });
   scheduleSynopsisOverflowCheck(preview.id);
 
   try {
@@ -752,8 +759,7 @@ function resetUpcomingFilters() {
     resetFilters: resetUpcomingFilters,
     refresh: refreshUpcoming,
     addToWishlist: addUpcomingToWishlist,
-    addToWishlistFromModal: idx => addUpcomingToWishlist(idx, true),
+    addToWishlistFromModal: upcomingKey => addUpcomingToWishlist(upcomingKey, true),
     openDetail: openUpcomingDetail,
   };
 }
-

@@ -127,10 +127,6 @@ export const Media = {
     if (error) throw error;
   },
 
-  async toggleFavorite(id, current) {
-    return Media.update(id, { is_favorite: !current });
-  },
-
   async getStats() {
     const { data, error } = await _client
       .from("media_entries")
@@ -204,6 +200,30 @@ export const Journal = {
       .single();
     if (error) throw error;
     return data;
+  },
+};
+
+// ── Restauration atomique ──────────────────────────────────
+export const Backup = {
+  async restore(plan, events = []) {
+    const { data, error } = await _client.rpc("restore_kulturo_backup", {
+      p_added: (plan?.added || []).map(item => ({
+        sourceId: item.sourceId || null,
+        payload: item.payload || {},
+      })),
+      p_updated: (plan?.updated || []).map(item => ({
+        id: item.id,
+        sourceId: item.sourceId || null,
+        changes: item.changes || {},
+      })),
+      p_existing: (plan?.unchanged || []).map(item => ({
+        id: item.id,
+        sourceId: item.sourceId || null,
+      })),
+      p_events: events || [],
+    });
+    if (error) throw error;
+    return data || { added_count: 0, updated_count: 0, events_restored: 0, events_skipped: 0 };
   },
 };
 

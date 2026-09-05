@@ -8,8 +8,13 @@ import { createJournalNavigation } from "../features/journal-navigation.js";
 import { collectDetailUpdates } from "../features/detail-enrichment.js";
 import { createDetailSessionManager } from "../features/detail-session.js";
 import { createUiActionDispatcher } from "../features/ui-actions.js";
-import { nextFocusIndex } from "../features/dialog-focus.js";
-import { buildRestorePlan, parseKulturoBackup } from "../features/backup-restore.js";
+import { dialogKeyIntent, nextFocusIndex } from "../features/dialog-focus.js";
+import {
+  buildRestorePlan,
+  parseKulturoBackup,
+  sanitizeBackupEntry,
+  sanitizeBackupEvents,
+} from "../features/backup-restore.js";
 
 test("le cache ignore l'ordre JSON et les champs internes", () => {
   const first = [
@@ -117,6 +122,11 @@ test("le piège de focus boucle dans les deux sens", () => {
   assert.equal(nextFocusIndex(0, 0, false), -1);
 });
 
+test("les claviers iPad sont reconnus même lorsque event.key est indéterminé", () => {
+  assert.deepEqual(dialogKeyIntent({ key: "Unidentified", code: "Tab" }), { escape: false, tab: true });
+  assert.deepEqual(dialogKeyIntent({ key: "Unidentified", keyCode: 27 }), { escape: true, tab: false });
+});
+
 test("la restauration fusionne sans suppression et sans muter l’aperçu courant", () => {
   const current = [
     { id: "1", title: "Dune", media_type: "movie", subtype: "movie", source_api: "tmdb", external_id: "438631", status: "finished", rating: 8, is_favorite: false },
@@ -142,6 +152,69 @@ test("la restauration fusionne sans suppression et sans muter l’aperçu couran
   assert.equal(current[0].rating, 8);
   assert.equal(Object.hasOwn(plan.added[0].payload, "id"), false);
   assert.equal(Object.hasOwn(plan.added[0].payload, "user_id"), false);
+});
+
+test("un doublon nouveau dans la sauvegarde ne vise jamais un ancien identifiant", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const media = { id, title: "Doublon", media_type: "book", status: "wishlist", is_favorite: false };
+  const plan = buildRestorePlan([media, { ...media, rating: 8 }], []);
+  assert.equal(plan.added.length, 1);
+  assert.equal(plan.updated.length, 0);
+  assert.equal(plan.invalid.length, 1);
+  assert.equal(plan.invalid[0].reason, "duplicate");
+});
+
+test("les homonymes ambigus deviennent des conflits sans écriture automatique", () => {
+  const backup = [{
+    id: "22222222-2222-4222-8222-222222222222",
+    title: "Le Voyage",
+    media_type: "book",
+    status: "finished",
+    is_favorite: false,
+  }];
+  const current = [
+    { id: "a", title: "Le Voyage", media_type: "book", author: "Auteur A" },
+    { id: "b", title: "Le Voyage", media_type: "book", author: "Auteur B" },
+  ];
+  const plan = buildRestorePlan(backup, current);
+  assert.equal(plan.conflicts.length, 1);
+  assert.equal(plan.added.length + plan.updated.length, 0);
+});
+
+test("les valeurs incompatibles avec Supabase sont refusées avant l’aperçu", () => {
+  assert.equal(sanitizeBackupEntry({ title: "Année seule", media_type: "book", release_date_precision: "year" }), null);
+  assert.equal(sanitizeBackupEntry({ title: "Mauvaise source", media_type: "book", source_api: "unknown" }), null);
+  assert.equal(sanitizeBackupEntry({ title: "Mauvaise note", media_type: "book", rating: 8.5 }), null);
+});
+
+test("un JSON profondément imbriqué est ignoré sans faire tomber l’import", () => {
+  const metadata = {};
+  let cursor = metadata;
+  for (let index = 0; index < 12_000; index++) {
+    cursor.child = {};
+    cursor = cursor.child;
+  }
+  const events = sanitizeBackupEvents([{
+    id: "33333333-3333-4333-8333-333333333333",
+    media_id: "44444444-4444-4444-8444-444444444444",
+    event_type: "added",
+    occurred_at: "2026-09-05T10:00:00.000Z",
+    metadata,
+  }]);
+  assert.equal(events.valid.length, 0);
+  assert.equal(events.invalid.length, 1);
+});
+
+test("le Journal valide est conservé dans le plan de restauration", () => {
+  const events = sanitizeBackupEvents([{
+    id: "55555555-5555-4555-8555-555555555555",
+    media_id: "66666666-6666-4666-8666-666666666666",
+    event_type: "repeat_finished",
+    occurred_at: "2026-08-12T12:00:00.000Z",
+    metadata: { occurrence: 2 },
+  }]);
+  assert.equal(events.invalid.length, 0);
+  assert.equal(events.valid[0].event_type, "repeat_finished");
 });
 
 test("les fenêtres déclarées possèdent toutes un titre accessible", () => {
@@ -172,6 +245,34 @@ test("la PWA reste portable quel que soit le nom du dépôt", () => {
   assert.ok(context.__assets.every(asset => asset.startsWith(context.__home)));
 });
 
+test("le premier démarrage hors ligne précharge tout le shell local", () => {
+  const worker = fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  const context = {
+    URL,
+    self: {
+      registration: { scope: "https://example.test/kulturo/" },
+      location: { href: "https://example.test/kulturo/sw.js" },
+      addEventListener() {},
+    },
+  };
+  vm.runInNewContext(`${worker}\n;globalThis.__assets = STATIC_ASSETS;`, context);
+  const paths = context.__assets.map(asset => new URL(asset).pathname.replace("/kulturo/", ""));
+  [
+    "app.js", "api.js", "supabase.js", "domain.js", "style.css", "manifest.json",
+    "styles/add-sheet.css", "styles/mobile-polish.css", "styles/enhancements.css",
+    "features/upcoming.js", "features/backup-restore.js", "features/dialog-focus.js",
+  ].forEach(asset => assert.ok(paths.includes(asset), `${asset} doit être préchargé`));
+});
+
+test("le schéma fournit une restauration atomique et neutralise les faux événements", () => {
+  const schema = fs.readFileSync(new URL("../schema.sql", import.meta.url), "utf8");
+  assert.match(schema, /CREATE FUNCTION public\.restore_kulturo_backup/);
+  assert.match(schema, /set_config\('app\.kulturo_restore', 'on', TRUE\)/);
+  assert.match(schema, /current_setting\('app\.kulturo_restore', TRUE\) = 'on'/);
+  assert.match(schema, /ON CONFLICT DO NOTHING/);
+  assert.match(schema, /REVOKE INSERT, DELETE ON public\.media_events FROM authenticated/);
+});
+
 test("l’onglet Sorties vit dans son module dédié", () => {
   const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
   const upcoming = fs.readFileSync(new URL("../features/upcoming.js", import.meta.url), "utf8");
@@ -179,6 +280,8 @@ test("l’onglet Sorties vit dans son module dédié", () => {
   assert.equal(app.includes("function renderUpcoming("), false);
   assert.match(upcoming, /export function createUpcomingFeature/);
   assert.match(upcoming, /function renderUpcoming\(/);
+  assert.equal(upcoming.includes("upcomingIdx"), false);
+  assert.match(upcoming, /data-upcoming-key/);
 });
 
 test("l’interface générée ne contient plus de gestionnaire d’événement inline", () => {

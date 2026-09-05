@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, Auth, Media, Profiles, Journal, Activity } from "./supabase.js";
+import { initSupabase, Auth, Media, Profiles, Journal, Backup, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "./api.js";
 import {
   entryActivityMonth,
@@ -57,7 +57,7 @@ import { createDetailSessionManager } from "./features/detail-session.js";
 import { collectDetailUpdates } from "./features/detail-enrichment.js";
 import { createUiActionDispatcher } from "./features/ui-actions.js";
 import { createDialogFocusManager } from "./features/dialog-focus.js";
-import { buildRestorePlan, parseKulturoBackup } from "./features/backup-restore.js";
+import { buildRestorePlan, parseKulturoBackup, sanitizeBackupEvents } from "./features/backup-restore.js";
 import { createUpcomingFeature } from "./features/upcoming.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -100,8 +100,20 @@ function modalReturnFocusTarget() {
     : surface?.querySelector?.("button, a, [tabindex], [role='button']") || null;
 }
 
+function syncDialogBackground() {
+  const blocked = Boolean(document.querySelector(
+    "#modal-overlay, #filter-modal-overlay, #metadata-overlay, #confirm-overlay"
+  ));
+  document.querySelectorAll("#topbar, #sidebar, #main, #bottom-nav, #update-banner, #back-to-top").forEach(element => {
+    element.inert = blocked;
+    if (blocked) element.setAttribute("aria-hidden", "true");
+    else element.removeAttribute("aria-hidden");
+  });
+}
+
 function activateDialog(dialog, options = {}) {
   if (!dialog) return;
+  syncDialogBackground();
   dialogFocus.activate(dialog, {
     returnFocus: options.returnFocus || modalReturnFocusTarget,
     initialFocus: options.initialFocus,
@@ -157,6 +169,7 @@ const State = {
 
 const ENTRY_CACHE_PREFIX = "kulturo-entries-v1:";
 const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v2";
+let _remoteSyncUnavailable = false;
 
 function persistUiSnapshot() {
   if (!State.user) return;
@@ -239,6 +252,11 @@ function readCachedEntries() {
   } catch {
     return null;
   }
+}
+
+function clearCachedEntries(userId = State.user?.id) {
+  if (!userId) return;
+  try { localStorage.removeItem(`${ENTRY_CACHE_PREFIX}${userId}`); } catch {}
 }
 
 function primeEntriesFromCache() {
@@ -339,6 +357,9 @@ async function init() {
       document.getElementById("app").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;height:100dvh;color:#e05b5b;font-family:sans-serif;flex-direction:column;gap:1rem;text-align:center;padding:max(2rem,env(safe-area-inset-top,0px)) max(2rem,env(safe-area-inset-right,0px)) max(2rem,env(safe-area-inset-bottom,0px)) max(2rem,env(safe-area-inset-left,0px))"><b>Configuration Supabase manquante</b><p style="font-size:var(--type-body);color:#a0a0b0">Renseignez les valeurs publiques Supabase dans config.js.</p></div>';
       return;
     }
+    // L'instantané local est utilisable dès son affichage, même si Supabase
+    // met plusieurs secondes à répondre.
+    bindGlobalEvents();
     const sessionUser = await Auth.getSessionUser().catch(() => null);
     const existingUser = sessionUser || await Auth.getUser().catch(() => null);
     if (existingUser) {
@@ -356,6 +377,7 @@ async function init() {
       renderAuthPage();
     }
     Auth.onAuthChange(async (event, user) => {
+      const previousUserId = State.user?.id || null;
       State.user = user;
       if (event === "SIGNED_IN" && user) {
         State.username = null;
@@ -365,7 +387,9 @@ async function init() {
         await loadEntries();
         restoreNavigation(snapshot);
       } else if (event === "SIGNED_OUT") {
+        clearCachedEntries(previousUserId);
         clearUiSnapshot();
+        _remoteSyncUnavailable = false;
         State.entries = [];
         State.events = [];
         _communityEntries = [];
@@ -377,7 +401,6 @@ async function init() {
         renderAuthPage();
       }
     });
-    bindGlobalEvents();
   } catch(err) {
     console.error("Erreur init:", err);
   }
@@ -755,6 +778,8 @@ async function loadEntries() {
     const previousEntries = State.entries;
     const previousFingerprint = entriesFingerprint(previousEntries);
     const freshEntries = await Media.getAll({});
+    _remoteSyncUnavailable = false;
+    syncNetworkStatus();
     const entriesChanged = previousFingerprint !== entriesFingerprint(freshEntries);
     State.entries = freshEntries;
     cacheEntriesLocally();
@@ -765,6 +790,8 @@ async function loadEntries() {
       updateBadges();
     }
   } catch (e) {
+    _remoteSyncUnavailable = true;
+    syncNetworkStatus();
     const cached = readCachedEntries();
     if (cached) {
       const entriesChanged = entriesFingerprint(State.entries) !== entriesFingerprint(cached);
@@ -1469,7 +1496,7 @@ const _profileNumberValues = new Map();
 const LAST_BACKUP_KEY = "kulturo-last-backup";
 const MAX_BACKUP_IMPORT_BYTES = 10 * 1024 * 1024;
 let _pendingRestorePlan = null;
-let _pendingRestoreEntries = null;
+let _pendingRestoreEvents = null;
 let _restoreInProgress = false;
 const PROFILE_MEDIA_OPTIONS = [
   ["all", "Tout"],
@@ -2688,29 +2715,6 @@ async function deleteEntry(id) {
   }
 }
 
-async function toggleFav(id) {
-  // Anime le bouton fav
-  const btn = document.querySelector(`.fav-btn[onclick*="${id}"]`);
-  if (btn) {
-    btn.classList.remove("pop");
-    requestAnimationFrame(() => btn.classList.add("pop"));
-    btn.addEventListener("animationend", () => btn.classList.remove("pop"), { once: true });
-  }
-  const entry = State.entries.find(e => e.id === id);
-  if (!entry) return;
-  const next = !entry.is_favorite;
-  try {
-    await Media.toggleFavorite(id, entry.is_favorite);
-    entry.is_favorite = next;
-    cacheEntriesLocally();
-    // #13 — mise à jour locale uniquement
-    renderCards();
-    updateBadges();
-  } catch (e) {
-    toast("Erreur : " + e.message, "error");
-  }
-}
-
 // ── Modal helpers ─────────────────────────────────────────────
 async function closeModal(force = false, options = {}) {
   if (_restoreInProgress && document.querySelector("#modal-overlay .backup-restore-modal")) {
@@ -2762,6 +2766,7 @@ async function closeModal(force = false, options = {}) {
       });
       root.innerHTML = "";
     }
+    syncDialogBackground();
     if (closingDialog) dialogFocus.deactivate(closingDialog, { restoreFocus: true });
     _modalReturnFocus = null;
     _modalReturnMediaId = null;
@@ -2774,7 +2779,7 @@ async function closeModal(force = false, options = {}) {
     _modalDirty = false;
     _modalClosePromptOpen = false;
     _pendingRestorePlan = null;
-    _pendingRestoreEntries = null;
+    _pendingRestoreEvents = null;
     _restoreInProgress = false;
     syncSystemBar(_currentPage, null);
   };
@@ -2821,12 +2826,14 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
       </div>`);
     const overlay = document.getElementById("confirm-overlay");
     const confirmModal = overlay.querySelector(".confirm-modal");
+    syncDialogBackground();
     const cleanup = (result) => {
       if (overlay.classList.contains("is-closing")) return;
       overlay.classList.add("is-closing");
       setTimeout(() => {
         overlay.remove();
         if (parentModal) parentModal.inert = false;
+        syncDialogBackground();
         dialogFocus.deactivate(confirmModal, { restoreFocus: true });
         resolve(result);
       }, 180);
@@ -3007,7 +3014,10 @@ function bindGlobalEvents() {
     e.returnValue = "";
   });
   window.addEventListener("popstate", handleSmartBack);
-  window.addEventListener("online", syncNetworkStatus);
+  window.addEventListener("online", () => {
+    syncNetworkStatus();
+    if (State.user) loadEntries();
+  });
   window.addEventListener("offline", syncNetworkStatus);
   // La largeur de la fiche peut changer (rotation mobile, redimensionnement
   // desktop). On recalcule alors le vrai débordement du synopsis.
@@ -3028,8 +3038,14 @@ function syncNetworkStatus() {
   const indicator = document.getElementById("network-status");
   if (!indicator) return;
   const offline = navigator.onLine === false;
-  indicator.hidden = !offline;
+  const unavailable = offline || _remoteSyncUnavailable;
+  const label = offline ? "Hors connexion" : "Synchronisation indisponible";
+  indicator.hidden = !unavailable;
+  indicator.setAttribute("aria-label", label);
+  const text = indicator.querySelector("span");
+  if (text) text.textContent = label;
   document.documentElement.classList.toggle("is-offline", offline);
+  document.documentElement.classList.toggle("is-sync-unavailable", !offline && _remoteSyncUnavailable);
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -3553,7 +3569,7 @@ function renderDetailPanel(e, options = {}) {
             </div>` : isPreview ? `
             <div class="detail-footer-actions">
               ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingIdx])}>+ Wishlist</button>
+              <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingKey])}>+ Wishlist</button>
             </div>` : `
             <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer ce média" aria-label="Supprimer ce média" ${uiAction("deleteEntry", [e.id])}><span class="detail-delete-icon">${iconTrash()}</span></button>
             <div class="detail-footer-actions">
@@ -3824,6 +3840,7 @@ function openMetadataFromElement(element) {
           </footer>` : ""}
       </section>
     </div>`);
+  syncDialogBackground();
   pushHistoryLayer("metadata", { metadata: `${kind}:${value}` });
   hydrateFadeImages(document.getElementById("metadata-overlay"));
 
@@ -3855,6 +3872,7 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
     overlay?.remove();
     const detailModal = document.querySelector("#modal-overlay .detail-modal");
     if (detailModal) detailModal.inert = false;
+    syncDialogBackground();
     if (metadataDialog) dialogFocus.deactivate(metadataDialog, { restoreFocus });
     _metadataReturnFocus = null;
   };
@@ -4603,12 +4621,55 @@ function chooseBackupFile() {
   input.click();
 }
 
+const RESTORE_FIELD_LABELS = Object.freeze({
+  title: "titre", media_type: "type", status: "statut", rating: "note",
+  is_favorite: "coup de cœur", repeat_count: "replay", notes: "notes",
+  cover_url: "jaquette", date_started: "date de début", date_finished: "date de fin",
+  genre: "genre", author: "auteur", release_year: "année", release_date: "sortie",
+  platform: "plateforme", description: "synopsis", directors: "réalisation",
+  cast_members: "casting", duration: "durée", seasons_count: "saisons",
+  episodes_count: "épisodes", watch_providers: "diffusion", developer: "studio",
+  publisher: "éditeur", page_count: "pages", isbn: "ISBN",
+});
+
+function restorePreviewDetails(plan) {
+  const sections = [];
+  if (plan.added.length) {
+    sections.push(`
+      <details class="backup-restore-detail">
+        <summary><span>À ajouter</span><strong>${plan.added.length}</strong></summary>
+        <ul>${plan.added.map(item => `<li>${esc(item.title)}</li>`).join("")}</ul>
+      </details>`);
+  }
+  if (plan.updated.length) {
+    sections.push(`
+      <details class="backup-restore-detail">
+        <summary><span>À mettre à jour</span><strong>${plan.updated.length}</strong></summary>
+        <ul>${plan.updated.map(item => {
+          const fields = Object.keys(item.changes || {}).map(field => RESTORE_FIELD_LABELS[field] || field).join(", ");
+          return `<li><span>${esc(item.title)}</span>${fields ? `<small>${esc(fields)}</small>` : ""}</li>`;
+        }).join("")}</ul>
+      </details>`);
+  }
+  if (plan.conflicts.length) {
+    sections.push(`
+      <details class="backup-restore-detail is-conflict" open>
+        <summary><span>Conflits ignorés</span><strong>${plan.conflicts.length}</strong></summary>
+        <ul>${plan.conflicts.map(item => `<li><span>${esc(item.title)}</span><small>Plusieurs correspondances possibles</small></li>`).join("")}</ul>
+      </details>`);
+  }
+  return sections.length ? `<div class="backup-restore-details">${sections.join("")}</div>` : "";
+}
+
 function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
   const previousDialog = document.querySelector("#modal-overlay .backup-restore-modal");
   const alreadyOpen = Boolean(previousDialog);
   if (previousDialog) dialogFocus.deactivate(previousDialog, { restoreFocus: false });
   else rememberModalReturnFocus();
   _pendingRestorePlan = plan;
+  const journalCount = Number(plan.journal?.valid || 0);
+  const ignoredCount = plan.invalid.length + plan.conflicts.length + Number(plan.journal?.invalid || 0);
+  const restorableCount = plan.added.length + plan.updated.length + journalCount;
   const root = document.getElementById("modal-root");
   root.innerHTML = `
     <div class="modal-overlay backup-restore-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
@@ -4621,20 +4682,23 @@ function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
           <button type="button" class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
         </div>
         <div class="modal-body backup-restore-body">
-          <p id="backup-restore-description">${esc(fileName)} a été vérifié. Rien ne sera supprimé et le Journal existant ne sera jamais écrasé.</p>
+          <p id="backup-restore-description">${esc(fileName)} a été vérifié. La bibliothèque et le Journal seront fusionnés en une seule opération, sans aucune suppression.</p>
           <div class="backup-restore-counts" aria-label="Résumé de la restauration">
             <div class="backup-restore-count is-added"><strong>${plan.added.length}</strong><span>à ajouter</span></div>
             <div class="backup-restore-count is-updated"><strong>${plan.updated.length}</strong><span>à mettre à jour</span></div>
             <div class="backup-restore-count is-unchanged"><strong>${plan.unchanged.length}</strong><span>inchangé${plan.unchanged.length > 1 ? "s" : ""}</span></div>
           </div>
-          ${plan.invalid.length ? `<p class="backup-restore-warning" role="status">${plan.invalid.length} ligne${plan.invalid.length > 1 ? "s" : ""} invalide${plan.invalid.length > 1 ? "s" : ""} sera${plan.invalid.length > 1 ? "ont" : ""} ignorée${plan.invalid.length > 1 ? "s" : ""}.</p>` : ""}
+          <div class="backup-restore-journal"><span aria-hidden="true">≡</span><span><strong>${journalCount} événement${journalCount > 1 ? "s" : ""}</strong> du Journal vérifié${journalCount > 1 ? "s" : ""} et prêt${journalCount > 1 ? "s" : ""} à être fusionné${journalCount > 1 ? "s" : ""}.</span></div>
+          ${restorePreviewDetails(plan)}
+          ${ignoredCount ? `<p class="backup-restore-warning" role="status">${ignoredCount} élément${ignoredCount > 1 ? "s" : ""} ambigu${ignoredCount > 1 ? "s" : ""} ou invalide${ignoredCount > 1 ? "s" : ""} sera${ignoredCount > 1 ? "ont" : ""} ignoré${ignoredCount > 1 ? "s" : ""}.</p>` : ""}
           <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>Les médias absents de ce fichier restent dans votre bibliothèque.</span></div>
+          <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>En cas d’erreur, aucune modification ne sera conservée.</span></div>
           <div class="backup-restore-progress" id="backup-restore-progress" role="status" aria-live="polite"></div>
         </div>
         <div class="modal-footer backup-restore-footer">
           <button type="button" class="btn btn-secondary" ${uiAction("closeModal")}>Annuler</button>
-          <button type="button" class="btn btn-primary" id="backup-restore-confirm" ${(plan.added.length + plan.updated.length) ? uiAction("restoreBackup") : "disabled"}>
-            ${(plan.added.length + plan.updated.length) ? "Restaurer" : "Rien à restaurer"}
+          <button type="button" class="btn btn-primary" id="backup-restore-confirm" ${restorableCount ? uiAction("restoreBackup") : "disabled"}>
+            ${restorableCount ? "Restaurer" : "Rien à restaurer"}
           </button>
         </div>
       </div>
@@ -4654,12 +4718,22 @@ async function previewBackupRestore(input) {
   try {
     if (file.size > MAX_BACKUP_IMPORT_BYTES) throw new Error("Le fichier dépasse la limite de 10 Mo.");
     const backup = parseKulturoBackup(await file.text());
-    _pendingRestoreEntries = backup.entries;
     const plan = buildRestorePlan(backup.entries, State.entries);
+    const eventPlan = sanitizeBackupEvents(backup.events);
+    const mappedSourceIds = new Set([
+      ...plan.added,
+      ...plan.updated,
+      ...plan.unchanged,
+    ].map(item => item.sourceId).filter(Boolean));
+    _pendingRestoreEvents = eventPlan.valid.filter(event => mappedSourceIds.has(event.media_id));
+    plan.journal = {
+      valid: _pendingRestoreEvents.length,
+      invalid: eventPlan.invalid.length + eventPlan.valid.length - _pendingRestoreEvents.length,
+    };
     renderBackupRestorePreview(plan, file.name);
   } catch (error) {
     _pendingRestorePlan = null;
-    _pendingRestoreEntries = null;
+    _pendingRestoreEvents = null;
     toast(error.message || "Sauvegarde illisible.", "error");
   } finally {
     input.value = "";
@@ -4667,61 +4741,49 @@ async function previewBackupRestore(input) {
 }
 
 async function restoreBackup() {
-  if (!_pendingRestorePlan || !_pendingRestoreEntries) return;
+  if (!_pendingRestorePlan || !_pendingRestoreEvents) return;
   if (navigator.onLine === false) {
     toast("Connexion requise pour restaurer la sauvegarde.", "error");
     return;
   }
   const button = document.getElementById("backup-restore-confirm");
   const progress = document.getElementById("backup-restore-progress");
-  const operations = [
-    ..._pendingRestorePlan.added.map(item => ({ type: "add", ...item })),
-    ..._pendingRestorePlan.updated.map(item => ({ type: "update", ...item })),
-  ];
-  if (!operations.length) return;
+  const mediaCount = _pendingRestorePlan.added.length + _pendingRestorePlan.updated.length;
+  const journalCount = _pendingRestoreEvents.length;
+  if (!mediaCount && !journalCount) return;
   _restoreInProgress = true;
   document.querySelector(".backup-restore-modal")?.setAttribute("aria-busy", "true");
   document.querySelectorAll(".backup-restore-footer .btn").forEach(control => { control.disabled = true; });
   if (button) button.textContent = "Restauration…";
-  let completed = 0;
-  const failures = [];
-  for (const operation of operations) {
-    try {
-      if (operation.type === "add") {
-        const created = await Media.create(operation.payload);
-        State.entries.unshift(created);
-      } else {
-        const updated = await Media.update(operation.id, operation.changes);
-        const index = State.entries.findIndex(entry => entry.id === operation.id);
-        if (index >= 0) State.entries[index] = updated;
-      }
-      completed += 1;
-    } catch (error) {
-      failures.push({ title: operation.title, error });
-    }
-    if (progress) progress.textContent = `${completed + failures.length}/${operations.length} traité${operations.length > 1 ? "s" : ""}…`;
-  }
-  cacheEntriesLocally();
-  markJournalDirty();
-  await refreshJournalEvents({ silent: true });
-  renderCards();
-  updateBadges();
-  if (_currentPage === "dashboard") renderDashboard();
-  if (_currentPage === "upcoming") upcomingFeature.renderCards();
+  if (progress) progress.textContent = "Vérification finale et restauration atomique…";
+  try {
+    const result = await Backup.restore(_pendingRestorePlan, _pendingRestoreEvents);
+    await loadEntries();
+    renderCards();
+    updateBadges();
+    if (_currentPage === "dashboard") await renderDashboard();
+    if (_currentPage === "journal") await renderJournal();
+    if (_currentPage === "upcoming") upcomingFeature.renderCards();
 
-  if (failures.length) {
+    const restoredMedia = Number(result?.added_count || 0) + Number(result?.updated_count || 0);
+    const restoredEvents = Number(result?.events_restored || 0);
     _restoreInProgress = false;
-    _pendingRestorePlan = buildRestorePlan(_pendingRestoreEntries, State.entries);
-    renderBackupRestorePreview(_pendingRestorePlan, "Sauvegarde partiellement restaurée");
-    toast(`${completed} élément${completed > 1 ? "s" : ""} restauré${completed > 1 ? "s" : ""}, ${failures.length} échec${failures.length > 1 ? "s" : ""}.`, "error");
-    return;
+    _pendingRestorePlan = null;
+    _pendingRestoreEvents = null;
+    _modalDirty = false;
+    closeModal();
+    toast(`${restoredMedia} média${restoredMedia > 1 ? "s" : ""} et ${restoredEvents} événement${restoredEvents > 1 ? "s" : ""} restaurés ✓`, "success");
+  } catch (error) {
+    _restoreInProgress = false;
+    document.querySelector(".backup-restore-modal")?.removeAttribute("aria-busy");
+    document.querySelectorAll(".backup-restore-footer .btn").forEach(control => { control.disabled = false; });
+    if (button) button.textContent = "Réessayer";
+    if (progress) progress.textContent = "Aucune restauration partielle n’est possible. Vous pouvez réessayer sans créer de doublon.";
+    const migrationMissing = /restore_kulturo_backup|schema cache|function public\.restore/i.test(String(error?.message || ""));
+    toast(migrationMissing
+      ? "Mettez d’abord à jour schema.sql dans Supabase."
+      : "Restauration non confirmée : " + (error?.message || "erreur inconnue"), "error");
   }
-  _pendingRestorePlan = null;
-  _pendingRestoreEntries = null;
-  _restoreInProgress = false;
-  _modalDirty = false;
-  closeModal();
-  toast(`${completed} média${completed > 1 ? "s" : ""} restauré${completed > 1 ? "s" : ""} ✓`, "success");
 }
 
 function setLibraryDensity(value) {
@@ -5146,7 +5208,6 @@ window.UI = {
   closeModalOnBg,
   saveEntry,
   deleteEntry,
-  toggleFav,
   quickSetStatus,
   quickAdjustRepeat,
   fillFromApi,
@@ -5248,6 +5309,7 @@ window.UI = {
     };
 
     root.insertAdjacentHTML("beforeend", _buildModal());
+    syncDialogBackground();
     pushHistoryLayer("filters");
     const overlay = document.getElementById("filter-modal-overlay");
     setupMobileSheetSwipe({
@@ -5296,6 +5358,7 @@ window.UI = {
     overlay.classList.add("is-closing");
     setTimeout(() => {
       overlay.remove();
+      syncDialogBackground();
       if (filterDialog) dialogFocus.deactivate(filterDialog, { restoreFocus: true });
     }, 180);
   },

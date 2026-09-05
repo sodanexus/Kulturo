@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v67";
+const STATIC_CACHE = "kulturo-static-v68";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -14,16 +14,58 @@ const MAX_BACKDROP_ENTRIES = 36;
 const APP_SCOPE = new URL(self.registration?.scope || "./", self.location?.href || "https://kulturo.local/");
 const appAsset = path => new URL(path, APP_SCOPE).href;
 const APP_HOME = appAsset("./");
-const STATIC_ASSETS = ["./", "logo.svg", "icon.svg", "icon-192.png", "icon-512.png"].map(appAsset);
+const STATIC_ASSETS = [
+  "./",
+  "index.html",
+  "manifest.json",
+  "config.js",
+  "app.js",
+  "api.js",
+  "supabase.js",
+  "domain.js",
+  "style.css",
+  "styles/add-sheet.css",
+  "styles/mobile-polish.css",
+  "styles/enhancements.css",
+  "features/add-flow.js",
+  "features/backup-restore.js",
+  "features/cover-accent.js",
+  "features/detail-enrichment.js",
+  "features/detail-session.js",
+  "features/dialog-focus.js",
+  "features/dom-updates.js",
+  "features/insights.js",
+  "features/journal-groups.js",
+  "features/journal-navigation.js",
+  "features/library-cache.js",
+  "features/media-metadata.js",
+  "features/request-client.js",
+  "features/ui-actions.js",
+  "features/ui-states.js",
+  "features/upcoming.js",
+  "logo.svg",
+  "icon.svg",
+  "icon.svg?v=3.4.6",
+  "icon-192.png",
+  "icon-192.png?v=3.4.6",
+  "icon-512.png",
+  "icon-512.png?v=3.4.6",
+].map(appAsset);
+const EXTERNAL_APP_ASSETS = [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/+esm",
+];
 
-// Install — met en cache uniquement les assets statiques lourds
+// Install — prépare l'application complète pour son premier démarrage hors
+// ligne. Une ressource locale manquante conserve l'ancien worker fonctionnel.
 self.addEventListener("install", e => {
-  e.waitUntil(
-    caches.open(STATIC_CACHE)
-      // Une ressource momentanément indisponible ne doit pas annuler
-      // l'installation complète du service worker.
-      .then(cache => Promise.allSettled(STATIC_ASSETS.map(asset => cache.add(asset))))
-  );
+  e.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.addAll(STATIC_ASSETS);
+    // Supabase est importé dès le démarrage : sans ce module, l'interface ne
+    // peut pas exploiter sa bibliothèque locale. Son cache fait donc partie de
+    // l'installation, au même titre que les modules locaux.
+    await cache.addAll(EXTERNAL_APP_ASSETS);
+  })());
 });
 
 // L'utilisateur choisit le moment du rechargement depuis le bandeau Kulturo.
