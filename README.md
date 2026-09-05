@@ -32,14 +32,15 @@ Une collection à parcourir par ses jaquettes, avec quelques repères essentiels
 | **Journal** | Revoir mon parcours au fil des mois, ou découvrir les ajouts de la Communauté. |
 | **Moi** | Explorer mes habitudes, mes préférés et mes statistiques ; sauvegarder ma collection. |
 
-## Version actuelle · 3.4.7
+## Version actuelle · 3.4.8
 
-Une mise à jour consacrée à la continuité de l’interface et à l’entretien du projet.
+Une mise à jour consacrée à la fiabilité, à la continuité de navigation et aux finitions de l’interface.
 
-- **Des états cohérents** : chargements à la taille des jaquettes, messages clairs et actions adaptées.
-- **Un retour naturel à la fiche** après Modifier, avec les informations actualisées et la position de lecture conservée.
-- **Un code mieux organisé** : Profil et Journal dans leurs propres modules, avec des parcours de test à lancer dans un navigateur.
-- **Une documentation allégée**, avec les versions précédentes dans un historique séparé.
+- **Des chargements sûrs** : une réponse tardive ne peut plus remplacer la page ou le compte actuellement affiché.
+- **Un contexte retrouvé après actualisation** : onglet, filtres, période, mois et position de lecture sont restaurés ensemble.
+- **Des fiches autonomes** : rendu, enrichissement, métadonnées et transition de jaquette vivent dans un module dédié.
+- **Des retours plus précis** : progression discrète, boutons occupés et notifications sans empilement inutile.
+- **Une archive reproductible**, contrôlée par un script avant chaque publication.
 
 [Historique des versions](CHANGELOG.md) · [Mise à jour et déploiement](DEPLOYMENT.md) · [Vérifications](tests/README.md)
 

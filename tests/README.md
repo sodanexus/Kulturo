@@ -34,6 +34,6 @@ Les parcours vérifient :
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 3.4.7
+## Validation de l’archive 3.4.8
 
 Les tests techniques et les contrôles de syntaxe ont été exécutés avec succès. Les parcours navigateur sont fournis mais **n’ont pas pu être exécutés dans l’environnement de préparation**, qui bloque l’accès du navigateur à la page locale. Une validation Safari/iPad reste donc à effectuer.

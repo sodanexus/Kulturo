@@ -4,12 +4,14 @@ import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
 import { createJournalNavigation } from "./journal-navigation.js";
 import { emptyState, errorState, loadingState } from "./ui-states.js";
+import { createAsyncGate } from "./async-gate.js";
 
 export function createJournalFeature({
   State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
   STATUS_LABELS, confirmDialog, toast, openDetailPanel, renderDetailPanel,
+  getCurrentPage, onContextChange, onViewReady,
 }) {
   try {
     localStorage.removeItem("kulturo-journal-view");
@@ -17,7 +19,8 @@ export function createJournalFeature({
   } catch {}
   let _communityEntries = [];
   let _communityLoaded = false;
-  const journalNavigation = createJournalNavigation();
+  const renderGate = createAsyncGate();
+  const journalNavigation = createJournalNavigation({ onChange: onContextChange });
 
   function visibleJournalEvents() {
     const existingIds = new Set(State.entries.map(entry => entry.id));
@@ -29,19 +32,23 @@ export function createJournalFeature({
   }
 
   async function renderJournal() {
+    if (getCurrentPage?.() !== "journal") return;
+    const task = renderGate.begin();
     const requestedMode = journalNavigation.mode;
     journalNavigation.syncMode();
     if (requestedMode === "community") {
-      await renderCommunity();
+      await renderCommunity(task);
     } else {
-      await renderPersonalJournal();
+      await renderPersonalJournal(task);
     }
-    if (journalNavigation.mode === requestedMode) {
+    if (renderGate.isCurrent(task) && getCurrentPage?.() === "journal" && journalNavigation.mode === requestedMode) {
       replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
+      renderGate.finish(task);
+      onViewReady?.("journal");
     }
   }
 
-  async function renderPersonalJournal() {
+  async function renderPersonalJournal(task) {
     const container = document.getElementById("journal-feed");
     if (!container) return;
 
@@ -49,6 +56,7 @@ export function createJournalFeature({
       container.innerHTML = loadingState("Chargement du journal…", { compact: true });
       journalNavigation.syncTimeline([], "personal");
       await refreshJournalEvents({ silent: true });
+      if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "personal") return;
     }
 
     if (!State.journalAvailable) {
@@ -256,7 +264,7 @@ export function createJournalFeature({
     openDetailPanel(entry.id, { transitionSource });
   }
 
-  async function renderCommunity() {
+  async function renderCommunity(task) {
     const container = document.getElementById("community-feed");
     if (!container) return;
 
@@ -271,13 +279,15 @@ export function createJournalFeature({
     journalNavigation.syncTimeline([], "community");
 
     try {
-      const entries = await Activity.getFeed(100);
+      const entries = await Activity.getFeed(100, { signal: task.signal });
+      if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "community") return;
       _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
       _communityLoaded = true;
       container.innerHTML = renderCommunityFeed(_communityEntries);
       journalNavigation.syncTimeline(_communityEntries, "community");
       hydrateFadeImages(container);
     } catch (error) {
+      if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "community") return;
       console.warn("[Communauté] chargement impossible", error);
       container.innerHTML = errorState({
         title: "Communauté indisponible",
@@ -389,6 +399,9 @@ export function createJournalFeature({
     },
     bind: bindJournalInteractions,
     invalidate() { _communityLoaded = false; },
-    reset() { _communityEntries = []; _communityLoaded = false; },
+    context: () => journalNavigation.context(),
+    restoreContext: value => journalNavigation.restoreContext(value),
+    cancel() { renderGate.cancel(); },
+    reset() { renderGate.cancel(); _communityEntries = []; _communityLoaded = false; },
   };
 }

@@ -3,6 +3,7 @@
 // ============================================================
 
 import { cardSkeletons } from "./ui-states.js";
+import { createAsyncGate } from "./async-gate.js";
 
 export function createUpcomingFeature(dependencies) {
   const {
@@ -42,6 +43,8 @@ export function createUpcomingFeature(dependencies) {
     injectBackdrop,
     refreshDetailEnrichment,
     clearApiCache,
+    onContextChange,
+    onViewReady,
   } = dependencies;
 
 // ── Prochaines sorties ────────────────────────────────────────
@@ -105,7 +108,9 @@ const UpcomingState = {
   loaded: false,
   adding: new Set(),
   sourceStatus: {},
+  loadingToken: null,
 };
+const renderGate = createAsyncGate();
 
 function daysUntilRelease(value, precision = "day") {
   if (!value || precision !== "day") return null;
@@ -430,16 +435,18 @@ async function renderUpcoming(force = false) {
 
   if (UpcomingState.loaded && !force) {
     renderUpcomingCards();
+    onViewReady?.("upcoming");
     return;
   }
   if (UpcomingState.loading) return;
 
+  const task = renderGate.begin();
   UpcomingState.loading = true;
   UpcomingState.loaded = false;
   const sources = [
-    { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming() },
-    { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming() },
-    { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming() },
+    { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming({ signal: task.signal }) },
+    { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming({ signal: task.signal }) },
+    { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming({ signal: task.signal }) },
   ];
   UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
     source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
@@ -448,11 +455,13 @@ async function renderUpcoming(force = false) {
   rebuildUpcomingResults();
   syncUpcomingLoadingState();
   renderUpcomingCards();
-  loadingStart();
+  const loadingToken = loadingStart();
+  UpcomingState.loadingToken = loadingToken;
 
   const loadSource = async source => {
     try {
       const value = await source.load();
+      if (!renderGate.isCurrent(task) || getCurrentPage() !== "upcoming") return;
       const sourceItems = Array.isArray(value) ? value : [];
       UpcomingState.sourceResults[source.key] = sourceItems;
       source.types.forEach(type => {
@@ -461,10 +470,12 @@ async function renderUpcoming(force = false) {
           : "empty";
       });
     } catch (error) {
+      if (!renderGate.isCurrent(task) || error?.name === "AbortError") return;
       source.types.forEach(type => { UpcomingState.sourceStatus[type] = "error"; });
       if (!Array.isArray(UpcomingState.sourceResults[source.key])) UpcomingState.sourceResults[source.key] = [];
       console.warn(`[Sorties/${source.key}]`, error);
     } finally {
+      if (!renderGate.isCurrent(task) || getCurrentPage() !== "upcoming") return;
       rebuildUpcomingResults();
       renderUpcomingCards();
     }
@@ -473,11 +484,15 @@ async function renderUpcoming(force = false) {
   try {
     await Promise.all(sources.filter(source => source.enabled).map(loadSource));
   } finally {
+    if (!renderGate.isCurrent(task)) return;
     UpcomingState.loading = false;
     UpcomingState.loaded = true;
     syncUpcomingLoadingState();
     renderUpcomingCards();
-    loadingDone();
+    loadingDone(loadingToken);
+    if (UpcomingState.loadingToken === loadingToken) UpcomingState.loadingToken = null;
+    renderGate.finish(task);
+    onViewReady?.("upcoming");
   }
 }
 
@@ -579,6 +594,7 @@ function upcomingCardHTML(it) {
   const type = upcomingTypeOf(it);
   const typeMeta = UPCOMING_TYPE_META[type] || UPCOMING_TYPE_META.movie;
   const upcomingKey = upcomingKeyOf(it);
+  const adding = UpcomingState.adding.has(upcomingKey);
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
@@ -594,8 +610,8 @@ function upcomingCardHTML(it) {
           ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
           <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
         </button>
-        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}" aria-pressed="${inLibrary}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : "Ajouter à la wishlist"}"
-          ${inLibrary ? "" : uiAction("addUpcomingToWishlist", [upcomingKey])}>${iconStatus("wishlist")}</button>
+        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}${adding ? " is-adding" : ""}" aria-pressed="${inLibrary}" aria-busy="${adding}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : adding ? `Ajout de ${esc(it.title)} en cours` : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : adding ? "Ajout en cours" : "Ajouter à la wishlist"}"
+          ${inLibrary || adding ? "disabled" : uiAction("addUpcomingToWishlist", [upcomingKey])}>${iconStatus("wishlist")}</button>
       </div>
     </article>`;
 }
@@ -606,6 +622,7 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
   const addingKey = upcomingKeyOf(it);
   if (UpcomingState.adding.has(addingKey)) return;
   UpcomingState.adding.add(addingKey);
+  renderUpcomingCards();
   const mediaType = upcomingMediaTypeOf(it);
   const payload = {
     title: it.title,
@@ -641,6 +658,7 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
     toast("Erreur : " + e.message, "error");
   } finally {
     UpcomingState.adding.delete(addingKey);
+    if (getCurrentPage() === "upcoming") renderUpcomingCards();
   }
 }
 
@@ -700,6 +718,7 @@ function setUpcomingType(type) {
   if (!UPCOMING_TYPES.includes(type)) return;
   UpcomingState.type = type;
   persistUpcomingPreferences();
+  onContextChange?.();
   syncUpcomingTypeButtons();
   renderUpcomingCards();
 }
@@ -709,12 +728,14 @@ function setUpcomingGenre(genre) {
   if (!allowed.has(genre)) return;
   UpcomingState.genre = genre;
   persistUpcomingPreferences();
+  onContextChange?.();
   renderUpcomingCards();
 }
 
 function setUpcomingHideAdded(value) {
   UpcomingState.hideAdded = Boolean(value);
   persistUpcomingPreferences();
+  onContextChange?.();
   renderUpcomingCards();
 }
 
@@ -723,6 +744,7 @@ function resetUpcomingFilters() {
   UpcomingState.genre = "all";
   UpcomingState.hideAdded = false;
   persistUpcomingPreferences();
+  onContextChange?.();
   syncUpcomingTypeButtons();
   renderUpcomingCards();
 }
@@ -748,5 +770,21 @@ function resetUpcomingFilters() {
     addToWishlist: addUpcomingToWishlist,
     addToWishlistFromModal: upcomingKey => addUpcomingToWishlist(upcomingKey, true),
     openDetail: openUpcomingDetail,
+    context() {
+      return { type: UpcomingState.type, genre: UpcomingState.genre, hideAdded: UpcomingState.hideAdded };
+    },
+    restoreContext(value = {}) {
+      if (UPCOMING_TYPES.includes(value?.type)) UpcomingState.type = value.type;
+      if (typeof value?.genre === "string" && value.genre.length <= 120) UpcomingState.genre = value.genre || "all";
+      if (typeof value?.hideAdded === "boolean") UpcomingState.hideAdded = value.hideAdded;
+    },
+    cancel() {
+      renderGate.cancel();
+      if (UpcomingState.loading) {
+        UpcomingState.loading = false;
+        loadingDone(UpcomingState.loadingToken);
+        UpcomingState.loadingToken = null;
+      }
+    },
   };
 }

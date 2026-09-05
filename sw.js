@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v70";
+const STATIC_CACHE = "kulturo-static-v3.4.8";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -28,6 +28,7 @@ const STATIC_ASSETS = [
   "styles/mobile-polish.css",
   "styles/enhancements.css",
   "features/add-flow.js",
+  "features/async-gate.js",
   "features/backup-restore.js",
   "features/cover-accent.js",
   "features/detail-enrichment.js",
@@ -39,6 +40,7 @@ const STATIC_ASSETS = [
   "features/journal-groups.js",
   "features/journal-navigation.js",
   "features/library-cache.js",
+  "features/media-detail.js",
   "features/media-metadata.js",
   "features/profile.js",
   "features/request-client.js",
@@ -47,11 +49,11 @@ const STATIC_ASSETS = [
   "features/upcoming.js",
   "logo.svg",
   "icon.svg",
-  "icon.svg?v=3.4.7",
+  "icon.svg?v=3.4.8",
   "icon-192.png",
-  "icon-192.png?v=3.4.7",
+  "icon-192.png?v=3.4.8",
   "icon-512.png",
-  "icon-512.png?v=3.4.7",
+  "icon-512.png?v=3.4.8",
 ].map(appAsset);
 const EXTERNAL_APP_ASSETS = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/+esm",

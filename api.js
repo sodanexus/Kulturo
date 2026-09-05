@@ -118,7 +118,7 @@ export const TMDb = {
   // Les films exigent une date de sortie française. Pour les séries, TMDb ne
   // possède pas de date régionale équivalente : on exige donc soit une offre
   // de diffusion référencée en France, soit une production d'origine française.
-  async upcoming() {
+  async upcoming(options = {}) {
     if (!this.available()) return [];
 
     const base = CONFIG.tmdb.baseUrl;
@@ -152,10 +152,10 @@ export const TMDb = {
     const tvFrenchOriginUrl = page => `${base}/discover/tv?${common}&${tvWindow}&with_origin_country=FR&page=${page}`;
 
     const requests = await Promise.allSettled([
-      apiFetch(movieUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(movieUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
-      apiFetch(tvFranceUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvFranceUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
-      apiFetch(tvBroadcasterUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvBroadcasterUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvBroadcasterUrl(3), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
-      apiFetch(tvFrenchOriginUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000 }), apiFetch(tvFrenchOriginUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000 }),
+      apiFetch(movieUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }), apiFetch(movieUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }),
+      apiFetch(tvFranceUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }), apiFetch(tvFranceUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }),
+      apiFetch(tvBroadcasterUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }), apiFetch(tvBroadcasterUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }), apiFetch(tvBroadcasterUrl(3), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }),
+      apiFetch(tvFrenchOriginUrl(1), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }), apiFetch(tvFrenchOriginUrl(2), { cachePolicy: "upcoming", timeoutMs: 10_000, signal: options.signal }),
     ]);
     if (requests.every(r => r.status === "rejected")) {
       throw new Error("TMDB indisponible");
@@ -275,7 +275,7 @@ export const IGDB = {
     }));
   },
 
-  async upcoming() {
+  async upcoming(options = {}) {
     if (!this.available()) return [];
     const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
     const data = await apiFetch(proxyUrl, {
@@ -284,6 +284,7 @@ export const IGDB = {
       body: JSON.stringify({ action: "upcoming" }),
       timeoutMs: 15000,
       cachePolicy: "upcoming",
+      signal: options.signal,
     });
     if (data?.error) throw new Error(data.error);
 
@@ -398,7 +399,7 @@ export const GoogleBooks = {
     return Boolean(CONFIG?.supabase?.url);
   },
 
-  async upcoming() {
+  async upcoming(options = {}) {
     if (!this.available()) return [];
     const today = new Date();
     const end = new Date(today);
@@ -410,7 +411,7 @@ export const GoogleBooks = {
     ].join("-");
     const startDate = isoDate(today);
     const endDate = isoDate(end);
-    const items = await googleBooksProxy({ action: "upcoming" });
+    const items = await googleBooksProxy({ action: "upcoming" }, 20_000, options);
     const unique = new Map();
     items.forEach(item => {
       const releaseDate = String(item?.release_date || "");

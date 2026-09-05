@@ -4,11 +4,11 @@
 
 ## Depuis la 3.4.6
 
-1. Remplacer les fichiers de l’application par le contenu complet de l’archive **3.4.7**, en conservant les valeurs propres au projet dans `config.js`.
-2. Inclure les dossiers `features/` et `styles/` : ils font partie de l’application. Le Profil et le Journal ne sont plus dans `app.js`.
+1. Remplacer les fichiers de l’application par le contenu complet de l’archive **3.4.8**, en conservant les valeurs propres au projet dans `config.js`.
+2. Inclure les dossiers `features/`, `styles/` et `scripts/` : ils font partie de l’application. Profil, Journal et les fiches média ne sont plus dans `app.js`.
 3. Après la publication GitHub Pages, accepter la mise à jour proposée par Kulturo lorsqu’elle est disponible.
 
-**Aucune nouvelle requête SQL et aucun redéploiement de fonction Edge ne sont nécessaires pour passer de 3.4.6 à 3.4.7.** Le schéma et les fonctions Supabase sont identiques dans ces deux archives.
+**Aucune nouvelle requête SQL et aucun redéploiement de fonction Edge ne sont nécessaires pour passer de 3.4.6 ou 3.4.7 à 3.4.8.** Le schéma et les fonctions Supabase sont identiques.
 
 ## Depuis une version antérieure à la 3.4.6
 
@@ -28,4 +28,6 @@ La version de cette fonction reste **3.4.0** ; elle est indépendante de la vers
 
 ## Vérifier la mise à jour
 
-La version affichée dans **Moi** doit être **3.4.7**. Ouvrir une fiche, utiliser Modifier, changer une note, puis enregistrer : la fiche doit revenir avec la nouvelle note. Les [tests de parcours](tests/README.md) permettent de vérifier ce comportement avec des données fictives.
+La version affichée dans **Moi** doit être **3.4.8**. Actualiser successivement Bibliothèque, Sorties, Journal et Profil : chaque page doit retrouver ses filtres, sa période et sa position. Ouvrir ensuite une fiche, utiliser Modifier, changer une note, puis enregistrer : la fiche doit revenir avec la nouvelle note. Les [tests de parcours](tests/README.md) permettent de vérifier ce comportement avec des données fictives.
+
+Avant de publier une prochaine version, lancer `node scripts/release.mjs --check`. Le script vérifie les numéros de version, la syntaxe, les tests et le contenu PWA. Sans `--check`, il fabrique une archive ZIP déterministe.

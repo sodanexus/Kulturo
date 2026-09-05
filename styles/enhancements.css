@@ -480,6 +480,18 @@ body { background-color: var(--system-bar-color); }
   background: color-mix(in srgb, var(--accent) 20%, rgba(12,13,17,.84));
   color: var(--accent-2);
 }
+.upcoming-wishlist-mark.is-adding { cursor: wait; }
+.upcoming-wishlist-mark.is-adding .ui-icon { opacity: 0; }
+.upcoming-wishlist-mark.is-adding::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
 @media (min-width: 681px) and (max-width: 900px) {
   .upcoming-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }

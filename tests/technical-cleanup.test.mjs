@@ -9,6 +9,7 @@ import { collectDetailUpdates } from "../features/detail-enrichment.js";
 import { createDetailSessionManager } from "../features/detail-session.js";
 import { createUiActionDispatcher } from "../features/ui-actions.js";
 import { dialogKeyIntent, nextFocusIndex } from "../features/dialog-focus.js";
+import { createAsyncGate, sameOwner } from "../features/async-gate.js";
 import {
   buildRestorePlan,
   parseKulturoBackup,
@@ -127,6 +128,21 @@ test("les claviers iPad sont reconnus même lorsque event.key est indéterminé"
   assert.deepEqual(dialogKeyIntent({ key: "Unidentified", keyCode: 27 }), { escape: true, tab: false });
 });
 
+test("une réponse asynchrone tardive ne peut plus modifier la vue", () => {
+  const gate = createAsyncGate();
+  const first = gate.begin();
+  const second = gate.begin();
+  let committed = "";
+  assert.equal(first.signal.aborted, true);
+  assert.equal(gate.commit(first, () => { committed = "ancien"; }), false);
+  assert.equal(gate.commit(second, () => { committed = "récent"; }), true);
+  assert.equal(committed, "récent");
+  gate.cancel();
+  assert.equal(gate.isCurrent(second), false);
+  assert.equal(sameOwner("compte-1", "compte-1"), true);
+  assert.equal(sameOwner("compte-1", "compte-2"), false);
+});
+
 test("la restauration fusionne sans suppression et sans muter l’aperçu courant", () => {
   const current = [
     { id: "1", title: "Dune", media_type: "movie", subtype: "movie", source_api: "tmdb", external_id: "438631", status: "finished", rating: 8, is_favorite: false },
@@ -218,7 +234,9 @@ test("le Journal valide est conservé dans le plan de restauration", () => {
 });
 
 test("les fenêtres déclarées possèdent toutes un titre accessible", () => {
-  const source = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const source = ["../app.js", "../features/media-detail.js"]
+    .map(path => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
+    .join("\n");
   const dialogs = source.match(/<[^>]+role="(?:alert)?dialog"[^>]*>/g) || [];
   assert.ok(dialogs.length >= 7);
   dialogs.forEach(dialog => assert.match(dialog, /aria-labelledby="[^"]+"/));
@@ -243,6 +261,19 @@ test("la PWA reste portable quel que soit le nom du dépôt", () => {
   vm.runInNewContext(`${worker}\n;globalThis.__home = APP_HOME; globalThis.__assets = STATIC_ASSETS;`, context);
   assert.equal(context.__home, "https://example.test/depot-renomme/");
   assert.ok(context.__assets.every(asset => asset.startsWith(context.__home)));
+});
+
+test("la version publiée reste synchronisée dans tous les points d’entrée", () => {
+  const version = fs.readFileSync(new URL("../VERSION", import.meta.url), "utf8").trim();
+  const config = fs.readFileSync(new URL("../config.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const worker = fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  const manifest = JSON.parse(fs.readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+  assert.ok(config.includes(`version: "${version}"`));
+  assert.ok(html.includes(`icon.svg?v=${version}`));
+  assert.ok(worker.includes(`kulturo-static-v${version}`));
+  assert.ok(manifest.icons.every(icon => icon.src.endsWith(`?v=${version}`)));
 });
 
 test("le premier démarrage hors ligne précharge tout le shell local", () => {
@@ -298,6 +329,18 @@ test("l’onglet Sorties vit dans son module dédié", () => {
   assert.match(upcoming, /function renderUpcoming\(/);
   assert.equal(upcoming.includes("upcomingIdx"), false);
   assert.match(upcoming, /data-upcoming-key/);
+});
+
+test("les fiches média vivent dans leur module dédié", () => {
+  const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const detail = fs.readFileSync(new URL("../features/media-detail.js", import.meta.url), "utf8");
+  assert.match(app, /createMediaDetailFeature/);
+  assert.doesNotMatch(app, /function renderDetailPanel\(/);
+  assert.doesNotMatch(app, /function openDetailPanel\(/);
+  assert.match(detail, /function renderDetailPanel\(/);
+  assert.match(detail, /function openDetailPanel\(/);
+  assert.match(detail, /function refreshDetailEnrichment\(/);
+  assert.match(detail, /function startDetailCoverOpen\(/);
 });
 
 test("l’interface générée ne contient plus de gestionnaire d’événement inline", () => {

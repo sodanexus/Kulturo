@@ -5,7 +5,8 @@ import {
 } from "../domain.js";
 import { exploredGenres, repeatCountForPeriod } from "./insights.js";
 import { patchKeyedSurface } from "./dom-updates.js";
-import { errorState, loadingState } from "./ui-states.js";
+import { errorState, loadingState, setButtonBusy } from "./ui-states.js";
+import { createAsyncGate } from "./async-gate.js";
 export const LAST_BACKUP_KEY = "kulturo-last-backup";
 
 export function formatLastBackup() {
@@ -25,6 +26,7 @@ export function createProfileFeature({
   updateCategoryTabs, renderCards, updateFilterToggleLabel,
   safeMediaUrl, esc, uiAction, iconMedia, iconStatus, iconUser,
   ratingScoreHTML, replayMotion, hydrateFadeImages, toast,
+  getCurrentPage, onContextChange, onViewReady,
 }) {
   const _profileToday = new Date();
   let _profileYear = _profileToday.getFullYear();
@@ -33,6 +35,7 @@ export function createProfileFeature({
   let _profileMedia = "all";
   let _profileMonthAutoResolve = true;
   const _profileNumberValues = new Map();
+  const renderGate = createAsyncGate();
   const PROFILE_MEDIA_OPTIONS = [
     ["all", "Tout"],
     ["film", "Films"],
@@ -121,6 +124,7 @@ export function createProfileFeature({
     if (!Number.isFinite(year)) return;
     _profileYear = year;
     _profileMonthAutoResolve = false;
+    onContextChange?.();
     renderDashboard();
   }
 
@@ -129,6 +133,7 @@ export function createProfileFeature({
     if (!/^(0[1-9]|1[0-2])$/.test(normalized)) return;
     _profileMonth = normalized;
     _profileMonthAutoResolve = false;
+    onContextChange?.();
     renderDashboard();
   }
 
@@ -136,12 +141,14 @@ export function createProfileFeature({
     if (!['year', 'month'].includes(period) || period === _profilePeriod) return;
     _profilePeriod = period;
     if (period === "month") _profileMonthAutoResolve = true;
+    onContextChange?.();
     renderDashboard();
   }
 
   function setProfileMedia(media) {
     if (!PROFILE_MEDIA_OPTIONS.some(([value]) => value === media) || media === _profileMedia) return;
     _profileMedia = media;
+    onContextChange?.();
     renderDashboard();
   }
 
@@ -209,7 +216,8 @@ export function createProfileFeature({
 
   async function renderDashboard() {
     const container = document.getElementById("dashboard-content");
-    if (!container) return;
+    if (!container || getCurrentPage?.() !== "dashboard") return;
+    const task = renderGate.begin();
 
     if (!State.entries.length && State.libraryStatus === "error") {
       container.innerHTML = errorState({
@@ -217,6 +225,8 @@ export function createProfileFeature({
         message: "Impossible de charger vos médias pour afficher vos statistiques.",
         actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryProfile") + '>Réessayer</button>',
       });
+      renderGate.finish(task);
+      onViewReady?.("dashboard");
       return;
     }
     if (!container.children.length && (State.journalDirty || (State.user && State.username === null))) {
@@ -224,14 +234,17 @@ export function createProfileFeature({
     }
 
     if (State.journalDirty) await refreshJournalEvents({ silent: true });
+    if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "dashboard") return;
 
     // Charge le username AVANT le rendu pour éviter le flash
     if (State.user && State.username === null) {
       try {
-        const p = await Profiles.get(State.user.id);
+        const p = await Profiles.get(State.user.id, { signal: task.signal });
+        if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "dashboard") return;
         State.username = p?.username || "";
       } catch {}
     }
+    if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "dashboard") return;
     const cachedUsername = State.username || "";
 
     const all = State.entries;
@@ -468,7 +481,7 @@ export function createProfileFeature({
               <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
               <div class="profile-username-row">
                 <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
-                <button class="btn btn-primary btn-sm" ${uiAction("saveUsername")}>Enregistrer</button>
+                <button class="btn btn-primary btn-sm" ${uiAction("saveUsername", [], { control: true })}>Enregistrer</button>
               </div>
             </div>
           </div>
@@ -497,17 +510,26 @@ export function createProfileFeature({
     });
     animateProfileNumbers(container);
     hydrateFadeImages(container);
+    renderGate.finish(task);
+    onViewReady?.("dashboard");
   }
 
-  async function saveUsername() {
+  async function saveUsername(button = null) {
     const val = document.getElementById("input-username")?.value?.trim();
     if (!val) { toast("Le pseudo ne peut pas être vide.", "error"); return; }
+    if (button?.disabled) return;
+    const owner = State.user?.id;
+    if (!owner) return;
+    setButtonBusy(button, true);
     try {
-      await Profiles.upsert(State.user.id, val);
+      await Profiles.upsert(owner, val);
+      if (String(State.user?.id || "") !== String(owner)) return;
       State.username = val;
       toast("Pseudo enregistré ✓", "success");
     } catch (e) {
-      toast("Erreur : " + e.message, "error");
+      if (String(State.user?.id || "") === String(owner)) toast("Erreur : " + e.message, "error");
+    } finally {
+      if (button?.isConnected) setButtonBusy(button, false);
     }
   }
 
@@ -519,7 +541,28 @@ export function createProfileFeature({
       await reloadEntries();
       await renderDashboard();
     },
+    context() {
+      return { year: _profileYear, month: _profileMonth, period: _profilePeriod, media: _profileMedia };
+    },
+    restoreContext(value = {}) {
+      const year = Number.parseInt(value?.year, 10);
+      const month = String(value?.month || "").padStart(2, "0");
+      if (Number.isInteger(year) && year >= 1900 && year <= 2200) _profileYear = year;
+      if (/^(0[1-9]|1[0-2])$/.test(month)) _profileMonth = month;
+      if (["year", "month"].includes(value?.period)) _profilePeriod = value.period;
+      if (PROFILE_MEDIA_OPTIONS.some(([key]) => key === value?.media)) _profileMedia = value.media;
+      _profileMonthAutoResolve = false;
+    },
+    cancel() { renderGate.cancel(); },
     setProfileMedia, openProfileCollection, openRatingCollection, saveUsername,
-    reset() { _profileNumberValues.clear(); _profileMonthAutoResolve = true; },
+    reset() {
+      renderGate.cancel();
+      _profileNumberValues.clear();
+      _profileYear = _profileToday.getFullYear();
+      _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
+      _profilePeriod = "month";
+      _profileMedia = "all";
+      _profileMonthAutoResolve = true;
+    },
   };
 }

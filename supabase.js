@@ -66,6 +66,11 @@ async function requireCurrentUser() {
   return user;
 }
 
+function withAbortSignal(query, signal) {
+  if (signal?.aborted) throw new DOMException("Chargement annulé", "AbortError");
+  return signal && typeof query?.abortSignal === "function" ? query.abortSignal(signal) : query;
+}
+
 // ── Media CRUD ───────────────────────────────────────────────
 export const Media = {
   async getAll(filters = {}) {
@@ -88,6 +93,7 @@ export const Media = {
     const sort = sortMap[filters.sort] || sortMap.created_at;
     q = q.order(sort.col, { ascending: sort.asc });
 
+    q = withAbortSignal(q, filters.signal);
     const { data, error } = await q;
     if (error) throw error;
     return data || [];
@@ -138,12 +144,14 @@ export const Media = {
 
 // ── Profiles ─────────────────────────────────────────────────
 export const Profiles = {
-  async get(userId) {
-    const { data, error } = await _client
+  async get(userId, options = {}) {
+    let query = _client
       .from("profiles")
       .select("id, username")
       .eq("id", userId)
       .maybeSingle();
+    query = withAbortSignal(query, options.signal);
+    const { data, error } = await query;
     if (error) throw error;
     return data || null;
   },
@@ -161,18 +169,20 @@ export const Profiles = {
 
 // ── Journal personnel ────────────────────────────────────────
 export const Journal = {
-  async getAll() {
+  async getAll(options = {}) {
     const user = await requireCurrentUser();
     const pageSize = 1000;
     const events = [];
 
     for (let from = 0; ; from += pageSize) {
-      const { data, error } = await _client
+      let query = _client
         .from("media_events")
         .select("id, media_id, event_type, occurred_at, metadata")
         .eq("user_id", user.id)
         .order("occurred_at", { ascending: false })
         .range(from, from + pageSize - 1);
+      query = withAbortSignal(query, options.signal);
+      const { data, error } = await query;
       if (error) throw error;
       events.push(...(data || []));
       if (!data || data.length < pageSize) break;
@@ -230,10 +240,11 @@ export const Backup = {
 // ── Activité communautaire ──────────────────────────────────
 // La fonction SQL ne renvoie que les champs explicitement partageables.
 export const Activity = {
-  async getFeed(limit = 50) {
+  async getFeed(limit = 50, options = {}) {
     const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
-    const { data, error } = await _client
-      .rpc("get_activity_feed", { p_limit: safeLimit });
+    let query = _client.rpc("get_activity_feed", { p_limit: safeLimit });
+    query = withAbortSignal(query, options.signal);
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   },

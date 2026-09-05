@@ -23,7 +23,8 @@ function monthLabel(monthKey) {
   return label[0].toUpperCase() + label.slice(1);
 }
 
-export function createJournalNavigation() {
+export function createJournalNavigation(options = {}) {
+  const onChange = typeof options.onChange === "function" ? options.onChange : () => {};
   let mode = readInitialMode();
   const periods = {
     personal: { target: "all", keys: [] },
@@ -62,6 +63,7 @@ export function createJournalNavigation() {
     if (!JOURNAL_MODES.has(nextMode) || nextMode === mode) return false;
     mode = nextMode;
     try { localStorage.setItem(MODE_STORAGE_KEY, nextMode); } catch {}
+    onChange();
     return true;
   }
 
@@ -86,7 +88,7 @@ export function createJournalNavigation() {
       if (Number.isNaN(date.getTime())) return null;
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     }).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-    if (state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
+    if (state.keys.length && state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
     if (targetMode !== mode) return;
 
     const select = document.getElementById("journal-month-select");
@@ -104,6 +106,7 @@ export function createJournalNavigation() {
     const state = periodState();
     if (value !== "all" && !state.keys.includes(value)) return;
     state.target = value;
+    onChange();
     const select = document.getElementById("journal-month-select");
     if (select) select.value = value;
     syncTimeButtons();
@@ -145,6 +148,7 @@ export function createJournalNavigation() {
     content.inert = !expanded;
     if (expanded) expandedGroups.add(key);
     else expandedGroups.delete(key);
+    onChange();
   }
 
   function bind(root, handlers = {}) {
@@ -188,5 +192,30 @@ export function createJournalNavigation() {
     syncMode,
     syncTimeline,
     toggleGroup,
+    context() {
+      return {
+        mode,
+        periods: {
+          personal: periods.personal.target,
+          community: periods.community.target,
+        },
+        expandedGroups: [...expandedGroups].slice(-40),
+      };
+    },
+    restoreContext(value = {}) {
+      if (JOURNAL_MODES.has(value?.mode)) mode = value.mode;
+      for (const targetMode of JOURNAL_MODES) {
+        const target = value?.periods?.[targetMode];
+        if (target === "all" || /^\d{4}-(0[1-9]|1[0-2])$/.test(String(target || ""))) {
+          periods[targetMode].target = target;
+        }
+      }
+      expandedGroups.clear();
+      (Array.isArray(value?.expandedGroups) ? value.expandedGroups : [])
+        .filter(key => typeof key === "string" && key.length <= 180)
+        .slice(-40)
+        .forEach(key => expandedGroups.add(key));
+      try { localStorage.setItem(MODE_STORAGE_KEY, mode); } catch {}
+    },
   };
 }

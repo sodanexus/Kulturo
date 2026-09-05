@@ -2,6 +2,22 @@
 
 [Revenir à la présentation](README.md)
 
+## 3.4.8
+
+- Les chargements de la Bibliothèque, du Journal, de la Communauté, du Profil et des Sorties possèdent désormais un cycle de vie explicite : la requête précédente est annulée et une réponse tardive ne peut plus modifier l’état ou le DOM.
+- Les lectures Supabase et les trois catalogues de Sorties reçoivent réellement le signal d’annulation ; les demandes simultanées du Journal partagent la même requête.
+- La reconnexion protège aussi le changement de compte afin qu’une ancienne session ne puisse pas remplacer la nouvelle interface.
+- L’actualisation restaure l’onglet, la recherche, les filtres, le tri, la densité, la période du Profil, le mois des deux Journaux, les groupes ouverts, les filtres de Sorties et la position propre à chaque page.
+- La page mémorisée réapparaît immédiatement depuis le cache local, pendant que Supabase confirme discrètement les données en arrière-plan.
+- La fiche média quitte `app.js` : rendu, enrichissement, métadonnées cliquables, actions rapides, synopsis, ressources et transition de jaquette sont réunis dans `features/media-detail.js`.
+- `app.js` passe d’environ 4 770 à 3 750 lignes sans modifier le parcours d’ajout ou de modification.
+- La barre supérieure signale les validations réseau en arrière-plan ; l’ajout Wishlist, la connexion et le pseudo affichent un état occupé cohérent.
+- Les notifications identiques sont regroupées, limitées à trois et restent plus longtemps visibles lorsqu’elles signalent une erreur.
+- Un fichier `VERSION` et `scripts/release.mjs` contrôlent les numéros, la syntaxe, les tests et le shell hors ligne avant de produire une archive ZIP reproductible sans dépendance npm.
+- Les tests protègent désormais la concurrence asynchrone et l’extraction complète des fiches média.
+
+**Mise à jour depuis 3.4.6 ou 3.4.7 :** aucun changement SQL ni redéploiement de fonction Edge.
+
 ## 3.4.7
 
 - États de chargement, d’erreur et de collection vide partagés par la Bibliothèque, les Sorties et le Journal.
