@@ -11,7 +11,7 @@ export function createJournalFeature({
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
   STATUS_LABELS, confirmDialog, toast, openDetailPanel, renderDetailPanel,
-  getCurrentPage, onContextChange, onViewReady,
+  getCurrentPage, onContextChange, onViewReady, sameOwner,
 }) {
   try {
     localStorage.removeItem("kulturo-journal-view");
@@ -151,7 +151,7 @@ export function createJournalFeature({
         </div>
         ${favorite ? `
           <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" data-journal-action="open-personal" data-media-id="${esc(favorite.id)}">
-            ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
+            ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
             <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
             ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
           </button>` : `<p class="journal-month-no-favorite">Aucun média actuellement terminé à mettre en avant ce mois.</p>`}
@@ -163,7 +163,7 @@ export function createJournalFeature({
     if (!entry) return "";
     const coverUrl = safeMediaUrl(entry.cover_url);
     return coverUrl
-      ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image data-image-fallback="hide" class="fade-image">`
+      ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async" data-fade-image data-image-fallback="hide" class="fade-image">`
       : `<span aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`;
   }
 
@@ -194,7 +194,7 @@ export function createJournalFeature({
     const presentation = journalEventPresentation(event, entry);
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
-      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
+      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async">`
       : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
     const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
     const tone = journalActionTone(event.event_type, metadata);
@@ -237,16 +237,20 @@ export function createJournalFeature({
       "danger",
     );
     if (!confirmed) return;
+    const owner = State.user?.id;
+    if (!owner) return;
 
     const rows = [...document.querySelectorAll("[data-journal-event-id]")]
       .filter(row => row.dataset.journalEventId === id);
     rows.forEach(row => row.classList.add("is-removing"));
     try {
       const updated = await Journal.hide(id, journalEvent.metadata || {});
+      if (!sameOwner(owner, State.user?.id)) return;
       Object.assign(journalEvent, updated);
       setTimeout(() => renderCurrentJournalView(), 150);
       toast("Événement retiré du Journal", "info");
     } catch (error) {
+      if (!sameOwner(owner, State.user?.id)) return;
       rows.forEach(row => row.classList.remove("is-removing"));
       const permissionMissing = /permission|policy|row-level|42501/i.test(String(error?.message || ""));
       toast(permissionMissing
@@ -338,7 +342,7 @@ export function createJournalFeature({
     const status = STATUS_LABELS[entry.status] || "Ajouté";
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
-      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy">`
+      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async">`
       : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
     const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
     const tone = journalActionTone("added", { status: entry.status });

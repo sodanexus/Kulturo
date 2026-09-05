@@ -307,7 +307,7 @@ export function createProfileFeature({
             <button type="button" class="profile-top-card" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" ${uiAction("openEditModal", [entry.id], { control: true })} aria-label="Ouvrir ${esc(entry.title)}">
               <span class="profile-top-rank">${index + 1}</span>
               <span class="profile-top-cover">
-                ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
+                ${coverUrl ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">` : `<span>${iconMedia(entry.media_type, entry.subtype)}</span>`}
               </span>
               <strong>${esc(entry.title)}</strong>
               <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
@@ -488,7 +488,7 @@ export function createProfileFeature({
           <div class="profile-backup-panel">
             <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
             <div class="profile-backup-actions">
-              <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary")}>↓ Sauvegarder</button>
+              <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary", [], { control: true })}>↓ Sauvegarder</button>
               <button class="btn btn-secondary btn-sm" id="backup-restore-picker" ${uiAction("chooseBackupFile")}>↑ Restaurer</button>
               <input class="sr-only" id="backup-import-input" type="file" accept=".json,application/json" ${uiAction("previewBackupRestore", [], { change: true, control: true })} />
             </div>

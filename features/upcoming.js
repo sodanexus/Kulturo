@@ -14,7 +14,7 @@ export function createUpcomingFeature(dependencies) {
     GoogleBooks,
     getCurrentPage,
     normalizeTitle,
-    normalizedSubtype,
+    sameMediaIdentity,
     formatReleaseDate,
     findMatchingEntry,
     safeMediaUrl,
@@ -45,6 +45,7 @@ export function createUpcomingFeature(dependencies) {
     clearApiCache,
     onContextChange,
     onViewReady,
+    sameOwner,
   } = dependencies;
 
 // ── Prochaines sorties ────────────────────────────────────────
@@ -111,6 +112,7 @@ const UpcomingState = {
   loadingToken: null,
 };
 const renderGate = createAsyncGate();
+const releaseSyncGate = createAsyncGate();
 
 function daysUntilRelease(value, precision = "day") {
   if (!value || precision !== "day") return null;
@@ -132,21 +134,7 @@ function releaseDayDelta(value) {
 }
 
 function upcomingMatchesEntry(item, entry) {
-  if (!item || !entry || upcomingMediaTypeOf(item) !== entry.media_type) return false;
-  const itemSubtype = normalizedSubtype({ ...item, media_type: upcomingMediaTypeOf(item) });
-  const entrySubtype = normalizedSubtype(entry);
-  if (itemSubtype !== entrySubtype) return false;
-
-  if (item.external_id && entry.external_id && item.source_api === entry.source_api) {
-    return String(item.external_id) === String(entry.external_id);
-  }
-
-  if (normalizeTitle(item.title) !== normalizeTitle(entry.title)) return false;
-  const itemYear = Number(item.release_year) || null;
-  const entryYear = Number(entry.release_year) || null;
-  if (itemYear && entryYear && itemYear !== entryYear) return false;
-  if (item.author && entry.author && normalizeTitle(item.author) !== normalizeTitle(entry.author)) return false;
-  return true;
+  return sameMediaIdentity({ ...item, media_type: upcomingMediaTypeOf(item) }, entry);
 }
 
 function matchingUpcomingResult(entry) {
@@ -195,7 +183,7 @@ function awaitedReleaseCardHTML(entry) {
   const timing = awaitedReleaseTiming(entry);
   const coverUrl = safeMediaUrl(entry.cover_url);
   const cover = coverUrl
-    ? `<img class="awaited-release-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy">
+    ? `<img class="awaited-release-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(entry.title)}" loading="lazy" decoding="async">
        <span class="awaited-release-placeholder" style="display:none">${typeMeta.icon}</span>`
     : `<span class="awaited-release-placeholder">${typeMeta.icon}</span>`;
   return `
@@ -258,6 +246,10 @@ let _wishlistReleaseSyncTimer = 0;
 function scheduleWishlistReleaseDateSync() {
   clearTimeout(_wishlistReleaseSyncTimer);
   _wishlistReleaseSyncTimer = setTimeout(async () => {
+    _wishlistReleaseSyncTimer = 0;
+    const owner = State.user?.id;
+    if (!owner) return;
+    const task = releaseSyncGate.begin();
     const candidates = State.entries
       .filter(entry => entry.status === "wishlist")
       .map(entry => ({ entry, live: matchingUpcomingResult(entry) }))
@@ -275,25 +267,37 @@ function scheduleWishlistReleaseDateSync() {
         _wishlistReleaseSyncAttempts.add(syncKey);
         return true;
       });
-    if (!candidates.length) return;
+    if (!candidates.length) {
+      releaseSyncGate.finish(task);
+      return;
+    }
 
     const results = await Promise.allSettled(candidates.map(async ({ entry, live }) => {
       const changes = {
         release_date: live.release_date,
         release_date_precision: live.date_precision === "month" ? "month" : "day",
       };
-      const updated = await Media.update(entry.id, changes);
+      const updated = await Media.update(entry.id, changes, { signal: task.signal });
+      if (!sameOwner(owner, State.user?.id)) return false;
+      const latest = matchingUpcomingResult(entry);
+      if (latest?.release_date !== changes.release_date ||
+          (latest.date_precision === "month" ? "month" : "day") !== changes.release_date_precision) return false;
       Object.assign(entry, updated);
+      return true;
     }));
-    if (results.some(result => result.status === "fulfilled")) {
+    const savedAny = results.some(result => result.status === "fulfilled" && result.value === true);
+    if (sameOwner(owner, State.user?.id) && savedAny) {
       cacheEntriesLocally();
-      renderAwaitedReleases();
+      if (getCurrentPage() === "upcoming") renderAwaitedReleases();
     }
     results.forEach((result, index) => {
-      if (result.status !== "rejected") return;
+      if (result.status === "fulfilled" && result.value === true) return;
       _wishlistReleaseSyncAttempts.delete(candidates[index].syncKey);
-      console.warn("[Sorties] Date de wishlist non sauvegardée :", result.reason);
+      if (result.status === "rejected" && result.reason?.name !== "AbortError") {
+        console.warn("[Sorties] Date de wishlist non sauvegardée :", result.reason);
+      }
     });
+    releaseSyncGate.finish(task);
   }, 90);
 }
 
@@ -598,7 +602,7 @@ function upcomingCardHTML(it) {
   const secondary = type === "book" ? it.author : (type === "game" ? it.platform : null);
   const coverUrl = safeMediaUrl(it.cover_url);
   const cover = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy">
+    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(it.title)}" loading="lazy" decoding="async">
        <span class="card-cover-placeholder" style="display:none">${typeMeta.icon}</span>`
     : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
 
@@ -619,6 +623,8 @@ function upcomingCardHTML(it) {
 async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
   const it = UpcomingState.results.find(item => upcomingKeyOf(item) === upcomingKey);
   if (!it || isUpcomingInLibrary(it)) return;
+  const owner = State.user?.id;
+  if (!owner) return;
   const addingKey = upcomingKeyOf(it);
   if (UpcomingState.adding.has(addingKey)) return;
   UpcomingState.adding.add(addingKey);
@@ -647,6 +653,7 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
 
   try {
     const created = await Media.create(payload);
+    if (!sameOwner(owner, State.user?.id)) return;
     State.entries.unshift(created);
     cacheEntriesLocally();
     markJournalDirty();
@@ -655,10 +662,10 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
     toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
     if (closeAfter) closeModal();
   } catch (e) {
-    toast("Erreur : " + e.message, "error");
+    if (sameOwner(owner, State.user?.id)) toast("Erreur : " + e.message, "error");
   } finally {
     UpcomingState.adding.delete(addingKey);
-    if (getCurrentPage() === "upcoming") renderUpcomingCards();
+    if (sameOwner(owner, State.user?.id) && getCurrentPage() === "upcoming") renderUpcomingCards();
   }
 }
 
@@ -758,6 +765,18 @@ function resetUpcomingFilters() {
     return renderUpcoming(true);
   }
 
+  function cancelUpcoming() {
+    renderGate.cancel();
+    releaseSyncGate.cancel();
+    clearTimeout(_wishlistReleaseSyncTimer);
+    _wishlistReleaseSyncTimer = 0;
+    if (UpcomingState.loading) {
+      UpcomingState.loading = false;
+      loadingDone(UpcomingState.loadingToken);
+      UpcomingState.loadingToken = null;
+    }
+  }
+
   return {
     render: renderUpcoming,
     renderCards: renderUpcomingCards,
@@ -778,13 +797,15 @@ function resetUpcomingFilters() {
       if (typeof value?.genre === "string" && value.genre.length <= 120) UpcomingState.genre = value.genre || "all";
       if (typeof value?.hideAdded === "boolean") UpcomingState.hideAdded = value.hideAdded;
     },
-    cancel() {
-      renderGate.cancel();
-      if (UpcomingState.loading) {
-        UpcomingState.loading = false;
-        loadingDone(UpcomingState.loadingToken);
-        UpcomingState.loadingToken = null;
-      }
+    cancel: cancelUpcoming,
+    reset() {
+      cancelUpcoming();
+      UpcomingState.results = [];
+      UpcomingState.sourceResults = {};
+      UpcomingState.sourceStatus = {};
+      UpcomingState.loaded = false;
+      UpcomingState.adding.clear();
+      _wishlistReleaseSyncAttempts.clear();
     },
   };
 }

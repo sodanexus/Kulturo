@@ -19,7 +19,7 @@ export function createMediaDetailFeature({
   pushHistoryLayer, syncSystemBar, getCurrentPage, hydrateFadeImages,
   setupMobileSheetSwipe, closeModal, syncDialogBackground, historyOwnsLayer,
   updateBadges, markJournalDirty, renderCards, renderUpcomingCards, toast,
-  launchConfetti, markModalPristine,
+  launchConfetti, markModalPristine, sameOwner,
 }) {
 function canEnrichMediaDetails(entry) {
   if (!entry) return false;
@@ -38,6 +38,8 @@ function canResolveMediaIdentity(entry) {
 
 async function repairMissingTMDbIdentity(entry, options = {}) {
   if (!canResolveMediaIdentity(entry)) return false;
+  const owner = options.owner || State.user?.id;
+  if (!owner) return false;
   const expectedSubtype = entry.subtype === "tv" ? "tv" : "movie";
   const expectedTitle = normalizeTitle(entry.title);
   const expectedYear = Number(entry.release_year) || null;
@@ -50,6 +52,7 @@ async function repairMissingTMDbIdentity(entry, options = {}) {
     ? exactMatches.find(candidate => Number(candidate.release_year) === expectedYear)
     : null) || (!expectedYear ? exactMatches[0] : null);
   if (!match) return false;
+  if (options.signal?.aborted || !sameOwner(owner, State.user?.id)) return false;
 
   const identity = {
     external_id: match.external_id,
@@ -58,7 +61,8 @@ async function repairMissingTMDbIdentity(entry, options = {}) {
   ["subtype", "release_year", "cover_url", "genre", "description"].forEach(field => {
     if (!entry[field] && match[field] != null) identity[field] = match[field];
   });
-  const updated = await Media.update(entry.id, identity);
+  const updated = await Media.update(entry.id, identity, { signal: options.signal });
+  if (options.signal?.aborted || !sameOwner(owner, State.user?.id)) return false;
   Object.assign(entry, updated);
   cacheEntriesLocally();
 
@@ -359,7 +363,7 @@ function renderDetailPanel(e, options = {}) {
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" data-fade-image data-image-fallback="hide">`
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" decoding="async" data-fade-image data-image-fallback="hide">`
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
@@ -564,7 +568,7 @@ function openMetadataFromElement(element) {
     return `
       <button type="button" class="metadata-media-row" data-media-id="${esc(entry.id)}" data-prefetch-media="${esc(entry.id)}" ${uiAction("openMetadataMedia", [entry.id])}>
         ${coverUrl
-          ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" data-fade-image class="fade-image">`
+          ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">`
           : `<span class="metadata-media-cover" aria-hidden="true">${iconMedia(entry.media_type, entry.subtype)}</span>`}
         <span class="metadata-media-copy">
           <strong>${esc(entry.title)}</strong>
@@ -642,6 +646,9 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
 
 function openMetadataMedia(id) {
   if (!State.entries.some(entry => entry.id === id)) return;
+  // La seconde fiche n'a pas été ouverte depuis la jaquette d'origine : la
+  // faire repartir vers cette ancienne carte produirait un trajet trompeur.
+  if (_activeDetailCoverTransition?.mediaId !== String(id)) _activeDetailCoverTransition = null;
   closeMetadataPanel({ restoreFocus: false });
   setTimeout(() => openDetailPanel(id), 190);
 }
@@ -909,6 +916,8 @@ function syncOpenDetail(entry, feedback = "") {
 async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
   const entry = State.entries.find(item => item.id === id);
   if (!entry || entry._quickSaving) return null;
+  const owner = State.user?.id;
+  if (!owner) return null;
   entry._quickSaving = true;
 
   const panel = document.getElementById(`detail-quick-actions-${id}`);
@@ -919,6 +928,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
 
   try {
     const updated = await Media.update(id, changes);
+    if (!sameOwner(owner, State.user?.id)) return null;
     Object.assign(entry, updated);
     cacheEntriesLocally();
     markJournalDirty();
@@ -928,6 +938,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     syncOpenDetail(entry, feedback);
     return entry;
   } catch (error) {
+    if (!sameOwner(owner, State.user?.id)) return null;
     const migrationMissing = Object.prototype.hasOwnProperty.call(changes, "repeat_count") &&
       /repeat_count|schema cache/i.test(String(error?.message || ""));
     toast(
@@ -1129,11 +1140,15 @@ function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(
 async function openDetailPanel(id, options = {}) {
   const e = State.entries.find(x => x.id === id);
   if (!e) return;
+  const detailOwner = State.user?.id;
+  if (!detailOwner) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
   const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
   const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
   const detailSignal = detailSessions.signal(detailSessionId);
+  const ownsDetailSession = () => sameOwner(detailOwner, State.user?.id) &&
+    detailSessions.isActive(detailSessionId, e.id);
   _scheduleSynopsisOverflowCheck(e.id);
 
   // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
@@ -1152,29 +1167,30 @@ async function openDetailPanel(id, options = {}) {
     // réparer Fight Club et les fiches équivalentes sans associer une œuvre au hasard.
     if (canResolveMediaIdentity(e)) {
       try {
-        await repairMissingTMDbIdentity(e, { signal: detailSignal });
+        await repairMissingTMDbIdentity(e, { signal: detailSignal, owner: detailOwner });
       } catch (error) {
         if (error?.name !== "AbortError") console.warn("[Detail] identity repair error:", error);
       }
-      if (!detailSessions.isActive(detailSessionId, e.id)) return;
+      if (!ownsDetailSession()) return;
     }
 
     // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on
     // retente d'abord exactement ces champs sans refaire ni écraser les saisies.
     if (e._detailsPending && Object.keys(e._detailsPending).length) {
       try {
-        const updated = await Media.update(e.id, e._detailsPending);
+        const updated = await Media.update(e.id, e._detailsPending, { signal: detailSignal });
+        if (!ownsDetailSession()) return;
         Object.assign(e, updated);
         delete e._detailsPending;
         e._detailsFetched = true;
         cacheEntriesLocally();
       } catch (error) {
-        console.warn("[Detail] persistence retry error:", error);
-        if (detailSessions.isActive(detailSessionId, e.id)) {
+        if (error?.name !== "AbortError") console.warn("[Detail] persistence retry error:", error);
+        if (error?.name !== "AbortError" && ownsDetailSession()) {
           toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
         }
       }
-      if (detailSessions.isActive(detailSessionId, e.id)) {
+      if (ownsDetailSession()) {
         _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
         if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
       }
@@ -1182,7 +1198,7 @@ async function openDetailPanel(id, options = {}) {
     }
 
     if (!canEnrichMediaDetails(e)) {
-      if (detailSessions.isActive(detailSessionId, e.id)) {
+      if (ownsDetailSession()) {
         refreshDetailEnrichment(e, { detailsLoading: false });
       }
       return;
@@ -1194,7 +1210,7 @@ async function openDetailPanel(id, options = {}) {
       fresh: refreshBackdrop,
       signal: detailSignal,
     });
-    if (!detailSessions.isActive(detailSessionId, e.id)) return;
+    if (!ownsDetailSession()) return;
 
     if (!details) {
       refreshDetailEnrichment(e, { detailsLoading: false });
@@ -1207,14 +1223,15 @@ async function openDetailPanel(id, options = {}) {
     let persisted = true;
     if (Object.keys(toSave).length) {
       try {
-        const updated = await Media.update(e.id, toSave);
+        const updated = await Media.update(e.id, toSave, { signal: detailSignal });
+        if (!ownsDetailSession()) return;
         Object.assign(e, updated);
         cacheEntriesLocally();
       } catch (error) {
         persisted = false;
         e._detailsPending = { ...toSave };
-        console.warn("[Detail] persistence error:", error);
-        if (detailSessions.isActive(detailSessionId, e.id)) {
+        if (error?.name !== "AbortError") console.warn("[Detail] persistence error:", error);
+        if (error?.name !== "AbortError" && ownsDetailSession()) {
           toast("Détails affichés, mais leur sauvegarde a échoué.", "error");
         }
       }
@@ -1233,7 +1250,7 @@ async function openDetailPanel(id, options = {}) {
 
   } catch(err) {
     if (err?.name !== "AbortError") console.warn("[Detail] fetch error:", err);
-    if (detailSessions.isActive(detailSessionId, e.id)) {
+    if (ownsDetailSession()) {
       refreshDetailEnrichment(e, { detailsLoading: false });
     }
   } finally {

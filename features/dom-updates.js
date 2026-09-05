@@ -13,6 +13,7 @@ export function reconcileKeyedChildren(container, items, options) {
   const { key, create, update } = options;
   const existing = new Map([...container.children].map(node => [node.dataset.key || node.dataset.id, node]));
   const keep = new Set();
+  let cursor = container.firstElementChild;
 
   items.forEach((item, index) => {
     const itemKey = String(key(item));
@@ -26,7 +27,11 @@ export function reconcileKeyedChildren(container, items, options) {
       node.addEventListener("animationend", () => node.classList.remove("is-locally-added"), { once: true });
     }
     keep.add(itemKey);
-    container.appendChild(node);
+    // Ne déplacer que les nœuds réellement désordonnés. appendChild sur
+    // chaque élément détachait aussi toutes les cartes déjà à leur place,
+    // relançant peinture et décodage des jaquettes à chaque rendu.
+    if (node !== cursor) container.insertBefore(node, cursor);
+    cursor = node.nextElementSibling;
   });
 
   existing.forEach((node, nodeKey) => {
@@ -39,9 +44,13 @@ export function patchKeyedSurface(container, html) {
   const template = document.createElement("template");
   template.innerHTML = String(html || "").trim();
   const nextNodes = [...template.content.children];
-  const current = new Map([...container.children].map(node => [node.dataset.uiKey || node.id, node]));
-  const kept = new Set();
+  const currentNodes = [...container.children];
+  const current = new Map(currentNodes
+    .map(node => [node.dataset.uiKey || node.id, node])
+    .filter(([key]) => Boolean(key)));
+  const keptNodes = new Set();
   const changed = [];
+  let cursor = container.firstElementChild;
   const stableMarkup = node => {
     const clone = node.cloneNode(true);
     clone.classList.remove("profile-block-enter");
@@ -55,28 +64,30 @@ export function patchKeyedSurface(container, html) {
   nextNodes.forEach(next => {
     const key = next.dataset.uiKey || next.id;
     if (!key) {
-      container.appendChild(next);
+      container.insertBefore(next, cursor);
+      cursor = next.nextElementSibling;
       changed.push(next);
       return;
     }
     const previous = current.get(key);
-    kept.add(key);
+    let node = next;
     if (previous && stableMarkup(previous) === stableMarkup(next)) {
-      container.appendChild(previous);
-      return;
+      node = previous;
+      keptNodes.add(previous);
+    } else {
+      if (previous?.matches("details[open]") && next.matches("details")) next.open = true;
+      const replacesCursor = previous === cursor;
+      if (previous) previous.replaceWith(next);
+      if (replacesCursor) cursor = next;
+      changed.push(next);
     }
-    if (previous?.matches("details[open]") && next.matches("details")) next.open = true;
-    // Toujours placer le bloc traité à la fin de la séquence courante. Un
-    // simple replaceWith conservait parfois son ancien index tandis que les
-    // blocs inchangés étaient déplacés, ce qui pouvait faire remonter
-    // l'histogramme du Profil au-dessus d'« En un coup d'œil ».
-    if (previous) previous.remove();
-    container.appendChild(next);
-    changed.push(next);
+
+    if (node !== cursor) container.insertBefore(node, cursor);
+    cursor = node.nextElementSibling;
   });
 
-  current.forEach((node, key) => {
-    if (key && !kept.has(key)) node.remove();
+  currentNodes.forEach(node => {
+    if (!keptNodes.has(node) && node.parentNode === container) node.remove();
   });
   return changed;
 }
