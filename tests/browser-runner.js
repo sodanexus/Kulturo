@@ -229,7 +229,6 @@ start.addEventListener("click", async () => {
     assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-ratings-card"), "Histogramme mal placé");
     action("setProfilePeriod", ["year"]).click();
     await waitFor(() => doc.querySelector(".profile-year-overview h2")?.textContent.includes("Votre année"), "Sélecteur annuel inactif");
-    await waitFor(() => doc.querySelector(".profile-retrospective"), "Rétrospective annuelle absente");
   });
 
   await test("Sorties : erreur puis récupération des cartes", async () => {

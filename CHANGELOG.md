@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.1
+
+- Le bloc **Rétrospective culturelle** est retiré du Profil afin d’éviter de répéter les statistiques annuelles déjà présentes dans les autres tuiles.
+- Son rendu, ses calculs, ses styles et ses tests spécifiques ont été supprimés avec lui : la vue annuelle reste plus légère sans conserver de code dormant.
+- Aucun changement SQL ni redéploiement de fonction Edge n’est nécessaire.
+
 ## 4.0.0
 
 - Kulturo adopte une architecture **local-first** : la bibliothèque et le Journal sont conservés dans IndexedDB, séparément pour chaque compte, et apparaissent avant la réponse du réseau.

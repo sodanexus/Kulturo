@@ -116,7 +116,7 @@ const server = http.createServer(async (request, response) => {
       relative = relative.slice(5) || "index.html";
       if (relative === "config.js") {
         response.writeHead(200, { "Content-Type": "text/javascript" });
-        return response.end('const CONFIG = { app: { version: "4.0.0-test" }, supabase: { url: "http://localhost.invalid", anonKey: "test" }, tmdb: { apiKey: "test" }, igdb: { clientId: "test" } };');
+        return response.end('const CONFIG = { app: { version: "4.0.1-test" }, supabase: { url: "http://localhost.invalid", anonKey: "test" }, tmdb: { apiKey: "test" }, igdb: { clientId: "test" } };');
       }
       if (relative === "supabase.js") relative = "tests/fixtures/backend.js";
       if (relative === "api.js") relative = "tests/fixtures/catalogues.js";

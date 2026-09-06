@@ -2,15 +2,15 @@
 
 [Revenir à la présentation](README.md)
 
-## Installer l’archive 4.0.0
+## Installer l’archive 4.0.1
 
-1. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.0.0**, en conservant les valeurs propres au projet dans `config.js`.
+1. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.0.1**, en conservant les valeurs propres au projet dans `config.js`.
 2. Conserver les dossiers `features/`, `styles/`, `src/`, `scripts/` et `.github/` ainsi que `package.json` et `package-lock.json` : ils font partie de l’application et de sa fabrication.
 3. Publier le dépôt, puis accepter le bandeau **Nouvelle version disponible** dans Kulturo. La base IndexedDB locale est créée automatiquement ; aucune donnée Supabase n’est déplacée.
 
 La source reste directement publiable depuis une branche GitHub Pages. Le mode recommandé est toutefois le workflow inclus : dans **Settings → Pages → Build and deployment**, sélectionner **GitHub Actions**. À chaque envoi sur `main`, il contrôle la version, exécute les tests, construit l’application avec Vite et publie exactement le dossier `dist`.
 
-**Depuis la 3.4.6, aucun nouveau SQL et aucun redéploiement de fonction Edge ne sont nécessaires pour la 4.0.0.**
+**Depuis la 3.4.6, aucun nouveau SQL et aucun redéploiement de fonction Edge ne sont nécessaires pour la 4.0.1.**
 
 ## Depuis une version antérieure à la 3.4.6
 
@@ -43,7 +43,7 @@ La version de ces fonctions reste indépendante de celle de l’interface. Les s
 
 ## Contrôle après publication
 
-- la version affichée dans **Profil → Compte et sauvegarde** est **4.0.0** ;
+- la version affichée dans **Profil → Compte et sauvegarde** est **4.0.1** ;
 - une actualisation retrouve la page, ses filtres, sa période et une éventuelle fiche ouverte ;
 - couper le réseau affiche la bibliothèque locale et l’indicateur **Hors connexion** ;
 - modifier un média hors ligne affiche un changement en attente, ensuite synchronisé au retour du réseau ;

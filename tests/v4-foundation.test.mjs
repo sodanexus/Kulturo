@@ -4,7 +4,6 @@ import fs from "node:fs";
 
 import { buildAppRoute, parseAppRoute } from "../features/app-route.js";
 import { createMediaRepository, mergeRemoteWithMutations } from "../features/media-repository.js";
-import { annualRetrospective } from "../features/insights.js";
 import { coalesceMutation } from "../features/local-database.js";
 
 function fakeDatabase(initialEntries = []) {
@@ -311,24 +310,13 @@ test("les courses créer-supprimer et supprimer-annuler possèdent une compensat
   assert.match(source, /current\.revision !== mutation\.revision[\s\S]+mutation\.operation === "delete"[\s\S]+current\.operation = "create"/);
 });
 
-test("la rétrospective sépare les œuvres terminées des reprises en cours", () => {
-  const entries = [
-    { id: "1", title: "Terminé", media_type: "book", status: "finished", rating: 8, is_favorite: true, genre: "SF" },
-    { id: "2", title: "Relancé", media_type: "movie", subtype: "movie", status: "playing", rating: 10, is_favorite: true, genre: "Drame" },
-    { id: "3", title: "Souhait", media_type: "game", status: "wishlist", genre: "RPG" },
-  ];
-  const events = [
-    { media_id: "1", event_type: "finished", occurred_at: "2026-02-01T10:00:00Z" },
-    { media_id: "2", event_type: "finished", occurred_at: "2026-03-01T10:00:00Z" },
-    { media_id: "2", event_type: "repeat_finished", occurred_at: "2026-04-01T10:00:00Z" },
-    { media_id: "3", event_type: "added", occurred_at: "2026-05-01T10:00:00Z" },
-  ];
-  const retrospective = annualRetrospective(entries, events, 2026);
-  assert.equal(retrospective.completed, 2);
-  assert.equal(retrospective.replayCount, 1);
-  assert.equal(retrospective.top.id, "1");
-  assert.equal(retrospective.genreCount, 2);
-  assert.equal(retrospective.dominantType, "film");
+test("le Profil 4.0.1 reste recentré sans code de rétrospective", () => {
+  const profile = fs.readFileSync(new URL("../features/profile.js", import.meta.url), "utf8");
+  const insights = fs.readFileSync(new URL("../features/insights.js", import.meta.url), "utf8");
+  const styles = fs.readFileSync(new URL("../styles/design-system-v4.css", import.meta.url), "utf8");
+  assert.doesNotMatch(profile, /retrospective/i);
+  assert.doesNotMatch(insights, /annualRetrospective/);
+  assert.doesNotMatch(styles, /profile-retrospective/);
 });
 
 test("le socle local définit des transactions atomiques et ses magasins isolés", () => {

@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.0.0
+## Version actuelle · 4.0.1
 
 La 4.0 rend Kulturo plus immédiat et plus fiable, sans changer ce qui faisait la simplicité de son interface.
 
@@ -39,7 +39,7 @@ La 4.0 rend Kulturo plus immédiat et plus fiable, sans changer ce qui faisait l
 - **Véritable mode hors connexion** — ajouts, modifications et suppressions restent utilisables ; les changements en attente repartent automatiquement lorsque le réseau revient.
 - **Navigation retrouvée** — page, recherche, filtres, période et fiche ouverte sont inscrits dans une URL portable et restaurés après actualisation.
 - **Gestes plus naturels** — transitions de page cohérentes, mouvement réduit respecté et suppression annulable pendant quelques secondes.
-- **Rétrospective annuelle** — le Profil transforme les statistiques de l’année en un récit compact : rythme, temps fort, terrains explorés et souvenir marquant.
+- **Profil recentré** — les vues mensuelle et annuelle conservent uniquement les statistiques utiles, sans répétition éditoriale.
 - **Fondations durables** — TypeScript et Vite encadrent désormais le build, avec versions verrouillées, contrôles automatisés et déploiement GitHub Pages reproductible.
 
 Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouveau format indique aussi si des changements locaux attendaient encore leur synchronisation au moment de l’export.
