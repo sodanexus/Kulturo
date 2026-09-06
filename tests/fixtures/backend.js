@@ -10,6 +10,14 @@ const user = { id: "00000000-0000-4000-8000-000000000001", email: "test@example.
 // Ce module est évalué avant app.js, qui lit certaines préférences dès son
 // import. Réinitialiser ici garantit l'indépendance des parcours successifs.
 {
+  const databaseMarker = `kulturo-test-database:${run}`;
+  if (sessionStorage.getItem(databaseMarker) !== "ready" && globalThis.indexedDB) {
+    await new Promise(resolve => {
+      const deletion = indexedDB.deleteDatabase("kulturo-local-v4");
+      deletion.onsuccess = deletion.onerror = deletion.onblocked = () => resolve();
+    });
+    sessionStorage.setItem(databaseMarker, "ready");
+  }
   for (const key of ["kulturo-nav", "kulturo-sort", "kulturo-library-density", "kulturo-journal-mode", "kulturo-upcoming-preferences-v2"]) localStorage.removeItem(key);
   sessionStorage.removeItem("kulturo-ui-snapshot-v2");
   sessionStorage.removeItem("kulturo-ui-snapshot-v3");

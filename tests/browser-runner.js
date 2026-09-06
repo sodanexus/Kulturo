@@ -12,7 +12,7 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 async function waitFor(check, message, timeout = 7000) {
   const deadline = performance.now() + timeout;
   while (performance.now() < deadline) {
-    const value = check();
+    const value = await check();
     if (value) return value;
     await new Promise(resolve => setTimeout(resolve, 25));
   }
@@ -181,7 +181,7 @@ start.addEventListener("click", async () => {
     await closeDetail();
   });
 
-  await test("Coupure pendant l'enregistrement : brouillon conservé puis nouvel essai", async () => {
+  await test("Coupure pendant l'enregistrement : changement local puis synchronisation automatique", async () => {
     await mount(390); await openFirst(); await edit();
     doc.querySelector("#f-favorite").click();
     await control({ failWrites: 1, writeDelay: 350 });
@@ -189,12 +189,28 @@ start.addEventListener("click", async () => {
     save.click();
     assert(save.disabled, "Double enregistrement possible");
     assert(Math.abs(save.getBoundingClientRect().width - width) < 1, "Le bouton change de largeur");
-    key("Escape");
-    await waitFor(() => !save.disabled, "Bouton bloqué après l'erreur réseau");
-    assert(doc.querySelector(".edit-modal") && doc.querySelector("#f-favorite").checked, "Brouillon perdu après la coupure");
+    await waitFor(() => doc.querySelector(".detail-modal"), "Le changement local n'a pas rouvert la fiche");
+    assert(doc.querySelector(".detail-fav").classList.contains("is-active"), "Le changement local n'est pas visible");
     assert((await control()).writes === 0, "Une écriture a eu lieu malgré la coupure");
-    save.click(); await waitFor(() => doc.querySelector(".detail-modal"), "Nouvel essai sans retour à la fiche");
-    assert((await control()).writes === 1, "Le nouvel essai a créé plusieurs écritures");
+    const network = doc.querySelector("#network-status");
+    assert(!network.hidden && /attente|indisponible/i.test(network.textContent), "Synchronisation en attente non signalée");
+    await waitFor(async () => (await control()).writes === 1, "La synchronisation automatique n'a pas repris", 5000);
+    await waitFor(() => doc.querySelector("#network-status").hidden, "L'indicateur reste visible après synchronisation");
+    await closeDetail();
+  });
+
+  await test("Actualiser une fiche retrouve exactement la page et le média", async () => {
+    await mount(768); const card = await openFirst();
+    const mediaId = card.dataset.id;
+    assert(win.location.hash.includes(`media-id=${encodeURIComponent(mediaId)}`), "La fiche n'est pas inscrite dans l'URL");
+    const loaded = new Promise(resolve => frame.addEventListener("load", resolve, { once: true }));
+    win.location.reload();
+    await loaded;
+    doc = frame.contentDocument; win = frame.contentWindow;
+    win.addEventListener("error", event => errors.push(event.message));
+    win.addEventListener("unhandledrejection", event => errors.push(String(event.reason)));
+    await waitFor(() => doc.querySelector(`.detail-modal[data-detail-media-id="${mediaId}"]`), "La fiche n'a pas été restaurée");
+    assert(doc.documentElement.dataset.page === "library", "La page d'origine n'a pas été restaurée");
     await closeDetail();
   });
 
@@ -213,6 +229,7 @@ start.addEventListener("click", async () => {
     assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-ratings-card"), "Histogramme mal placé");
     action("setProfilePeriod", ["year"]).click();
     await waitFor(() => doc.querySelector(".profile-year-overview h2")?.textContent.includes("Votre année"), "Sélecteur annuel inactif");
+    await waitFor(() => doc.querySelector(".profile-retrospective"), "Rétrospective annuelle absente");
   });
 
   await test("Sorties : erreur puis récupération des cartes", async () => {

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logo.svg" width="80" height="80" alt="Logo Kulturo : trois cercles" />
+<img src="logo.svg" width="96" alt="Logo Kulturo : trois cercles" />
 
 # Kulturo
 
@@ -8,12 +8,11 @@
 
 *Regarder. Jouer. Lire. Garder une trace.*
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=111)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![IndexedDB](https://img.shields.io/badge/local--first-1FA88C?style=flat-square)
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=111)
 ![PWA](https://img.shields.io/badge/PWA-installable-D8B46A?style=flat-square&logo=pwa&logoColor=111)
-![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-222?style=flat-square&logo=githubpages&logoColor=white)
 
 </div>
 
@@ -21,30 +20,33 @@
 
 Kulturo rassemble mes films, séries, jeux vidéo et livres dans un même espace. Ce que je découvre, ce qui m’a marqué, ce que j’aimerais retrouver : une mémoire personnelle qui se construit au fil des œuvres.
 
-Une collection à parcourir par ses jaquettes, avec quelques repères essentiels : un statut, une note, un coup de cœur, une nouvelle lecture ou partie. Le tout dans une interface sombre, pensée aussi pour le mobile.
+Une collection à parcourir par ses jaquettes, avec seulement les repères utiles — statut, note, coup de cœur et reprise — dans une interface sombre pensée aussi bien pour le téléphone que pour le bureau.
 
 ## Les espaces
 
 | | |
 | :--- | :--- |
-| **Bibliothèque** | Retrouver ma collection, suivre mes médias en cours et garder mes envies dans la Wishlist. |
-| **Sorties** | Découvrir ce qui arrive et retrouver les œuvres que j’attends déjà. |
-| **Journal** | Revoir mon parcours au fil des mois, ou découvrir les ajouts de la Communauté. |
-| **Moi** | Explorer mes habitudes, mes préférés et mes statistiques ; sauvegarder ma collection. |
+| **Bibliothèque** | Retrouver ma collection, ce que je suis en train de suivre et mes prochaines envies. |
+| **Sorties** | Découvrir ce qui arrive et relier naturellement ces découvertes à ma Wishlist. |
+| **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
+| **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 3.4.9
+## Version actuelle · 4.0.0
 
-Une mise à jour de stabilité : Kulturo ne change pas de visage, mais devient plus calme et plus robuste au quotidien.
+La 4.0 rend Kulturo plus immédiat et plus fiable, sans changer ce qui faisait la simplicité de son interface.
 
-- **Une bibliothèque plus stable** : les jaquettes déjà en place ne sont plus déplacées ou redécodées lors d’un simple rendu.
-- **Des attentes bornées** : un chargement Supabase silencieusement bloqué finit désormais par rendre la main à l’interface.
-- **Des sessions étanches** : contexte, écritures et tâches d’arrière-plan restent attachés au bon compte.
-- **Une PWA plus légère** : écritures et nettoyages du cache d’images sont regroupés, même après de nombreuses fiches ouvertes.
-- **Des sauvegardes complètes** : le Journal est vérifié avant chaque export JSON.
+- **Ouverture instantanée** — la bibliothèque et le Journal apparaissent depuis la base locale, puis Supabase se synchronise discrètement en arrière-plan.
+- **Véritable mode hors connexion** — ajouts, modifications et suppressions restent utilisables ; les changements en attente repartent automatiquement lorsque le réseau revient.
+- **Navigation retrouvée** — page, recherche, filtres, période et fiche ouverte sont inscrits dans une URL portable et restaurés après actualisation.
+- **Gestes plus naturels** — transitions de page cohérentes, mouvement réduit respecté et suppression annulable pendant quelques secondes.
+- **Rétrospective annuelle** — le Profil transforme les statistiques de l’année en un récit compact : rythme, temps fort, terrains explorés et souvenir marquant.
+- **Fondations durables** — TypeScript et Vite encadrent désormais le build, avec versions verrouillées, contrôles automatisés et déploiement GitHub Pages reproductible.
+
+Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouveau format indique aussi si des changements locaux attendaient encore leur synchronisation au moment de l’export.
 
 [Historique des versions](CHANGELOG.md) · [Mise à jour et déploiement](DEPLOYMENT.md) · [Vérifications](tests/README.md)
 
-Depuis la **3.4.6**, cette mise à jour ne demande aucun nouveau SQL. Pour une version plus ancienne, suivre les instructions de déploiement afin d’installer aussi la restauration complète des sauvegardes.
+Depuis la **3.4.6**, la 4.0 ne demande aucun nouveau SQL ni redéploiement de fonction Edge. La migration de la base locale IndexedDB est automatique sur chaque appareil.
 
 ---
 

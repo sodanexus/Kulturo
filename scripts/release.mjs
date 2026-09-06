@@ -53,12 +53,23 @@ function requireMatch(path, expression, label) {
 }
 
 const manifest = JSON.parse(source("manifest.json"));
+const packageManifest = JSON.parse(source("package.json"));
+const packageLock = JSON.parse(source("package-lock.json"));
+if (packageManifest.version !== VERSION || packageLock.version !== VERSION || packageLock.packages?.[""]?.version !== VERSION) {
+  fail("VERSION, package.json et package-lock.json ne correspondent pas.");
+}
+if (packageManifest.devDependencies?.typescript !== "7.0.2" || packageManifest.devDependencies?.vite !== "8.2.0") {
+  fail("les versions exactes de TypeScript et Vite ne sont plus verrouillées.");
+}
 if (manifest.start_url !== "./" || manifest.scope !== "./") fail("le manifeste PWA n'est plus portable.");
 if (!manifest.icons?.length || manifest.icons.some(icon => !String(icon.src).endsWith(`?v=${VERSION}`))) {
   fail("les icônes du manifeste n'utilisent pas la version courante.");
 }
 
 requireMatch("config.js", new RegExp(`version:\\s*["']${VERSION.replaceAll(".", "\\.")}["']`), `app.version ${VERSION}`);
+requireMatch("src/main.ts", new RegExp(`KULTURO_RUNTIME = ["']${VERSION.replaceAll(".", "\\.")}["']`), "la version du runtime TypeScript");
+requireMatch("vite.config.js", /base:\s*["']\.\/["']/, "une base de build portable");
+requireMatch(".github/workflows/deploy.yml", /npm run verify[\s\S]+path:\s*dist/, "le contrôle du build avant le déploiement Pages");
 requireMatch("index.html", new RegExp(`icon-192\\.png\\?v=${VERSION.replaceAll(".", "\\.")}`), "l'icône iOS versionnée");
 requireMatch("index.html", new RegExp(`icon\\.svg\\?v=${VERSION.replaceAll(".", "\\.")}`), "le favicon versionné");
 requireMatch("sw.js", new RegExp(`kulturo-static-v${VERSION.replaceAll(".", "\\.")}`), "le cache statique versionné");
@@ -71,7 +82,7 @@ requireMatch("tests/browser-server.mjs", new RegExp(`version:\\s*["']${VERSION.r
 
 function walk(directory, files = []) {
   for (const name of readdirSync(directory).sort((a, b) => a.localeCompare(b, "en"))) {
-    if ([".git", "node_modules", ".DS_Store"].includes(name)) continue;
+    if ([".git", "node_modules", "dist", ".DS_Store"].includes(name)) continue;
     const absolute = join(directory, name);
     const stat = lstatSync(absolute);
     if (stat.isSymbolicLink()) fail(`le lien symbolique ${relative(ROOT, absolute)} n'est pas autorisé dans une version.`);

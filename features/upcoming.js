@@ -659,7 +659,11 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
     markJournalDirty();
     updateBadges();
     renderUpcomingCards();
-    toast(`"${it.title}" ajouté à la wishlist ✓`, "success");
+    const awaitsSync = Media.getStatus?.().pending > 0;
+    toast(
+      awaitsSync ? `"${it.title}" ajouté à la wishlist sur cet appareil` : `"${it.title}" ajouté à la wishlist ✓`,
+      awaitsSync ? "info" : "success"
+    );
     if (closeAfter) closeModal();
   } catch (e) {
     if (sameOwner(owner, State.user?.id)) toast("Erreur : " + e.message, "error");

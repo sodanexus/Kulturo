@@ -4,13 +4,14 @@ Ces tests n’utilisent pas le compte Supabase du projet.
 
 ## Tests techniques
 
-Depuis la racine de Kulturo, avec Node.js 22 ou ultérieur :
+Depuis la racine de Kulturo, avec Node.js 22.12 ou ultérieur :
 
 ```sh
-node --test tests/technical-cleanup.test.mjs
+npm ci
+npm test
 ```
 
-Ils couvrent le cache, les règles de restauration, la navigation du Journal, le cycle de vie des fiches, le focus, les interactions, l’isolation des comptes et les ressources hors ligne de la PWA.
+Ils couvrent le cache, les règles de restauration, la navigation du Journal, le cycle de vie des fiches, le focus, les interactions, l’isolation des comptes, la file local-first, les routes 4.0, la rétrospective et les ressources hors ligne de la PWA.
 
 ## Parcours dans un navigateur
 
@@ -29,11 +30,14 @@ Les parcours vérifient :
 - quarante ouvertures et fermetures successives de fiches, avec restauration du focus et sans clone de transition orphelin ;
 - le retour à la fiche après modification ou annulation, la note, le cœur et la position de lecture ;
 - Tab, Maj+Tab, Échap et la confirmation d’abandon du brouillon ;
-- une requête d’enregistrement interrompue avant écriture, puis un nouvel essai sans doublon ;
+- une requête d’enregistrement interrompue, son maintien local puis sa synchronisation automatique sans doublon ;
+- l’actualisation d’une fiche et la restauration de sa page, de son URL et du bon média ;
 - la navigation dans le Profil et les deux Journaux, ainsi que la récupération des Sorties après erreur.
+
+Pour la 4.0, compléter manuellement par une modification en mode hors connexion, un retour réseau, une suppression annulée et l’actualisation d’une URL contenant une fiche ouverte.
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 3.4.9
+## Validation de l’archive 4.0.0
 
-Les tests techniques et les contrôles de syntaxe ont été exécutés avec succès. Les parcours navigateur sont fournis mais **n’ont pas pu être exécutés dans l’environnement de préparation**, qui ne contient aucun exécutable de navigateur. Une validation Safari/iPad reste donc à effectuer.
+Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.

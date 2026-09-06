@@ -3,7 +3,7 @@ import {
   entryActivityMonth, entryActivityYear, eventsForPeriod, isCompletionEvent,
   isProfileTopEvent, latestEventMonth, uniqueEntriesForEvents, yearMonthOf,
 } from "../domain.js";
-import { exploredGenres, repeatCountForPeriod } from "./insights.js";
+import { annualRetrospective, exploredGenres, repeatCountForPeriod } from "./insights.js";
 import { patchKeyedSurface } from "./dom-updates.js";
 import { errorState, loadingState, setButtonBusy } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
@@ -384,6 +384,42 @@ export function createProfileFeature({
         </div>
       </section>` : "";
 
+    const retrospective = _profilePeriod === "year"
+      ? annualRetrospective(scopedEntries, periodEvents, _profileYear)
+      : null;
+    const retrospectiveTypeLabels = { film: "cinéma", tv: "séries", game: "jeu vidéo", book: "lecture" };
+    const retrospectiveMonth = retrospective?.busiestMonth
+      ? new Intl.DateTimeFormat("fr-FR", { month: "long" })
+          .format(new Date(Number(retrospective.busiestMonth.slice(0, 4)), Number(retrospective.busiestMonth.slice(5, 7)) - 1, 1))
+      : null;
+    const retrospectiveCover = safeMediaUrl(retrospective?.top?.cover_url);
+    const retrospectiveHTML = retrospective && scopedEntries.length ? `
+      <section class="profile-retrospective" data-ui-key="profile-retrospective" aria-labelledby="retrospective-title">
+        <div class="profile-retrospective-heading">
+          <div><span class="section-eyebrow">Rétrospective culturelle</span><h3 id="retrospective-title">L’histoire de votre année ${_profileYear}</h3></div>
+          <span class="profile-retrospective-mark" aria-hidden="true">${_profileYear}</span>
+        </div>
+        <div class="profile-retrospective-layout">
+          <div class="profile-retrospective-story">
+            <p><strong>${retrospective.completed}</strong> œuvre${retrospective.completed > 1 ? "s" : ""} terminée${retrospective.completed > 1 ? "s" : ""}, <strong>${retrospective.genreCount}</strong> genre${retrospective.genreCount > 1 ? "s" : ""} exploré${retrospective.genreCount > 1 ? "s" : ""}${retrospective.replayCount ? ` et <strong>${retrospective.replayCount}</strong> reprise${retrospective.replayCount > 1 ? "s" : ""}` : ""}.</p>
+            <div class="profile-retrospective-facts">
+              <span><small>Rythme</small><strong>${retrospective.activeMonths || "—"} mois actif${retrospective.activeMonths > 1 ? "s" : ""}</strong></span>
+              <span><small>Temps fort</small><strong>${retrospectiveMonth ? `${retrospectiveMonth} · ${retrospective.busiestCount} actions` : "À venir"}</strong></span>
+              <span><small>Signature</small><strong>${retrospective.dominantType ? retrospectiveTypeLabels[retrospective.dominantType] : "À découvrir"}</strong></span>
+            </div>
+          </div>
+          ${retrospective.top ? `
+            <button type="button" class="profile-retrospective-top" data-prefetch-media="${esc(retrospective.top.id)}" data-transition-media="${esc(retrospective.top.id)}" ${uiAction("openEditModal", [retrospective.top.id], { control: true })} aria-label="Ouvrir votre souvenir de l’année : ${esc(retrospective.top.title)}">
+              <span class="profile-retrospective-cover">
+                ${retrospectiveCover ? `<img src="${esc(retrospectiveCover)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(retrospective.top.media_type, retrospective.top.subtype)}</span>`}
+              </span>
+              <span><small>Souvenir de l’année</small><strong>${esc(retrospective.top.title)}</strong>${retrospective.top.rating ? ratingScoreHTML(retrospective.top.rating, "profile-retrospective-rating") : ""}</span>
+              <i aria-hidden="true">→</i>
+            </button>`
+            : `<div class="profile-retrospective-empty"><small>Souvenir de l’année</small><strong>Votre prochaine découverte l’écrira.</strong></div>`}
+        </div>
+      </section>` : "";
+
     const dashboardHTML = `
       <section class="profile-year-overview" data-ui-key="profile-overview">
         <div class="profile-year-header">
@@ -432,6 +468,8 @@ export function createProfileFeature({
             </button>`).join("")}
         </div>
       </section>
+
+      ${retrospectiveHTML}
 
       ${ratingsHTML}
 

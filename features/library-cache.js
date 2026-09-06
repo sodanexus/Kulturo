@@ -4,7 +4,7 @@
 
 export function entriesForStorage(entries) {
   return (entries || []).map(entry => Object.fromEntries(
-    Object.entries(entry || {}).filter(([field]) => !field.startsWith("_"))
+    Object.entries(entry || {}).filter(([field]) => !field.startsWith("_") && field !== "user_id")
   ));
 }
 
@@ -12,7 +12,7 @@ function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.keys(value)
-    .filter(key => !key.startsWith("_"))
+    .filter(key => !key.startsWith("_") && key !== "user_id")
     .sort()
     .map(key => [key, stableValue(value[key])]));
 }

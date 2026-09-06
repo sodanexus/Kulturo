@@ -2,7 +2,7 @@
 // app.js — Kulturo · Logique principale
 // ============================================================
 
-import { initSupabase, Auth, Media, Profiles, Journal, Backup, Activity } from "./supabase.js";
+import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks } from "./api.js";
 import {
   filterLibraryEntries,
@@ -39,6 +39,10 @@ import { createProfileFeature, LAST_BACKUP_KEY, formatLastBackup } from "./featu
 import { createJournalFeature } from "./features/journal.js";
 import { createAsyncGate, sameOwner } from "./features/async-gate.js";
 import { createMediaDetailFeature } from "./features/media-detail.js";
+import { createLocalDatabase } from "./features/local-database.js";
+import { createMediaRepository } from "./features/media-repository.js";
+import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
+import { runViewTransition } from "./features/motion.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -164,6 +168,14 @@ const State = {
   scrollPos:  {},          // #2 — mémorise la position de scroll par page
 };
 
+const localDatabase = createLocalDatabase();
+const Media = createMediaRepository({
+  remote: RemoteMedia,
+  database: localDatabase,
+  getOwnerId: () => State.user?.id || null,
+  isOnline: () => navigator.onLine !== false,
+});
+
 const ENTRY_CACHE_PREFIX = "kulturo-entries-v1:";
 const UI_SNAPSHOT_KEY = "kulturo-ui-snapshot-v3";
 let _remoteSyncUnavailable = false;
@@ -172,6 +184,19 @@ const journalLoadGate = createAsyncGate();
 const authFlowGate = createAsyncGate();
 const _pendingScrollRestores = new Set();
 let _uiSnapshotTimer = 0;
+let _pendingRouteDetailId = null;
+
+function currentViewContext() {
+  return {
+    profile: profileFeature.context(),
+    journal: journalFeature.context(),
+    upcoming: upcomingFeature.context(),
+  };
+}
+
+function historyUrl(page, layer = null, payload = {}) {
+  return buildAppRoute({ page, layer, payload, filters: State.filters, views: currentViewContext() });
+}
 
 function persistUiSnapshot() {
   if (!State.user) return;
@@ -187,12 +212,12 @@ function persistUiSnapshot() {
       page,
       scrollPos: State.scrollPos,
       filters: State.filters,
-      views: {
-        profile: profileFeature.context(),
-        journal: journalFeature.context(),
-        upcoming: upcomingFeature.context(),
-      },
+      views: currentViewContext(),
     }));
+    if (_historyReady && history.state?.kulturo && !_handlingPopState) {
+      const state = history.state;
+      history.replaceState(state, "", historyUrl(state.page || page, state.layer || null, state));
+    }
   } catch {}
 }
 
@@ -280,6 +305,7 @@ function cacheEntriesLocally() {
   } catch (error) {
     console.warn("[Cache] Sauvegarde locale impossible :", error);
   }
+  Media.cache(State.entries).catch(error => console.warn("[Local] Sauvegarde IndexedDB impossible :", error));
 }
 
 function readCachedEntries() {
@@ -298,11 +324,38 @@ function clearCachedEntries(userId = State.user?.id) {
   try { localStorage.removeItem(`${ENTRY_CACHE_PREFIX}${userId}`); } catch {}
 }
 
-function primeEntriesFromCache() {
-  const cached = readCachedEntries();
-  if (!Array.isArray(cached)) return false;
-  State.entries = cached;
-  return true;
+async function primeEntriesFromCache() {
+  const legacy = readCachedEntries();
+  try {
+    const cached = await Media.hydrate(Array.isArray(legacy) ? legacy : []);
+    const hasSnapshot = await localDatabase.hasEntrySnapshot(State.user?.id).catch(() => false);
+    if (!Array.isArray(cached) || (!hasSnapshot && !cached.length)) return false;
+    State.entries = cached;
+    State.libraryStatus = "ready";
+    return true;
+  } catch (error) {
+    if (!Array.isArray(legacy)) return false;
+    console.warn("[Local] Lecture IndexedDB impossible, ancien instantané utilisé :", error);
+    State.entries = legacy;
+    return true;
+  }
+}
+
+async function primeEventsFromCache() {
+  if (!State.user?.id) return false;
+  try {
+    const [events, hasSnapshot] = await Promise.all([
+      localDatabase.getEvents(State.user.id),
+      localDatabase.hasEventSnapshot(State.user.id),
+    ]);
+    if (!hasSnapshot && !events.length) return false;
+    State.events = events;
+    State.journalAvailable = true;
+    State.journalDirty = false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Labels ───────────────────────────────────────────────────
@@ -394,10 +447,12 @@ async function init() {
       // Une restauration de page reste immédiatement utile même si le
       // navigateur a suspendu l'onglet et si Supabase met quelques instants à
       // répondre. Le réseau remplace ensuite cet instantané dès qu'il arrive.
-      primeEntriesFromCache();
+      await primeEntriesFromCache();
+      await primeEventsFromCache();
       const snapshot = restoreUiSnapshot();
+      const route = applyRouteContext();
       renderApp();
-      restoreNavigation(snapshot);
+      restoreNavigation(snapshot, route);
       await loadEntries();
       if (!authFlowGate.isCurrent(startupTask)) return;
     } else {
@@ -411,10 +466,12 @@ async function init() {
         State.user = user;
         if (event === "SIGNED_IN" && user) {
           State.username = null;
-          primeEntriesFromCache();
+          await primeEntriesFromCache();
+          await primeEventsFromCache();
           const snapshot = restoreUiSnapshot();
+          const route = applyRouteContext();
           renderApp();
-          restoreNavigation(snapshot);
+          restoreNavigation(snapshot, route);
           await loadEntries();
           if (!authFlowGate.isCurrent(authTask) || !sameOwner(user.id, State.user?.id)) return;
         } else if (event === "SIGNED_OUT") {
@@ -431,6 +488,7 @@ async function init() {
           journalFeature.cancel();
           upcomingFeature.reset();
           clearCachedEntries(previousUserId);
+          await Media.clearOwner(previousUserId).catch(() => {});
           clearUiSnapshot();
           _remoteSyncUnavailable = false;
           State.entries = [];
@@ -504,20 +562,20 @@ function syncPageHistory(page, mode = "push") {
   if (_handlingPopState || mode === "none") return;
   const state = appHistoryState(page);
   if (mode === "replace" || !_historyReady || !history.state?.kulturo) {
-    history.replaceState(state, "");
+    history.replaceState(state, "", historyUrl(page));
     return;
   }
   if (history.state?.page === page && !history.state?.layer) return;
-  history.pushState(state, "");
+  history.pushState(state, "", historyUrl(page));
 }
 
 function pushHistoryLayer(layer, payload = {}) {
   if (_handlingPopState || !layer) return;
   if (history.state?.kulturo && history.state.layer === layer) {
-    history.replaceState(appHistoryState(_currentPage, layer, payload), "");
+    history.replaceState(appHistoryState(_currentPage, layer, payload), "", historyUrl(_currentPage, layer, payload));
     return;
   }
-  history.pushState(appHistoryState(_currentPage, layer, payload), "");
+  history.pushState(appHistoryState(_currentPage, layer, payload), "", historyUrl(_currentPage, layer, payload));
 }
 
 function historyOwnsLayer(layer) {
@@ -526,16 +584,40 @@ function historyOwnsLayer(layer) {
 
 function restoreOpenLayerHistory() {
   let layer = null;
+  let payload = {};
   if (document.getElementById("metadata-overlay")) layer = "metadata";
   else if (document.getElementById("filter-modal-overlay")) layer = "filters";
-  else if (document.getElementById("modal-overlay")) layer = _detailEditContext ? "edit" : "modal";
-  history.pushState(appHistoryState(_currentPage, layer), "");
+  else if (document.getElementById("modal-overlay")) {
+    layer = _detailEditContext ? "edit" : "modal";
+    const detailId = document.querySelector("#modal-overlay .detail-modal")?.dataset.detailMediaId;
+    payload = detailId
+      ? { modal: "detail", mediaId: detailId }
+      : _detailEditContext ? { modal: "edit", mediaId: _detailEditContext.id } : {};
+  }
+  history.pushState(appHistoryState(_currentPage, layer, payload), "", historyUrl(_currentPage, layer, payload));
 }
 
-function restoreNavigation(snapshot = restoreUiSnapshot()) {
+function applyRouteContext(route = parseAppRoute(window.location.hash)) {
+  if (route) {
+    Object.assign(State.filters, route.filters);
+    profileFeature.restoreContext(route.views.profile);
+    journalFeature.restoreContext(route.views.journal);
+    upcomingFeature.restoreContext(route.views.upcoming);
+  }
+  return route;
+}
+
+function restoreNavigation(snapshot = restoreUiSnapshot(), preparedRoute = undefined) {
+  const route = preparedRoute === undefined ? applyRouteContext() : preparedRoute;
+  const routeDetailId = route?.payload?.modal === "detail" ? route.payload.mediaId : null;
+  const existingHistoryOwnsDetail = Boolean(
+    history.state?.kulturo && history.state.layer === "modal"
+    && history.state.modal === "detail"
+    && String(history.state.mediaId || "") === String(routeDetailId || "")
+  );
   let saved = "library";
   try { saved = localStorage.getItem("kulturo-nav") || saved; } catch {}
-  saved = snapshot?.page || saved;
+  saved = route?.page || snapshot?.page || saved;
   const allowed = new Set(["library", "dashboard", "upcoming", "journal"]);
   const normalized = saved === "activity" ? "journal" : saved === "discover" ? "upcoming" : saved;
   const target = allowed.has(normalized) ? normalized : "library";
@@ -549,6 +631,30 @@ function restoreNavigation(snapshot = restoreUiSnapshot()) {
     skipScrollSave: true,
   });
   _historyReady = true;
+  if (routeDetailId) {
+    const detailPayload = { modal: "detail", mediaId: routeDetailId };
+    const detailState = appHistoryState(target, "modal", detailPayload);
+    // Un lien ouvert directement reçoit d'abord une entrée « page », puis la
+    // fiche : Fermer et Retour restent ainsi dans Kulturo. Après un simple
+    // rechargement d'une fiche déjà ouverte, on réutilise l'entrée existante.
+    if (existingHistoryOwnsDetail) {
+      history.replaceState(detailState, "", historyUrl(target, "modal", detailPayload));
+    } else {
+      history.pushState(detailState, "", historyUrl(target, "modal", detailPayload));
+    }
+  }
+  _pendingRouteDetailId = routeDetailId;
+  restorePendingRouteDetail();
+}
+
+function restorePendingRouteDetail() {
+  if (!_pendingRouteDetailId || document.getElementById("modal-overlay")) return false;
+  const entry = State.entries.find(item => String(item.id) === String(_pendingRouteDetailId));
+  if (!entry) return false;
+  const id = _pendingRouteDetailId;
+  _pendingRouteDetailId = null;
+  queueMicrotask(() => openDetailPanel(id, { history: "none" }));
+  return true;
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -831,15 +937,20 @@ async function refreshJournalEvents({ silent = false } = {}) {
       State.journalAvailable = true;
       State.journalError = null;
       State.journalDirty = false;
+      localDatabase.replaceEvents(owner, events).catch(error => console.warn("[Local] Journal non mis en cache :", error));
       return State.events;
     } catch (error) {
       if (!journalLoadGate.isCurrent(task) || !sameOwner(owner, State.user?.id)) return [];
-      State.events = [];
-      State.journalAvailable = false;
+      const [cachedEvents, hasSnapshot] = await Promise.all([
+        localDatabase.getEvents(owner).catch(() => []),
+        localDatabase.hasEventSnapshot(owner).catch(() => false),
+      ]);
+      State.events = cachedEvents;
+      State.journalAvailable = hasSnapshot || cachedEvents.length > 0;
       State.journalError = error;
       State.journalDirty = false;
-      if (!silent) toast("Journal indisponible : vérifiez media_events dans Supabase.", "error");
-      return [];
+      if (!silent && !State.journalAvailable) toast("Journal indisponible : vérifiez media_events dans Supabase.", "error");
+      return State.events;
     } finally {
       journalLoadGate.finish(task);
     }
@@ -879,7 +990,7 @@ async function loadEntries() {
     const freshEntries = await Media.getAll({ signal: task.signal });
     if (!libraryLoadGate.isCurrent(task) || !sameOwner(owner, State.user?.id)) return false;
     State.libraryStatus = "ready";
-    _remoteSyncUnavailable = false;
+    _remoteSyncUnavailable = Media.getStatus().state === "error";
     syncNetworkStatus();
     const entriesChanged = previousFingerprint !== entriesFingerprint(freshEntries);
     State.entries = freshEntries;
@@ -894,7 +1005,7 @@ async function loadEntries() {
     if (!libraryLoadGate.isCurrent(task) || !sameOwner(owner, State.user?.id)) return false;
     _remoteSyncUnavailable = true;
     syncNetworkStatus();
-    const cached = readCachedEntries();
+    const cached = await Media.hydrate(readCachedEntries() || []).catch(() => readCachedEntries());
     if (cached) {
       State.libraryStatus = "ready";
       const entriesChanged = entriesFingerprint(State.entries) !== entriesFingerprint(cached);
@@ -921,6 +1032,7 @@ async function loadEntries() {
   await refreshJournalEvents({ silent: true });
   if (!libraryLoadGate.isCurrent(task) || !sameOwner(owner, State.user?.id)) return false;
   if (_currentPage === "upcoming") upcomingFeature.renderCards();
+  restorePendingRouteDetail();
   return true;
 }
 
@@ -928,6 +1040,11 @@ async function loadEntries() {
 function navTo(key, options = {}) {
   // L'ancien alias reste accepté, mais toute la navigation utilise une seule clé.
   if (key === "profile") key = "dashboard";
+
+  const requestedPage = ["dashboard", "upcoming", "journal"].includes(key) ? key : "library";
+  if (!options.withinViewTransition && _historyReady && requestedPage !== _currentPage) {
+    return runViewTransition(() => navTo(key, { ...options, withinViewTransition: true }), "page");
+  }
 
   // #2 — sauvegarde le scroll de la page courante
   const main = document.getElementById("main");
@@ -2446,7 +2563,13 @@ async function saveEntry() {
     renderCards();
     if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
-    toast(wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓", "success");
+    const awaitsSync = Media.getStatus().pending > 0;
+    toast(
+      awaitsSync
+        ? (wasAdding ? `"${savedTitle}" ajouté sur cet appareil` : "Mis à jour sur cet appareil")
+        : (wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓"),
+      awaitsSync ? "info" : "success"
+    );
     if (wasAdding) flashNewCard(savedTitle);
     if (justFinished) launchConfetti();
   } catch (e) {
@@ -2460,7 +2583,7 @@ async function saveEntry() {
 }
 
 async function deleteEntry(id) {
-  const confirmed = await confirmDialog("Supprimer ce média ?", "Cette action est irréversible.", "Supprimer", "danger");
+  const confirmed = await confirmDialog("Supprimer ce média ?", "Vous pourrez annuler pendant quelques secondes.", "Supprimer", "danger");
   if (!confirmed) return;
   const deleteOwner = State.user?.id;
   if (!deleteOwner) return;
@@ -2472,7 +2595,7 @@ async function deleteEntry(id) {
       await new Promise(r => setTimeout(r, 300));
     }
     if (!sameOwner(deleteOwner, State.user?.id)) return;
-    await Media.delete(id);
+    const removedEntry = await Media.delete(id, { undoDelay: 7000 });
     if (!sameOwner(deleteOwner, State.user?.id)) return;
     State.entries = State.entries.filter(e => e.id !== id);
     cacheEntriesLocally();
@@ -2482,7 +2605,25 @@ async function deleteEntry(id) {
     renderCards();
     if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
-    toast("Supprimé", "info");
+    toast("Média supprimé", "info", {
+      actionLabel: "Annuler",
+      duration: 6800,
+      onAction: async () => {
+        let restored = await Media.undoDelete(id);
+        // Un média créé puis supprimé entièrement hors ligne n’a encore aucune
+        // ligne distante : sa suppression annule logiquement sa création. Le
+        // bouton Annuler le recrée alors avec le même identifiant local.
+        if (!restored && removedEntry) restored = await Media.create(removedEntry);
+        if (!restored || !sameOwner(deleteOwner, State.user?.id)) return;
+        if (!State.entries.some(entry => entry.id === restored.id)) State.entries.unshift(restored);
+        cacheEntriesLocally();
+        markJournalDirty();
+        renderCards();
+        if (_currentPage === "upcoming") upcomingFeature.renderCards();
+        updateBadges();
+        toast(`« ${removedEntry?.title || restored.title} » restauré`, "success");
+      },
+    });
   } catch (e) {
     if (sameOwner(deleteOwner, State.user?.id)) toast("Erreur : " + e.message, "error");
   }
@@ -2716,9 +2857,27 @@ async function handleSmartBack(event) {
       return;
     }
 
-    const target = event.state;
+    const route = parseAppRoute(window.location.hash);
+    const target = event.state?.kulturo ? event.state : route ? {
+      kulturo: true, page: route.page, layer: route.layer, ...route.payload,
+    } : null;
+    if (route) {
+      Object.assign(State.filters, route.filters);
+      profileFeature.restoreContext(route.views.profile);
+      journalFeature.restoreContext(route.views.journal);
+      upcomingFeature.restoreContext(route.views.upcoming);
+    }
     if (target?.kulturo && target.page && target.page !== _currentPage) {
       navTo(target.page, { history: "none", preserveFilters: true, preserveSearch: true });
+    }
+    if (target?.layer === "modal" && target.modal === "detail" && target.mediaId) {
+      _pendingRouteDetailId = target.mediaId;
+      restorePendingRouteDetail();
+    } else if (target?.page === "library") {
+      const search = document.getElementById("global-search");
+      if (search) search.value = State.filters.search || "";
+      syncFilterChips();
+      renderCards();
     }
   } finally {
     _handlingPopState = false;
@@ -2801,6 +2960,7 @@ function bindGlobalEvents() {
     if (State.user) loadEntries();
   });
   window.addEventListener("offline", syncNetworkStatus);
+  window.addEventListener("kulturo:sync-state", syncNetworkStatus);
   // La largeur de la fiche peut changer (rotation mobile, redimensionnement
   // desktop). On recalcule alors le vrai débordement du synopsis.
   let synopsisResizeTimer;
@@ -2820,10 +2980,18 @@ function syncNetworkStatus() {
   const indicator = document.getElementById("network-status");
   if (!indicator) return;
   const offline = navigator.onLine === false;
-  const unavailable = offline || _remoteSyncUnavailable;
-  const label = offline ? "Hors connexion" : "Synchronisation indisponible";
-  indicator.hidden = !unavailable;
+  const sync = Media.getStatus();
+  const pending = Number(sync.pending || 0);
+  const syncing = !offline && sync.state === "syncing";
+  const unavailable = !offline && (sync.state === "error" || _remoteSyncUnavailable);
+  const label = offline
+    ? pending ? `Hors connexion · ${pending} en attente` : "Hors connexion"
+    : syncing ? "Synchronisation…"
+      : unavailable ? pending ? `Synchronisation indisponible · ${pending} en attente` : "Synchronisation indisponible"
+        : pending ? `${pending} modification${pending > 1 ? "s" : ""} en attente` : "Synchronisé";
+  indicator.hidden = !offline && !unavailable && !pending && !syncing;
   indicator.setAttribute("aria-label", label);
+  indicator.dataset.state = offline ? "offline" : unavailable ? "error" : syncing ? "syncing" : pending ? "pending" : "synced";
   const text = indicator.querySelector("span");
   if (text) text.textContent = label;
   document.documentElement.classList.toggle("is-offline", offline);
@@ -2839,7 +3007,7 @@ function dismissToast(element) {
   setTimeout(() => element.remove(), 260);
 }
 
-function toast(msg, type = "info") {
+function toast(msg, type = "info", options = {}) {
   const container = document.getElementById("toast-container");
   if (!container) return;
   const normalizedType = ["success", "error", "info"].includes(type) ? type : "info";
@@ -2850,7 +3018,7 @@ function toast(msg, type = "info") {
     existing.classList.remove("removing", "is-repeated");
     existing.getBoundingClientRect();
     existing.classList.add("is-repeated");
-    existing._dismissTimer = setTimeout(() => dismissToast(existing), normalizedType === "error" ? 4600 : 3000);
+    existing._dismissTimer = setTimeout(() => dismissToast(existing), Number(options.duration) || (normalizedType === "error" ? 4600 : 3000));
     return existing;
   }
   while (container.children.length >= 3) container.firstElementChild?.remove();
@@ -2858,9 +3026,26 @@ function toast(msg, type = "info") {
   el.className = `toast ${normalizedType}`;
   el.dataset.toastKey = key;
   el.setAttribute("role", normalizedType === "error" ? "alert" : "status");
-  el.textContent = msg;
+  const copy = document.createElement("span");
+  copy.className = "toast-copy";
+  copy.textContent = msg;
+  el.appendChild(copy);
+  if (options.actionLabel && typeof options.onAction === "function") {
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "toast-action";
+    action.textContent = options.actionLabel;
+    action.addEventListener("click", async () => {
+      if (action.disabled) return;
+      action.disabled = true;
+      clearTimeout(el._dismissTimer);
+      try { await options.onAction(); } finally { dismissToast(el); }
+    }, { once: true });
+    el.appendChild(action);
+  }
   container.appendChild(el);
-  el._dismissTimer = setTimeout(() => dismissToast(el), normalizedType === "error" ? 4600 : normalizedType === "success" ? 2600 : 3200);
+  const duration = Number(options.duration) || (normalizedType === "error" ? 4600 : normalizedType === "success" ? 2600 : 3200);
+  el._dismissTimer = setTimeout(() => dismissToast(el), duration);
   return el;
 }
 
@@ -3183,22 +3368,29 @@ async function exportLibrary(button = null) {
   if (!owner) return;
   setButtonBusy(button, true);
   try {
-    // Une sauvegarde doit être complète : ne jamais exporter silencieusement
-    // un Journal vide simplement parce qu'il n'avait pas encore été chargé.
-    if (State.journalDirty) await refreshJournalEvents({ silent: true });
+    // En ligne, on récupère le dernier Journal connu. Hors ligne, son dernier
+    // instantané IndexedDB reste exportable avec l'état de synchronisation :
+    // une panne réseau ne doit jamais empêcher de mettre ses données à l'abri.
+    if (State.journalDirty && navigator.onLine !== false) await refreshJournalEvents({ silent: true });
+    else if (!State.journalAvailable) await primeEventsFromCache();
     if (!sameOwner(owner, State.user?.id)) return;
     if (!State.journalAvailable) {
       toast("Sauvegarde reportée : le Journal n’a pas pu être chargé.", "error");
       return;
     }
 
-    const cleanEntries = State.entries.map(entry => Object.fromEntries(
-      Object.entries(entry).filter(([field]) => !field.startsWith("_"))
-    ));
+    const cleanEntries = entriesForStorage(State.entries);
+    const sync = Media.getStatus();
     const backup = {
       app: "Kulturo",
+      format: "kulturo-backup",
+      schema: 2,
       version: CONFIG?.app?.version || null,
       exported_at: new Date().toISOString(),
+      synchronization: {
+        fully_synced: sync.pending === 0,
+        pending_changes: sync.pending,
+      },
       entries: cleanEntries,
       events: State.events.map(event => ({
         id: event.id,
@@ -3221,7 +3413,10 @@ async function exportLibrary(button = null) {
     try { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); } catch {}
     const backupLabel = document.getElementById("last-backup-label");
     if (backupLabel) backupLabel.textContent = formatLastBackup();
-    toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés ✓`, "success");
+    const pendingLabel = sync.pending
+      ? ` · ${sync.pending} modification${sync.pending > 1 ? "s" : ""} locale${sync.pending > 1 ? "s" : ""} incluse${sync.pending > 1 ? "s" : ""}`
+      : "";
+    toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés${pendingLabel} ✓`, "success");
   } catch (error) {
     if (sameOwner(owner, State.user?.id)) toast("Sauvegarde impossible : " + error.message, "error");
   } finally {
@@ -3383,6 +3578,10 @@ async function restoreBackup() {
   if (button) button.textContent = "Restauration…";
   if (progress) progress.textContent = "Vérification finale et restauration atomique…";
   try {
+    await Media.flush({ throwOnError: true });
+    if (Media.getStatus().pending) {
+      throw new Error("Une modification locale est encore en attente. Patientez quelques secondes puis réessayez.");
+    }
     const result = await Backup.restore(_pendingRestorePlan, _pendingRestoreEvents);
     if (!sameOwner(owner, State.user?.id)) {
       _restoreInProgress = false;
@@ -3434,6 +3633,7 @@ function setLibraryDensity(value) {
 // ── Fiches média ──────────────────────────────────────────────
 mediaDetailFeature = createMediaDetailFeature({
   State,
+  Media,
   cacheEntriesLocally,
   safeMediaUrl,
   esc,

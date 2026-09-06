@@ -2,6 +2,22 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.0
+
+- Kulturo adopte une architecture **local-first** : la bibliothèque et le Journal sont conservés dans IndexedDB, séparément pour chaque compte, et apparaissent avant la réponse du réseau.
+- Les ajouts, modifications et suppressions de médias sont enregistrés localement dans une file atomique, fusionnés sans écraser les changements plus récents, puis rejoués vers Supabase en arrière-plan.
+- L’état hors connexion, la synchronisation et les changements en attente sont signalés discrètement dans la barre supérieure ; une suppression peut être annulée avant son envoi.
+- La confirmation Supabase ne reconstruit plus une grille identique : les champs internes et l’identifiant propriétaire sont exclus de l’empreinte visuelle afin d’éviter le bref rafraîchissement des jaquettes au démarrage.
+- L’URL conserve désormais la page, la recherche, les filtres, les périodes du Profil et du Journal, les réglages de Sorties et la fiche ouverte, sans dépendre du nom du dépôt GitHub Pages.
+- Les changements de page partagent une transition légère avec repli automatique et respect de la préférence système de réduction des mouvements.
+- Une rétrospective éditoriale apparaît dans la vue annuelle du Profil : œuvres terminées, genres explorés, rythme, mois le plus actif, catégorie dominante et souvenir de l’année.
+- Les sauvegardes passent au schéma 2, restent rétrocompatibles et peuvent être exportées hors connexion ; elles précisent le nombre de changements locaux encore en attente.
+- TypeScript sécurise les contrats des médias, événements, filtres et mutations. Vite produit un build optimisé, portable et contrôlé avant publication.
+- Les versions npm sont verrouillées, l’archive ZIP reste déterministe et GitHub Actions vérifie, construit puis publie automatiquement l’artefact exact sur Pages.
+- Les bibliothèques et journaux vides sont reconnus comme de vrais instantanés hors ligne, sans chargement infini ni faux message d’erreur.
+
+**Mise à jour depuis 3.4.6 à 3.4.9 :** aucun changement SQL ni redéploiement de fonction Edge. La base locale 4.0 est créée automatiquement au premier lancement.
+
 ## 3.4.9
 
 - La réconciliation des cartes conserve désormais les nœuds déjà à leur place : filtrer, rechercher ou actualiser ne redéclenche plus inutilement la peinture et le décodage de toutes les jaquettes.

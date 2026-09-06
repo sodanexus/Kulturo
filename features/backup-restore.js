@@ -97,6 +97,10 @@ export function parseKulturoBackup(text, { maxEntries = 10_000, maxEvents = 100_
   catch { throw new Error("Ce fichier n’est pas un JSON valide."); }
   if (!backup || typeof backup !== "object" || Array.isArray(backup)) throw new Error("Format de sauvegarde invalide.");
   if (backup.app !== "Kulturo") throw new Error("Ce fichier n’est pas une sauvegarde Kulturo.");
+  if (backup.format != null && backup.format !== "kulturo-backup") throw new Error("Format de sauvegarde Kulturo inconnu.");
+  if (backup.schema != null && (!Number.isInteger(backup.schema) || backup.schema < 1 || backup.schema > 2)) {
+    throw new Error("Cette sauvegarde provient d’une version plus récente de Kulturo.");
+  }
   if (!Array.isArray(backup.entries)) throw new Error("La liste des médias est absente de la sauvegarde.");
   if (backup.entries.length > maxEntries) throw new Error(`La sauvegarde dépasse la limite de ${maxEntries} médias.`);
   if (backup.events != null && !Array.isArray(backup.events)) throw new Error("Le Journal de la sauvegarde est invalide.");

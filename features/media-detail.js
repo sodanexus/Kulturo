@@ -1,5 +1,4 @@
 // Fiches média : rendu, enrichissement, métadonnées et transitions de jaquette.
-import { Media } from "../supabase.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
 import {
   formatReleaseDate, isReplayEntry, normalizeTitle, repeatInfo,
@@ -12,7 +11,7 @@ import { createDetailSessionManager } from "./detail-session.js";
 import { collectDetailUpdates } from "./detail-enrichment.js";
 
 export function createMediaDetailFeature({
-  State, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
+  State, Media, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
   iconCalendar, iconPlay, iconEdit, iconTrash, iconRepeat, iconExternal, iconX,
   iconUser, iconMedia, iconStatus, getTypeLabel, STATUS_LABELS, ratingScoreHTML,
   rememberModalReturnFocus, bindCoverAccent, dialogFocus, activateDialog,
@@ -372,7 +371,7 @@ function renderDetailPanel(e, options = {}) {
   const detailSessionId = detailSessions.begin(e.id);
   root.innerHTML = `
     <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+      <div class="modal detail-modal" data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -417,7 +416,9 @@ function renderDetailPanel(e, options = {}) {
       </div>
     </div>`;
 
-  pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });
+  if (options.history !== "none") {
+    pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });
+  }
   syncSystemBar(getCurrentPage(), null);
   bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
   hydrateFadeImages(root);
@@ -935,7 +936,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     renderCards();
     if (getCurrentPage() === "upcoming") renderUpcomingCards();
     updateBadges();
-    syncOpenDetail(entry, feedback);
+    syncOpenDetail(entry, Media.getStatus?.().pending > 0 ? "Synchronisation en attente" : feedback);
     return entry;
   } catch (error) {
     if (!sameOwner(owner, State.user?.id)) return null;

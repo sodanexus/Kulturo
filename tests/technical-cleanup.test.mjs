@@ -32,6 +32,13 @@ test("le cache ignore l'ordre JSON et les champs internes", () => {
   assert.deepEqual(entriesForStorage(first)[0], { id: "2", title: "Livre", metadata: { b: 2, a: 1 } });
 });
 
+test("l'identifiant Supabase du propriétaire ne provoque pas un nouveau rendu", () => {
+  const cached = [{ id: "1", title: "Film", status: "finished" }];
+  const remote = [{ id: "1", user_id: "owner-1", title: "Film", status: "finished" }];
+  assert.equal(entriesFingerprint(cached), entriesFingerprint(remote));
+  assert.deepEqual(entriesForStorage(remote), cached);
+});
+
 test("une vraie modification Supabase change l'empreinte", () => {
   const cached = [{ id: "1", title: "Film", status: "playing" }];
   const remote = [{ id: "1", title: "Film", status: "finished" }];
@@ -236,6 +243,19 @@ test("la restauration fusionne sans suppression et sans muter l’aperçu couran
   assert.equal(current[0].rating, 8);
   assert.equal(Object.hasOwn(plan.added[0].payload, "id"), false);
   assert.equal(Object.hasOwn(plan.added[0].payload, "user_id"), false);
+});
+
+test("les sauvegardes 4.0 sont versionnées sans rendre les anciennes incompatibles", () => {
+  const current = parseKulturoBackup(JSON.stringify({
+    app: "Kulturo", format: "kulturo-backup", schema: 2, entries: [], events: [],
+  }));
+  const legacy = parseKulturoBackup(JSON.stringify({ app: "Kulturo", version: "3.4.9", entries: [] }));
+  assert.equal(current.schema, 2);
+  assert.deepEqual(legacy.events, []);
+  assert.throws(
+    () => parseKulturoBackup(JSON.stringify({ app: "Kulturo", format: "kulturo-backup", schema: 99, entries: [] })),
+    /version plus récente/,
+  );
 });
 
 test("un doublon nouveau dans la sauvegarde ne vise jamais un ancien identifiant", () => {

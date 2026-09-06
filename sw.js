@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v3.4.9";
+const STATIC_CACHE = "kulturo-static-v4.0.0";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -14,7 +14,7 @@ const MAX_BACKDROP_ENTRIES = 36;
 const APP_SCOPE = new URL(self.registration?.scope || "./", self.location?.href || "https://kulturo.local/");
 const appAsset = path => new URL(path, APP_SCOPE).href;
 const APP_HOME = appAsset("./");
-const STATIC_ASSETS = [
+const STATIC_ASSET_PATHS = [
   "./",
   "index.html",
   "manifest.json",
@@ -27,7 +27,9 @@ const STATIC_ASSETS = [
   "styles/add-sheet.css",
   "styles/mobile-polish.css",
   "styles/enhancements.css",
+  "styles/design-system-v4.css",
   "features/add-flow.js",
+  "features/app-route.js",
   "features/async-gate.js",
   "features/backup-restore.js",
   "features/cover-accent.js",
@@ -40,7 +42,10 @@ const STATIC_ASSETS = [
   "features/journal-groups.js",
   "features/journal-navigation.js",
   "features/library-cache.js",
+  "features/local-database.js",
   "features/media-detail.js",
+  "features/media-repository.js",
+  "features/motion.js",
   "features/media-metadata.js",
   "features/profile.js",
   "features/request-client.js",
@@ -48,10 +53,11 @@ const STATIC_ASSETS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg?v=3.4.9",
-  "icon-192.png?v=3.4.9",
-  "icon-512.png?v=3.4.9",
-].map(appAsset);
+  "icon.svg?v=4.0.0",
+  "icon-192.png?v=4.0.0",
+  "icon-512.png?v=4.0.0",
+];
+const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/+esm",
 ];
