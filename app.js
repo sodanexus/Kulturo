@@ -55,6 +55,7 @@ document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY
 
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
 const DEFAULT_LIBRARY_STATUS = "finished";
+const DEFAULT_LIBRARY_SORT = "date_finished";
 const uiActionDispatcher = createUiActionDispatcher(() => window.UI);
 const dialogFocus = createDialogFocusManager(document);
 let _modalReturnFocus = null;
@@ -159,7 +160,7 @@ const State = {
     favorite: false,
     replay:   false,
     search:   "",
-    sort:     "created_at",
+    sort:     DEFAULT_LIBRARY_SORT,
     year:     "all",
     month:    "all",
     rating:   "all",
@@ -256,7 +257,7 @@ function restoreUiSnapshot() {
       State.filters.favorite = Boolean(filters.favorite);
       State.filters.replay = Boolean(filters.replay);
       State.filters.search = typeof filters.search === "string" ? filters.search.slice(0, 120) : "";
-      State.filters.sort = allowedSorts.has(filters.sort) ? filters.sort : "created_at";
+      State.filters.sort = allowedSorts.has(filters.sort) ? filters.sort : DEFAULT_LIBRARY_SORT;
       State.filters.year = filters.year === "all" || Number.isFinite(Number(filters.year)) ? filters.year : "all";
       State.filters.month = typeof filters.month === "string" ? filters.month : "all";
       State.filters.rating = filters.rating === "all" || Number.isFinite(Number(filters.rating)) ? filters.rating : "all";
@@ -497,7 +498,7 @@ async function init() {
           State.scrollPos = {};
           Object.assign(State.filters, {
             type: "all", subtype: "all", status: DEFAULT_LIBRARY_STATUS,
-            favorite: false, replay: false, search: "", sort: "created_at",
+            favorite: false, replay: false, search: "", sort: DEFAULT_LIBRARY_SORT,
             year: "all", month: "all", rating: "all",
           });
           journalFeature.reset();
@@ -902,7 +903,7 @@ function renderApp() {
   let savedSort = null;
   try { savedSort = localStorage.getItem("kulturo-sort"); } catch {}
   const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
-  State.filters.sort = allowedSorts.has(savedSort) ? savedSort : "created_at";
+  State.filters.sort = allowedSorts.has(savedSort) ? savedSort : DEFAULT_LIBRARY_SORT;
   const globalSearch = document.getElementById("global-search");
   if (globalSearch) globalSearch.value = State.filters.search || "";
   bindJournalInteractions();
@@ -1246,7 +1247,7 @@ function _countActiveFilters() {
   if (State.filters.favorite) n++;
   if (State.filters.replay) n++;
   if (State.filters.status !== DEFAULT_LIBRARY_STATUS) n++;
-  if (State.filters.sort !== "created_at") n++;
+  if (State.filters.sort !== DEFAULT_LIBRARY_SORT) n++;
   if (State.filters.year !== "all" || State.filters.month !== "all") n++;
   if (State.filters.rating !== "all") n++;
   return n;
@@ -1425,6 +1426,7 @@ function renderActiveFilters() {
   const typeLabels = { game: "Jeux", movie: "Films / Séries", book: "Livres" };
   const subtypeLabels = { movie: "Films", tv: "Séries" };
   const sortLabels = {
+    created_at: "Ajouts récents",
     date_finished: "Fins récentes",
     rating_desc: "Meilleures notes",
     rating_asc: "Notes les plus basses",
@@ -1441,7 +1443,7 @@ function renderActiveFilters() {
     if (State.filters.status !== DEFAULT_LIBRARY_STATUS && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
     if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
     if (State.filters.replay) filters.push(["replay", "Replay"]);
-    if (State.filters.sort !== "created_at") filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
+    if (State.filters.sort !== DEFAULT_LIBRARY_SORT) filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
     if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
     if (State.filters.month !== "all") {
       const [year, month] = String(State.filters.month).split("-").map(Number);
@@ -1474,8 +1476,8 @@ function clearLibraryFilter(key) {
   else if (key === "favorite") State.filters.favorite = false;
   else if (key === "replay") State.filters.replay = false;
   else if (key === "sort") {
-    State.filters.sort = "created_at";
-    try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
+    State.filters.sort = DEFAULT_LIBRARY_SORT;
+    try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
   } else if (key === "rating") State.filters.rating = "all";
   else if (key === "search") {
     State.filters.search = "";
@@ -1500,10 +1502,10 @@ function clearAllLibraryFilters() {
   State.filters.replay = false;
   State.filters.search = "";
   State.filters.rating = "all";
-  State.filters.sort = "created_at";
+  State.filters.sort = DEFAULT_LIBRARY_SORT;
   State.filters.year = "all";
   State.filters.month = "all";
-  try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
+  try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
   const search = document.getElementById("global-search");
   if (search) search.value = "";
   syncFilterChips();
@@ -1607,7 +1609,10 @@ function filterEntries(entries) {
       case "title":         return a.title.localeCompare(b.title);
       case "rating_desc":   return (b.rating||0) - (a.rating||0);
       case "rating_asc":    return (a.rating||0) - (b.rating||0);
-      case "date_finished": return new Date(b.date_finished||0) - new Date(a.date_finished||0);
+      case "date_finished":
+        // À date de fin égale (ou absente), les ajouts les plus récents passent devant.
+        return (new Date(b.date_finished||0) - new Date(a.date_finished||0)) ||
+               (new Date(b.created_at||0)    - new Date(a.created_at||0));
       default:              return new Date(b.created_at||0)    - new Date(a.created_at||0);
     }
   });
@@ -3795,7 +3800,7 @@ window.UI = {
 
     const _buildModal = () => {
       const statuses = ["finished","wishlist","playing","dropped"];
-      const sorts = [["created_at","Ajouts récents"],["date_finished","Fins récentes"],["rating_desc","Meilleures notes"],["rating_asc","Notes les plus basses"],["title","Titre A–Z"]];
+      const sorts = [["date_finished","Fins récentes"],["created_at","Ajouts récents"],["rating_desc","Meilleures notes"],["rating_asc","Notes les plus basses"],["title","Titre A–Z"]];
       const types = [
         ["movie", "Films / Séries", iconMedia("movie")],
         ["game", "Jeux", iconMedia("game")],
@@ -3958,13 +3963,13 @@ window.UI = {
     State.filters.type = "all";
     State.filters.subtype = "all";
     State.filters.status = DEFAULT_LIBRARY_STATUS;
-    State.filters.sort = "created_at";
+    State.filters.sort = DEFAULT_LIBRARY_SORT;
     State.filters.favorite = false;
     State.filters.replay = false;
     State.filters.year = "all";
     State.filters.month = "all";
     State.filters.rating = "all";
-    try { localStorage.setItem("kulturo-sort", "created_at"); } catch {}
+    try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },

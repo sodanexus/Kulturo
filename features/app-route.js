@@ -22,7 +22,7 @@ export function buildAppRoute({ page = "library", layer = null, payload = {}, fi
   setWhen(params, "status", filters.status, "finished");
   if (filters.favorite) params.set("heart", "1");
   if (filters.replay) params.set("replay", "1");
-  setWhen(params, "sort", filters.sort, "created_at");
+  setWhen(params, "sort", filters.sort, "date_finished");
   setWhen(params, "year", filters.year, "all");
   setWhen(params, "month", filters.month, "all");
   setWhen(params, "rating", filters.rating, "all");
@@ -60,7 +60,7 @@ export function parseAppRoute(hash = "") {
   const params = new URLSearchParams(match[2] || "");
   const filters = {
     search: "", type: "all", subtype: "all", status: "finished",
-    favorite: false, replay: false, sort: "created_at",
+    favorite: false, replay: false, sort: "date_finished",
     year: "all", month: "all", rating: "all",
   };
   if (params.has("q")) filters.search = params.get("q").slice(0, 120);
