@@ -642,7 +642,7 @@ body { background-color: var(--system-bar-color); }
 .detail-synopsis-empty {
   margin: 0;
   color: var(--text-3);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--type-body);
   font-style: italic;
   line-height: 1.6;
