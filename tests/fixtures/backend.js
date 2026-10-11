@@ -18,7 +18,7 @@ const user = { id: "00000000-0000-4000-8000-000000000001", email: "test@example.
     });
     sessionStorage.setItem(databaseMarker, "ready");
   }
-  for (const key of ["kulturo-nav", "kulturo-sort", "kulturo-library-density", "kulturo-journal-mode", "kulturo-upcoming-preferences-v2"]) localStorage.removeItem(key);
+  for (const key of ["kulturo-nav", "kulturo-sort", "kulturo-sort-v2", "kulturo-library-density", "kulturo-journal-mode", "kulturo-upcoming-preferences-v2"]) localStorage.removeItem(key);
   sessionStorage.removeItem("kulturo-ui-snapshot-v2");
   sessionStorage.removeItem("kulturo-ui-snapshot-v3");
   localStorage.removeItem("kulturo-entries-v1:" + user.id);
