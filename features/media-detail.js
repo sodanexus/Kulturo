@@ -1,8 +1,8 @@
 // Fiches média : rendu, enrichissement, métadonnées et transitions de jaquette.
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
 import {
-  formatReleaseDate, isReplayEntry, normalizeTitle, repeatInfo,
-  repeatProgressLabel, staleRepeatEvents, statusTransitionChanges,
+  formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
+  repeatProgressLabel, staleRepeatEvents, statusLabelFor, statusTransitionChanges,
 } from "../domain.js";
 import {
   entriesForMetadata, metadataDefinition, metadataExternalLink, splitMetadataValues,
@@ -13,7 +13,7 @@ import { collectDetailUpdates } from "./detail-enrichment.js";
 export function createMediaDetailFeature({
   State, Media, Journal, refreshJournalEvents, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
   iconCalendar, iconPlay, iconEdit, iconTrash, iconRepeat, iconExternal, iconX,
-  iconUser, iconMedia, iconStatus, getTypeLabel, STATUS_LABELS, ratingScoreHTML,
+  iconUser, iconMedia, iconStatus, getTypeLabel, ratingScoreHTML,
   rememberModalReturnFocus, bindCoverAccent, dialogFocus, activateDialog,
   pushHistoryLayer, syncSystemBar, getCurrentPage, hydrateFadeImages,
   setupMobileSheetSwipe, closeModal, syncDialogBackground, historyOwnsLayer,
@@ -332,7 +332,7 @@ function renderDetailPanel(e, options = {}) {
   const headerStatusBadge = isPreview
     ? `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`
     : isReadOnly && e.status
-      ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${STATUS_LABELS[e.status]}</span>`
+      ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${statusLabelFor(e.status, e.media_type)}</span>`
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
@@ -469,11 +469,8 @@ function renderDetailPanel(e, options = {}) {
 
 // ── Body enrichi de la fiche détail ──────────────────────────
 function quickActionsHTML(entry) {
-  const statusOptions = [
-    ["wishlist", "Wishlist"],
-    ["playing", "En cours"],
-    ["finished", "Terminé"],
-  ];
+  const statusOptions = ["wishlist", "playing", "finished"]
+    .map(value => [value, statusLabelFor(value, entry.media_type)]);
   const repeatControl = quickRepeatHTML(entry);
   return `
     <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
@@ -494,7 +491,7 @@ function quickActionsHTML(entry) {
 function detailRepeatIndicatorHTML(entry) {
   const info = repeatInfo(entry);
   const progress = repeatProgressLabel(entry, info);
-  const historyLabel = info.total ? `${info.done} ${info.total} fois` : "Aucun revisionnage";
+  const historyLabel = info.total ? `${info.done} ${info.total} fois` : info.noneLabel;
   const active = isReplayEntry(entry);
   const label = progress ? `${progress} · ${historyLabel}` : historyLabel;
   return `<span class="detail-repeat ${active ? "is-active" : ""} ${progress ? "is-progress" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
@@ -506,11 +503,7 @@ function quickRepeatHTML(entry) {
 
   const progress = repeatProgressLabel(entry, info);
   const historyLabel = `${info.done} ${info.total} fois`;
-  const [singular, plural] = entry.media_type === "book"
-    ? ["lecture", "lectures"]
-    : entry.media_type === "game"
-      ? ["partie", "parties"]
-      : ["vue", "vues"];
+  const [singular, plural] = info.unit;
   const countLabel = `${info.total} ${info.total > 1 ? plural : singular}`;
   const fullLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
   const canAdjustDown = !progress && info.repeats > 0;
@@ -520,7 +513,7 @@ function quickRepeatHTML(entry) {
     : info.action;
   return `
     <div class="quick-repeat-stepper ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
-      <button type="button" class="quick-repeat-adjust" ${uiAction("quickAdjustRepeat", [entry.id, -1])} ${canAdjustDown ? "" : "disabled"} aria-label="Retirer un ${info.noun}">−</button>
+      <button type="button" class="quick-repeat-adjust" ${uiAction("quickAdjustRepeat", [entry.id, -1])} ${canAdjustDown ? "" : "disabled"} aria-label="${esc(info.removeLabel)}">−</button>
       <span class="quick-repeat-value" title="${esc(fullLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
       <button type="button" class="quick-repeat-adjust quick-repeat-add" ${uiAction("quickAdjustRepeat", [entry.id, 1])} ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
     </div>`;
@@ -888,7 +881,7 @@ function syncOpenDetail(entry, feedback = "") {
   const statusBadge = document.getElementById(`detail-status-${entry.id}`);
   if (statusBadge) {
     statusBadge.className = `badge badge-${entry.status}`;
-    statusBadge.innerHTML = `${iconStatus(entry.status)} ${esc(STATUS_LABELS[entry.status] || entry.status)}`;
+    statusBadge.innerHTML = `${iconStatus(entry.status)} ${esc(statusLabelFor(entry.status, entry.media_type) || entry.status)}`;
   }
 
   const favorite = document.getElementById(`detail-fav-${entry.id}`);
@@ -944,7 +937,7 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
       /repeat_count|schema cache/i.test(String(error?.message || ""));
     toast(
       migrationMissing
-        ? "Le compteur de revisionnage n’est pas disponible dans Supabase."
+        ? `Le compteur de ${mediaWords(entry.media_type).replay[0]} n’est pas disponible dans Supabase.`
         : "Modification impossible : " + error.message,
       "error"
     );
@@ -970,7 +963,7 @@ async function quickSetStatus(id, status) {
     ? repeatProgressLabel(preview, previewInfo)
     : transition.repeatCompleted
       ? `${previewInfo.done} ${previewInfo.total} fois`
-      : STATUS_LABELS[status];
+      : statusLabelFor(status, entry.media_type);
 
   const updated = await persistQuickEntryChange(id, transition.changes, feedback);
   if (updated && status === "finished" && previousStatus !== "finished") launchConfetti();

@@ -1,7 +1,7 @@
 // Profil : périodes, statistiques, préférés et compte.
 import {
   entryActivityMonth, entryActivityYear, eventsForPeriod, isCompletionEvent,
-  isProfileTopEvent, latestEventMonth, uniqueEntriesForEvents, yearMonthOf,
+  isProfileTopEvent, latestEventMonth, replayProfileCopy, uniqueEntriesForEvents, yearMonthOf,
 } from "../domain.js";
 import { exploredGenres, repeatCountForPeriod } from "./insights.js";
 import { patchKeyedSurface } from "./dom-updates.js";
@@ -338,6 +338,7 @@ export function createProfileFeature({
       _profileYear,
       periodMonth,
     );
+    const replayCopy = replayProfileCopy(_profileMedia, scopedRepeatCount);
     const genreInsights = exploredGenres(scopedEntries, 6);
     const maxGenreCount = Math.max(...genreInsights.map(item => item.count), 1);
     const genresHTML = genreInsights.length ? genreInsights.map(item => `
@@ -462,10 +463,10 @@ export function createProfileFeature({
           <div class="profile-genre-list">${genresHTML}</div>
         </section>
         <section class="profile-dashboard-card profile-repeat-section">
-          <span class="section-eyebrow">Revoir, relire, rejouer</span>
+          <span class="section-eyebrow">${replayCopy.eyebrow}</span>
           <div class="profile-repeat-value">${profileNumberHTML("repeats", scopedRepeatCount)}</div>
-          <h3>reprise${scopedRepeatCount === 1 ? "" : "s"}</h3>
-          <p>Revisionnages, relectures et nouvelles parties terminés sur cette période.</p>
+          <h3>${replayCopy.noun}</h3>
+          <p>${replayCopy.description}</p>
         </section>
       </div>
 

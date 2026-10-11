@@ -2,11 +2,13 @@
 // Kulturo 4 — route portable dans le fragment d’URL
 // ============================================================
 
+import { DEFAULT_LIBRARY_SORT, DEFAULT_LIBRARY_STATUS, LIBRARY_SORTS, LIBRARY_STATUSES } from "../domain.js";
+
 const PAGES = new Set(["library", "dashboard", "upcoming", "journal"]);
-const STATUSES = new Set(["all", "wishlist", "playing", "finished", "dropped"]);
+const STATUSES = new Set(["all", ...LIBRARY_STATUSES]);
 const TYPES = new Set(["all", "movie", "game", "book"]);
 const SUBTYPES = new Set(["all", "movie", "tv"]);
-const SORTS = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
+const SORTS = new Set(LIBRARY_SORTS);
 
 function setWhen(params, key, value, fallback = null) {
   if (value == null || value === "" || value === fallback) return;
@@ -19,10 +21,10 @@ export function buildAppRoute({ page = "library", layer = null, payload = {}, fi
   setWhen(params, "q", filters.search, "");
   setWhen(params, "type", filters.type, "all");
   setWhen(params, "subtype", filters.subtype, "all");
-  setWhen(params, "status", filters.status, "finished");
+  setWhen(params, "status", filters.status, DEFAULT_LIBRARY_STATUS);
   if (filters.favorite) params.set("heart", "1");
   if (filters.replay) params.set("replay", "1");
-  setWhen(params, "sort", filters.sort, "date_finished");
+  setWhen(params, "sort", filters.sort, DEFAULT_LIBRARY_SORT);
   setWhen(params, "year", filters.year, "all");
   setWhen(params, "month", filters.month, "all");
   setWhen(params, "rating", filters.rating, "all");
@@ -59,8 +61,8 @@ export function parseAppRoute(hash = "") {
   if (!match) return null;
   const params = new URLSearchParams(match[2] || "");
   const filters = {
-    search: "", type: "all", subtype: "all", status: "finished",
-    favorite: false, replay: false, sort: "date_finished",
+    search: "", type: "all", subtype: "all", status: DEFAULT_LIBRARY_STATUS,
+    favorite: false, replay: false, sort: DEFAULT_LIBRARY_SORT,
     year: "all", month: "all", rating: "all",
   };
   if (params.has("q")) filters.search = params.get("q").slice(0, 120);

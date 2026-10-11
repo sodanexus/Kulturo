@@ -5,7 +5,6 @@ export const ADD_PRIMARY_STATUSES = Object.freeze([
 ]);
 
 export const ADD_SECONDARY_STATUSES = Object.freeze([
-  Object.freeze({ value: "paused", label: "En pause" }),
   Object.freeze({ value: "dropped", label: "Abandonné" }),
 ]);
 

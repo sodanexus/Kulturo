@@ -5,7 +5,7 @@
 import { normalizeTitle, normalizedSubtype } from "../domain.js";
 
 const MEDIA_TYPES = new Set(["movie", "game", "book"]);
-const STATUSES = new Set(["wishlist", "playing", "finished", "paused", "dropped"]);
+const STATUSES = new Set(["wishlist", "playing", "finished", "dropped"]);
 const SOURCE_APIS = new Set(["tmdb", "igdb", "rawg", "openlibrary", "manual"]);
 const SUBTYPES = new Set(["movie", "tv"]);
 const EVENT_TYPES = new Set([
@@ -134,6 +134,8 @@ export function sanitizeBackupEntry(source) {
 
     entry.title = boundedString(entry.title, "title") || "";
     if (!entry.title || !MEDIA_TYPES.has(entry.media_type)) return null;
+    // Les anciennes sauvegardes peuvent contenir le statut supprimé « En pause ».
+    if (entry.status === "paused") entry.status = "playing";
     if (entry.status != null && !STATUSES.has(entry.status)) return null;
     if (entry.source_api != null && !SOURCE_APIS.has(entry.source_api)) return null;
     if (entry.subtype != null && !SUBTYPES.has(entry.subtype)) return null;

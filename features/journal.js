@@ -1,5 +1,5 @@
 // Journal : flux personnel et Communauté, rendu et interactions.
-import { isClosedMonth, journalEventPresentation, yearMonthOf } from "../domain.js";
+import { isClosedMonth, journalEventPresentation, statusLabelFor, yearMonthOf } from "../domain.js";
 import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
 import { createJournalNavigation } from "./journal-navigation.js";
@@ -10,7 +10,7 @@ export function createJournalFeature({
   State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
-  STATUS_LABELS, confirmDialog, toast, openDetailPanel, renderDetailPanel,
+  confirmDialog, toast, openDetailPanel, renderDetailPanel,
   getCurrentPage, onContextChange, onViewReady, sameOwner,
 }) {
   try {
@@ -339,7 +339,7 @@ export function createJournalFeature({
 
   function communityRowHTML(entry) {
     const type = entry.media_type === "movie" && !entry.subtype ? "Film / Série" : getTypeLabel(entry);
-    const status = STATUS_LABELS[entry.status] || "Ajouté";
+    const status = statusLabelFor(entry.status, entry.media_type) || "Ajouté";
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
       ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async">`
