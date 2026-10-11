@@ -1,6 +1,6 @@
 export type MediaType = "movie" | "game" | "book";
 export type MediaSubtype = "movie" | "tv" | null;
-export type MediaStatus = "wishlist" | "playing" | "finished" | "paused" | "dropped";
+export type MediaStatus = "wishlist" | "playing" | "finished" | "dropped";
 export type SyncState = "idle" | "offline" | "pending" | "syncing" | "synced" | "error";
 
 export interface MediaEntry {
@@ -53,7 +53,7 @@ export interface AppFilters {
   favorite: boolean;
   replay: boolean;
   search: string;
-  sort: "created_at" | "date_finished" | "rating_desc" | "rating_asc" | "title";
+  sort: "auto" | "created_at" | "date_finished" | "rating_desc" | "rating_asc" | "title";
   year: "all" | number | string;
   month: "all" | string;
   rating: "all" | number | string;
