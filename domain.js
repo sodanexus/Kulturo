@@ -236,12 +236,36 @@ export function statusTransitionChanges(entry, nextStatus, today = localISODate(
   return { changes, repeatStarted, repeatCompleted };
 }
 
+// Un événement « annulé » reste en base (les clients ne peuvent pas supprimer
+// de lignes du Journal) mais ne doit plus compter ni dans le Journal ni dans
+// les statistiques : c'est le cas d'une relecture retirée depuis la fiche.
+export function isRevokedEvent(event) {
+  return event?.metadata?.revoked === true;
+}
+
 export function isCompletionEvent(event) {
-  return COMPLETION_EVENT_TYPES.has(event?.event_type);
+  return !isRevokedEvent(event) && COMPLETION_EVENT_TYPES.has(event?.event_type);
 }
 
 export function isReplayCompletionEvent(event) {
-  return REPLAY_COMPLETION_EVENT_TYPES.has(event?.event_type);
+  return !isRevokedEvent(event) && REPLAY_COMPLETION_EVENT_TYPES.has(event?.event_type);
+}
+
+// Événements de relecture à annuler lorsque le compteur d'une fiche a baissé :
+// les « terminées » en surplus (les plus récentes d'abord) et les « commencées »
+// qui portent le même numéro d'occurrence.
+export function staleRepeatEvents(entry, events) {
+  const repeats = Math.max(0, Number.parseInt(entry?.repeat_count, 10) || 0);
+  const mine = (events || []).filter(event => event?.media_id === entry?.id && !isRevokedEvent(event));
+  const occurrenceOf = event => Number.parseInt(event?.metadata?.occurrence, 10) || 0;
+  const newestFirst = (a, b) =>
+    occurrenceOf(b) - occurrenceOf(a) || String(b.occurred_at || "").localeCompare(String(a.occurred_at || ""));
+  const finished = mine.filter(event => event.event_type === "repeat_finished").sort(newestFirst);
+  const surplus = finished.slice(0, Math.max(0, finished.length - repeats));
+  if (!surplus.length) return [];
+  const occurrences = new Set(surplus.map(occurrenceOf).filter(Boolean));
+  const started = mine.filter(event => event.event_type === "repeat_started" && occurrences.has(occurrenceOf(event)));
+  return [...surplus, ...started];
 }
 
 // Le Top mensuel doit refléter une note réellement donnée pendant la période,
@@ -266,6 +290,7 @@ export function isProfileTopEvent(event) {
 export function eventsForPeriod(events, year, month = "all") {
   const expectedYear = Number(year);
   return (events || []).filter(event => {
+    if (isRevokedEvent(event)) return false;
     const key = yearMonthOf(event?.occurred_at);
     if (!key || Number(key.slice(0, 4)) !== expectedYear) return false;
     return month === "all" || key === `${expectedYear}-${String(month).padStart(2, "0")}`;
@@ -289,7 +314,7 @@ export function latestEventMonth(
   for (const event of events || []) {
     const entry = byId.get(event?.media_id);
     const key = yearMonthOf(event?.occurred_at);
-    if (!entry || !key || key >= anchorMonth || !entryPredicate(entry) || !eventPredicate(event)) continue;
+    if (isRevokedEvent(event) || !entry || !key || key >= anchorMonth || !entryPredicate(entry) || !eventPredicate(event)) continue;
     candidates.add(key);
   }
   return [...candidates].sort((a, b) => b.localeCompare(a))[0] || null;

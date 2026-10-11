@@ -2,7 +2,7 @@
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
 import {
   formatReleaseDate, isReplayEntry, normalizeTitle, repeatInfo,
-  repeatProgressLabel, statusTransitionChanges,
+  repeatProgressLabel, staleRepeatEvents, statusTransitionChanges,
 } from "../domain.js";
 import {
   entriesForMetadata, metadataDefinition, metadataExternalLink, splitMetadataValues,
@@ -11,7 +11,7 @@ import { createDetailSessionManager } from "./detail-session.js";
 import { collectDetailUpdates } from "./detail-enrichment.js";
 
 export function createMediaDetailFeature({
-  State, Media, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
+  State, Media, Journal, refreshJournalEvents, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
   iconCalendar, iconPlay, iconEdit, iconTrash, iconRepeat, iconExternal, iconX,
   iconUser, iconMedia, iconStatus, getTypeLabel, STATUS_LABELS, ratingScoreHTML,
   rememberModalReturnFocus, bindCoverAccent, dialogFocus, activateDialog,
@@ -989,11 +989,35 @@ async function quickAdjustRepeat(id, delta) {
   const repeatCount = Math.max(0, Math.min(999, info.repeats + direction));
   if (repeatCount === info.repeats) return;
   const nextInfo = repeatInfo({ ...entry, repeat_count: repeatCount });
-  await persistQuickEntryChange(
+  const updated = await persistQuickEntryChange(
     id,
     { repeat_count: repeatCount },
     `${nextInfo.done} ${nextInfo.total} fois`
   );
+  if (updated && direction < 0) await revokeStaleRepeatEvents(updated);
+}
+
+// Retirer une relecture depuis la fiche doit aussi retirer ses événements du
+// Journal et des statistiques (la base ne les supprime pas d'elle-même).
+async function revokeStaleRepeatEvents(entry) {
+  const owner = State.user?.id;
+  if (!owner) return;
+  try {
+    if (State.journalDirty || !State.journalAvailable) await refreshJournalEvents({ silent: true });
+    if (!sameOwner(owner, State.user?.id)) return;
+    const stale = staleRepeatEvents(entry, State.events);
+    if (!stale.length) return;
+    for (const event of stale) {
+      const revoked = await Journal.revoke(event.id, event.metadata || {});
+      if (!sameOwner(owner, State.user?.id)) return;
+      Object.assign(event, revoked);
+    }
+    markJournalDirty();
+  } catch (error) {
+    if (!sameOwner(owner, State.user?.id)) return;
+    console.warn("[Journal] Relecture non retirée du Journal :", error);
+    toast("Compteur mis à jour, mais le Journal n’a pas pu être corrigé. Réessayez en ligne.", "info");
+  }
 }
 
 function _checkSynopsisOverflow(entryId) {

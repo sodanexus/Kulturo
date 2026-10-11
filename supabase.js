@@ -233,14 +233,32 @@ export const Journal = {
   // Retire uniquement la ligne du Journal visible. L'événement reste présent
   // pour les statistiques et le statut du média n'est jamais modifié.
   async hide(eventId, metadata = {}, options = {}) {
+    return Journal._markEvent(eventId, metadata, {
+      hidden_from_journal: true,
+      hidden_at: new Date().toISOString(),
+    }, options);
+  },
+
+  // Annule un événement devenu faux (relecture retirée depuis la fiche) : il
+  // disparaît du Journal et des statistiques, mais la ligne reste en base.
+  async revoke(eventId, metadata = {}, options = {}) {
+    const now = new Date().toISOString();
+    return Journal._markEvent(eventId, metadata, {
+      hidden_from_journal: true,
+      hidden_at: now,
+      revoked: true,
+      revoked_at: now,
+    }, options);
+  },
+
+  async _markEvent(eventId, metadata, marks, options = {}) {
     const user = await requireCurrentUser();
     let query = _client
       .from("media_events")
       .update({
         metadata: {
           ...(metadata && typeof metadata === "object" ? metadata : {}),
-          hidden_from_journal: true,
-          hidden_at: new Date().toISOString(),
+          ...marks,
         },
       })
       .eq("id", eventId)

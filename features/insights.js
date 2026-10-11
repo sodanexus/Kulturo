@@ -2,7 +2,7 @@
 // Tendances personnelles — Journal et Profil
 // ============================================================
 
-import { eventsForPeriod, isCompletionEvent, isProfileTopEvent, yearMonthOf } from "../domain.js";
+import { eventsForPeriod, isCompletionEvent, isProfileTopEvent, isRevokedEvent, yearMonthOf } from "../domain.js";
 
 export function normalizeInsightValue(value) {
   return String(value || "")
@@ -36,7 +36,7 @@ export function exploredGenres(entries, limit = 6) {
 
 export function journalMonthSummary(events, entries, monthKey) {
   const entryById = new Map((entries || []).map(entry => [entry.id, entry]));
-  const monthEvents = (events || []).filter(event => yearMonthOf(event?.occurred_at) === monthKey);
+  const monthEvents = (events || []).filter(event => !isRevokedEvent(event) && yearMonthOf(event?.occurred_at) === monthKey);
   // Une œuvre compte une seule fois parmi les « terminés », même en présence
   // de doublons historiques. Les repeat_finished restent réservés au replay.
   const completed = new Set(

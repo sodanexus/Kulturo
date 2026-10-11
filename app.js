@@ -3639,6 +3639,8 @@ function setLibraryDensity(value) {
 mediaDetailFeature = createMediaDetailFeature({
   State,
   Media,
+  Journal,
+  refreshJournalEvents,
   cacheEntriesLocally,
   safeMediaUrl,
   esc,
