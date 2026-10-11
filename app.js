@@ -719,7 +719,7 @@ function renderApp() {
       </div>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
       </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
@@ -754,7 +754,7 @@ function renderApp() {
           <span class="nav-label">Profil</span>
         </button>
       </div>
-      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter un média" ${uiAction("openAddModal")}>
+      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter une œuvre" ${uiAction("openAddModal")}>
         ${iconPlus()}
       </button>
     </nav>
@@ -765,9 +765,8 @@ function renderApp() {
       <section id="page-library" class="page active">
         <header class="page-heading">
           <div>
-            <span class="page-kicker">Votre collection</span>
             <h1>Bibliothèque</h1>
-            <p id="library-summary">Tous vos films, séries, jeux et livres au même endroit.</p>
+            <p id="library-summary">Films, séries, jeux et livres.</p>
           </div>
         </header>
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
@@ -783,9 +782,7 @@ function renderApp() {
       <section id="page-dashboard" class="page">
         <header class="page-heading">
           <div>
-            <span class="page-kicker">Votre année culturelle</span>
             <h1>Profil</h1>
-            <p>Vos habitudes, vos favoris et vos meilleurs souvenirs.</p>
           </div>
         </header>
         <div id="dashboard-content"></div>
@@ -795,9 +792,8 @@ function renderApp() {
       <section id="page-upcoming" class="page">
         <header class="page-heading">
           <div>
-            <span class="page-kicker">À surveiller</span>
             <h1>Sorties</h1>
-            <p>Films, séries, jeux vidéo et livres attendus en France dans les six prochains mois.</p>
+            <p>Les six prochains mois.</p>
           </div>
         </header>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
@@ -815,6 +811,10 @@ function renderApp() {
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
+          <label class="upcoming-search" for="upcoming-search">
+            <span class="sr-only">Rechercher dans les sorties</span>
+            <input type="search" id="upcoming-search" placeholder="Rechercher dans les sorties" autocomplete="off" />
+          </label>
           <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
             <span>Genre</span>
             <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
@@ -837,9 +837,7 @@ function renderApp() {
       <section id="page-journal" class="page">
         <header class="page-heading">
           <div>
-            <span class="page-kicker">Votre parcours</span>
             <h1>Journal</h1>
-            <p>Retrouvez votre parcours culturel et les derniers ajouts de la communauté.</p>
           </div>
         </header>
 
@@ -901,7 +899,7 @@ function renderApp() {
         ${iconCalendar()}
         <span>Sorties</span>
       </button>
-      <button type="button" class="bottom-nav-item bottom-nav-add" ${uiAction("openAddModal")} aria-label="Ajouter un média">
+      <button type="button" class="bottom-nav-item bottom-nav-add" ${uiAction("openAddModal")} aria-label="Ajouter une œuvre">
         ${iconPlus()}
         <span class="sr-only">Ajouter</span>
       </button>
@@ -1173,9 +1171,10 @@ function navTo(key, options = {}) {
 
 // ── Filtre type depuis les category-tabs (conserve le status) ─
 function setTypeFilter(type) {
-  const nextType = State.filters.type === type && State.filters.subtype === "all" ? "all" : type;
-  State.filters.type     = nextType;
-  State.filters.subtype  = "all";
+  const current = State.filters.type === "movie" ? State.filters.subtype : State.filters.type;
+  const nextType = current === type ? "all" : type;
+  State.filters.type = nextType === "tv" ? "movie" : nextType;
+  State.filters.subtype = ["movie", "tv"].includes(nextType) ? nextType : "all";
   syncFilterChips();
   renderCards({ resetScroll: true });
   updateCategoryTabs(nextType);
@@ -1211,12 +1210,13 @@ function showPage(name) {
   const filterBtn = document.getElementById("btn-filter-toggle");
   if (filterBtn) {
     const inactive = name !== "library";
-    const searchMode = Boolean(State.filters.search);
     filterBtn.classList.toggle("is-inactive", inactive);
-    filterBtn.classList.toggle("is-search-mode", searchMode);
-    filterBtn.setAttribute("aria-hidden", String(inactive || searchMode));
-    filterBtn.tabIndex = inactive || searchMode ? -1 : 0;
+    filterBtn.setAttribute("aria-hidden", String(inactive));
+    filterBtn.tabIndex = inactive ? -1 : 0;
   }
+
+  const searchWrap = document.querySelector(".topbar-search-wrap");
+  if (searchWrap) searchWrap.hidden = name !== "library";
 
   // #1 — restaure la position de scroll
   const main = document.getElementById("main");
@@ -1250,7 +1250,7 @@ function buildFilterBar() {
   // Chips statut dans le drawer
   const chipsEl = document.getElementById("filter-status-chips");
   if (chipsEl) {
-    const statuses = LIBRARY_STATUSES;
+    const statuses = ["all", ...LIBRARY_STATUSES];
     chipsEl.innerHTML = statuses.map(s => {
       return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
                       ${uiAction("setStatusChip", [s])}>${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
@@ -1275,7 +1275,7 @@ function _countActiveFilters() {
 function _updateFilterModalTypeChips() {
   const chips = document.querySelectorAll("#fm-type-chips .filter-chip");
   chips.forEach(chip => {
-    const active = chip.dataset.value === State.filters.type;
+    const active = chip.dataset.value === (State.filters.type === "movie" ? State.filters.subtype : State.filters.type);
     chip.classList.toggle("active", active);
     chip.setAttribute("aria-pressed", String(active));
   });
@@ -1287,16 +1287,14 @@ function _updateFilterModalTypeChips() {
 function _updateFilterToggleLabel() {
   const btn = document.getElementById("btn-filter-toggle");
   if (!btn) return;
-  const searchMode = Boolean(State.filters.search);
   const n = _countActiveFilters();
   btn.classList.toggle("has-filter", n > 0);
-  btn.classList.toggle("is-search-mode", searchMode);
   const accessibleLabel = n > 0
     ? `Ouvrir les filtres de la bibliothèque · ${n} actif${n > 1 ? "s" : ""}`
     : "Ouvrir les filtres de la bibliothèque";
   btn.setAttribute("aria-label", accessibleLabel);
   btn.title = n > 0 ? `Filtres · ${n} actif${n > 1 ? "s" : ""}` : "Filtres";
-  const unavailable = _currentPage !== "library" || searchMode;
+  const unavailable = _currentPage !== "library";
   btn.setAttribute("aria-hidden", String(unavailable));
   btn.tabIndex = unavailable ? -1 : 0;
   // Badge count
@@ -1432,27 +1430,27 @@ function updateLibraryHeading(entries) {
   if (summary) {
     const total = State.entries.length;
     summary.textContent = total
-      ? `${total} média${total > 1 ? "s" : ""} sauvegardé${total > 1 ? "s" : ""}, toujours à portée de main.`
-      : "Tous vos films, séries, jeux et livres au même endroit.";
+      ? `${total} œuvre${total > 1 ? "s" : ""} dans votre bibliothèque.`
+      : "Films, séries, jeux et livres.";
   }
-  if (count) count.textContent = `${entries.length} média${entries.length > 1 ? "s" : ""}`;
+  if (count) count.textContent = `${entries.length} œuvre${entries.length > 1 ? "s" : ""}`;
 }
 
 function renderActiveFilters() {
   const container = document.getElementById("active-filter-summary");
   if (!container) return;
 
-  const typeLabels = { game: "Jeux", movie: "Films / Séries", book: "Livres" };
+  const typeLabels = { game: "Jeux", movie: "Films · Séries", book: "Livres" };
   const subtypeLabels = { movie: "Films", tv: "Séries" };
   const filters = [];
-  // La recherche de la barre supérieure est volontairement globale. Les
-  // filtres restent mémorisés et réapparaissent dès que la requête est vidée.
+  // Les critères restent visibles pendant la recherche.
   if (State.filters.search) {
     filters.push(["search", `“${State.filters.search}”`]);
-  } else {
+  }
+  {
     if (State.filters.subtype !== "all") filters.push(["subtype", subtypeLabels[State.filters.subtype] || State.filters.subtype]);
     else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
-    if (State.filters.status !== DEFAULT_LIBRARY_STATUS && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
+    if ((State.filters.search || State.filters.status !== DEFAULT_LIBRARY_STATUS) && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
     if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
     if (State.filters.replay) filters.push(["replay", replayFilterLabel(State.filters.type)]);
     if (State.filters.sort !== DEFAULT_LIBRARY_SORT) filters.push(["sort", LIBRARY_SORT_LABELS[resolveLibrarySort(State.filters)]]);
@@ -1469,7 +1467,7 @@ function renderActiveFilters() {
 
   container.hidden = filters.length === 0;
   container.innerHTML = filters.length ? `
-    <span class="active-filter-label">${State.filters.search ? "Recherche globale" : "Filtres actifs"}</span>
+    <span class="active-filter-label">${State.filters.search ? "Dans ma bibliothèque · filtres appliqués" : "Filtres actifs"}</span>
     <div class="active-filter-chips">
       ${filters.map(([key, label]) => `
         <button type="button" class="active-filter-chip" ${uiAction("clearLibraryFilter", [key])} aria-label="Retirer le filtre ${esc(label)}">
@@ -1484,7 +1482,7 @@ function clearLibraryFilter(key) {
     State.filters.type = "all";
     State.filters.subtype = "all";
   }
-  else if (key === "status") State.filters.status = DEFAULT_LIBRARY_STATUS;
+  else if (key === "status") State.filters.status = State.filters.search ? "all" : DEFAULT_LIBRARY_STATUS;
   else if (key === "favorite") State.filters.favorite = false;
   else if (key === "replay") State.filters.replay = false;
   else if (key === "sort") {
@@ -1554,7 +1552,7 @@ function renderCards(options = {}) {
   if (!State.entries.length && State.libraryStatus === "error") {
     grid.innerHTML = errorState({
       title: "Bibliothèque indisponible",
-      message: "Impossible de charger vos médias pour le moment.",
+      message: "Impossible de charger vos œuvres pour le moment.",
       actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryLibrary") + '>Réessayer</button>',
     });
     return;
@@ -1579,20 +1577,23 @@ function renderCards(options = {}) {
     const searchEmpty = Boolean(f.search);
     const libraryEmpty = State.entries.length === 0;
     const title = searchEmpty ? "Aucun résultat" : libraryEmpty ? "Votre bibliothèque commence ici" :
-      hasFilters ? "Aucun média correspondant" : "Aucun média terminé";
+      hasFilters ? "Aucune œuvre correspondante" : "Aucune œuvre terminée";
     const message = searchEmpty ? 'Aucun résultat pour « ' + esc(f.search) + ' ».' :
       libraryEmpty ? "Ajoutez un film, une série, un jeu ou un livre pour commencer." :
-      hasFilters ? "Essayez d’élargir vos filtres pour retrouver vos médias." :
-      "Vos médias terminés apparaîtront ici. Vous pouvez consulter ceux que vous suivez déjà.";
+      hasFilters ? "Essayez d’élargir vos filtres pour retrouver vos œuvres." :
+      "Vos œuvres terminées apparaîtront ici. Vous pouvez consulter celles que vous suivez déjà.";
     const action = searchEmpty ? uiAction("clearLibraryFilter", ["search"]) :
       libraryEmpty ? uiAction("openAddModal") :
       hasFilters ? uiAction("clearAllLibraryFilters") : uiAction("navTo", ["status-all"]);
     const label = searchEmpty ? "Effacer la recherche" :
-      libraryEmpty ? "Ajouter un média" :
-      hasFilters ? "Réinitialiser les filtres" : "Voir mes médias";
+      libraryEmpty ? "Ajouter une œuvre" :
+      hasFilters ? "Réinitialiser les filtres" : "Voir mes œuvres";
     grid.innerHTML = emptyState({
       icon: searchEmpty ? "search" : "collection", title, message,
-      actionHTML: '<button class="btn ' + (libraryEmpty && !searchEmpty ? "btn-primary" : "btn-secondary") + '" ' + action + '>' + label + '</button>',
+      actionHTML: '<button class="btn ' + (libraryEmpty && !searchEmpty ? "btn-primary" : "btn-secondary") + '" ' + action + '>' + label + '</button>' + (searchEmpty
+        ? '<button class="btn btn-primary" ' + uiAction("addFromLibrarySearch") + '>Chercher ce titre pour l’ajouter</button>'
+          + '<button class="btn btn-secondary" ' + uiAction("broadenLibrarySearch") + '>Chercher dans toute ma bibliothèque</button>'
+        : ''),
     });
     return;
   }
@@ -1609,7 +1610,7 @@ function renderCards(options = {}) {
 function filterEntries(entries) {
   const f = State.filters;
   const res = filterLibraryEntries(entries, f);
-  if (f.search) {
+  if (f.search && f.sort === DEFAULT_LIBRARY_SORT) {
     return res.sort((a, b) =>
       librarySearchScore(b, f.search) - librarySearchScore(a, f.search) ||
       a.title.localeCompare(b.title, "fr", { sensitivity: "base" })
@@ -1691,7 +1692,7 @@ function cardHTML(e, i = 0) {
   ].filter(Boolean).join(" ");
 
   const statusLabel = {
-    wishlist: "Wishlist",
+    wishlist: "Envies",
     playing:  "En cours",
     dropped:  "Abandonné",
   }[e.status] || "";
@@ -1892,7 +1893,7 @@ function _renderWizard() {
 
   else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
-    const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
+    const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type, subtype: s.subtype })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
     const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value }) => { const label = statusLabelFor(value, s.type); return `
       <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" ${uiAction("wzSetStatus", [value])} aria-pressed="${value === s._status}">
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
@@ -1902,7 +1903,7 @@ function _renderWizard() {
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
       </button>`; }).join("");
     headerHTML = `
-      <button type="button" class="btn-icon wz-back-btn" ${uiAction("wzBack")} aria-label="Changer de média">←</button>
+      <button type="button" class="btn-icon wz-back-btn" ${uiAction("wzBack")} aria-label="Changer d’œuvre">←</button>
       <div class="wz-header-copy">
         <span>Nouvel ajout</span>
         <h3 id="add-sheet-title">Ajouter à la bibliothèque</h3>
@@ -1922,7 +1923,7 @@ function _renderWizard() {
 
       <section class="wz-compact-section">
         <div class="wz-section-heading"><strong>Où en êtes-vous ?</strong></div>
-        <div class="wz-status-grid" role="group" aria-label="Statut du média">${primaryStatuses}</div>
+        <div class="wz-status-grid" role="group" aria-label="Statut de l’œuvre">${primaryStatuses}</div>
         <details class="wz-other-status" ${isSecondaryAddStatus(s._status) ? "open" : ""}>
           <summary>Autre statut</summary>
           <div class="wz-status-grid wz-status-grid-secondary">${secondaryStatuses}</div>
@@ -1969,6 +1970,7 @@ function _renderWizard() {
     const body = document.querySelector(".modal-body");
     [
       ["f-type",   s.type],
+      ["f-subtype", s.subtype],
       ["f-title",  s.apiSelected?.title || s.title],
       ["f-genre",  s.apiSelected?.genre || ""],
       ["f-author", s.apiSelected?.author || ""],
@@ -2007,21 +2009,23 @@ function _openModalClassic(entry) {
       <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="edit-sheet-title">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" ${uiAction("setEditDetailsView", [false])} aria-label="Revenir à la modification principale">←</button>
-          <h3 id="edit-sheet-title"><span class="edit-title-main">Modifier ${esc(entry.title || "ce média")}</span><span class="edit-title-details">Détails facultatifs — ${esc(entry.title || "média")}</span></h3>
+          <h3 id="edit-sheet-title"><span class="edit-title-main">Modifier ${esc(entry.title || "cette œuvre")}</span><span class="edit-title-details">Détails facultatifs — ${esc(entry.title || "œuvre")}</span></h3>
           <button class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
         </div>
         <div class="modal-body">
           <div class="edit-primary-view">
             <div class="form-group modal-search-unified">
               <div class="modal-type-tabs">
-                <button type="button" class="modal-type-tab ${entry.media_type==="movie" ? "active" : ""}" data-type="movie" ${uiAction("setModalType", ["movie"])}>${iconMedia("movie")} Film / Série</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" ${uiAction("setModalType", ["game"])}>${iconMedia("game")} Jeu</button>
-                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" ${uiAction("setModalType", ["book"])}>${iconMedia("book")} Livre</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="movie" && normalizedSubtype(entry)==="movie" ? "active" : ""}" data-type="movie" ${uiAction("setModalType", ["movie"])}>${iconMedia("movie")} Films</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="movie" && entry.subtype==="tv" ? "active" : ""}" data-type="tv" ${uiAction("setModalType", ["tv"])}>${iconMedia("movie", "tv")} Séries</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" ${uiAction("setModalType", ["game"])}>${iconMedia("game")} Jeux</button>
+                <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" ${uiAction("setModalType", ["book"])}>${iconMedia("book")} Livres</button>
               </div>
               <div class="api-search-wrap">
                 <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
                 <div class="api-results" id="api-results" style="display:none"></div>
               </div>
+              <input type="hidden" id="f-subtype" value="${normalizedSubtype(entry) || ""}" />
               <input type="hidden" id="f-type" value="${entry.media_type || "movie"}" />
               <input type="hidden" id="f-title" value="${esc(entry.title||"")}" />
             </div>
@@ -2358,9 +2362,10 @@ function setupWizardUniversalSearch() {
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
-            <button type="button" ${uiAction("wzUseManualType", ["movie"])}>${iconMedia("movie")} Film / Série</button>
-            <button type="button" ${uiAction("wzUseManualType", ["game"])}>${iconMedia("game")} Jeu</button>
-            <button type="button" ${uiAction("wzUseManualType", ["book"])}>${iconMedia("book")} Livre</button>
+            <button type="button" ${uiAction("wzUseManualType", ["movie"])}>${iconMedia("movie")} Films</button>
+            <button type="button" ${uiAction("wzUseManualType", ["tv"])}>${iconMedia("movie", "tv")} Séries</button>
+            <button type="button" ${uiAction("wzUseManualType", ["game"])}>${iconMedia("game")} Jeux</button>
+            <button type="button" ${uiAction("wzUseManualType", ["book"])}>${iconMedia("book")} Livres</button>
           </div>
         </div>`;
     }, immediate ? 0 : 320);
@@ -2397,6 +2402,7 @@ function setupApiSearch() {
     timer = setTimeout(async () => {
       if (!input.isConnected) return;
       const type  = document.getElementById("f-type")?.value || "game";
+      const requestedSubtype = document.getElementById("f-subtype")?.value;
       const seq = ++requestSeq;
       activeController?.abort();
       activeController = new AbortController();
@@ -2404,15 +2410,17 @@ function setupApiSearch() {
       let items;
       try {
         items = await searchMedia(q, type, { signal });
+        if (type === "movie") items = items.filter(item => normalizedSubtype(item) === requestedSubtype);
       } catch (error) {
         if (signal.aborted || !input.isConnected || seq !== requestSeq) return;
         results.style.display = "block";
         results.innerHTML = '<div class="wz-search-empty">Recherche momentanément indisponible.</div>';
-        console.warn("[Recherche média]", error);
+        console.warn("[Recherche œuvre]", error);
         return;
       }
       if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
-          (document.getElementById("f-type")?.value || "game") !== type) return;
+          (document.getElementById("f-type")?.value || "game") !== type ||
+          document.getElementById("f-subtype")?.value !== requestedSubtype) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
       results.innerHTML = items.map((it, idx) => `
@@ -2483,8 +2491,9 @@ async function saveEntry() {
   const existing = State.editingId ? State.entries.find(e => e.id === State.editingId) : null;
   const selected = window._apiSelected || null;
   const mediaType = document.getElementById("f-type")?.value;
+  const mediaSubtype = mediaType === "movie" ? (document.getElementById("f-subtype")?.value || "movie") : null;
   const keepExistingApi = Boolean(existing && !selected &&
-    existing.media_type === mediaType && normalizeTitle(existing.title) === normalizeTitle(title));
+    existing.media_type === mediaType && normalizedSubtype(existing) === mediaSubtype && normalizeTitle(existing.title) === normalizeTitle(title));
 
   const payload = {
     title,
@@ -2501,7 +2510,7 @@ async function saveEntry() {
     platform:      document.getElementById("f-platform")?.value?.trim() || null,
     external_id:   selected?.external_id ?? (keepExistingApi ? existing.external_id : null),
     source_api:    selected?.source_api  ?? (keepExistingApi ? existing.source_api : "manual"),
-    subtype:       selected?.subtype     ?? (keepExistingApi ? existing.subtype : null),
+    subtype:       selected?.subtype     ?? mediaSubtype,
     release_year:  selected?.release_year ?? (keepExistingApi ? existing.release_year : null),
     release_date:  selected?.release_date ?? (keepExistingApi ? existing.release_date : null),
     release_date_precision: selected?.date_precision ?? selected?.release_date_precision
@@ -2599,7 +2608,7 @@ async function saveEntry() {
 }
 
 async function deleteEntry(id) {
-  const confirmed = await confirmDialog("Supprimer ce média ?", "Vous pourrez annuler pendant quelques secondes.", "Supprimer", "danger");
+  const confirmed = await confirmDialog("Supprimer cette œuvre ?", "Vous pourrez annuler pendant quelques secondes.", "Supprimer", "danger");
   if (!confirmed) return;
   const deleteOwner = State.user?.id;
   if (!deleteOwner) return;
@@ -2621,7 +2630,7 @@ async function deleteEntry(id) {
     renderCards();
     if (_currentPage === "upcoming") upcomingFeature.renderCards();
     updateBadges();
-    toast("Média supprimé", "info", {
+    toast("Œuvre supprimée", "info", {
       actionLabel: "Annuler",
       duration: 6800,
       onAction: async () => {
@@ -2959,6 +2968,7 @@ function bindGlobalEvents() {
 
   document.addEventListener("input", e => {
     if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
+    if (e.target.id === "upcoming-search") upcomingFeature.setSearch(e.target.value);
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
       State.filters.search = q;
@@ -3445,7 +3455,7 @@ async function exportLibrary(button = null) {
     const pendingLabel = sync.pending
       ? ` · ${sync.pending} modification${sync.pending > 1 ? "s" : ""} locale${sync.pending > 1 ? "s" : ""} incluse${sync.pending > 1 ? "s" : ""}`
       : "";
-    toast(`${cleanEntries.length} média${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés${pendingLabel} ✓`, "success");
+    toast(`${cleanEntries.length} œuvre${cleanEntries.length > 1 ? "s" : ""} et ${State.events.length} événement${State.events.length > 1 ? "s" : ""} sauvegardés${pendingLabel} ✓`, "success");
   } catch (error) {
     if (sameOwner(owner, State.user?.id)) toast("Sauvegarde impossible : " + error.message, "error");
   } finally {
@@ -3535,7 +3545,7 @@ function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
           <div class="backup-restore-journal"><span aria-hidden="true">≡</span><span><strong>${journalCount} événement${journalCount > 1 ? "s" : ""}</strong> du Journal vérifié${journalCount > 1 ? "s" : ""} et prêt${journalCount > 1 ? "s" : ""} à être fusionné${journalCount > 1 ? "s" : ""}.</span></div>
           ${restorePreviewDetails(plan)}
           ${ignoredCount ? `<p class="backup-restore-warning" role="status">${ignoredCount} élément${ignoredCount > 1 ? "s" : ""} ambigu${ignoredCount > 1 ? "s" : ""} ou invalide${ignoredCount > 1 ? "s" : ""} sera${ignoredCount > 1 ? "ont" : ""} ignoré${ignoredCount > 1 ? "s" : ""}.</p>` : ""}
-          <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>Les médias absents de ce fichier restent dans votre bibliothèque.</span></div>
+          <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>Les œuvres absentes de ce fichier restent dans votre bibliothèque.</span></div>
           <div class="backup-restore-rule"><span aria-hidden="true">✓</span><span>En cas d’erreur, aucune modification ne sera conservée.</span></div>
           <div class="backup-restore-progress" id="backup-restore-progress" role="status" aria-live="polite"></div>
         </div>
@@ -3634,7 +3644,7 @@ async function restoreBackup() {
     _pendingRestoreEvents = null;
     _modalDirty = false;
     closeModal();
-    toast(`${restoredMedia} média${restoredMedia > 1 ? "s" : ""} et ${restoredEvents} événement${restoredEvents > 1 ? "s" : ""} restaurés ✓`, "success");
+    toast(`${restoredMedia} œuvre${restoredMedia > 1 ? "s" : ""} et ${restoredEvents} événement${restoredEvents > 1 ? "s" : ""} restaurés ✓`, "success");
   } catch (error) {
     _restoreInProgress = false;
     if (!sameOwner(owner, State.user?.id)) return;
@@ -3790,6 +3800,16 @@ const upcomingFeature = createUpcomingFeature({
 });
 
 window.UI = {
+  addFromLibrarySearch: () => openModal(null, State.filters.search),
+  broadenLibrarySearch: () => {
+    const query = State.filters.search;
+    clearAllLibraryFilters();
+    State.filters.status = "all";
+    State.filters.search = query;
+    document.getElementById("global-search").value = query;
+    syncFilterChips();
+    renderCards({ resetScroll: true });
+  },
   openAddModal:    () => { _currentRating = 0; window._apiSelected = null; openModal(); },
   openEditModal:   (id, transitionSource = null) => { openDetailPanel(id, { transitionSource }); },
   openMetadataFromElement,
@@ -3824,15 +3844,16 @@ window.UI = {
     if (document.getElementById("filter-modal-overlay")) return;
 
     const _buildModal = () => {
-      const statuses = LIBRARY_STATUSES;
+      const statuses = ["all", ...LIBRARY_STATUSES];
       const types = [
-        ["movie", "Films / Séries", iconMedia("movie")],
+        ["movie", "Films", iconMedia("movie")],
+        ["tv", "Séries", iconMedia("movie", "tv")],
         ["game", "Jeux", iconMedia("game")],
         ["book", "Livres", iconMedia("book")],
       ];
       const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l,icon]) =>
-        `<button class="filter-chip ${State.filters.type === v ? "active" : ""}" data-value="${v}" aria-pressed="${State.filters.type === v}"
+        `<button class="filter-chip ${(State.filters.type === "movie" ? State.filters.subtype : State.filters.type) === v ? "active" : ""}" data-value="${v}" aria-pressed="${(State.filters.type === "movie" ? State.filters.subtype : State.filters.type) === v}"
           ${uiAction("setTypeFilter", [v])}>${icon}${l}</button>`
       ).join("");
 
@@ -3864,7 +3885,7 @@ window.UI = {
             </div>
             <div class="modal-body">
               <div class="filter-modal-section">
-                <div class="filter-modal-label">Type de média</div>
+                <div class="filter-modal-label">Type d’œuvre</div>
                 <div class="filter-modal-chips" id="fm-type-chips">${typeChips}</div>
               </div>
               <div class="filter-modal-section">
@@ -3887,7 +3908,7 @@ window.UI = {
                     <span aria-hidden="true">▦</span><span><strong>Standard</strong><small>Affiches plus grandes</small></span>
                   </button>
                   <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" ${uiAction("setLibraryDensity", ["compact"])}>
-                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus de médias à l’écran</small></span>
+                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus d’œuvres à l’écran</small></span>
                   </button>
                 </div>
               </div>
@@ -4023,16 +4044,18 @@ window.UI = {
   setModalType: (type) => {
     markModalDirty();
     const hidden = document.getElementById("f-type");
-    if (hidden) hidden.value = type;
+    if (hidden) hidden.value = type === "tv" ? "movie" : type;
+    const subtype = document.getElementById("f-subtype");
+    if (subtype) subtype.value = ["movie", "tv"].includes(type) ? type : "";
     document.querySelectorAll(".modal-type-tab").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.type === type);
     });
     window._apiSelected = null;
     window._apiResults = [];
     document.querySelectorAll("select#f-status option").forEach(option => {
-      option.textContent = statusLabelFor(option.value, type);
+      option.textContent = statusLabelFor(option.value, type === "tv" ? "movie" : type);
     });
-    updateApiAvailLabel(type);
+    updateApiAvailLabel(type === "tv" ? "movie" : type);
     const q = document.getElementById("f-api-search")?.value?.trim();
     const input = document.getElementById("f-api-search");
     if (q && q.length >= 2) input?._kulturoSearch?.();
@@ -4082,7 +4105,7 @@ window.UI = {
     const email    = document.getElementById("auth-email")?.value?.trim();
     const password = document.getElementById("auth-password")?.value;
     const btn = document.getElementById("auth-submit");
-    if (!email || !password) { toast("Renseigne ton email et ton mot de passe.", "error"); return; }
+    if (!email || !password) { toast("Renseignez votre email et votre mot de passe.", "error"); return; }
     if (password.length < 6) { toast("Le mot de passe doit contenir au moins 6 caractères.", "error"); return; }
     try {
       setButtonBusy(btn, true);

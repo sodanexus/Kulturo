@@ -11,6 +11,16 @@
 - Les statuts, les tris et leurs libellés viennent d'une source unique (`domain.js`).
 - Les titres de page, le titre des fiches et le logo passent de Newsreader à **Archivo** ; le synopsis utilise la police de l'interface.
 
+## 4.0.2
+
+- Films, Séries, Jeux et Livres sont séparés dans les filtres, l’ajout manuel et la modification. Les séries restent enregistrées sous `media_type: movie` et `subtype: tv` ; les anciennes données sont compatibles.
+- « Envies », « Bande-annonce », le vouvoiement et « œuvre » harmonisent les textes visibles. Les introductions redondantes des pages sont retirées.
+- La recherche Bibliothèque se combine aux filtres, qui restent accessibles. Les critères appliqués sont visibles, y compris le statut par défaut pendant une recherche. Une recherche vide permet de chercher le titre dans les catalogues pour l’ajouter, ou d’élargir à toute la bibliothèque.
+- Sorties dispose d’une recherche locale indépendante, restaurée dans l’URL. La recherche Bibliothèque est réservée à sa page.
+- Les livres proposent une fiche et une recherche d’extrait (ou un extrait / éditeur si une URL est disponible), sans bande-annonce générique. Les jeux utilisent leur plateforme pour choisir un lien pertinent ; sans plateforme reconnue, ils renvoient vers une recherche de fiche plutôt que Steam par défaut.
+- Le cache PWA et les références de version sont mis à jour. Cette évolution UX n’ajoute aucune migration SQL ni fonction Edge.
+- Tests de régression ajoutés pour les recherches combinées, le sous-type Série et les liens contextuels. Voir `tests/README.md` pour le périmètre effectivement vérifié et les limites de l’environnement.
+
 ## 4.0.1
 
 - Le bloc **Rétrospective culturelle** est retiré du Profil afin d’éviter de répéter les statistiques annuelles déjà présentes dans les autres tuiles.

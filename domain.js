@@ -11,7 +11,7 @@ export const REPLAY_COMPLETION_EVENT_TYPES = new Set(["repeat_finished"]);
 export const LIBRARY_STATUSES = Object.freeze(["finished", "wishlist", "playing", "dropped"]);
 export const DEFAULT_LIBRARY_STATUS = "finished";
 export const STATUS_LABELS = Object.freeze({
-  all: "Tous les statuts", wishlist: "Wishlist", playing: "En cours", finished: "Terminé", dropped: "Abandonné",
+  all: "Tous les statuts", wishlist: "Envies", playing: "En cours", finished: "Terminé", dropped: "Abandonné",
 });
 
 // « auto » (défaut) choisit le tri le plus utile pour le statut affiché ;
@@ -205,17 +205,12 @@ export function librarySearchScore(entry, query) {
   return score;
 }
 
-// La barre principale explore toujours la collection entière. Les filtres
-// restent dans l'état de l'interface, mais n'entrent de nouveau en jeu qu'une
-// fois la recherche effacée.
+// La recherche et les filtres s’appliquent ensemble, sans modifier leurs valeurs.
 export function filterLibraryEntries(entries, filters = {}) {
   const source = [...(entries || [])];
   const search = String(filters.search || "").trim();
-  if (search) {
-    return source.filter(entry => librarySearchScore(entry, search) > 0);
-  }
-
   return source.filter(entry => {
+    if (search && librarySearchScore(entry, search) <= 0) return false;
     if (filters.type && filters.type !== "all" && entry.media_type !== filters.type) return false;
     if (filters.subtype && filters.subtype !== "all") {
       if (entry.media_type !== "movie" || normalizedSubtype(entry) !== filters.subtype) return false;
@@ -453,13 +448,13 @@ export function journalEventPresentation(event, entry) {
         ? { icon: "★", label: "Note enregistrée" }
         : { icon: "☆", label: "Note retirée" };
     case "status_changed": {
-      const labels = { wishlist: "Ajouté à la wishlist", paused: "Mis en pause", dropped: "Abandonné" };
+      const labels = { wishlist: "Ajouté aux envies", paused: "Mis en pause", dropped: "Abandonné" };
       return { icon: metadata.to === "wishlist" ? "＋" : "•", label: labels[metadata.to] || "Statut modifié" };
     }
     default:
       return {
         icon: metadata.status === "wishlist" ? "＋" : "•",
-        label: metadata.status === "wishlist" ? "Ajouté à la wishlist" : "Ajouté à la bibliothèque",
+        label: metadata.status === "wishlist" ? "Ajouté aux envies" : "Ajouté à la bibliothèque",
       };
   }
 }

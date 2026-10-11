@@ -27,11 +27,13 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | | |
 | :--- | :--- |
 | **Bibliothèque** | Retrouver ma collection, ce que je suis en train de suivre et mes prochaines envies. |
-| **Sorties** | Découvrir ce qui arrive et relier naturellement ces découvertes à ma Wishlist. |
+| **Sorties** | Découvrir ce qui arrive et relier naturellement ces découvertes à mes envies. |
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.0.1
+## Version actuelle · 4.0.2
+
+La 4.0.2 harmonise **Films · Séries · Jeux · Livres**, les libellés **Envies** et **Bande-annonce**, le vouvoiement et les liens des fiches. La recherche Bibliothèque respecte les filtres ; Sorties dispose de sa propre recherche. Les en-têtes sont allégés.
 
 La 4.0 rend Kulturo plus immédiat et plus fiable, sans changer ce qui faisait la simplicité de son interface.
 
