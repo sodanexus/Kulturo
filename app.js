@@ -5,16 +5,27 @@
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
 import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks } from "./api.js";
 import {
+  DEFAULT_LIBRARY_SORT,
+  DEFAULT_LIBRARY_STATUS,
+  LIBRARY_SORT_LABELS,
+  LIBRARY_SORTS,
+  LIBRARY_STATUSES,
+  STATUS_LABELS,
   filterLibraryEntries,
   formatReleaseDate,
   isReplayEntry,
   librarySearchScore,
+  librarySortOptions,
   localISODate,
+  normalizeLegacyEntries,
   normalizeTitle,
   normalizedSubtype,
   repeatInfo,
   repeatProgressLabel,
+  replayFilterLabel,
+  resolveLibrarySort,
   sameMediaIdentity,
+  statusLabelFor,
   statusTransitionChanges,
 } from "./domain.js";
 import {
@@ -54,8 +65,15 @@ const IS_STANDALONE_DISPLAY = Boolean(
 document.documentElement.classList.toggle("is-standalone", IS_STANDALONE_DISPLAY);
 
 const LIBRARY_DENSITY_KEY = "kulturo-library-density";
-const DEFAULT_LIBRARY_STATUS = "finished";
-const DEFAULT_LIBRARY_SORT = "date_finished";
+// Seul un tri choisi explicitement est mémorisé ; « auto » suit le statut affiché.
+// L'ancienne clé « kulturo-sort » mélangeait choix et défaut : elle est abandonnée.
+const SORT_STORAGE_KEY = "kulturo-sort-v2";
+function persistSortPreference(value) {
+  try {
+    if (value === DEFAULT_LIBRARY_SORT) localStorage.removeItem(SORT_STORAGE_KEY);
+    else localStorage.setItem(SORT_STORAGE_KEY, value);
+  } catch {}
+}
 const uiActionDispatcher = createUiActionDispatcher(() => window.UI);
 const dialogFocus = createDialogFocusManager(document);
 let _modalReturnFocus = null;
@@ -249,8 +267,8 @@ function restoreUiSnapshot() {
     if (filters && typeof filters === "object") {
       const allowedTypes = new Set(["all", "movie", "game", "book"]);
       const allowedSubtypes = new Set(["all", "movie", "tv"]);
-      const allowedStatuses = new Set(["all", "wishlist", "playing", "finished", "dropped"]);
-      const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
+      const allowedStatuses = new Set(["all", ...LIBRARY_STATUSES]);
+      const allowedSorts = new Set(LIBRARY_SORTS);
       State.filters.type = allowedTypes.has(filters.type) ? filters.type : "all";
       State.filters.subtype = allowedSubtypes.has(filters.subtype) ? filters.subtype : "all";
       State.filters.status = allowedStatuses.has(filters.status) ? filters.status : DEFAULT_LIBRARY_STATUS;
@@ -331,13 +349,13 @@ async function primeEntriesFromCache() {
     const cached = await Media.hydrate(Array.isArray(legacy) ? legacy : []);
     const hasSnapshot = await localDatabase.hasEntrySnapshot(State.user?.id).catch(() => false);
     if (!Array.isArray(cached) || (!hasSnapshot && !cached.length)) return false;
-    State.entries = cached;
+    State.entries = normalizeLegacyEntries(cached);
     State.libraryStatus = "ready";
     return true;
   } catch (error) {
     if (!Array.isArray(legacy)) return false;
     console.warn("[Local] Lecture IndexedDB impossible, ancien instantané utilisé :", error);
-    State.entries = legacy;
+    State.entries = normalizeLegacyEntries(legacy);
     return true;
   }
 }
@@ -367,7 +385,6 @@ function getTypeLabel(e) {
   if (e.media_type === "movie" && e.subtype === "tv") return "Série";
   return TYPE_LABELS[e.media_type] || e.media_type;
 }
-const STATUS_LABELS= { all:"Tous les statuts", wishlist:"Wishlist", playing:"En cours", finished:"Terminé", paused:"En pause", dropped:"Abandonné" };
 
 function safeMediaUrl(value) {
   if (!value) return "";
@@ -901,9 +918,11 @@ function renderApp() {
 
   // Restaure le tri mémorisé
   let savedSort = null;
-  try { savedSort = localStorage.getItem("kulturo-sort"); } catch {}
-  const allowedSorts = new Set(["created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
-  State.filters.sort = allowedSorts.has(savedSort) ? savedSort : DEFAULT_LIBRARY_SORT;
+  try {
+    localStorage.removeItem("kulturo-sort");
+    savedSort = localStorage.getItem(SORT_STORAGE_KEY);
+  } catch {}
+  State.filters.sort = LIBRARY_SORTS.includes(savedSort) ? savedSort : DEFAULT_LIBRARY_SORT;
   const globalSearch = document.getElementById("global-search");
   if (globalSearch) globalSearch.value = State.filters.search || "";
   bindJournalInteractions();
@@ -988,7 +1007,7 @@ async function loadEntries() {
     // Charge tout, le filtrage se fait localement dans filterEntries()
     const previousEntries = State.entries;
     const previousFingerprint = entriesFingerprint(previousEntries);
-    const freshEntries = await Media.getAll({ signal: task.signal });
+    const freshEntries = normalizeLegacyEntries(await Media.getAll({ signal: task.signal }));
     if (!libraryLoadGate.isCurrent(task) || !sameOwner(owner, State.user?.id)) return false;
     State.libraryStatus = "ready";
     _remoteSyncUnavailable = Media.getStatus().state === "error";
@@ -1231,7 +1250,7 @@ function buildFilterBar() {
   // Chips statut dans le drawer
   const chipsEl = document.getElementById("filter-status-chips");
   if (chipsEl) {
-    const statuses = ["finished","wishlist","playing","dropped"];
+    const statuses = LIBRARY_STATUSES;
     chipsEl.innerHTML = statuses.map(s => {
       return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
                       ${uiAction("setStatusChip", [s])}>${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
@@ -1425,13 +1444,6 @@ function renderActiveFilters() {
 
   const typeLabels = { game: "Jeux", movie: "Films / Séries", book: "Livres" };
   const subtypeLabels = { movie: "Films", tv: "Séries" };
-  const sortLabels = {
-    created_at: "Ajouts récents",
-    date_finished: "Fins récentes",
-    rating_desc: "Meilleures notes",
-    rating_asc: "Notes les plus basses",
-    title: "Titre A–Z",
-  };
   const filters = [];
   // La recherche de la barre supérieure est volontairement globale. Les
   // filtres restent mémorisés et réapparaissent dès que la requête est vidée.
@@ -1442,8 +1454,8 @@ function renderActiveFilters() {
     else if (State.filters.type !== "all") filters.push(["type", typeLabels[State.filters.type] || State.filters.type]);
     if (State.filters.status !== DEFAULT_LIBRARY_STATUS && State.filters.status !== "all") filters.push(["status", STATUS_LABELS[State.filters.status] || State.filters.status]);
     if (State.filters.favorite) filters.push(["favorite", "Coups de cœur"]);
-    if (State.filters.replay) filters.push(["replay", "Replay"]);
-    if (State.filters.sort !== DEFAULT_LIBRARY_SORT) filters.push(["sort", sortLabels[State.filters.sort] || State.filters.sort]);
+    if (State.filters.replay) filters.push(["replay", replayFilterLabel(State.filters.type)]);
+    if (State.filters.sort !== DEFAULT_LIBRARY_SORT) filters.push(["sort", LIBRARY_SORT_LABELS[resolveLibrarySort(State.filters)]]);
     if (State.filters.rating !== "all") filters.push(["rating", `★ ${State.filters.rating}/10`]);
     if (State.filters.month !== "all") {
       const [year, month] = String(State.filters.month).split("-").map(Number);
@@ -1477,7 +1489,7 @@ function clearLibraryFilter(key) {
   else if (key === "replay") State.filters.replay = false;
   else if (key === "sort") {
     State.filters.sort = DEFAULT_LIBRARY_SORT;
-    try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
+    persistSortPreference(DEFAULT_LIBRARY_SORT);
   } else if (key === "rating") State.filters.rating = "all";
   else if (key === "search") {
     State.filters.search = "";
@@ -1505,7 +1517,7 @@ function clearAllLibraryFilters() {
   State.filters.sort = DEFAULT_LIBRARY_SORT;
   State.filters.year = "all";
   State.filters.month = "all";
-  try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
+  persistSortPreference(DEFAULT_LIBRARY_SORT);
   const search = document.getElementById("global-search");
   if (search) search.value = "";
   syncFilterChips();
@@ -1603,9 +1615,9 @@ function filterEntries(entries) {
       a.title.localeCompare(b.title, "fr", { sensitivity: "base" })
     );
   }
-  // Tri local
+  // Tri local : « auto » suit le statut affiché
   res.sort((a, b) => {
-    switch (f.sort) {
+    switch (resolveLibrarySort(f)) {
       case "title":         return a.title.localeCompare(b.title);
       case "rating_desc":   return (b.rating||0) - (a.rating||0);
       case "rating_asc":    return (a.rating||0) - (b.rating||0);
@@ -1670,7 +1682,7 @@ function cardHTML(e, i = 0) {
     : `<div class="card-cover-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const isPerfect = e.rating === 10;
-  const statusClass = { wishlist: "is-wishlist", playing: "is-playing", paused: "is-paused", dropped: "is-dropped" }[e.status] || "";
+  const statusClass = { wishlist: "is-wishlist", playing: "is-playing", dropped: "is-dropped" }[e.status] || "";
   const classes = ["media-card",
     e.is_favorite ? "favorite" : "",
     isPerfect      ? "perfect"  : "",
@@ -1681,7 +1693,6 @@ function cardHTML(e, i = 0) {
   const statusLabel = {
     wishlist: "Wishlist",
     playing:  "En cours",
-    paused:   "En pause",
     dropped:  "Abandonné",
   }[e.status] || "";
 
@@ -1882,14 +1893,14 @@ function _renderWizard() {
   else if (s.step === 2) {
     const title = s.apiSelected?.title || s.title;
     const subtitle = `${getTypeLabel({ ...s.apiSelected, media_type: s.type })}${s.apiSelected?.release_year ? ` · ${s.apiSelected.release_year}` : ""}`;
-    const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value, label }) => `
+    const primaryStatuses = ADD_PRIMARY_STATUSES.map(({ value }) => { const label = statusLabelFor(value, s.type); return `
       <button type="button" class="wz-status-btn ${value === s._status ? "active" : ""}" data-status="${value}" ${uiAction("wzSetStatus", [value])} aria-pressed="${value === s._status}">
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
-      </button>`).join("");
-    const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value, label }) => `
+      </button>`; }).join("");
+    const secondaryStatuses = ADD_SECONDARY_STATUSES.map(({ value }) => { const label = statusLabelFor(value, s.type); return `
       <button type="button" class="wz-status-btn wz-status-secondary ${value === s._status ? "active" : ""}" data-status="${value}" ${uiAction("wzSetStatus", [value])} aria-pressed="${value === s._status}">
         <span aria-hidden="true">${iconStatus(value)}</span>${label}
-      </button>`).join("");
+      </button>`; }).join("");
     headerHTML = `
       <button type="button" class="btn-icon wz-back-btn" ${uiAction("wzBack")} aria-label="Changer de média">←</button>
       <div class="wz-header-copy">
@@ -2018,8 +2029,8 @@ function _openModalClassic(entry) {
               <div class="form-group">
                 <label>Statut</label>
                 <select id="f-status">
-                  ${["wishlist","playing","finished","paused","dropped"].map(s =>
-                    `<option value="${s}" ${entry.status===s?"selected":""}>${STATUS_LABELS[s]}</option>`
+                  ${["wishlist","playing","finished","dropped"].map(s =>
+                    `<option value="${s}" ${entry.status===s?"selected":""}>${statusLabelFor(s, entry.media_type || "movie")}</option>`
                   ).join("")}
                 </select>
               </div>
@@ -2798,7 +2809,10 @@ function syncFilterChips() {
   if (replayChip) {
     replayChip.classList.toggle("active", State.filters.replay);
     replayChip.setAttribute("aria-pressed", String(State.filters.replay));
+    const replayLabel = replayChip.querySelector(".replay-chip-label");
+    if (replayLabel) replayLabel.textContent = replayFilterLabel(State.filters.type);
   }
+  refreshSortChips();
   _updateFilterModalTypeChips();
   scheduleUiSnapshot();
 }
@@ -2821,20 +2835,30 @@ function setStatusChip(status) {
   clearTimeout(_chipDebounce);
   _chipDebounce = setTimeout(() => renderCards({ resetScroll: true }), 80);
 }
+// Puces de tri : « Fins récentes » n'est proposée que si le statut a une date de fin.
+function sortChipsHTML() {
+  const active = resolveLibrarySort(State.filters);
+  return librarySortOptions(State.filters.status).map(([value, label]) =>
+    `<button class="filter-chip ${active === value ? "active" : ""}" data-value="${value}"
+      aria-pressed="${active === value}" ${uiAction("setSort", [value])}>${label}</button>`
+  ).join("");
+}
+
+function refreshSortChips() {
+  const chips = document.getElementById("fm-sort-chips");
+  if (chips) chips.innerHTML = sortChipsHTML();
+}
+
 function setSort(val) {
+  if (!LIBRARY_SORTS.includes(val)) return;
+  // Cliquer le tri déjà appliqué par « auto » ne fige pas un choix explicite.
+  if (State.filters.sort === DEFAULT_LIBRARY_SORT && val === resolveLibrarySort(State.filters)) return;
   State.filters.sort = val;
   _updateFilterToggleLabel(); _updateFilterModalHeader();
-  const fmChips = document.getElementById("fm-sort-chips");
-  if (fmChips) {
-    fmChips.querySelectorAll(".filter-chip").forEach(b => {
-      const v = b.dataset.value;
-      b.classList.toggle("active", v === val);
-      b.setAttribute("aria-pressed", String(v === val));
-    });
-  }
+  refreshSortChips();
   _updateResetBtn();
   _updateFilterResultCount();
-  try { localStorage.setItem("kulturo-sort", val); } catch {}
+  persistSortPreference(val);
   renderCards({ resetScroll: true });
 }
 
@@ -3656,7 +3680,6 @@ mediaDetailFeature = createMediaDetailFeature({
   iconMedia,
   iconStatus,
   getTypeLabel,
-  STATUS_LABELS,
   ratingScoreHTML,
   rememberModalReturnFocus,
   bindCoverAccent,
@@ -3716,7 +3739,7 @@ const journalFeature = createJournalFeature({
   State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
-  STATUS_LABELS, confirmDialog, toast, openDetailPanel, renderDetailPanel,
+  confirmDialog, toast, openDetailPanel, renderDetailPanel,
   getCurrentPage: () => _currentPage,
   onContextChange: persistUiSnapshot,
   onViewReady: restorePageScroll,
@@ -3801,8 +3824,7 @@ window.UI = {
     if (document.getElementById("filter-modal-overlay")) return;
 
     const _buildModal = () => {
-      const statuses = ["finished","wishlist","playing","dropped"];
-      const sorts = [["date_finished","Fins récentes"],["created_at","Ajouts récents"],["rating_desc","Meilleures notes"],["rating_asc","Notes les plus basses"],["title","Titre A–Z"]];
+      const statuses = LIBRARY_STATUSES;
       const types = [
         ["movie", "Films / Séries", iconMedia("movie")],
         ["game", "Jeux", iconMedia("game")],
@@ -3821,17 +3843,14 @@ window.UI = {
         <button type="button" class="filter-chip favorite-filter-chip ${State.filters.favorite ? "active" : ""}"
           data-marker="favorite" aria-pressed="${State.filters.favorite}" ${uiAction("toggleFavFilter")}>${iconStatus("favorite")}Coups de cœur</button>
         <button type="button" class="filter-chip replay-filter-chip ${State.filters.replay ? "active" : ""}"
-          data-marker="replay" aria-pressed="${State.filters.replay}" ${uiAction("toggleReplayFilter")}>${iconRepeat()}Replay</button>`;
+          data-marker="replay" aria-pressed="${State.filters.replay}" ${uiAction("toggleReplayFilter")}>${iconRepeat()}<span class="replay-chip-label">${replayFilterLabel(State.filters.type)}</span></button>`;
 
       const statusChips = statuses.map(s => {
         return `<button class="filter-chip ${State.filters.status === s ? "active" : ""}" data-value="${s}"
           aria-pressed="${State.filters.status === s}" ${uiAction("setStatusChip", [s])}>${iconStatus(s)}${STATUS_LABELS[s]}</button>`;
       }).join("");
 
-      const sortChips = sorts.map(([v, l]) =>
-        `<button class="filter-chip ${State.filters.sort === v ? "active" : ""}" data-value="${v}"
-          aria-pressed="${State.filters.sort === v}" ${uiAction("setSort", [v])}>${l}</button>`
-      ).join("");
+      const sortChips = sortChipsHTML();
 
       const hasActive = activeCount > 0;
       const resultCount = filterEntries(State.entries || []).length;
@@ -3971,7 +3990,7 @@ window.UI = {
     State.filters.year = "all";
     State.filters.month = "all";
     State.filters.rating = "all";
-    try { localStorage.setItem("kulturo-sort", DEFAULT_LIBRARY_SORT); } catch {}
+    persistSortPreference(DEFAULT_LIBRARY_SORT);
     renderCards({ resetScroll: true }); buildFilterBar(); _updateFilterToggleLabel();
     UI.closeFilterModal();
   },
@@ -4010,6 +4029,9 @@ window.UI = {
     });
     window._apiSelected = null;
     window._apiResults = [];
+    document.querySelectorAll("select#f-status option").forEach(option => {
+      option.textContent = statusLabelFor(option.value, type);
+    });
     updateApiAvailLabel(type);
     const q = document.getElementById("f-api-search")?.value?.trim();
     const input = document.getElementById("f-api-search");

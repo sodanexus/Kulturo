@@ -10,7 +10,7 @@
 
 La source reste directement publiable depuis une branche GitHub Pages. Le mode recommandé est toutefois le workflow inclus : dans **Settings → Pages → Build and deployment**, sélectionner **GitHub Actions**. À chaque envoi sur `main`, il contrôle la version, exécute les tests, construit l’application avec Vite et publie exactement le dossier `dist`.
 
-**Depuis la 3.4.6, aucun nouveau SQL et aucun redéploiement de fonction Edge ne sont nécessaires pour la 4.0.1.**
+**Depuis la 3.4.6, aucun redéploiement de fonction Edge n'est nécessaire.** La suppression du statut *En pause* demande toutefois d'exécuter une fois `schema.sql` dans **Supabase → SQL Editor** (voir l'entrée « À venir » de l'historique) ; le script est rejouable sans risque.
 
 ## Depuis une version antérieure à la 3.4.6
 

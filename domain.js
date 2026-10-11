@@ -7,6 +7,51 @@
 export const COMPLETION_EVENT_TYPES = new Set(["finished"]);
 export const REPLAY_COMPLETION_EVENT_TYPES = new Set(["repeat_finished"]);
 
+// ── Source unique : statuts, tris et vocabulaire de la Bibliothèque ──
+export const LIBRARY_STATUSES = Object.freeze(["finished", "wishlist", "playing", "dropped"]);
+export const DEFAULT_LIBRARY_STATUS = "finished";
+export const STATUS_LABELS = Object.freeze({
+  all: "Tous les statuts", wishlist: "Wishlist", playing: "En cours", finished: "Terminé", dropped: "Abandonné",
+});
+
+// « auto » (défaut) choisit le tri le plus utile pour le statut affiché ;
+// tout autre tri est un choix explicite de l'utilisateur.
+export const LIBRARY_SORTS = Object.freeze(["auto", "created_at", "date_finished", "rating_desc", "rating_asc", "title"]);
+export const DEFAULT_LIBRARY_SORT = "auto";
+export const LIBRARY_SORT_LABELS = Object.freeze({
+  date_finished: "Fins récentes",
+  created_at: "Ajouts récents",
+  rating_desc: "Meilleures notes",
+  rating_asc: "Notes les plus basses",
+  title: "Titre A–Z",
+});
+
+// Seuls les statuts « Terminé » (et la vue « Tous ») ont une date de fin.
+function statusHasFinishDate(status) {
+  return status === "finished" || status === "all";
+}
+
+// Tri réellement appliqué : « auto » suit le statut, et « Fins récentes » ne
+// s'applique jamais à un statut sans date de fin.
+export function resolveLibrarySort(filters = {}) {
+  const sort = LIBRARY_SORTS.includes(filters.sort) ? filters.sort : DEFAULT_LIBRARY_SORT;
+  const status = filters.status || DEFAULT_LIBRARY_STATUS;
+  if (sort === "auto") return status === "finished" ? "date_finished" : "created_at";
+  if (sort === "date_finished" && !statusHasFinishDate(status)) return "created_at";
+  return sort;
+}
+
+// Tris proposés pour un statut donné, dans l'ordre d'affichage.
+export function librarySortOptions(status = DEFAULT_LIBRARY_STATUS) {
+  return Object.entries(LIBRARY_SORT_LABELS)
+    .filter(([value]) => value !== "date_finished" || statusHasFinishDate(status));
+}
+
+// Ancien statut « En pause », supprimé : ces médias sont simplement « En cours ».
+export function normalizeLegacyEntries(entries) {
+  return (entries || []).map(entry => entry?.status === "paused" ? { ...entry, status: "playing" } : entry);
+}
+
 export function localISODate(now = new Date()) {
   return [
     now.getFullYear(),
@@ -191,20 +236,79 @@ export function normalizedSubtype(item) {
     : null;
 }
 
+// Un seul vocabulaire par type de média, utilisé partout (cartes, fiche, formulaires,
+// Journal, Profil). « Replay » n'est qu'un mot d'ensemble, réservé aux vues
+// qui mélangent plusieurs types.
+const MEDIA_WORDS = Object.freeze({
+  movie: Object.freeze({
+    done: "Vu", started: "Visionnage commencé", finished: "Visionnage terminé",
+    replayStarted: "Revisionnage commencé", replayFinished: "Revisionnage terminé", replayActive: "Revisionnage en cours",
+    action: "Revoir", removeReplay: "Retirer un revisionnage", noReplay: "Aucun revisionnage",
+    unit: ["vue", "vues"], replay: ["revisionnage", "revisionnages"], eyebrow: "Revoir",
+  }),
+  book: Object.freeze({
+    done: "Lu", started: "Lecture commencée", finished: "Lecture terminée",
+    replayStarted: "Relecture commencée", replayFinished: "Relecture terminée", replayActive: "Relecture en cours",
+    action: "Relire", removeReplay: "Retirer une relecture", noReplay: "Aucune relecture",
+    unit: ["lecture", "lectures"], replay: ["relecture", "relectures"], eyebrow: "Relire",
+  }),
+  game: Object.freeze({
+    done: "Terminé", started: "Partie commencée", finished: "Partie terminée",
+    replayStarted: "Nouvelle partie commencée", replayFinished: "Nouvelle partie terminée", replayActive: "Nouvelle partie en cours",
+    action: "Rejouer", removeReplay: "Retirer une nouvelle partie", noReplay: "Aucune nouvelle partie",
+    unit: ["partie", "parties"], replay: ["nouvelle partie", "nouvelles parties"], eyebrow: "Rejouer",
+  }),
+});
+
+export function mediaWords(mediaType) {
+  return MEDIA_WORDS[mediaType] || MEDIA_WORDS.movie;
+}
+
+// Libellé d'un statut pour un média connu : « Terminé » devient « Vu » ou « Lu ».
+export function statusLabelFor(status, mediaType) {
+  if (status === "finished" && MEDIA_WORDS[mediaType]) return mediaWords(mediaType).done;
+  return STATUS_LABELS[status] || "";
+}
+
+// Mot du filtre Replay selon le type sélectionné (« all » = vues mélangées).
+export function replayFilterLabel(type = "all") {
+  if (type === "book") return "Relectures";
+  if (type === "game") return "Nouvelles parties";
+  if (type === "movie") return "Revisionnages";
+  return "Replays";
+}
+
+// Textes de la tuile « reprises » du Profil. `media` : all, film, tv, game ou book.
+export function replayProfileCopy(media = "all", count = 0) {
+  const kind = media === "film" || media === "tv" ? "movie" : media;
+  if (!MEDIA_WORDS[kind]) {
+    return {
+      eyebrow: "Revoir, relire, rejouer",
+      noun: count === 1 ? "replay" : "replays",
+      description: "Revisionnages, relectures et nouvelles parties terminés sur cette période.",
+    };
+  }
+  const words = MEDIA_WORDS[kind];
+  const plural = words.replay[1];
+  const feminine = kind !== "movie";
+  return {
+    eyebrow: words.eyebrow,
+    noun: words.replay[count === 1 ? 0 : 1],
+    description: `${plural[0].toUpperCase()}${plural.slice(1)} ${feminine ? "terminées" : "terminés"} sur cette période.`,
+  };
+}
+
 export function repeatInfo(entry) {
   const repeats = Math.max(0, Number.parseInt(entry?.repeat_count, 10) || 0);
   const hasFirstCompletion = Boolean(entry?.date_finished || entry?.status === "finished" || repeats > 0);
   const total = hasFirstCompletion ? repeats + 1 : 0;
-  if (entry?.media_type === "book") return { repeats, total, noun: "lecture", done: "Lu", action: "Relire" };
-  if (entry?.media_type === "game") return { repeats, total, noun: "partie terminée", done: "Terminé", action: "Rejouer" };
-  return { repeats, total, noun: "visionnage", done: "Vu", action: "Revoir" };
+  const words = mediaWords(entry?.media_type);
+  return { repeats, total, done: words.done, action: words.action, removeLabel: words.removeReplay, noneLabel: words.noReplay, unit: words.unit };
 }
 
 export function repeatProgressLabel(entry, info = repeatInfo(entry)) {
   if (entry?.status !== "playing" || info.total < 1) return "";
-  if (entry.media_type === "book") return "Relecture en cours";
-  if (entry.media_type === "game") return "Nouvelle partie en cours";
-  return "Revisionnage en cours";
+  return mediaWords(entry.media_type).replayActive;
 }
 
 // Règle unique utilisée par la fiche, la Bibliothèque, le Journal et les filtres.
@@ -325,10 +429,11 @@ export function journalEventPresentation(event, entry) {
   const occurrence = Math.max(1, Number.parseInt(metadata.occurrence, 10) || 1);
   const rating = Number.parseInt(metadata.rating, 10);
   const mediaType = entry?.media_type;
-  const finished = mediaType === "book" ? "Lecture terminée" : mediaType === "game" ? "Partie terminée" : "Visionnage terminé";
-  const started = mediaType === "book" ? "Lecture commencée" : mediaType === "game" ? "Partie commencée" : "Visionnage commencé";
-  const repeatStarted = mediaType === "book" ? "Relecture commencée" : mediaType === "game" ? "Nouvelle partie commencée" : "Revisionnage commencé";
-  const repeatFinished = mediaType === "book" ? "Relecture terminée" : mediaType === "game" ? "Nouvelle partie terminée" : "Revisionnage terminé";
+  const words = mediaWords(mediaType);
+  const finished = words.finished;
+  const started = words.started;
+  const repeatStarted = words.replayStarted;
+  const repeatFinished = words.replayFinished;
 
   switch (event?.event_type) {
     case "started":

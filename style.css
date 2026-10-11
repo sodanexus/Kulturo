@@ -1,10 +1,10 @@
 /* ============================================================
    style.css — Kulturo Design System
-   Police : Manrope (interface) + Newsreader (display)
+   Police : Manrope (interface) + Archivo (titres et logo)
    Thème : sombre
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Archivo:wght@600;700;800;900&display=swap');
 
 /* ── Variables ────────────────────────────────────────────── */
 :root {
@@ -52,7 +52,7 @@
   --motion-slow: 320ms;
   --transition:  var(--motion-base) cubic-bezier(.2,.8,.2,1);
   --font-body:   'Manrope', system-ui, sans-serif;
-  --font-display:'Newsreader', Georgia, serif;
+  --font-display:'Archivo', 'Manrope', system-ui, sans-serif;
   /* Échelle typographique unique : 9 / 10 / 11 / 12 / 13 / 14 / 16 / 18 / 22 / 24 px. */
   --type-brandline:    .5625rem;
   --type-micro:        .625rem;
@@ -1440,9 +1440,9 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .detail-title {
   font-size: var(--type-title-md);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.16;
-  letter-spacing: -.018em;
+  letter-spacing: -.022em;
   overflow-wrap: anywhere;
   text-wrap: balance;
   margin-bottom: .3rem;
@@ -2869,7 +2869,7 @@ html.is-standalone body.app-shell-active #main { overscroll-behavior-y: contain;
   margin: 0;
 }
 .detail-synopsis-wrap .detail-synopsis-text {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--type-lead);
   font-weight: 400;
   line-height: 1.7;
@@ -3115,12 +3115,12 @@ h1, h2, h3 { color: var(--text-1); }
   margin: .1rem 0 .2rem;
   font-family: var(--font-display);
   font-size: var(--type-page-title);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -.035em;
+  letter-spacing: -.03em;
 }
 .topbar-logo,
-.auth-card .logo { font-weight: 700; }
+.auth-card .logo { font-weight: 800; letter-spacing: -.03em; }
 .page-heading p {
   max-width: 620px;
   color: var(--text-3);

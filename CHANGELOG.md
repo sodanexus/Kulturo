@@ -2,6 +2,15 @@
 
 [Revenir à la présentation](README.md)
 
+## À venir (non publié)
+
+- Le statut **En pause** est supprimé : ces médias deviennent **En cours**. **Un SQL est nécessaire** : exécuter une fois `schema.sql` dans Supabase (il convertit les médias concernés sans créer de faux événements dans le Journal). Les anciennes sauvegardes contenant ce statut restent restaurables.
+- Le tri par défaut de la Bibliothèque est **automatique** : Fins récentes pour **Terminé**, Ajouts récents pour les autres statuts. **Fins récentes** n'est proposé que lorsque le statut a une date de fin. Un tri choisi explicitement reste mémorisé (nouvelle clé de préférence : l'ancien choix mémorisé est abandonné).
+- Retirer une relecture avec le bouton **−** de la fiche retire aussi ses événements du Journal et des statistiques.
+- Un seul vocabulaire par type de média : **Vu / Lu / Terminé**, **Revisionnage / Relecture / Nouvelle partie**, dans les cartes, les fiches, les formulaires, le Journal, le filtre et le Profil. « Replay » ne subsiste que dans les vues qui mélangent plusieurs types.
+- Les statuts, les tris et leurs libellés viennent d'une source unique (`domain.js`).
+- Les titres de page, le titre des fiches et le logo passent de Newsreader à **Archivo** ; le synopsis utilise la police de l'interface.
+
 ## 4.0.1
 
 - Le bloc **Rétrospective culturelle** est retiré du Profil afin d’éviter de répéter les statistiques annuelles déjà présentes dans les autres tuiles.

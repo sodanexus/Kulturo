@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
   title           TEXT NOT NULL,
   media_type      TEXT NOT NULL CHECK (media_type IN ('game', 'movie', 'book')),
   status          TEXT NOT NULL DEFAULT 'wishlist'
-                    CHECK (status IN ('wishlist', 'playing', 'finished', 'paused', 'dropped')),
+                    CHECK (status IN ('wishlist', 'playing', 'finished', 'dropped')),
   rating          SMALLINT CHECK (rating BETWEEN 1 AND 10),
   is_favorite     BOOLEAN NOT NULL DEFAULT FALSE,
   repeat_count    SMALLINT NOT NULL DEFAULT 0
@@ -74,6 +74,28 @@ ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_subtype_check
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_repeat_count_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_repeat_count_check
   CHECK (repeat_count BETWEEN 0 AND 999);
+-- Le statut « En pause » est supprimé : ces médias deviennent « En cours ».
+-- app.kulturo_restore évite que le Journal enregistre un faux « commencé ».
+DO $$
+DECLARE
+  v_constraint RECORD;
+BEGIN
+  PERFORM set_config('app.kulturo_restore', 'on', TRUE);
+  UPDATE public.media_entries SET status = 'playing' WHERE status = 'paused';
+  FOR v_constraint IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'public.media_entries'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%status%' AND pg_get_constraintdef(oid) ILIKE '%wishlist%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.media_entries DROP CONSTRAINT %I', v_constraint.conname);
+  END LOOP;
+  PERFORM set_config('app.kulturo_restore', 'off', TRUE);
+END
+$$;
+ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_status_check
+  CHECK (status IN ('wishlist', 'playing', 'finished', 'dropped'));
+
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_release_date_precision_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_release_date_precision_check
   CHECK (release_date_precision IN ('day', 'month'));
