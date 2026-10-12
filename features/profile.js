@@ -320,7 +320,7 @@ export function createProfileFeature({
 
     const categories = [
       { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
-      { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
+      { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--brand-blue)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
       { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--brand-teal)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
       { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--brand-gold)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
     ];

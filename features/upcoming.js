@@ -54,7 +54,7 @@ const UPCOMING_PREFS_KEY = "kulturo-upcoming-preferences-v2";
 const UPCOMING_TYPES = ["all", "movie", "tv", "game", "book"];
 const UPCOMING_TYPE_META = {
   movie: { label: "Film",  icon: iconMedia("movie"),       mediaType: "movie", badge: "movie" },
-  tv:    { label: "Série", icon: iconMedia("movie", "tv"), mediaType: "movie", badge: "movie" },
+  tv:    { label: "Série", icon: iconMedia("movie", "tv"), mediaType: "movie", badge: "tv" },
   game:  { label: "Jeu",   icon: iconMedia("game"),        mediaType: "game",  badge: "game" },
   book:  { label: "Livre", icon: iconMedia("book"),        mediaType: "book",  badge: "book" },
 };

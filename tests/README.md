@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.3
+## Validation de l’archive 4.0.4
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -55,3 +55,7 @@ Les parcours du navigateur ont été enrichis dans `browser-runner.js`, mais n�
 ### Ajustements 4.0.3
 
 Le test des liens de livre vérifie maintenant qu’un seul lien « Chercher le livre » est proposé, même si des URLs d’extrait ou d’éditeur existent. Contrôles relancés : tests techniques, cohérence de version et build. L’alignement des en-têtes est corrigé dans la règle CSS commune ; validation visuelle sur navigateur réel toujours à effectuer, avec la Bibliothèque comme référence (mêmes limites d’environnement que ci-dessus).
+
+### Ajustements 4.0.4 de cette archive
+
+Modifications limitées aux couleurs des séries et à la typographie des synopsis. Contrôles : tests techniques, syntaxe/version et build de production. Les couleurs de film/jeu/livre sont conservées. Validation visuelle sur navigateur réel toujours à effectuer (limites d’environnement décrites ci-dessus).

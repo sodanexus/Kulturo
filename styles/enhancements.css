@@ -272,7 +272,8 @@ body { background-color: var(--system-bar-color); }
 .ui-icon-favorite { color: var(--brand-coral); }
 .ui-icon-finished { color: var(--brand-teal); }
 .community-favorite { color: var(--brand-coral); font-size: var(--type-body); line-height: 1; }
-.activity-title > :is(.ui-icon-movie, .ui-icon-tv) { color: var(--brand-coral); }
+.activity-title > .ui-icon-movie { color: var(--brand-coral); }
+.activity-title > .ui-icon-tv { color: var(--brand-blue); }
 .activity-title > .ui-icon-game { color: var(--brand-teal); }
 .activity-title > .ui-icon-book { color: var(--brand-gold); }
 .activity-state-markers {

@@ -368,7 +368,7 @@ function renderDetailPanel(e, options = {}) {
               <h2 class="detail-title" id="detail-sheet-title">${esc(e.title)}</h2>
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
-                <span class="badge badge-${e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
+                <span class="badge badge-${e.media_type === "movie" && e.subtype === "tv" ? "tv" : e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
                 ${headerStatusBadge}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}

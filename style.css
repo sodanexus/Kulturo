@@ -22,6 +22,8 @@
   --brand-gold:  #d8b46a;
   --brand-coral: #e8553a;
   --brand-teal:  #1fa88c;
+  --brand-blue:  #7ea6ff;
+  --brand-blue-glow: rgba(126,166,255,.15);
   --brand-gold-glow:  rgba(216,180,106,.16);
   --brand-coral-glow: rgba(232,85,58,.15);
   --brand-teal-glow:  rgba(31,168,140,.15);
@@ -631,6 +633,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
 }
 .badge-game  { background: var(--brand-teal-glow); color: var(--brand-teal); }
 .badge-movie { background: var(--brand-coral-glow); color: var(--brand-coral); }
+.badge-tv    { background: var(--brand-blue-glow); color: var(--brand-blue); }
 .badge-book  { background: var(--brand-gold-glow); color: var(--brand-gold); }
 .badge-wishlist  { background: rgba(96,96,112,.15); color: var(--text-3); }
 .badge-playing   { background: rgba(91,141,238,.15); color: var(--game); }
@@ -2870,9 +2873,9 @@ html.is-standalone body.app-shell-active #main { overscroll-behavior-y: contain;
 }
 .detail-synopsis-wrap .detail-synopsis-text {
   font-family: var(--font-body);
-  font-size: var(--type-lead);
+  font-size: var(--type-body);
   font-weight: 400;
-  line-height: 1.7;
+  line-height: 1.65;
   letter-spacing: .002em;
 }
 .detail-chips {
@@ -2894,7 +2897,7 @@ html.is-standalone body.app-shell-active #main { overscroll-behavior-y: contain;
 /* ── Synopsis tronqué avec voir plus ───────────────────────── */
 .detail-synopsis-wrap {
   --synopsis-lines: 4;
-  --synopsis-collapsed-height: calc(1.7em * var(--synopsis-lines));
+  --synopsis-collapsed-height: calc(1.65em * var(--synopsis-lines));
   --synopsis-expanded-height: 1000px;
   position: relative;
 }

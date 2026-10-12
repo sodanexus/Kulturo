@@ -13,6 +13,12 @@
 - Les statuts, les tris et leurs libellés viennent d'une source unique (`domain.js`).
 - Les titres de page, le titre des fiches et le logo passent de Newsreader à **Archivo** ; le synopsis utilise la police de l'interface.
 
+## 4.0.4
+
+- Séries en bleu : badges des fiches, Journal personnel et Communauté, icônes concernées et répartition du Profil. Films rouges, jeux verts et livres dorés restent inchangés.
+- Synopsis à 14 px au lieu de 16 px, avec un interligne de 1,65, dans toutes les fiches. « Voir plus » continue de mesurer la hauteur réelle.
+- Aucun changement de données ou migration SQL.
+
 ## 4.0.3
 
 - Les titres Bibliothèque, Journal et Profil partagent le même espace vertical : une ligne est réservée sous le titre même sans description. La disposition de référence de Bibliothèque est conservée. Les en-têtes masqués sur téléphone restent masqués.

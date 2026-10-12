@@ -216,7 +216,7 @@ export function createJournalFeature({
             <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
-              <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
+              <span class="badge badge-${entry.media_type === "movie" && entry.subtype === "tv" ? "tv" : entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
               ${ratingBadge}
               ${activityStateMarkersHTML(entry)}
             </span>
@@ -355,7 +355,7 @@ export function createJournalFeature({
             <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
-              <span class="badge badge-${entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
+              <span class="badge badge-${entry.media_type === "movie" && entry.subtype === "tv" ? "tv" : entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
               <span class="badge badge-${entry.status}" style="font-size:var(--type-label)">${iconStatus(entry.status)}${esc(status)}</span>
               ${rating}${activityStateMarkersHTML(entry)}
             </span>
