@@ -2,6 +2,7 @@
 // Onglet Sorties : chargement, filtres, wishlist et rendu
 // ============================================================
 
+import { librarySearchScore } from "../domain.js";
 import { cardSkeletons } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 
@@ -103,6 +104,7 @@ function persistUpcomingPreferences() {
 const _upcomingPreferences = readUpcomingPreferences();
 const UpcomingState = {
   ..._upcomingPreferences,
+  search: "",
   results: [],
   sourceResults: {},
   loading: false,
@@ -211,7 +213,7 @@ function renderAwaitedReleases() {
     <button type="button" class="continue-toggle" ${uiAction("toggleAwaitedReleases")} aria-expanded="${expanded}" aria-controls="awaited-releases-content">
       <span class="continue-heading-copy">
         <h2 id="upcoming-wishlist-title">Mes sorties attendues</h2>
-        <span>${entries.length} dans votre wishlist</span>
+        <span>${entries.length} dans vos envies</span>
       </span>
       <span class="continue-preview" aria-hidden="true">${entries.slice(0, 3).map(continuePreviewHTML).join("")}</span>
       <span class="continue-chevron" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
@@ -219,8 +221,8 @@ function renderAwaitedReleases() {
     <div class="continue-expand" id="awaited-releases-content" aria-hidden="${!expanded}" ${expanded ? "" : "inert"}>
       <div class="continue-expand-inner">
         <div class="continue-expanded-head">
-          <span>Les prochaines œuvres déjà ajoutées à votre wishlist.</span>
-          <button class="section-link" ${uiAction("navTo", ["status-wishlist"])}>Voir la wishlist <span aria-hidden="true">→</span></button>
+          <span>Les prochaines œuvres déjà ajoutées à vos envies.</span>
+          <button class="section-link" ${uiAction("navTo", ["status-wishlist"])}>Voir mes envies <span aria-hidden="true">→</span></button>
         </div>
         <div class="continue-track awaited-release-track">${entries.map(awaitedReleaseCardHTML).join("")}</div>
       </div>
@@ -398,6 +400,7 @@ function filteredUpcomingResults() {
   if (UpcomingState.genre !== "all") {
     filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
   }
+  if (UpcomingState.search) filtered = filtered.filter(it => librarySearchScore(it, UpcomingState.search) > 0);
   if (UpcomingState.hideAdded) filtered = filtered.filter(it => !isUpcomingInLibrary(it));
   return filtered;
 }
@@ -504,6 +507,8 @@ function renderUpcomingCards() {
   const grid = document.getElementById("upcoming-grid");
   if (!grid) return;
   syncUpcomingTypeButtons();
+  const searchInput = document.getElementById("upcoming-search");
+  if (searchInput && searchInput.value !== UpcomingState.search) searchInput.value = UpcomingState.search;
   renderUpcomingGenreFilter();
   renderAwaitedReleases();
   const allResults = filteredUpcomingResults();
@@ -522,7 +527,7 @@ function renderUpcomingCards() {
   }
 
   if (!results.length) {
-    const hasFilter = UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
+    const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
       grid.innerHTML = '<div class="upcoming-loading">' + loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`) + '<div class="upcoming-grid">' + cardSkeletons(8) + '</div></div>';
@@ -614,7 +619,7 @@ function upcomingCardHTML(it) {
           ${days !== null ? `<span class="release-countdown">${days === 0 ? "Aujourd'hui" : `J-${days}`}</span>` : ""}
           <span class="sr-only">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}${secondary ? ` · ${esc(secondary)}` : ""}</span>
         </button>
-        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}${adding ? " is-adding" : ""}" aria-pressed="${inLibrary}" aria-busy="${adding}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : adding ? `Ajout de ${esc(it.title)} en cours` : `Ajouter ${esc(it.title)} à la wishlist`}" title="${inLibrary ? "Dans votre bibliothèque" : adding ? "Ajout en cours" : "Ajouter à la wishlist"}"
+        <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}${adding ? " is-adding" : ""}" aria-pressed="${inLibrary}" aria-busy="${adding}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : adding ? `Ajout de ${esc(it.title)} en cours` : `Ajouter ${esc(it.title)} aux envies`}" title="${inLibrary ? "Dans votre bibliothèque" : adding ? "Ajout en cours" : "Ajouter aux envies"}"
           ${inLibrary || adding ? "disabled" : uiAction("addUpcomingToWishlist", [upcomingKey])}>${iconStatus("wishlist")}</button>
       </div>
     </article>`;
@@ -661,7 +666,7 @@ async function addUpcomingToWishlist(upcomingKey, closeAfter = false) {
     renderUpcomingCards();
     const awaitsSync = Media.getStatus?.().pending > 0;
     toast(
-      awaitsSync ? `"${it.title}" ajouté à la wishlist sur cet appareil` : `"${it.title}" ajouté à la wishlist ✓`,
+      awaitsSync ? `"${it.title}" ajouté aux envies sur cet appareil` : `"${it.title}" ajouté aux envies ✓`,
       awaitsSync ? "info" : "success"
     );
     if (closeAfter) closeModal();
@@ -750,7 +755,14 @@ function setUpcomingHideAdded(value) {
   renderUpcomingCards();
 }
 
+function setUpcomingSearch(value) {
+  UpcomingState.search = String(value || "").slice(0, 120);
+  onContextChange?.();
+  renderUpcomingCards();
+}
+
 function resetUpcomingFilters() {
+  UpcomingState.search = "";
   UpcomingState.type = "all";
   UpcomingState.genre = "all";
   UpcomingState.hideAdded = false;
@@ -785,6 +797,7 @@ function resetUpcomingFilters() {
     render: renderUpcoming,
     renderCards: renderUpcomingCards,
     setType: setUpcomingType,
+    setSearch: setUpcomingSearch,
     setGenre: setUpcomingGenre,
     setHideAdded: setUpcomingHideAdded,
     toggleAwaitedReleases,
@@ -794,9 +807,10 @@ function resetUpcomingFilters() {
     addToWishlistFromModal: upcomingKey => addUpcomingToWishlist(upcomingKey, true),
     openDetail: openUpcomingDetail,
     context() {
-      return { type: UpcomingState.type, genre: UpcomingState.genre, hideAdded: UpcomingState.hideAdded };
+      return { type: UpcomingState.type, genre: UpcomingState.genre, hideAdded: UpcomingState.hideAdded, search: UpcomingState.search };
     },
     restoreContext(value = {}) {
+      UpcomingState.search = typeof value.search === "string" ? value.search.slice(0, 120) : "";
       if (UPCOMING_TYPES.includes(value?.type)) UpcomingState.type = value.type;
       if (typeof value?.genre === "string" && value.genre.length <= 120) UpcomingState.genre = value.genre || "all";
       if (typeof value?.hideAdded === "boolean") UpcomingState.hideAdded = value.hideAdded;
@@ -804,6 +818,7 @@ function resetUpcomingFilters() {
     cancel: cancelUpcoming,
     reset() {
       cancelUpcoming();
+      UpcomingState.search = "";
       UpcomingState.results = [];
       UpcomingState.sourceResults = {};
       UpcomingState.sourceStatus = {};

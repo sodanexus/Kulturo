@@ -101,8 +101,8 @@ export function parseKulturoBackup(text, { maxEntries = 10_000, maxEvents = 100_
   if (backup.schema != null && (!Number.isInteger(backup.schema) || backup.schema < 1 || backup.schema > 2)) {
     throw new Error("Cette sauvegarde provient d’une version plus récente de Kulturo.");
   }
-  if (!Array.isArray(backup.entries)) throw new Error("La liste des médias est absente de la sauvegarde.");
-  if (backup.entries.length > maxEntries) throw new Error(`La sauvegarde dépasse la limite de ${maxEntries} médias.`);
+  if (!Array.isArray(backup.entries)) throw new Error("La liste des œuvres est absente de la sauvegarde.");
+  if (backup.entries.length > maxEntries) throw new Error(`La sauvegarde dépasse la limite de ${maxEntries} œuvres.`);
   if (backup.events != null && !Array.isArray(backup.events)) throw new Error("Le Journal de la sauvegarde est invalide.");
   if ((backup.events?.length || 0) > maxEvents) throw new Error(`La sauvegarde dépasse la limite de ${maxEvents} événements.`);
   return { ...backup, entries: backup.entries, events: backup.events || [] };
@@ -256,7 +256,7 @@ export function buildRestorePlan(backupEntries, currentEntries = []) {
   for (const raw of backupEntries || []) {
     const candidate = sanitizeBackupEntry(raw);
     if (!candidate) {
-      plan.invalid.push({ title: String(raw?.title || "Média invalide") });
+      plan.invalid.push({ title: String(raw?.title || "Œuvre invalide") });
       continue;
     }
     const resolution = resolveBackupMatch(candidate, virtualEntries);

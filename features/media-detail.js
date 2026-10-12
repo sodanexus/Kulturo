@@ -1,4 +1,5 @@
-// Fiches média : rendu, enrichissement, métadonnées et transitions de jaquette.
+// Fiches œuvre : rendu, enrichissement, métadonnées et transitions de jaquette.
+import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
@@ -338,25 +339,9 @@ function renderDetailPanel(e, options = {}) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const transitionOrigin = captureDetailCoverOrigin(options.transitionSource, e.id, coverUrl);
 
-  const externalUrl = (() => {
-    const directUrl = safeMediaUrl(e.external_url);
-    if (directUrl) return directUrl;
-    if (!e.external_id && !e.title) return null;
-    if (e.media_type === "game")  return `https://store.steampowered.com/search/?term=${encodeURIComponent(e.title)}`;
-    if (e.media_type === "movie") return `https://www.imdb.com/find/?q=${encodeURIComponent(e.title)}`;
-    if (e.media_type === "book")  return e.external_id ? `https://openlibrary.org/works/${e.external_id}` : `https://www.goodreads.com/search?q=${encodeURIComponent(e.title)}`;
-    return null;
-  })();
-  const externalLabel = e.external_label || (e.media_type === "book" && e.external_id
-    ? "Open Library"
-    : ({ game:"Steam", movie:"IMDb", book:"Goodreads" }[e.media_type] || "Lien"));
-  const externalHTML  = externalUrl
-    ? `<a href="${esc(externalUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${iconExternal()} ${esc(externalLabel)}</a>`
-    : "";
-
-  const youtubeQuery     = encodeURIComponent(`${e.title} ${e.media_type === "game" ? "trailer" : e.media_type === "movie" ? "bande annonce" : "book trailer"}`);
-  const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${youtubeQuery}`;
-  const youtubeHTML      = `<a href="${youtubeSearchUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link">${iconPlay()} Trailer</a>`;
+  const externalHTML = mediaLinks(e).map(link =>
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()} ${esc(link.label)}</a>`
+  ).join("");
 
   // Backdrop header
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
@@ -400,16 +385,16 @@ function renderDetailPanel(e, options = {}) {
         <div class="modal-footer">
           ${isReadOnly ? `
             <div class="detail-footer-actions detail-footer-actions-readonly">
-              ${externalHTML}${youtubeHTML}
+              ${externalHTML}
               <button class="btn btn-primary btn-sm" ${uiAction("closeModal")}>Fermer</button>
             </div>` : isPreview ? `
             <div class="detail-footer-actions">
-              ${externalHTML}${youtubeHTML}
-              <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingKey])}>+ Wishlist</button>
+              ${externalHTML}
+              <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingKey])}>+ Envies</button>
             </div>` : `
-            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer ce média" aria-label="Supprimer ce média" ${uiAction("deleteEntry", [e.id])}><span class="detail-delete-icon">${iconTrash()}</span></button>
+            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer cette œuvre" aria-label="Supprimer cette œuvre" ${uiAction("deleteEntry", [e.id])}><span class="detail-delete-icon">${iconTrash()}</span></button>
             <div class="detail-footer-actions">
-              ${externalHTML}${youtubeHTML}
+              ${externalHTML}
               <button class="btn btn-primary btn-sm" ${uiAction("openEditFromDetail", [e.id])}>${iconEdit()} Modifier</button>
             </div>`}
         </div>
@@ -572,8 +557,8 @@ function openMetadataFromElement(element) {
       </button>`;
   }).join("");
   const countLabel = matches.length
-    ? `${matches.length} média${matches.length > 1 ? "s" : ""} dans votre bibliothèque`
-    : "Aucun média correspondant dans votre bibliothèque";
+    ? `${matches.length} œuvre${matches.length > 1 ? "s" : ""} dans votre bibliothèque`
+    : "Aucune œuvre correspondante dans votre bibliothèque";
 
   document.body.insertAdjacentHTML("beforeend", `
     <div class="metadata-overlay" id="metadata-overlay" ${uiAction("closeMetadataPanel", [], { self: true })}>
@@ -680,7 +665,7 @@ function renderDetailSynopsisHTML(e, options = {}) {
   }
 
   return detailSectionHTML("Synopsis",
-    `<p class="detail-synopsis-empty">Aucun synopsis n’est disponible pour ce média.</p>`,
+    `<p class="detail-synopsis-empty">Aucun synopsis n’est disponible pour cette œuvre.</p>`,
     "detail-synopsis-section detail-synopsis-unavailable"
   );
 }
@@ -761,7 +746,7 @@ function renderDetailBody(e, options = {}) {
   if (options.readOnly) {
     html += `<div class="activity-detail-notice">
       <span class="activity-detail-avatar" aria-hidden="true">${iconUser()}</span>
-      <span><strong>${esc(e.username || "Un membre")}</strong> a partagé ce média. Cette fiche est en lecture seule.</span>
+      <span><strong>${esc(e.username || "Un membre")}</strong> a partagé cette œuvre. Cette fiche est en lecture seule.</span>
     </div>`;
   }
 
@@ -976,7 +961,7 @@ async function quickAdjustRepeat(id, delta) {
   if (!entry) return;
   const info = repeatInfo(entry);
   if (direction > 0 && !entry.date_finished && entry.status !== "finished" && info.repeats === 0) {
-    toast("Marquez d’abord ce média comme terminé.", "info");
+    toast("Marquez d’abord cette œuvre comme terminée.", "info");
     return;
   }
   const repeatCount = Math.max(0, Math.min(999, info.repeats + direction));
@@ -1205,7 +1190,7 @@ async function openDetailPanel(id, options = {}) {
       } catch (error) {
         if (error?.name !== "AbortError") console.warn("[Detail] persistence retry error:", error);
         if (error?.name !== "AbortError" && ownsDetailSession()) {
-          toast("La sauvegarde des détails a encore échoué. Tes données personnelles restent intactes.", "error");
+          toast("La sauvegarde des détails a encore échoué. Vos données personnelles restent intactes.", "error");
         }
       }
       if (ownsDetailSession()) {

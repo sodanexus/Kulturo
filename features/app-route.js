@@ -43,6 +43,7 @@ export function buildAppRoute({ page = "library", layer = null, payload = {}, fi
   const upcoming = views.upcoming || {};
   setWhen(params, "utype", upcoming.type, "all");
   setWhen(params, "genre", upcoming.genre, "all");
+  setWhen(params, "uq", upcoming.search, "");
   if (upcoming.hideAdded === false) params.set("show-added", "1");
 
   if (layer) params.set("layer", String(layer));
@@ -93,6 +94,7 @@ export function parseAppRoute(hash = "") {
   if (validMonth(params.get("jmine"))) views.journal.periods.personal = params.get("jmine");
   if (validMonth(params.get("jcommunity"))) views.journal.periods.community = params.get("jcommunity");
   if (["all", "movie", "tv", "game", "book"].includes(params.get("utype"))) views.upcoming.type = params.get("utype");
+  if (params.has("uq")) views.upcoming.search = params.get("uq").slice(0, 120);
   if (params.has("genre")) views.upcoming.genre = params.get("genre").slice(0, 80);
   if (params.get("show-added") === "1") views.upcoming.hideAdded = false;
 

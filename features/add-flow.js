@@ -1,5 +1,5 @@
 export const ADD_PRIMARY_STATUSES = Object.freeze([
-  Object.freeze({ value: "wishlist", label: "Wishlist" }),
+  Object.freeze({ value: "wishlist", label: "Envies" }),
   Object.freeze({ value: "playing", label: "En cours" }),
   Object.freeze({ value: "finished", label: "Terminé" }),
 ]);
@@ -18,6 +18,7 @@ export function createAddDraft(prefillTitle = "") {
   return {
     step: 1,
     type: "movie",
+    subtype: "movie",
     title: String(prefillTitle || "").trim(),
     apiSelected: null,
     rating: 0,
@@ -34,6 +35,7 @@ export function selectAddResult(draft, item) {
     type: ADD_MEDIA_TYPES.has(item.media_type) ? item.media_type : draft.type,
     title: String(item.title).trim(),
     apiSelected: item,
+    subtype: item.media_type === "movie" ? (item.subtype === "tv" ? "tv" : "movie") : null,
     rating: 0,
     favorite: false,
   };
@@ -41,11 +43,12 @@ export function selectAddResult(draft, item) {
 
 export function selectManualAdd(draft, title, type) {
   const normalizedTitle = String(title || "").trim();
-  if (!draft || !normalizedTitle || !ADD_MEDIA_TYPES.has(type)) return draft;
+  if (!draft || !normalizedTitle || !ADD_MEDIA_TYPES.has(type === "tv" ? "movie" : type)) return draft;
   return {
     ...draft,
     step: 2,
-    type,
+    type: type === "tv" ? "movie" : type,
+    subtype: ["movie", "tv"].includes(type) ? type : null,
     title: normalizedTitle,
     apiSelected: null,
     rating: 0,

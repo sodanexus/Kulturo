@@ -41,7 +41,7 @@ const MEDIA_WORDS = Object.freeze({
   tv:    { plural: "séries", added: "ajoutées", started: "commencées", finished: "vues", repeated: "revues", paused: "mises en pause", dropped: "abandonnées" },
   game:  { plural: "jeux", added: "ajoutés", started: "commencés", finished: "terminés", repeated: "rejoués", paused: "mis en pause", dropped: "abandonnés" },
   book:  { plural: "livres", added: "ajoutés", started: "commencés", finished: "lus", repeated: "relus", paused: "mis en pause", dropped: "abandonnés" },
-  media: { plural: "médias", added: "ajoutés", started: "commencés", finished: "terminés", repeated: "repris", paused: "mis en pause", dropped: "abandonnés" },
+  media: { plural: "œuvres", added: "ajoutées", started: "commencées", finished: "terminées", repeated: "reprises", paused: "mises en pause", dropped: "abandonnées" },
 });
 
 /**
@@ -90,7 +90,7 @@ export function journalGroupPresentation(group) {
   const words = MEDIA_WORDS[group?.mediaKind] || MEDIA_WORDS.media;
   const labels = {
     added: `${count} ${words.plural} ${words.added} à la bibliothèque`,
-    wishlist: `${count} ${words.plural} ${words.added} à la wishlist`,
+    wishlist: `${count} ${words.plural} ${words.added} aux envies`,
     started: `${count} ${words.plural} ${words.started}`,
     repeat_started: `${count} ${words.plural} repris`,
     finished: `${count} ${words.plural} ${words.finished}`,

@@ -222,7 +222,7 @@ export function createProfileFeature({
     if (!State.entries.length && State.libraryStatus === "error") {
       container.innerHTML = errorState({
         title: "Profil indisponible",
-        message: "Impossible de charger vos médias pour afficher vos statistiques.",
+        message: "Impossible de charger vos œuvres pour afficher vos statistiques.",
         actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryProfile") + '>Réessayer</button>',
       });
       renderGate.finish(task);
@@ -313,7 +313,7 @@ export function createProfileFeature({
               <small>${ratingScoreHTML(entry.rating, "profile-top-rating")}</small>
             </button>`;
         }).join("")
-      : `<div class="profile-inline-empty">Aucun média terminé et noté en ${esc(periodLabel)}.</div>`;
+      : `<div class="profile-inline-empty">Aucune œuvre terminée et notée en ${esc(periodLabel)}.</div>`;
 
     const categories = [
       { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
@@ -363,7 +363,7 @@ export function createProfileFeature({
       const px     = n > 0 ? Math.max(Math.round(n / maxRatingCount * BAR_MAX_PX), 3) : 0;
       const isPeak = n > 0 && n === Math.max(...ratingCounts);
       return `
-        <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} média${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `${uiAction("openRatingCollection", [note])} aria-label="Voir les ${n} médias notés ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
+        <button type="button" class="rating-hist-col${n ? " is-clickable" : ""}" title="${n} œuvre${n !== 1 ? "s" : ""} · ★ ${note}/10" ${n ? `${uiAction("openRatingCollection", [note])} aria-label="Voir les ${n} œuvres notées ${note} sur 10"` : "disabled aria-hidden=\"true\""}>
           <div class="rating-hist-count">${n || ""}</div>
           <div class="rating-hist-bar${isPeak ? " peak" : ""}" style="height:${px}px"></div>
         </button>`;
@@ -374,7 +374,7 @@ export function createProfileFeature({
         <div class="rating-hist-header">
           <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
           <div class="rating-hist-meta">
-            <span class="rating-hist-total">${totalRated} notés</span>
+            <span class="rating-hist-total">${totalRated} notée${totalRated > 1 ? "s" : ""}</span>
             ${avgRating ? `<span class="rating-hist-avg">moy. ${ratingScoreHTML(avgRating, "rating-average")}</span>` : ""}
           </div>
         </div>
@@ -402,20 +402,20 @@ export function createProfileFeature({
             <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" ${uiAction("setProfilePeriod", ["year"])} aria-pressed="${_profilePeriod === "year"}">Annuel</button>
             <button type="button" class="${_profilePeriod === "month" ? "active" : ""}" ${uiAction("setProfilePeriod", ["month"])} aria-pressed="${_profilePeriod === "month"}">Mensuel</button>
           </div>
-          <div class="profile-media-switch" role="group" aria-label="Type de média">
+          <div class="profile-media-switch" role="group" aria-label="Type d’œuvre">
             ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" ${uiAction("setProfileMedia", [value])} aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
           </div>
         </div>
         <div class="profile-year-summary">
           <div class="profile-year-primary">
             <strong>${profileNumberHTML("finished", scopedFinished.length)}</strong>
-            <span>média${scopedFinished.length > 1 ? "s" : ""} terminé${scopedFinished.length > 1 ? "s" : ""}</span>
+            <span>œuvre${scopedFinished.length > 1 ? "s" : ""} terminée${scopedFinished.length > 1 ? "s" : ""}</span>
             <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""} au total sur cette période</small>
           </div>
           <div class="profile-year-secondary">
             <span>Note moyenne</span>
             <strong>${scopedAverage === "—" ? "—" : profileNumberHTML("average", scopedAverage, { decimals: 1, prefix: "★ ", suffix: "/10" })}</strong>
-            <small>${scopedRated.length} média${scopedRated.length > 1 ? "s" : ""} noté${scopedRated.length > 1 ? "s" : ""}</small>
+            <small>${scopedRated.length} œuvre${scopedRated.length > 1 ? "s" : ""} notée${scopedRated.length > 1 ? "s" : ""}</small>
           </div>
         </div>
         <div class="profile-action-grid">
@@ -423,7 +423,7 @@ export function createProfileFeature({
             ["finished", scopedFinished.length, "Terminés"],
             ["playing", scopedPlaying.length, "En cours"],
             ["favorite", scopedFavs.length, "Coups de cœur"],
-            ["wishlist", scopedWishlist.length, "Wishlist"],
+            ["wishlist", scopedWishlist.length, "Envies"],
           ].map(([key, value, label]) => `
             <button type="button" class="profile-action-card" ${uiAction("openProfileCollection", [key, _profileYear, periodMonth, _profileMedia])}>
               <span class="profile-action-icon" aria-hidden="true">${iconStatus(key)}</span>
@@ -440,7 +440,7 @@ export function createProfileFeature({
         <section class="profile-dashboard-card profile-top-section">
           <div class="profile-card-heading">
             <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
-            <span class="section-count">${topScoped.length} média${topScoped.length !== 1 ? "s" : ""}</span>
+            <span class="section-count">${topScoped.length} œuvre${topScoped.length !== 1 ? "s" : ""}</span>
           </div>
           <div class="profile-top-track">${topHTML}</div>
         </section>
@@ -481,7 +481,7 @@ export function createProfileFeature({
             <div class="profile-identity-meta">
               <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
               <div class="profile-username-row">
-                <input type="text" id="input-username" placeholder="Ton pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
+                <input type="text" id="input-username" placeholder="Votre pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
                 <button class="btn btn-primary btn-sm" ${uiAction("saveUsername", [], { control: true })}>Enregistrer</button>
               </div>
             </div>

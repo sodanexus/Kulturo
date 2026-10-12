@@ -290,7 +290,7 @@ export function createMediaRepository({ remote, database, getOwnerId, isOnline =
       markMemorySnapshot(ownerId);
       return canonical;
     }
-    if (!current) throw new Error("Média local introuvable");
+    if (!current) throw new Error("Œuvre local introuvable");
     const updated = { ...current, ...internalFree(changes), updated_at: new Date().toISOString(), _syncState: "pending" };
     const mutation = await database.stageMutation(ownerId, {
       operation: "update", targetId: id,

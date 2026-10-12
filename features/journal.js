@@ -97,7 +97,7 @@ export function createJournalFeature({
         message: "Vos ajouts, débuts et fins de parcours apparaîtront ici.",
         actionHTML: '<button class="btn btn-secondary" ' +
           uiAction(State.entries.length ? "navTo" : "openAddModal", State.entries.length ? ["library"] : []) + '>' +
-          (State.entries.length ? "Ouvrir ma bibliothèque" : "Ajouter un média") + '</button>',
+          (State.entries.length ? "Ouvrir ma bibliothèque" : "Ajouter une œuvre") + '</button>',
       });
     }
 
@@ -147,14 +147,14 @@ export function createJournalFeature({
         <div class="journal-month-summary-heading"><span>Le mois en bref</span><strong>${esc(monthLabel)}</strong></div>
         <div class="journal-month-summary-stats">
           <span><strong>${summary.completed}</strong><small>terminé${summary.completed > 1 ? "s" : ""}</small></span>
-          <span><strong>${average}</strong><small>${summary.rated} noté${summary.rated > 1 ? "s" : ""}</small></span>
+          <span><strong>${average}</strong><small>${summary.rated} notée${summary.rated > 1 ? "s" : ""}</small></span>
         </div>
         ${favorite ? `
           <button type="button" class="journal-month-favorite" data-prefetch-media="${esc(favorite.id)}" data-transition-media="${esc(favorite.id)}" data-journal-action="open-personal" data-media-id="${esc(favorite.id)}">
             ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
             <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
             ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
-          </button>` : `<p class="journal-month-no-favorite">Aucun média actuellement terminé à mettre en avant ce mois.</p>`}
+          </button>` : `<p class="journal-month-no-favorite">Aucune œuvre actuellement terminé à mettre en avant ce mois.</p>`}
       </aside>`;
   }
 
@@ -232,7 +232,7 @@ export function createJournalFeature({
     if (!journalEvent) return;
     const confirmed = await confirmDialog(
       "Retirer cet événement du Journal ?",
-      "Le média, son statut et vos statistiques ne seront pas modifiés.",
+      "L’œuvre, son statut et vos statistiques ne seront pas modifiés.",
       "Retirer",
       "danger",
     );
@@ -262,7 +262,7 @@ export function createJournalFeature({
   function openJournalMedia(id, transitionSource = null) {
     const entry = State.entries.find(item => item.id === id);
     if (!entry) {
-      toast("Ce média n’est plus disponible.", "error");
+      toast("Cette œuvre n’est plus disponible.", "error");
       return;
     }
     openDetailPanel(entry.id, { transitionSource });
@@ -338,7 +338,7 @@ export function createJournalFeature({
   }
 
   function communityRowHTML(entry) {
-    const type = entry.media_type === "movie" && !entry.subtype ? "Film / Série" : getTypeLabel(entry);
+    const type = getTypeLabel(entry);
     const status = statusLabelFor(entry.status, entry.media_type) || "Ajouté";
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
@@ -374,7 +374,7 @@ export function createJournalFeature({
 
     const entry = _communityEntries.find(item => item.id === id);
     if (!entry) {
-      toast("Ce média n’est plus disponible dans la communauté.", "error");
+      toast("Cette œuvre n’est plus disponible dans la communauté.", "error");
       return;
     }
 
