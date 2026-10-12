@@ -160,7 +160,9 @@ start.addEventListener("click", async () => {
     await waitFor(() => frame.contentDocument !== doc, "Actualisation absente");
     doc = frame.contentDocument; win = frame.contentWindow;
     await waitFor(() => doc.querySelector("#upcoming-search")?.value === "introuvable", "Recherche non restaurée");
-    action("resetUpcomingFilters").click();
+    // Le bouton n'apparaît qu'une fois les sorties chargées et filtrées.
+    const reset = await waitFor(() => doc.querySelector('[data-ui-action="resetUpcomingFilters"]'), "Bouton de réinitialisation absent");
+    reset.click();
     await waitFor(() => doc.querySelector("#upcoming-grid .upcoming-card"), "Réinitialisation échouée");
   });
 
@@ -280,6 +282,38 @@ start.addEventListener("click", async () => {
     assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-ratings-card"), "Histogramme mal placé");
     action("setProfilePeriod", ["year"]).click();
     await waitFor(() => doc.querySelector(".profile-year-overview h2")?.textContent.includes("Votre année"), "Sélecteur annuel inactif");
+  });
+
+  await test("Profil : un clic sur l'histogramme ouvre dans la Bibliothèque les œuvres de cette note", async () => {
+    await mount(1120); await ready();
+    action("navTo", ["dashboard"]).click();
+    const column = await waitFor(() => doc.querySelector(".rating-hist-col.is-clickable"), "Histogramme absent");
+    const note = JSON.parse(column.dataset.uiArgs)[0];
+    const expected = Number(column.querySelector(".rating-hist-count").textContent);
+    column.click();
+    await waitFor(() => doc.querySelector("#page-library").classList.contains("active"), "Bibliothèque non ouverte");
+    await waitFor(() => doc.querySelectorAll("#cards-grid .media-card").length === expected, `Attendu ${expected} œuvres notées ${note}`);
+    const ratings = [...doc.querySelectorAll("#cards-grid .card-rating")].map(item => item.textContent.trim());
+    assert(ratings.length === expected && ratings.every(text => text.includes(`${note}/10`)), "Des œuvres d'une autre note sont affichées");
+    assert(doc.querySelector("#active-filter-summary").textContent.includes(`${note}/10`), "Filtre de note invisible");
+  });
+
+  await test("Pages : aucun grand titre ni phrase d'introduction, même départ en haut", async () => {
+    await mount(1120); await ready();
+    const tops = [];
+    for (const page of ["library", "dashboard", "upcoming", "journal"]) {
+      action("navTo", [page]).click();
+      await waitFor(() => doc.querySelector(`#page-${page}`).classList.contains("active"), `Page ${page} inactive`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      assert(!doc.querySelector(`#page-${page} h1, #page-${page} .page-heading`), `Grand titre présent sur ${page}`);
+      const section = doc.querySelector(`#page-${page}`);
+      const first = [...section.children].find(item => item.getBoundingClientRect().height > 0 && !item.hidden);
+      const offset = page === "journal"
+        ? first.querySelector(".journal-mode-switch").getBoundingClientRect().top
+        : first.getBoundingClientRect().top;
+      tops.push(Math.round(offset));
+    }
+    assert(Math.max(...tops) - Math.min(...tops) <= 1, `Départs de page différents : ${tops.join(", ")}`);
   });
 
   await test("Sorties : erreur puis récupération des cartes", async () => {
