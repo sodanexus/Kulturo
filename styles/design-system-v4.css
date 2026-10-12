@@ -64,3 +64,16 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* Choix communs : Films · Séries · Jeux · Livres. */
+.modal-type-tabs { flex-wrap: wrap; }
+.modal-type-tab { flex: 1 1 auto; }
+.wz-manual-types { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.upcoming-search { display: block; width: 100%; min-width: 0; }
+.upcoming-search input { min-height: var(--control-height); font-size: 1rem; }
+.ui-state-actions { flex-wrap: wrap; }
+@media (max-width: 680px) {
+  .wz-manual-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modal-type-tab { flex-basis: calc(50% - .5rem); }
+  .detail-footer-actions { flex-wrap: wrap; }
+}
