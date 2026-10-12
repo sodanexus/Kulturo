@@ -16,20 +16,13 @@ export function mediaLinks(entry) {
   };
   const direct = webUrl(entry.external_url);
   if (entry.media_type === "book") {
-    if (direct) add(direct, entry.external_label || "Fiche du livre");
-    else if (entry.source_api === "openlibrary" && /^(?:\/works\/)?OL\d+W$/.test(entry.external_id || "")) {
-      add(`https://openlibrary.org/works/${String(entry.external_id).replace("/works/", "")}`, "Open Library");
-    } else if (entry.source_api === "googlebooks" && entry.external_id) {
-      add(`https://books.google.fr/books?id=${encodeURIComponent(entry.external_id)}`, "Google Books");
-    } else if (title) add(`https://openlibrary.org/search?q=${query}`, "Chercher le livre");
-    if (webUrl(entry.publisher_url)) add(entry.publisher_url, "Chez l’éditeur");
-    if (webUrl(entry.preview_url)) add(entry.preview_url, "Lire un extrait");
-    else if (title) {
+    if (title) {
       const bookQuery = entry.isbn ? `isbn:${entry.isbn}` : `${title} ${entry.author || ""}`.trim();
-      add(`https://books.google.fr/books?q=${encodeURIComponent(bookQuery)}`, "Chercher un extrait");
+      add(`https://openlibrary.org/search?q=${encodeURIComponent(bookQuery)}`, "Chercher le livre");
     }
     return links;
   }
+
   if (entry.media_type === "game") {
     if (direct) add(direct, entry.external_label || "Site du jeu");
     else if (title) {
