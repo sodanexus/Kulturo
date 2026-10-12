@@ -38,11 +38,11 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.2
+## Validation de l’archive 4.0.3
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
-### Contrôles réalisés pour cette modification
+### Contrôles de la modification UX initiale (4.0.2)
 
 - `npm test` : 66 tests réussis, dont cinq nouvelles régressions UX (recherche + filtres, ajout Série, URL, liens des livres et jeux).
 - `npm run check` : contrôle de syntaxe, cohérence des versions et tests techniques.
@@ -51,3 +51,7 @@ Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navi
 - Vérification des déclarations TypeScript avec TypeScript 5.9.3 : réussie en contrôle complémentaire. Le compilateur natif 7.0.2 verrouillé par le projet ne peut pas démarrer dans cet environnement (`/proc/self/exe` indisponible). Cette vérification complémentaire ne remplace pas `npm run typecheck` avec la version officielle du projet.
 
 Les parcours du navigateur ont été enrichis dans `browser-runner.js`, mais n’ont pas pu être exécutés ici : aucun Chromium local disponible, téléchargement du navigateur inutilisable, et navigateur distant sans accès au serveur local. Le DOM simulé ne valide ni la mise en page, ni les gestes, ni le focus réel. Avant déploiement, exécuter `npm run verify` dans l’environnement habituel puis les parcours de `tests/browser.html` et vérifier Safari/iPhone/iPad. Les destinations externes sont vérifiées comme URLs produites par le code, pas comme pages consultées en direct.
+
+### Ajustements 4.0.3
+
+Le test des liens de livre vérifie maintenant qu’un seul lien « Chercher le livre » est proposé, même si des URLs d’extrait ou d’éditeur existent. Contrôles relancés : tests techniques, cohérence de version et build. L’alignement des en-têtes est corrigé dans la règle CSS commune ; validation visuelle sur navigateur réel toujours à effectuer, avec la Bibliothèque comme référence (mêmes limites d’environnement que ci-dessus).

@@ -31,14 +31,17 @@ test("la route conserve les recherches indépendantes et le filtre Séries", () 
   assert.equal(route.filters.search, "Dune"); assert.equal(route.filters.subtype, "tv");
   assert.equal(route.views.upcoming.search, "été"); assert.equal(route.views.upcoming.type, "book");
 });
-test("les livres ont des liens de livre et ne reçoivent pas de bande-annonce", () => {
-  const links = mediaLinks({ title: "Dune", media_type: "book", source_api: "openlibrary", external_id: "OL123W", isbn: "9781234567890" });
-  assert.equal(links[0].url, "https://openlibrary.org/works/OL123W");
-  assert.ok(links.some(link => link.label === "Chercher un extrait"));
-  assert.ok(!links.some(link => link.kind === "video"));
-  const manual = mediaLinks({ title: "Livre", media_type: "book", source_api: "manual", external_id: "autre-id" });
-  assert.ok(manual.every(link => !link.url.includes("/works/")));
-  assert.ok(mediaLinks({ title: "Livre", media_type: "book", preview_url: "https://example.com/extrait", publisher_url: "https://example.com/editeur" }).some(link => link.label === "Lire un extrait"));
+test("les livres proposent uniquement Chercher le livre, même avec des liens enrichis", () => {
+  for (const source_api of ["openlibrary", "googlebooks", "manual"]) {
+    const links = mediaLinks({ title: "Dune", author: "Frank Herbert", media_type: "book", source_api,
+      external_id: "OL123W", external_url: "https://example.com/livre", preview_url: "https://example.com/extrait",
+      publisher_url: "https://example.com/editeur", isbn: "9781234567890" });
+    assert.equal(links.length, 1);
+    assert.equal(links[0].label, "Chercher le livre");
+    assert.equal(new URL(links[0].url).searchParams.get("q"), "isbn:9781234567890");
+  }
+  const links = mediaLinks({ title: "Dune", author: "Frank Herbert", media_type: "book" });
+  assert.equal(new URL(links[0].url).searchParams.get("q"), "Dune Frank Herbert");
 });
 test("les jeux console ne sont pas envoyés sur Steam et les liens dangereux sont ignorés", () => {
   assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" })[0].url.includes("steampowered.com"));
