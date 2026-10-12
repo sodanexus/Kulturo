@@ -77,3 +77,12 @@
   .modal-type-tab { flex-basis: calc(50% - .5rem); }
   .detail-footer-actions { flex-wrap: wrap; }
 }
+
+/* Une ligne de description réservée : le titre reste au même niveau,
+   même lorsque la page n’affiche aucun texte sous son titre. */
+@media (min-width: 681px) {
+  .page-heading > div {
+    display: grid;
+    grid-template-rows: auto minmax(calc(var(--type-control) * 1.6), auto);
+  }
+}
