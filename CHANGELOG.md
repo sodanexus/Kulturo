@@ -4,6 +4,8 @@
 
 ## À venir (non publié)
 
+- Les grands titres de page (Bibliothèque, Profil, Sorties, Journal), leur phrase d'introduction et leur ligne de séparation sont supprimés. Toutes les pages démarrent à la même hauteur, sur ordinateur comme sur téléphone.
+- Correction : depuis le Profil, un clic sur une note de l'histogramme (ou sur Terminés, En cours, Coups de cœur, Envies) ouvre bien la Bibliothèque filtrée. Les filtres étaient remis à zéro par la transition de page.
 - Le statut **En pause** est supprimé : ces médias deviennent **En cours**. **Un SQL est nécessaire** : exécuter une fois `schema.sql` dans Supabase (il convertit les médias concernés sans créer de faux événements dans le Journal). Les anciennes sauvegardes contenant ce statut restent restaurables.
 - Le tri par défaut de la Bibliothèque est **automatique** : Fins récentes pour **Terminé**, Ajouts récents pour les autres statuts. **Fins récentes** n'est proposé que lorsque le statut a une date de fin. Un tri choisi explicitement reste mémorisé (nouvelle clé de préférence : l'ancien choix mémorisé est abandonné).
 - Retirer une relecture avec le bouton **−** de la fiche retire aussi ses événements du Journal et des statistiques.

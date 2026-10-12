@@ -3100,32 +3100,8 @@ h1, h2, h3 { color: var(--text-1); }
   max-width: 1480px;
   margin: 0 auto;
 }
-.page-heading {
-  min-height: 112px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.35rem 0 1.15rem;
-  margin-bottom: .25rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-}
-.page-heading > div { min-width: 0; }
-.page-heading h1 {
-  margin: .1rem 0 .2rem;
-  font-family: var(--font-display);
-  font-size: var(--type-page-title);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -.03em;
-}
 .topbar-logo,
 .auth-card .logo { font-weight: 800; letter-spacing: -.03em; }
-.page-heading p {
-  max-width: 620px;
-  color: var(--text-3);
-  font-size: var(--type-control);
-}
 .page-kicker,
 .section-eyebrow {
   display: block;
@@ -3571,13 +3547,6 @@ input, textarea, select { border-radius: 12px; }
   .topbar-search-wrap .search-icon { left: .7rem; }
 
   #main { padding-top: 0; }
-  .page-heading {
-    min-height: 92px;
-    padding: 1rem 0 .85rem;
-    margin-bottom: 0;
-  }
-  .page-heading h1 { font-size: var(--type-title-lg); }
-  .page-heading p { font-size: var(--type-control); line-height: 1.45; }
   .page-kicker { font-size: var(--type-caption); }
 
   .continue-section {
@@ -4172,19 +4141,6 @@ input, textarea, select { border-radius: 12px; }
     display: none;
   }
 
-  /* En-têtes mobiles plus courts : le contenu utile arrive plus vite. */
-  .page-heading { min-height: 66px; padding: .65rem 0 .6rem; }
-  .page-heading > div { display: flex; flex-direction: column; justify-content: flex-end; }
-  .page-heading h1 { margin: 0; font-size: var(--type-title-md); line-height: 1.05; }
-  .page-heading p { display: none; }
-  .page-heading .page-kicker {
-    display: block;
-    margin: 0 0 .12rem;
-    font-size: var(--type-caption);
-    line-height: 1;
-    letter-spacing: .095em;
-    white-space: nowrap;
-  }
   .active-filter-summary { margin-top: .55rem; padding: .4rem; }
   .active-filter-label { display: none; }
   .active-filter-reset { padding-right: .2rem; }
@@ -4493,7 +4449,6 @@ input, textarea, select { border-radius: 12px; }
 }
 
 /* Même respiration sous le séparateur de chaque page. */
-.page-heading { margin-bottom: 0; }
 #dashboard-content,
 .upcoming-toolbar { margin-top: 1.15rem; }
 
@@ -4526,14 +4481,6 @@ input, textarea, select { border-radius: 12px; }
 @media (max-width: 390px) {
   .upcoming-type-btn { font-size: var(--type-label); }
   .upcoming-region-label { font-size: var(--type-micro); }
-}
-
-/* ============================================================
-   KULTURO 2.5.9 — EN-TÊTES MOBILES
-   La navigation basse nomme déjà chaque page sur téléphone.
-   ============================================================ */
-@media (max-width: 680px) {
-  .page > .page-heading { display: none; }
 }
 
 /* ============================================================

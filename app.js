@@ -763,12 +763,6 @@ function renderApp() {
     <main id="main">
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
-        <header class="page-heading">
-          <div>
-            <h1>Bibliothèque</h1>
-            <p id="library-summary">Films, séries, jeux et livres.</p>
-          </div>
-        </header>
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
         <section id="continue-section" class="continue-section" aria-labelledby="continue-title" hidden></section>
         <div class="section-heading library-list-heading" aria-live="polite">
@@ -780,22 +774,11 @@ function renderApp() {
 
       <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
-        <header class="page-heading">
-          <div>
-            <h1>Profil</h1>
-          </div>
-        </header>
         <div id="dashboard-content"></div>
       </section>
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
-        <header class="page-heading">
-          <div>
-            <h1>Sorties</h1>
-            <p>Les six prochains mois.</p>
-          </div>
-        </header>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
@@ -835,11 +818,6 @@ function renderApp() {
 
       <!-- Journal personnel + activité communautaire -->
       <section id="page-journal" class="page">
-        <header class="page-heading">
-          <div>
-            <h1>Journal</h1>
-          </div>
-        </header>
 
         <div class="journal-sticky-controls">
           <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
@@ -1425,14 +1403,7 @@ function toggleContinueSection() {
 }
 
 function updateLibraryHeading(entries) {
-  const summary = document.getElementById("library-summary");
   const count = document.getElementById("library-result-count");
-  if (summary) {
-    const total = State.entries.length;
-    summary.textContent = total
-      ? `${total} œuvre${total > 1 ? "s" : ""} dans votre bibliothèque.`
-      : "Films, séries, jeux et livres.";
-  }
   if (count) count.textContent = `${entries.length} œuvre${entries.length > 1 ? "s" : ""}`;
 }
 
