@@ -113,6 +113,57 @@ start.addEventListener("click", async () => {
     await ready();
   });
 
+  await test("Recherche et filtres combinés, catégories distinctes et ajout manuel Série", async () => {
+    await mount(390); await ready();
+    const input = doc.querySelector("#global-search");
+    input.value = "Œuvre de test";
+    input.dispatchEvent(new win.Event("input", { bubbles: true }));
+    await waitFor(() => doc.querySelector("#active-filter-summary").textContent.includes("Dans ma bibliothèque"), "Périmètre absent");
+    const toggle = action("toggleFilterDrawer");
+    assert(toggle.getAttribute("aria-hidden") === "false", "Filtres cachés pendant la recherche");
+    toggle.click();
+    assert([...doc.querySelectorAll("#fm-type-chips button")].map(el => el.textContent.trim()).join("|") === "Films|Séries|Jeux|Livres", "Catégories incohérentes");
+    action("setTypeFilter", ["book"]).click();
+    action("applyFilters").click();
+    await waitFor(() => !doc.querySelector("#filter-modal-overlay"), "Filtres non fermés");
+    await waitFor(() => doc.querySelectorAll("#cards-grid .media-card").length === 5, "La recherche ignore les filtres");
+    input.value = "Série manuelle <test>";
+    input.dispatchEvent(new win.Event("input", { bubbles: true }));
+    await waitFor(() => doc.querySelector('#cards-grid [data-ui-action="addFromLibrarySearch"]'), "Ajout depuis la recherche absent");
+    action("addFromLibrarySearch").click();
+    await waitFor(() => doc.querySelector('[data-ui-action="wzUseManualType"]'), "Ajout manuel absent");
+    assert(doc.querySelector("#f-api-search").value === "Série manuelle <test>", "Recherche perdue");
+    action("wzUseManualType", ["tv"]).click();
+    assert(doc.querySelector("#f-type").value === "movie" && doc.querySelector("#f-subtype").value === "tv", "Sous-type perdu");
+    action("saveEntry").click();
+    await waitFor(() => !doc.querySelector("#modal-overlay"), "Ajout non enregistré");
+    action("broadenLibrarySearch").click();
+    const card = await waitFor(() => doc.querySelector("#cards-grid .media-card"), "Série enregistrée introuvable");
+    card.click(); await edit();
+    assert(doc.querySelector('.modal-type-tab[data-type="tv"]').classList.contains("active"), "Série non conservée en modification");
+    action("saveEntry").click();
+    await waitFor(() => doc.querySelector(".detail-modal"), "Retour fiche absent");
+    await closeDetail();
+  });
+
+  await test("Sorties : recherche locale conservée après actualisation", async () => {
+    await mount(768); await ready();
+    action("navTo", ["upcoming"]).click();
+    await waitFor(() => doc.querySelector("#upcoming-grid .upcoming-card"), "Sorties absentes");
+    const input = doc.querySelector("#upcoming-search");
+    input.value = "introuvable"; input.dispatchEvent(new win.Event("input", { bubbles: true }));
+    await waitFor(() => doc.querySelector("#upcoming-grid .ui-state"), "Recherche locale ignorée");
+    assert(doc.querySelector("#page-upcoming").classList.contains("active"), "Navigation inattendue vers la Bibliothèque");
+    assert(doc.querySelector("#global-search").value === "", "Recherche Bibliothèque modifiée");
+    await waitFor(() => win.location.hash.includes("uq=introuvable"), "Recherche absente de l’URL");
+    win.location.reload();
+    await waitFor(() => frame.contentDocument !== doc, "Actualisation absente");
+    doc = frame.contentDocument; win = frame.contentWindow;
+    await waitFor(() => doc.querySelector("#upcoming-search")?.value === "introuvable", "Recherche non restaurée");
+    action("resetUpcomingFilters").click();
+    await waitFor(() => doc.querySelector("#upcoming-grid .upcoming-card"), "Réinitialisation échouée");
+  });
+
   await test("Chargement échoué : Réessayer récupère la bibliothèque", async () => {
     await mount(768, { failEntries: 1 });
     const retry = await waitFor(() => doc.querySelector('#cards-grid [data-ui-action="retryLibrary"]'), "Bouton Réessayer absent");

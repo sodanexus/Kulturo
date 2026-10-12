@@ -49,7 +49,7 @@ test("un seul vocabulaire par type de média", () => {
   assert.equal(statusLabelFor("finished", "book"), "Lu");
   assert.equal(statusLabelFor("finished", "movie"), "Vu");
   assert.equal(statusLabelFor("finished", "game"), "Terminé");
-  assert.equal(statusLabelFor("wishlist", "book"), "Wishlist");
+  assert.equal(statusLabelFor("wishlist", "book"), "Envies");
   assert.equal(repeatInfo({ media_type: "book", repeat_count: 1 }).removeLabel, "Retirer une relecture");
   assert.equal(repeatInfo({ media_type: "movie", repeat_count: 1 }).removeLabel, "Retirer un revisionnage");
   assert.equal(repeatInfo({ media_type: "game", repeat_count: 1 }).removeLabel, "Retirer une nouvelle partie");

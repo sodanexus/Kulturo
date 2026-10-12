@@ -38,6 +38,16 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.1
+## Validation de l’archive 4.0.2
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
+
+### Contrôles réalisés pour cette modification
+
+- `npm test` : 66 tests réussis, dont cinq nouvelles régressions UX (recherche + filtres, ajout Série, URL, liens des livres et jeux).
+- `npm run check` : contrôle de syntaxe, cohérence des versions et tests techniques.
+- `npm run build` : build Vite et préparation du cache PWA réussis.
+- Interactions dans un DOM simulé (jsdom, IndexedDB simulé, doubles réseau fournis par le projet) : recherche combinée aux catégories/statuts ; ajout manuel d’une Série depuis une recherche vide avec conservation du titre ; enregistrement puis modification sans perdre le sous-type ; recherche Sorties indépendante, URL et réinitialisation. Aucune erreur JavaScript détectée sur ces parcours.
+- Vérification des déclarations TypeScript avec TypeScript 5.9.3 : réussie en contrôle complémentaire. Le compilateur natif 7.0.2 verrouillé par le projet ne peut pas démarrer dans cet environnement (`/proc/self/exe` indisponible). Cette vérification complémentaire ne remplace pas `npm run typecheck` avec la version officielle du projet.
+
+Les parcours du navigateur ont été enrichis dans `browser-runner.js`, mais n’ont pas pu être exécutés ici : aucun Chromium local disponible, téléchargement du navigateur inutilisable, et navigateur distant sans accès au serveur local. Le DOM simulé ne valide ni la mise en page, ni les gestes, ni le focus réel. Avant déploiement, exécuter `npm run verify` dans l’environnement habituel puis les parcours de `tests/browser.html` et vérifier Safari/iPhone/iPad. Les destinations externes sont vérifiées comme URLs produites par le code, pas comme pages consultées en direct.
