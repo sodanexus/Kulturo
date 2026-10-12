@@ -152,66 +152,69 @@ export function createProfileFeature({
     renderDashboard();
   }
 
-  function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
-    navTo("library");
+  // Ouvre la Bibliothèque avec des filtres précis. Les filtres sont posés AVANT
+  // la navigation et conservés (preserveFilters) : navTo passe par une View
+  // Transition qui s'exécute après coup et remettrait sinon tout à zéro.
+  function openLibraryWithFilters(applyFilters) {
     State.filters.type = "all";
     State.filters.subtype = "all";
     State.filters.status = "all";
     State.filters.favorite = false;
     State.filters.replay = false;
     State.filters.search = "";
+    State.filters.year = "all";
+    State.filters.month = "all";
     State.filters.rating = "all";
-    State.filters.year = Number(year) || "all";
-    State.filters.month = /^(0[1-9]|1[0-2])$/.test(String(month)) && State.filters.year !== "all"
-      ? `${State.filters.year}-${month}`
-      : "all";
+    applyFilters();
+    State.scrollPos.library = 0;
     const search = document.getElementById("global-search");
     if (search) search.value = "";
+    syncFilterChips();
+    navTo("library", { preserveFilters: true, preserveSearch: true });
+    updateFilterToggleLabel();
+  }
 
-    const applyMedia = media => {
-      if (media === "game" || media === "book") State.filters.type = media;
-      else if (media === "film") {
+  function openProfileCollection(kind, year, month = "all", mediaFilter = "all") {
+    openLibraryWithFilters(() => {
+      State.filters.year = Number(year) || "all";
+      State.filters.month = /^(0[1-9]|1[0-2])$/.test(String(month)) && State.filters.year !== "all"
+        ? `${State.filters.year}-${month}`
+        : "all";
+
+      const applyMedia = media => {
+        if (media === "game" || media === "book") State.filters.type = media;
+        else if (media === "film") {
+          State.filters.type = "movie";
+          State.filters.subtype = "movie";
+        } else if (media === "tv") {
+          State.filters.type = "movie";
+          State.filters.subtype = "tv";
+        }
+      };
+
+      if (["finished", "playing", "wishlist"].includes(kind)) {
+        State.filters.status = kind;
+        applyMedia(mediaFilter);
+      } else if (kind === "favorite") {
+        State.filters.favorite = true;
+        applyMedia(mediaFilter);
+      } else if (kind === "game" || kind === "book") State.filters.type = kind;
+      else if (kind === "film") {
         State.filters.type = "movie";
         State.filters.subtype = "movie";
-      } else if (media === "tv") {
+      } else if (kind === "tv") {
         State.filters.type = "movie";
         State.filters.subtype = "tv";
       }
-    };
-
-    if (["finished", "playing", "wishlist"].includes(kind)) {
-      State.filters.status = kind;
-      applyMedia(mediaFilter);
-    } else if (kind === "favorite") {
-      State.filters.favorite = true;
-      applyMedia(mediaFilter);
-    } else if (kind === "game" || kind === "book") State.filters.type = kind;
-    else if (kind === "film") {
-      State.filters.type = "movie";
-      State.filters.subtype = "movie";
-    } else if (kind === "tv") {
-      State.filters.type = "movie";
-      State.filters.subtype = "tv";
-    }
-
-    syncFilterChips();
-    updateCategoryTabs(State.filters.type, State.filters.favorite);
-    renderCards({ resetScroll: true });
-    updateFilterToggleLabel();
+    });
   }
 
   function openRatingCollection(value) {
     const rating = Number.parseInt(value, 10);
     if (!Number.isInteger(rating) || rating < 1 || rating > 10) return;
-    navTo("library");
-    // L'histogramme couvre toutes les œuvres notées, quel que soit leur statut.
-    // Le lien doit donc montrer exactement le même ensemble, même si la vue
-    // normale de la Bibliothèque démarre désormais sur « Terminé ».
-    State.filters.status = "all";
-    State.filters.rating = rating;
-    syncFilterChips();
-    renderCards({ resetScroll: true });
-    updateFilterToggleLabel();
+    // L'histogramme couvre toutes les œuvres notées, quels que soient leur
+    // type et leur statut : la Bibliothèque montre exactement le même ensemble.
+    openLibraryWithFilters(() => { State.filters.rating = rating; });
   }
 
   async function renderDashboard() {
