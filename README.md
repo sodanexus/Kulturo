@@ -31,7 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.0.2
+## Version actuelle · 4.0.3
+
+La 4.0.3 aligne les titres Journal et Profil sur Bibliothèque et simplifie les livres à un seul lien « Chercher le livre ».
 
 La 4.0.2 harmonise **Films · Séries · Jeux · Livres**, les libellés **Envies** et **Bande-annonce**, le vouvoiement et les liens des fiches. La recherche Bibliothèque respecte les filtres ; Sorties dispose de sa propre recherche. Les en-têtes sont allégés.
 

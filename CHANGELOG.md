@@ -11,6 +11,12 @@
 - Les statuts, les tris et leurs libellés viennent d'une source unique (`domain.js`).
 - Les titres de page, le titre des fiches et le logo passent de Newsreader à **Archivo** ; le synopsis utilise la police de l'interface.
 
+## 4.0.3
+
+- Les titres Bibliothèque, Journal et Profil partagent le même espace vertical : une ligne est réservée sous le titre même sans description. La disposition de référence de Bibliothèque est conservée. Les en-têtes masqués sur téléphone restent masqués.
+- Les livres n’affichent plus qu’un lien **Chercher le livre**, avec l’ISBN si disponible, sinon le titre et l’auteur. Les liens d’extrait et d’éditeur sont retirés.
+- Aucun changement de données ni migration SQL.
+
 ## 4.0.2
 
 - Films, Séries, Jeux et Livres sont séparés dans les filtres, l’ajout manuel et la modification. Les séries restent enregistrées sous `media_type: movie` et `subtype: tv` ; les anciennes données sont compatibles.
