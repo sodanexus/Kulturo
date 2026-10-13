@@ -85,6 +85,10 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .bottom-nav-item svg { transition: transform .35s var(--ease-expo), filter .35s var(--ease-expo); }
 .bottom-nav-item.active svg { transform: translateY(-1px); filter: drop-shadow(0 0 9px var(--accent-glow)); }
 
+/* Le bouton + suit les autres icônes, au même rythme, au lieu d'être collé en bas. */
+.nav-items-group { flex: 0 0 auto; }
+.sidebar-add-btn { margin: .15rem auto 0; }
+
 /* ── Boutons et puces : relief discret, retour tactile net ── */
 .btn-primary {
   background: linear-gradient(180deg, var(--accent-2), var(--accent));
@@ -119,7 +123,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .media-card.is-tilting .card-cover-placeholder,
   .continue-card.is-tilting .continue-cover {
     transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-2px) scale(var(--media-hover-scale));
-    transition: transform 90ms linear, box-shadow .3s var(--ease-expo);
     box-shadow: 0 22px 44px -14px rgba(0, 0, 0, .65), 0 0 0 1px var(--hairline-strong);
     will-change: transform;
   }
@@ -127,9 +130,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   #cards-grid:has(.media-card:hover) .media-card:not(:hover):not(.is-wishlist):not(.is-paused):not(.is-dropped) .card-cover {
     filter: brightness(.8) saturate(.88);
   }
-  .card-cover { transition: transform .5s var(--ease-expo), box-shadow .4s var(--ease-expo), filter .4s var(--ease-expo), opacity .4s ease; }
 }
-.media-card:active .card-cover { transform: scale(var(--media-press-scale)); transition-duration: .12s; }
+.media-card:active .card-cover { transform: scale(var(--media-press-scale)); }
 
 /* ── Surfaces : un trait de lumière en haut, comme du verre ── */
 .modal, .auth-card {
@@ -167,18 +169,148 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .media-card.is-tilting .card-cover, .continue-card.is-tilting .continue-cover { transform: none; }
 }
 
-/* ── Cascade d'apparition de la grille (12 premières affiches) ── */
-#cards-grid > .media-card:nth-child(2):not(.card-enter) { animation-delay: 28ms; }
-#cards-grid > .media-card:nth-child(3):not(.card-enter) { animation-delay: 56ms; }
-#cards-grid > .media-card:nth-child(4):not(.card-enter) { animation-delay: 84ms; }
-#cards-grid > .media-card:nth-child(5):not(.card-enter) { animation-delay: 112ms; }
-#cards-grid > .media-card:nth-child(6):not(.card-enter) { animation-delay: 140ms; }
-#cards-grid > .media-card:nth-child(7):not(.card-enter) { animation-delay: 168ms; }
-#cards-grid > .media-card:nth-child(8):not(.card-enter) { animation-delay: 196ms; }
-#cards-grid > .media-card:nth-child(9):not(.card-enter) { animation-delay: 224ms; }
-#cards-grid > .media-card:nth-child(10):not(.card-enter) { animation-delay: 252ms; }
-#cards-grid > .media-card:nth-child(11):not(.card-enter) { animation-delay: 280ms; }
-#cards-grid > .media-card:nth-child(12):not(.card-enter) { animation-delay: 308ms; }
+
+/* ============================================================
+   Passe 2 — transitions, révélation des images, fiche en ambiance
+   ============================================================ */
+
+/* Une règle existante impose « transition: opacity !important » à toutes les
+   images à fondu : elle supprimait le glissement et l'ombre des affiches.
+   On la remplace ici par une transition complète, toujours fluide. */
+.card-cover.fade-image {
+  transition: opacity .7s var(--ease-expo), transform .55s var(--ease-expo),
+              box-shadow .45s var(--ease-expo), filter .7s var(--ease-expo) !important;
+}
+.media-card.is-tilting .card-cover.fade-image,
+.continue-card.is-tilting .continue-cover {
+  transition: opacity .7s var(--ease-expo), transform 90ms linear,
+              box-shadow .3s var(--ease-expo), filter .7s var(--ease-expo) !important;
+}
+.media-card:active .card-cover.fade-image { transition-duration: .12s !important; }
+
+/* Révélation : l'affiche « se développe » (flou → net) depuis un fond qui scintille. */
+.card-cover.fade-image:not(.is-loaded),
+.continue-cover > img.fade-image:not(.is-loaded) { filter: blur(14px) saturate(.7); transform: scale(1.06); }
+.continue-cover > img.fade-image {
+  transition: opacity .7s var(--ease-expo), filter .8s var(--ease-expo), transform 1s var(--ease-expo) !important;
+}
+.media-card { isolation: isolate; }
+.media-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: -1;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius);
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(110deg, var(--bg-3) 30%, color-mix(in srgb, var(--bg-4) 85%, var(--accent)) 50%, var(--bg-3) 70%) 0 0 / 220% 100%;
+  animation: coverShimmer 1.7s linear infinite;
+  transition: opacity .6s var(--ease-expo);
+}
+.media-card:has(> .card-cover.fade-image:not(.is-loaded))::before { opacity: 1; }
+@keyframes coverShimmer { to { background-position: -220% 0; } }
+
+/* Changement de statut / coup de cœur / 10 sur 10 : un reflet doré traverse l'affiche
+   (classe posée par features/finesse.js → playCardSheen). */
+.media-card.is-sheen::after {
+  background-image: linear-gradient(115deg, transparent 36%, rgba(239, 207, 140, .6) 50%, transparent 64%);
+  background-size: 320% 100%;
+  animation: cardSheen 1.15s var(--ease-expo) both;
+}
+.media-card.is-sheen .card-cover { animation: cardSettle .9s var(--ease-expo) both; }
+@keyframes cardSheen {
+  from { background-position: 130% 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.1); }
+  to   { background-position: -30% 0;  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255,255,255,.1); }
+}
+@keyframes cardSettle { from { transform: scale(1.035); } to { transform: none; } }
+
+/* ── Fiche œuvre en ambiance ──────────────────────────────── */
+/* Les couleurs d'accent deviennent animables : à l'ouverture, toute la fiche
+   glisse de l'or vers la couleur de l'affiche au lieu de « sauter ». */
+@property --accent      { syntax: "<color>"; inherits: true; initial-value: #d8b46a; }
+@property --accent-2    { syntax: "<color>"; inherits: true; initial-value: #efcf8c; }
+@property --accent-glow { syntax: "<color>"; inherits: true; initial-value: rgba(216, 180, 106, .16); }
+
+.detail-modal {
+  transition: --accent .9s var(--ease-expo), --accent-2 .9s var(--ease-expo), --accent-glow .9s var(--ease-expo),
+              box-shadow .9s var(--ease-expo), background-color var(--motion-base) var(--ease-smooth),
+              border-color var(--motion-base) var(--ease-smooth), opacity var(--motion-base) var(--ease-smooth),
+              transform var(--motion-base) var(--ease-smooth);
+}
+.detail-modal[data-cover-accent="dominant"] {
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, .07),
+              0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+              0 40px 110px -44px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.detail-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(80% 140% at 16% 100%, color-mix(in srgb, var(--accent) 46%, transparent), transparent 70%),
+    radial-gradient(55% 100% at 100% 0%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 72%);
+}
+.detail-modal[data-cover-accent="dominant"] .detail-backdrop::after { animation: ambientIn 1.2s var(--ease-expo) .05s both; }
+.detail-modal[data-cover-accent="dominant"] .detail-body {
+  background-image: radial-gradient(70% 240px at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 80%);
+  background-repeat: no-repeat;
+}
+@keyframes ambientIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+
+/* ── États vides : les trois cercles du logo ──────────────── */
+.empty-icon.is-trio {
+  width: auto; height: auto;
+  background: none; border: 0; box-shadow: none; border-radius: 0;
+  margin-bottom: .35rem;
+}
+.trio { width: 88px; height: auto; overflow: visible; }
+.trio-c { mix-blend-mode: screen; transform-box: fill-box; transform-origin: center; opacity: .92; }
+.trio-coral { fill: var(--brand-coral); animation: trioLeft 1s var(--ease-expo) both, trioFloat 4.2s ease-in-out 1s infinite alternate; }
+.trio-teal  { fill: var(--brand-teal);  animation: trioMid 1s var(--ease-expo) .08s both, trioFloat 4.2s ease-in-out 1.6s infinite alternate-reverse; }
+.trio-gold  { fill: var(--brand-gold);  animation: trioRight 1s var(--ease-expo) .16s both, trioFloat 4.2s ease-in-out 2.2s infinite alternate; }
+@keyframes trioLeft  { from { opacity: 0; transform: translateX(17px) scale(.7); } }
+@keyframes trioMid   { from { opacity: 0; transform: scale(.4); } }
+@keyframes trioRight { from { opacity: 0; transform: translateX(-17px) scale(.7); } }
+@keyframes trioFloat { to { transform: translateY(-3px); } }
+.empty-state { animation: emptyIn .7s var(--ease-expo) both; }
+@keyframes emptyIn { from { opacity: 0; transform: translateY(8px); } }
+
+/* ── Journal : un fil qui se dessine au défilement ────────── */
+.journal-month-group { position: relative; }
+.journal-month-group::before {
+  content: "";
+  position: absolute;
+  top: .55rem; bottom: .5rem;
+  left: -.85rem;
+  width: 7px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 4px, var(--accent) 0 3px, transparent 3.5px) 0 0 / 7px 8px no-repeat,
+    linear-gradient(to bottom, var(--border), transparent) 50% 0 / 1px 100% no-repeat;
+}
+@supports (animation-timeline: view()) {
+  .journal-month-group::after {
+    content: "";
+    position: absolute;
+    top: .55rem; bottom: .5rem;
+    left: calc(-.85rem + 3px);
+    width: 1px;
+    pointer-events: none;
+    transform-origin: top;
+    background: linear-gradient(to bottom, var(--accent), color-mix(in srgb, var(--accent) 10%, transparent));
+    box-shadow: 0 0 8px var(--accent-glow);
+    animation: journalThread linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 70%;
+  }
+}
+@keyframes journalThread { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@media (max-width: 680px) { .journal-month-group::before, .journal-month-group::after { left: -.6rem; } .journal-month-group::after { left: calc(-.6rem + 3px); } }
 
 /* ============================================================
    Mobile & tactile
@@ -193,21 +325,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   #main { background:
     radial-gradient(34rem 20rem at 0% -6%, color-mix(in srgb, var(--brand-gold) 8%, transparent), transparent 70%); }
 
-  /* Barre du bas : un trait lumineux marque l'onglet actif. */
-  .bottom-nav-item.active:not(.bottom-nav-add)::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 50%;
-    width: 20px; height: 2px;
-    margin-left: -10px;
-    border-radius: 0 0 2px 2px;
-    background: var(--accent);
-    box-shadow: 0 0 12px var(--accent);
-    animation: navTick .45s var(--ease-expo) both;
-  }
   .bottom-nav-add:active { transform: scale(.92); }
 }
-@keyframes navTick { from { opacity: 0; transform: scaleX(.2); } to { opacity: 1; transform: none; } }
 
 @media (hover: none) {
   /* Appui franc sur une affiche ou une carte « En cours ». */
