@@ -622,8 +622,6 @@ function upcomingCardHTML(it) {
         <button type="button" class="upcoming-wishlist-mark${inLibrary ? " is-added" : ""}${adding ? " is-adding" : ""}" aria-pressed="${inLibrary}" aria-busy="${adding}" aria-label="${inLibrary ? "Déjà dans votre bibliothèque" : adding ? `Ajout de ${esc(it.title)} en cours` : `Ajouter ${esc(it.title)} aux envies`}" title="${inLibrary ? "Dans votre bibliothèque" : adding ? "Ajout en cours" : "Ajouter aux envies"}"
           ${inLibrary || adding ? "disabled" : uiAction("addUpcomingToWishlist", [upcomingKey])}>${iconStatus("wishlist")}</button>
       </div>
-      <span class="card-title">${esc(it.title)}</span>
-      <span class="card-caption">${esc(typeMeta.label)} · ${esc(formatReleaseDate(it.release_date, it.date_precision))}</span>
     </article>`;
 }
 

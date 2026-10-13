@@ -140,7 +140,7 @@ function prefetchDetail(id) {
 }
 
 // ── Fiche détaillée ───────────────────────────────────────────
-const DETAIL_COVER_TRANSITION_MS = 360;
+const DETAIL_COVER_TRANSITION_MS = 340;
 let _activeDetailCoverTransition = null;
 let _detailCoverFlight = null;
 
@@ -370,7 +370,7 @@ function renderDetailPanel(e, options = {}) {
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type === "movie" && e.subtype === "tv" ? "tv" : e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
                 ${headerStatusBadge}
-                ${!isPreview ? isReadOnly ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : `<button type="button" class="detail-fav detail-fav-button ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" ${uiAction("quickToggleFavorite", [e.id])} aria-label="Coup de cœur" aria-pressed="${Boolean(e.is_favorite)}" title="Coup de cœur">♥</button>` : ""}
+                ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
               </div>
             </div>
@@ -870,10 +870,7 @@ function syncOpenDetail(entry, feedback = "") {
   }
 
   const favorite = document.getElementById(`detail-fav-${entry.id}`);
-  if (favorite) {
-    favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
-    favorite.setAttribute("aria-pressed", String(Boolean(entry.is_favorite)));
-  }
+  if (favorite) favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
 
   const repeat = document.getElementById(`detail-repeat-${entry.id}`);
   if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
@@ -935,18 +932,6 @@ async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
     return null;
   } finally {
     delete entry._quickSaving;
-  }
-}
-
-async function quickToggleFavorite(id) {
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry || entry._quickSaving) return;
-  const button = document.getElementById(`detail-fav-${id}`);
-  if (button) button.disabled = true;
-  try {
-    await persistQuickEntryChange(id, { is_favorite: !entry.is_favorite }, entry.is_favorite ? "Coup de cœur retiré" : "Coup de cœur ajouté");
-  } finally {
-    if (button?.isConnected) button.disabled = false;
   }
 }
 
@@ -1295,7 +1280,6 @@ async function openDetailPanel(id, options = {}) {
     openMetadataMedia,
     closeMetadataPanel,
     quickSetStatus,
-    quickToggleFavorite,
     quickAdjustRepeat,
     scrollExpandedSynopsisIntoView,
     finishCoverFlight: finishDetailCoverFlight,
