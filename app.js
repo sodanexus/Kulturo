@@ -53,7 +53,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition } from "./features/motion.js";
+import { runViewTransition, captureGridLayout, animateGridLayout, installMotionFeedback } from "./features/motion.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -88,6 +88,7 @@ let openMetadataFromElement;
 let openMetadataMedia;
 let closeMetadataPanel;
 let quickSetStatus;
+let quickToggleFavorite;
 let quickAdjustRepeat;
 let scrollExpandedSynopsisIntoView;
 let canEnrichMediaDetails;
@@ -560,9 +561,8 @@ let _systemMediaType = null;
 function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customColor = null) {
   _systemPage = page || "library";
   _systemMediaType = mediaType || null;
-  const pageColors = { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
-  const mediaColors = { movie: "#171014", game: "#0e131d", book: "#0d1713" };
-  const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
+  const baseColor = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#10110f";
+  const color = customColor || baseColor;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", color);
   document.documentElement.style.setProperty("--system-bar-color", color);
@@ -682,10 +682,18 @@ function renderAuthPage() {
   app.style.cssText = "display:block";
   app.innerHTML = `
     <div id="page-auth">
+      <section class="auth-editorial" aria-labelledby="auth-editorial-title">
+        <div class="auth-brand"><img src="logo.svg" alt="" width="58" height="36"><span>Kulturo</span></div>
+        <span class="edition-label">Une collection. Mille histoires.</span>
+        <h2 id="auth-editorial-title">La culture<br>laisse une<br><em>empreinte.</em></h2>
+        <p>Les films qui restent. Les livres qui changent tout.<br>Les mondes dans lesquels on se perd.</p>
+        <div class="auth-art" aria-hidden="true"><i></i><i></i><i></i><span>REGARDER · JOUER · LIRE</span></div>
+        <span class="auth-colophon">Votre journal culturel personnel.</span>
+      </section>
       <div class="auth-card">
         <div class="logo">Kulturo</div>
         <p class="tagline">Votre journal culturel personnel</p>
-        <h1 class="auth-title">Connexion</h1>
+        <span class="edition-label">Votre espace personnel</span><h1 class="auth-title">Heureux de<br>vous retrouver.</h1><p class="auth-intro">Votre collection vous attend.</p>
         <form class="auth-form" id="auth-form" ${uiAction("handleAuth")}>
           <div class="form-group">
             <label for="auth-email">Email</label>
@@ -714,7 +722,7 @@ function renderApp() {
         <img class="topbar-mark" src="logo.svg" alt="" width="64" height="38" aria-hidden="true">
         <span class="topbar-brand-copy">
           <span class="topbar-wordmark">Kulturo</span>
-          <span class="topbar-tagline">Suivez votre culture</span>
+          <span class="topbar-tagline">Journal culturel personnel</span>
         </span>
       </div>
       <div class="topbar-search-wrap">
@@ -736,7 +744,7 @@ function renderApp() {
     <!-- Sidebar -->
     <nav id="sidebar">
       <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
-      <div class="nav-items-group">
+      <span class="sidebar-caption">Votre espace</span><div class="nav-items-group">
         <button type="button" class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
           <span class="nav-icon">${iconGrid()}</span>
           <span class="nav-label">Bibliothèque</span>
@@ -755,18 +763,23 @@ function renderApp() {
         </button>
       </div>
       <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter une œuvre" ${uiAction("openAddModal")}>
-        ${iconPlus()}
+        ${iconPlus()}<span class="sidebar-add-label">Ajouter une œuvre</span>
       </button>
+      <div class="sidebar-colophon" aria-hidden="true"><span>Regarder.<br>Jouer.<br>Lire.</span><small>Garder une trace.</small></div>
     </nav>
 
     <!-- Main -->
     <main id="main">
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
+        <header class="editorial-header">
+          <div class="editorial-heading"><span class="edition-label">01 / Bibliothèque</span><h1>Votre <em>collection.</em></h1><p>Ce qui vous touche mérite une place.</p></div>
+          <div class="editorial-aside"><span>Films · Séries · Jeux · Livres</span><button type="button" class="btn btn-primary editorial-add" ${uiAction("openAddModal")}>${iconPlus()} Ajouter une œuvre</button></div>
+        </header>
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
         <section id="continue-section" class="continue-section" aria-labelledby="continue-title" hidden></section>
         <div class="section-heading library-list-heading" aria-live="polite">
-          <span id="library-result-count" class="section-count"></span>
+          <h2 id="library-section-title">Les œuvres terminées</h2><span id="library-result-count" class="section-count"></span>
         </div>
         <div id="cards-grid"></div>
 
@@ -774,11 +787,19 @@ function renderApp() {
 
       <!-- Page Profil / Stats -->
       <section id="page-dashboard" class="page">
+        <header class="editorial-header">
+          <div class="editorial-heading"><span class="edition-label">04 / Profil</span><h1>Votre <em>empreinte.</em></h1><p>Toutes ces histoires racontent aussi la vôtre.</p></div>
+          <div class="editorial-aside"><span>Le portrait de votre curiosité</span><span class="editorial-orbit" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        </header>
         <div id="dashboard-content"></div>
       </section>
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
+        <header class="editorial-header">
+          <div class="editorial-heading"><span class="edition-label">02 / Sorties</span><h1>À <em>l’horizon.</em></h1><p>Les prochaines histoires commencent ici.</p></div>
+          <div class="editorial-aside"><span>Le calendrier des découvertes</span><span class="editorial-orbit" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        </header>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
@@ -818,6 +839,10 @@ function renderApp() {
 
       <!-- Journal personnel + activité communautaire -->
       <section id="page-journal" class="page">
+        <header class="editorial-header">
+          <div class="editorial-heading"><span class="edition-label">03 / Journal</span><h1>Au fil des <em>œuvres.</em></h1><p>Une histoire de rencontres, de mondes et d’émotions.</p></div>
+          <div class="editorial-aside"><span>Votre mémoire culturelle</span><span class="editorial-orbit" aria-hidden="true"><i></i><i></i><i></i></span></div>
+        </header>
 
         <div class="journal-sticky-controls">
           <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
@@ -901,6 +926,7 @@ function renderApp() {
   State.filters.sort = LIBRARY_SORTS.includes(savedSort) ? savedSort : DEFAULT_LIBRARY_SORT;
   const globalSearch = document.getElementById("global-search");
   if (globalSearch) globalSearch.value = State.filters.search || "";
+  installMotionFeedback(app);
   bindJournalInteractions();
   buildFilterBar();
   renderCards();
@@ -1403,6 +1429,8 @@ function toggleContinueSection() {
 }
 
 function updateLibraryHeading(entries) {
+  const heading = document.getElementById("library-section-title");
+  if (heading) heading.textContent = State.filters.search ? "Les résultats" : State.filters.favorite ? "Les coups de cœur" : ({ finished: "Les œuvres terminées", wishlist: "Les envies", playing: "Les histoires en cours", dropped: "Les œuvres abandonnées" }[State.filters.status] || "Toutes les œuvres");
   const count = document.getElementById("library-result-count");
   if (count) count.textContent = `${entries.length} œuvre${entries.length > 1 ? "s" : ""}`;
 }
@@ -1570,11 +1598,13 @@ function renderCards(options = {}) {
   }
 
   if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
+  const previousLayout = captureGridLayout(grid);
   reconcileKeyedChildren(grid, entries, {
     key: entry => entry.id,
     create: (entry, index) => createMediaCardNode(entry, index),
     update: (node, entry) => patchMediaCardNode(node, entry),
   });
+  animateGridLayout(grid, previousLayout);
   hydrateFadeImages(grid);
 }
 
@@ -1672,7 +1702,8 @@ function cardHTML(e, i = 0) {
     <article class="${classes}" data-id="${e.id}" data-key="${e.id}" data-prefetch-media="${e.id}" data-transition-media="${e.id}" role="button" tabindex="0" aria-label="Ouvrir ${esc(e.title)}"
       style="animation-delay:${Math.min(i*25,250)}ms" ${uiAction("openEditModal", [e.id], { control: true })}>
       ${coverHTML}
-      <span class="card-title sr-only">${esc(e.title)}</span>
+      <span class="card-title">${esc(e.title)}</span>
+      <span class="card-caption">${esc(getTypeLabel(e))}${e.release_year ? ` <span aria-hidden="true">·</span> ${esc(e.release_year)}` : ""}</span>
       ${statusLabel ? `<span class="card-status-label">${iconStatus(e.status)}<span>${statusLabel}</span></span>` : ""}
       ${cardMetaHTML(e)}
     </article>`;
@@ -1682,7 +1713,7 @@ function mediaCardSignature(entry) {
   return JSON.stringify([
     entry.id, entry.title, entry.cover_url, entry.rating, entry.is_favorite,
     entry.repeat_count, entry.date_finished, entry.status, entry.media_type,
-    entry.subtype,
+    entry.subtype, entry.release_year,
   ]);
 }
 
@@ -1703,6 +1734,9 @@ function patchMediaCardNode(node, entry) {
 
   const currentTitle = node.querySelector(".card-title");
   if (currentTitle) currentTitle.textContent = entry.title;
+  const currentCaption = node.querySelector(".card-caption");
+  const nextCaption = next.querySelector(".card-caption");
+  if (currentCaption && nextCaption) currentCaption.replaceWith(nextCaption);
 
   const currentCover = node.querySelector(".card-cover, .card-cover-placeholder");
   const nextCover = next.querySelector(".card-cover, .card-cover-placeholder");
@@ -3692,6 +3726,7 @@ mediaDetailFeature = createMediaDetailFeature({
   openMetadataMedia,
   closeMetadataPanel,
   quickSetStatus,
+  quickToggleFavorite,
   quickAdjustRepeat,
   scrollExpandedSynopsisIntoView,
   canEnrichMediaDetails,
@@ -3793,6 +3828,7 @@ window.UI = {
   saveEntry,
   deleteEntry,
   quickSetStatus,
+  quickToggleFavorite,
   quickAdjustRepeat,
   fillFromApi,
   setRating,
