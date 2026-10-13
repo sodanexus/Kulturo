@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.1.0
+## Validation de l’archive 4.0.4
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -59,26 +59,3 @@ Le test des liens de livre vérifie maintenant qu’un seul lien « Chercher le 
 ### Ajustements 4.0.4 de cette archive
 
 Modifications limitées aux couleurs des séries et à la typographie des synopsis. Contrôles : tests techniques, syntaxe/version et build de production. Les couleurs de film/jeu/livre sont conservées. Validation visuelle sur navigateur réel toujours à effectuer (limites d’environnement décrites ci-dessus).
-
-
-## Contrôles de la 4.1.0 — Édition
-
-- 66 tests techniques réussis ; cohérence de version et syntaxe JavaScript contrôlées.
-- Build Vite de production réussi, avec 14 ressources dans le cache PWA
-  et les quatre polices WOFF2 locales.
-- 8 parcours d’intégration réussis dans jsdom avec IndexedDB simulé : bibliothèque
-  et titres, ouverture/favori persistant/fermeture, recherche vide et retour,
-  densité compacte et filtres, Profil, Journal/Communauté, Sorties/ajout aux envies,
-  déconnexion et nouvelle page d’authentification. Aucune erreur JavaScript.
-- Déclarations TypeScript vérifiées avec le compilateur JS 5.9.3. Le compilateur
-  natif 7.0.2 verrouillé échoue dans cet environnement privé de /proc/self/exe ;
-  cette vérification complémentaire ne remplace pas npm run typecheck officiel.
-- Un nouveau parcours navigateur teste le cœur direct et sa persistance.
-  Les parcours navigateur ne sont pas exécutés ici : Chromium ne démarre pas
-  dans l’environnement et le navigateur distant n’accède pas au serveur local.
-- Les tests DOM ne valident ni le rendu responsive ni la fluidité des animations.
-  Revue visuelle et parcours tactiles sur appareils réels à effectuer avant publication.
-
-L’aperçu autonome design/Kulturo-apercu.html utilise le vrai code d’interface
-avec un catalogue fictif. Sa construction n’utilise aucune clé de config.js et
-le build de production n’inclut pas les doubles de démonstration.
