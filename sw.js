@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v4.1.0";
+const STATIC_CACHE = "kulturo-static-v4.0.4";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -24,10 +24,6 @@ const STATIC_ASSET_PATHS = [
   "supabase.js",
   "domain.js",
   "style.css",
-  "fonts/archivo-latin-wght-normal.woff2",
-  "fonts/manrope-latin-wght-normal.woff2",
-  "fonts/manrope-latin-ext-wght-normal.woff2",
-  "fonts/archivo-latin-ext-wght-normal.woff2",
   "styles/add-sheet.css",
   "styles/mobile-polish.css",
   "styles/enhancements.css",
@@ -58,9 +54,9 @@ const STATIC_ASSET_PATHS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg?v=4.1.0",
-  "icon-192.png?v=4.1.0",
-  "icon-512.png?v=4.1.0",
+  "icon.svg?v=4.0.4",
+  "icon-192.png?v=4.0.4",
+  "icon-512.png?v=4.0.4",
 ];
 const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [

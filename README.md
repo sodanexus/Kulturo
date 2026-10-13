@@ -31,16 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.1.0
-
-La **4.1.0 — Édition** apporte une nouvelle direction artistique : noir encre,
-ivoire, cuivre et typographie éditoriale. Bibliothèque, Sorties, Journal,
-Profil, connexion et fiches partagent un langage visuel commun. Les jaquettes
-retrouvent des titres visibles, les cartes conservées se déplacent lors du tri,
-et le cœur de la fiche devient une action directe. Les mouvements respectent
-la préférence système et le mode compact reste disponible.
-
-Voir [DESIGN.md](DESIGN.md) pour le périmètre et les vérifications.
+## Version actuelle · 4.0.4
 
 La 4.0.4 distingue les séries en bleu et réduit le texte des synopsis de 16 à 14 px.
 
@@ -63,6 +54,6 @@ Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouve
 
 Depuis la **3.4.6**, la 4.0 ne demande aucun nouveau SQL ni redéploiement de fonction Edge. La migration de la base locale IndexedDB est automatique sur chaque appareil.
 
---
+---
 
 *Un projet personnel, qui évolue au fil de mes usages. Garder l’essentiel, lui donner une place, et prendre plaisir à le retrouver.*

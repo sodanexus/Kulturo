@@ -2,20 +2,6 @@
 
 [Revenir à la présentation](README.md)
 
-## 4.1.0
-
-- Direction artistique Édition : palette encre/ivoire/cuivre, titres éditoriaux,
-  navigation nommée sur bureau et barre mobile flottante.
-- Bibliothèque et Sorties : couvertures, titres et métadonnées lisibles ; deux
-  colonnes sur mobile, densité compacte conservée.
-- Journal et Profil recomposés avec une hiérarchie typographique plus expressive.
-- Connexion en deux panneaux et motif inspiré des trois cercles de Kulturo.
-- Fiches plus immersives, transition de jaquette à 360 ms, texte décalé,
-  cœur actionnable et fermeture explicite accessible sur mobile.
-- Déplacement animé des cartes conservées, sans reconstruction du DOM.
-- Respect de prefers-reduced-motion, retours tactiles courts et palette unifiée.
-- Aucune migration SQL ; configuration et données personnelles conservées.
-
 ## À venir (non publié)
 
 - Les grands titres de page (Bibliothèque, Profil, Sorties, Journal), leur phrase d'introduction et leur ligne de séparation sont supprimés. Toutes les pages démarrent à la même hauteur, sur ordinateur comme sur téléphone.
