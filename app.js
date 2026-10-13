@@ -54,7 +54,7 @@ import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
 import { runViewTransition } from "./features/motion.js";
-import "./features/finesse.js";
+import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA
@@ -564,9 +564,7 @@ function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customC
   const pageColors = { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
   const mediaColors = { movie: "#171014", game: "#0e131d", book: "#0d1713" };
   const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", color);
-  document.documentElement.style.setProperty("--system-bar-color", color);
+  applySystemBarColor(color);
 }
 
 // ── Historique de navigation ──────────────────────────────────
@@ -1695,10 +1693,12 @@ function createMediaCardNode(entry, index = 0) {
 
 function patchMediaCardNode(node, entry) {
   const signature = mediaCardSignature(entry);
-  if (node?._kulturoRenderSignature === signature) return;
+  const previousSignature = node?._kulturoRenderSignature;
+  if (previousSignature === signature) return;
   const next = elementFromHTML(cardHTML(entry));
   if (!node || !next) return;
   node.className = next.className;
+  playCardSheen(node, previousSignature, signature);
   node.dataset.prefetchMedia = String(entry.id);
   node.setAttribute("aria-label", next.getAttribute("aria-label"));
 
