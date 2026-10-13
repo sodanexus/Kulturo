@@ -63,6 +63,6 @@ Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouve
 
 Depuis la **3.4.6**, la 4.0 ne demande aucun nouveau SQL ni redéploiement de fonction Edge. La migration de la base locale IndexedDB est automatique sur chaque appareil.
 
----
+--
 
 *Un projet personnel, qui évolue au fil de mes usages. Garder l’essentiel, lui donner une place, et prendre plaisir à le retrouver.*
