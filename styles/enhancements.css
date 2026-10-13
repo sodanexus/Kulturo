@@ -3,6 +3,14 @@
    ============================================================ */
 
 :root {
+  --motion-touch: 90ms;
+  --motion-feedback: 180ms;
+  --motion-content: 270ms;
+  --motion-layout: 330ms;
+  --motion-shimmer: 1.25s;
+  --ease-interface: cubic-bezier(.2,.8,.2,1);
+  --ease-enter: cubic-bezier(0,0,.2,1);
+  --ease-exit: cubic-bezier(.4,0,1,1);
   --system-bar-color: var(--bg);
   /* Charte des contrôles : deux tailles, deux rayons et un rythme commun. */
   --control-height: 40px;
@@ -207,7 +215,7 @@ body { background-color: var(--system-bar-color); }
   transition: none !important;
 }
 .modal-overlay.has-cover-transition .detail-modal {
-  animation: detailSharedShellIn var(--motion-cover) var(--ease-interface) both;
+  animation: detailSharedShellIn 340ms var(--ease-interface) both;
 }
 
 /* La fiche réserve sa géométrie finale avant le départ de la jaquette.
@@ -239,10 +247,10 @@ body { background-color: var(--system-bar-color); }
   to { opacity: 1; }
 }
 .modal-overlay.has-cover-transition.is-cover-transition-closing {
-  animation: detailSharedOverlayOut var(--motion-cover) var(--ease-interface) both;
+  animation: detailSharedOverlayOut 340ms var(--ease-interface) both;
 }
 .modal-overlay.has-cover-transition.is-cover-transition-closing .detail-modal {
-  animation: detailSharedShellOut var(--motion-cover) var(--ease-interface) both;
+  animation: detailSharedShellOut 340ms var(--ease-interface) both;
 }
 @keyframes detailSharedOverlayOut {
   from { opacity: 1; backdrop-filter: blur(6px); }
