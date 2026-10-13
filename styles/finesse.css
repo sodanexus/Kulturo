@@ -1,0 +1,217 @@
+/* ============================================================
+   Kulturo — Finesse
+   Couche de finition chargée en dernier : matière, profondeur et
+   micro-interactions. Aucune structure n'est modifiée ; supprimer
+   ce fichier (et features/finesse.js) rend l'interface telle quelle.
+   Principe : le calme au repos, la précision au toucher.
+   ============================================================ */
+
+:root {
+  --ease-expo: cubic-bezier(.16, 1, .3, 1);
+  --hairline: rgba(255, 255, 255, .07);
+  --hairline-strong: rgba(255, 255, 255, .12);
+}
+
+/* ── Atmosphère ───────────────────────────────────────────── */
+/* Deux lueurs très douces (or / corail) derrière le contenu : de la profondeur
+   sans aucun élément de plus à lire. Elles restent fixes quand on défile. */
+#main {
+  background:
+    radial-gradient(52rem 30rem at 6% -8%, color-mix(in srgb, var(--brand-gold) 9%, transparent), transparent 70%),
+    radial-gradient(44rem 26rem at 104% 108%, color-mix(in srgb, var(--brand-coral) 6%, transparent), transparent 70%);
+}
+/* Grain de pellicule : casse l'aplat du noir, donne un rendu « papier / film ». */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: .035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+::selection { background: color-mix(in srgb, var(--accent) 34%, transparent); color: var(--text-1); }
+* { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
+
+/* ── Typographie ──────────────────────────────────────────── */
+h1, h2, h3, .section-heading h2, .detail-title { text-wrap: balance; }
+p, .detail-synopsis { text-wrap: pretty; }
+:where(h1, h2, h3) { letter-spacing: -.022em; }
+.page-kicker, .section-eyebrow { letter-spacing: .14em; }
+
+/* ── Barre supérieure : verre + progression ───────────────── */
+#topbar {
+  background: color-mix(in srgb, var(--bg-2) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 var(--hairline);
+  transition: box-shadow var(--motion-slow) var(--ease-expo);
+}
+body[data-scrolled="true"] #topbar {
+  box-shadow: 0 1px 0 var(--hairline-strong), 0 14px 32px -18px rgba(0, 0, 0, .7);
+}
+.scroll-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, transparent, var(--accent) 35%, var(--accent-2));
+  box-shadow: 0 0 10px var(--accent-glow);
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-smooth);
+}
+body[data-scrolled="true"] .scroll-progress { opacity: 1; }
+
+.topbar-mark { transition: transform .6s var(--ease-expo), filter .6s var(--ease-expo); }
+.topbar-logo:hover .topbar-mark { transform: rotate(-6deg) scale(1.06); filter: drop-shadow(0 4px 14px var(--accent-glow)); }
+
+.topbar-search-wrap input { background: color-mix(in srgb, var(--bg-3) 78%, transparent); border-color: var(--hairline); }
+.topbar-search-wrap input:hover { border-color: var(--hairline-strong); }
+.topbar-search-wrap input:focus { background: var(--bg-3); }
+
+/* ── Navigation ───────────────────────────────────────────── */
+.nav-item.active::before { box-shadow: 0 0 12px var(--accent); }
+.nav-item:not(.active):hover .nav-icon { transform: translateY(-1px); }
+.nav-icon { transition: transform var(--motion-base) var(--ease-expo); }
+.nav-item::after { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transform: translateY(-50%) translateX(-4px); transition: opacity .18s, transform .28s var(--ease-expo); }
+.nav-item:hover::after { transform: translateY(-50%); }
+#bottom-nav {
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+}
+.bottom-nav-item svg { transition: transform .35s var(--ease-expo), filter .35s var(--ease-expo); }
+.bottom-nav-item.active svg { transform: translateY(-1px); filter: drop-shadow(0 0 9px var(--accent-glow)); }
+
+/* ── Boutons et puces : relief discret, retour tactile net ── */
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), 0 1px 2px rgba(0, 0, 0, .3);
+}
+.btn-primary:hover { filter: brightness(1.04); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 10px 28px -6px color-mix(in srgb, var(--accent) 38%, transparent); }
+.btn:active, .filter-chip:active { transform: scale(.97); }
+.filter-chip.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 6px 20px -8px var(--accent-glow); }
+
+/* ── Affiches : bord lumineux, apparition en cascade ──────── */
+.media-card::after,
+.continue-cover::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius);
+  pointer-events: none;
+  /* Liseré fin au repos ; la lueur n'apparaît que sous le curseur (voir .is-tilting). */
+  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255, 255, 255, .1);
+  transition: background .35s var(--ease-expo);
+}
+.continue-cover::after { bottom: 0; aspect-ratio: auto; }
+.media-card.is-tilting::after,
+.continue-card.is-tilting .continue-cover::after {
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .17), transparent 58%);
+}
+
+.media-card:not(.card-enter):not(.card-exit) { animation: cardAppear .6s var(--ease-expo) both; }
+@media (hover: hover) and (pointer: fine) {
+  .media-card.is-tilting .card-cover,
+  .media-card.is-tilting .card-cover-placeholder,
+  .continue-card.is-tilting .continue-cover {
+    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-2px) scale(var(--media-hover-scale));
+    transition: transform 90ms linear, box-shadow .3s var(--ease-expo);
+    box-shadow: 0 22px 44px -14px rgba(0, 0, 0, .65), 0 0 0 1px var(--hairline-strong);
+    will-change: transform;
+  }
+  /* Effet « projecteur » : le reste de la grille s'efface légèrement. */
+  #cards-grid:has(.media-card:hover) .media-card:not(:hover):not(.is-wishlist):not(.is-paused):not(.is-dropped) .card-cover {
+    filter: brightness(.8) saturate(.88);
+  }
+  .card-cover { transition: transform .5s var(--ease-expo), box-shadow .4s var(--ease-expo), filter .4s var(--ease-expo), opacity .4s ease; }
+}
+.media-card:active .card-cover { transform: scale(var(--media-press-scale)); transition-duration: .12s; }
+
+/* ── Surfaces : un trait de lumière en haut, comme du verre ── */
+.modal, .auth-card {
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .035);
+}
+.modal-overlay {
+  background: radial-gradient(120% 90% at 50% 0%, rgba(12, 13, 17, .62), rgba(6, 7, 9, .84));
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+:where(.stat-card, .chart-card, .profile-section, .profile-year-overview, .profile-dashboard-card, .journal-month-summary, .upcoming-toolbar, .continue-section) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+.continue-section:hover { border-color: var(--border-2); }
+.profile-action-card { transition: transform .4s var(--ease-expo), border-color .25s, background-color .25s, box-shadow .4s var(--ease-expo); }
+@media (hover: hover) and (pointer: fine) {
+  .profile-action-card:hover { transform: translateY(-3px); box-shadow: 0 18px 36px -18px rgba(0, 0, 0, .7); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .profile-action-card:hover i { transform: translateX(3px); }
+}
+.profile-action-card i { transition: transform .35s var(--ease-expo); }
+
+/* ── Chargement initial : le logo respire ─────────────────── */
+.boot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; min-height: 100vh; min-height: 100dvh; }
+.boot-mark { width: 92px; height: auto; animation: bootIn .8s var(--ease-expo) both, bootBreathe 2.6s ease-in-out .8s infinite; }
+.boot-line { width: 56px; height: 1px; overflow: hidden; background: var(--border); border-radius: 1px; }
+.boot-line::after { content: ""; display: block; width: 40%; height: 100%; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: bootSweep 1.4s var(--ease-smooth) infinite; }
+.boot-text { color: var(--text-3); font-size: var(--type-caption); letter-spacing: .14em; text-transform: uppercase; animation: bootIn .6s ease 1s both; }
+@keyframes bootIn { from { opacity: 0; transform: translateY(8px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes bootBreathe { 50% { transform: scale(1.04); filter: drop-shadow(0 6px 22px var(--accent-glow)); } }
+@keyframes bootSweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+/* ── Mouvement réduit : on garde le style, on retire le mouvement ── */
+@media (prefers-reduced-motion: reduce) {
+  .boot-mark, .boot-line::after, .boot-text { animation: none; }
+  .media-card.is-tilting .card-cover, .continue-card.is-tilting .continue-cover { transform: none; }
+}
+
+/* ── Cascade d'apparition de la grille (12 premières affiches) ── */
+#cards-grid > .media-card:nth-child(2):not(.card-enter) { animation-delay: 28ms; }
+#cards-grid > .media-card:nth-child(3):not(.card-enter) { animation-delay: 56ms; }
+#cards-grid > .media-card:nth-child(4):not(.card-enter) { animation-delay: 84ms; }
+#cards-grid > .media-card:nth-child(5):not(.card-enter) { animation-delay: 112ms; }
+#cards-grid > .media-card:nth-child(6):not(.card-enter) { animation-delay: 140ms; }
+#cards-grid > .media-card:nth-child(7):not(.card-enter) { animation-delay: 168ms; }
+#cards-grid > .media-card:nth-child(8):not(.card-enter) { animation-delay: 196ms; }
+#cards-grid > .media-card:nth-child(9):not(.card-enter) { animation-delay: 224ms; }
+#cards-grid > .media-card:nth-child(10):not(.card-enter) { animation-delay: 252ms; }
+#cards-grid > .media-card:nth-child(11):not(.card-enter) { animation-delay: 280ms; }
+#cards-grid > .media-card:nth-child(12):not(.card-enter) { animation-delay: 308ms; }
+
+/* ============================================================
+   Mobile & tactile
+   Pas de survol ni d'inclinaison au doigt (ils gêneraient le défilement) :
+   ici, des retours au toucher nets et des effets allégés.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Flous moins coûteux et grain plus discret sur GPU mobiles. */
+  #topbar { -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); }
+  .modal-overlay { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  body::after { opacity: .028; }
+  #main { background:
+    radial-gradient(34rem 20rem at 0% -6%, color-mix(in srgb, var(--brand-gold) 8%, transparent), transparent 70%); }
+
+  /* Barre du bas : un trait lumineux marque l'onglet actif. */
+  .bottom-nav-item.active:not(.bottom-nav-add)::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%;
+    width: 20px; height: 2px;
+    margin-left: -10px;
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: navTick .45s var(--ease-expo) both;
+  }
+  .bottom-nav-add:active { transform: scale(.92); }
+}
+@keyframes navTick { from { opacity: 0; transform: scaleX(.2); } to { opacity: 1; transform: none; } }
+
+@media (hover: none) {
+  /* Appui franc sur une affiche ou une carte « En cours ». */
+  .continue-card:active .continue-cover { transform: scale(var(--media-press-scale)); transition: transform .12s var(--ease-smooth); }
+  .continue-cover { transition: transform .45s var(--ease-expo); }
+  .profile-action-card:active { transform: scale(.98); }
+}
