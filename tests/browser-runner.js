@@ -94,6 +94,19 @@ start.addEventListener("click", async () => {
     });
   }
 
+  await test("Coup de cœur direct : persistance et état accessible", async () => {
+    await mount(390); await ready(); await openFirst();
+    const favorite = doc.querySelector(".detail-fav-button");
+    assert(favorite, "Cœur actionnable absent");
+    const initial = favorite.getAttribute("aria-pressed");
+    favorite.click();
+    await waitFor(() => favorite.getAttribute("aria-pressed") !== initial && !favorite.disabled, "Cœur non enregistré");
+    const expected = favorite.getAttribute("aria-pressed");
+    await closeDetail(); await openFirst();
+    assert(doc.querySelector(".detail-fav-button").getAttribute("aria-pressed") === expected, "Cœur perdu à la réouverture");
+    await closeDetail();
+  });
+
   await test("Recherche vide et filtres vides proposent la bonne action", async () => {
     await mount(390); await ready();
     const input = doc.querySelector("#global-search");
