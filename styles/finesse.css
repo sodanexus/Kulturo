@@ -78,10 +78,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .nav-icon { transition: transform var(--motion-base) var(--ease-expo); }
 .nav-item::after { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transform: translateY(-50%) translateX(-4px); transition: opacity .18s, transform .28s var(--ease-expo); }
 .nav-item:hover::after { transform: translateY(-50%); }
-#bottom-nav {
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  backdrop-filter: blur(22px) saturate(1.5);
-}
 .bottom-nav-item svg { transition: transform .35s var(--ease-expo), filter .35s var(--ease-expo); }
 .bottom-nav-item.active svg { transform: translateY(-1px); filter: drop-shadow(0 0 9px var(--accent-glow)); }
 
@@ -188,28 +184,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .media-card:active .card-cover.fade-image { transition-duration: .12s !important; }
 
-/* Révélation : l'affiche « se développe » (flou → net) depuis un fond qui scintille. */
-.card-cover.fade-image:not(.is-loaded),
-.continue-cover > img.fade-image:not(.is-loaded) { filter: blur(14px) saturate(.7); transform: scale(1.06); }
-.continue-cover > img.fade-image {
-  transition: opacity .7s var(--ease-expo), filter .8s var(--ease-expo), transform 1s var(--ease-expo) !important;
+/* Révélation : un léger zoom qui se pose, uniquement sur les premières affiches.
+   Volontairement sans flou ni animation continue : sur iPhone, des centaines de calques
+   filtrés ou animés en même temps font tuer la page par Safari (erreur « problème récurrent »). */
+#cards-grid > .media-card:nth-child(-n+24) .card-cover.fade-image.is-loaded {
+  animation: coverSettle .9s var(--ease-expo) backwards;
 }
-.media-card { isolation: isolate; }
-.media-card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  z-index: -1;
-  aspect-ratio: 2 / 3;
-  border-radius: var(--radius);
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(110deg, var(--bg-3) 30%, color-mix(in srgb, var(--bg-4) 85%, var(--accent)) 50%, var(--bg-3) 70%) 0 0 / 220% 100%;
-  animation: coverShimmer 1.7s linear infinite;
-  transition: opacity .6s var(--ease-expo);
-}
-.media-card:has(> .card-cover.fade-image:not(.is-loaded))::before { opacity: 1; }
-@keyframes coverShimmer { to { background-position: -220% 0; } }
+@keyframes coverSettle { from { transform: scale(1.045); } }
 
 /* Changement de statut / coup de cœur / 10 sur 10 : un reflet doré traverse l'affiche
    (classe posée par features/finesse.js → playCardSheen). */
@@ -218,7 +199,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   background-size: 320% 100%;
   animation: cardSheen 1.15s var(--ease-expo) both;
 }
-.media-card.is-sheen .card-cover { animation: cardSettle .9s var(--ease-expo) both; }
+.media-card.is-sheen .card-cover { animation: cardSettle .9s var(--ease-expo) backwards; }
 @keyframes cardSheen {
   from { background-position: 130% 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.1); }
   to   { background-position: -30% 0;  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255,255,255,.1); }
@@ -250,7 +231,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   z-index: 1;
   pointer-events: none;
   opacity: 0;
-  mix-blend-mode: screen;
   background:
     radial-gradient(80% 140% at 16% 100%, color-mix(in srgb, var(--accent) 46%, transparent), transparent 70%),
     radial-gradient(55% 100% at 100% 0%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 72%);
@@ -269,7 +249,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin-bottom: .35rem;
 }
 .trio { width: 88px; height: auto; overflow: visible; }
-.trio-c { mix-blend-mode: screen; transform-box: fill-box; transform-origin: center; opacity: .92; }
+.trio-c { transform-box: fill-box; transform-origin: center; opacity: .92; }
 .trio-coral { fill: var(--brand-coral); animation: trioLeft 1s var(--ease-expo) both, trioFloat 4.2s ease-in-out 1s infinite alternate; }
 .trio-teal  { fill: var(--brand-teal);  animation: trioMid 1s var(--ease-expo) .08s both, trioFloat 4.2s ease-in-out 1.6s infinite alternate-reverse; }
 .trio-gold  { fill: var(--brand-gold);  animation: trioRight 1s var(--ease-expo) .16s both, trioFloat 4.2s ease-in-out 2.2s infinite alternate; }
@@ -319,9 +299,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    ============================================================ */
 @media (max-width: 768px) {
   /* Flous moins coûteux et grain plus discret sur GPU mobiles. */
-  #topbar { -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4); }
   .modal-overlay { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-  body::after { opacity: .028; }
   #main { background:
     radial-gradient(34rem 20rem at 0% -6%, color-mix(in srgb, var(--brand-gold) 8%, transparent), transparent 70%); }
 
@@ -333,4 +311,15 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .continue-card:active .continue-cover { transform: scale(var(--media-press-scale)); transition: transform .12s var(--ease-smooth); }
   .continue-cover { transition: transform .45s var(--ease-expo); }
   .profile-action-card:active { transform: scale(.98); }
+}
+
+/* Écrans tactiles : le plus économe en mémoire.
+   Pas de grain plein écran ni de flou sur la barre du haut (qui se recalculerait à chaque image du défilement). */
+@media (hover: none), (max-width: 768px) {
+  body::after { display: none; }
+  #topbar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--bg-2) 97%, transparent);
+  }
 }
