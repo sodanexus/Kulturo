@@ -1210,7 +1210,13 @@ function scrollExpandedSynopsisIntoView(wrap) {
     if (!wrap.isConnected || !wrap.classList.contains("expanded")) return;
     const bodyRect = body.getBoundingClientRect();
     const sectionRect = section.getBoundingClientRect();
-    const target = Math.max(0, body.scrollTop + sectionRect.top - bodyRect.top - 4);
+    // L'entête rétractable recouvre le haut du corps : une fois replié, le
+    // synopsis doit se poser juste en dessous de la barre compacte.
+    const modal = body.closest(".detail-modal");
+    const headerOffset = modal?.classList.contains("is-collapsible")
+      ? (parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64)
+      : 0;
+    const target = Math.max(0, body.scrollTop + sectionRect.top - bodyRect.top - headerOffset - 8);
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     body.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
   }));
