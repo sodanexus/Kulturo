@@ -1019,3 +1019,19 @@ body.app-shell-active #main { overflow-x: clip; }
   outline: 2px solid color-mix(in srgb, var(--accent-2) 75%, transparent);
   outline-offset: 2px;
 }
+
+
+/* Correctif : les commandes sticky du journal doivent rester sous la topbar
+   et masquer le contenu qui défile derrière elles. */
+#page-journal .journal-sticky-controls {
+  top: 78px;
+  z-index: 120;
+  background: var(--bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  isolation: isolate;
+}
+@media (max-width: 680px) {
+  #page-journal .journal-sticky-controls { top: 72px; }
+  #page-journal .journal-month-heading { top: 124px; z-index: 110; }
+}
