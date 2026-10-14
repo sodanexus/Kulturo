@@ -421,6 +421,34 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-modal .detail-backdrop.has-fallback::before { will-change: auto; }
 .detail-modal.is-collapsible .detail-close-btn { z-index: 10; }
 
+/* Ordinateur : la croix de fermeture se fait discrète. Sans fond ni bordure au
+   repos, plus petite et atténuée ; le bouton (36 px) et Échap restent inchangés,
+   et elle reprend son bouton au survol et au clavier. Les écrans tactiles gardent
+   la croix habituelle. */
+@media (hover: hover) and (pointer: fine) {
+  .detail-modal .detail-close-btn {
+    background: transparent;
+    border-color: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: rgba(255, 255, 255, .3);
+    transition: background .25s var(--ease-expo), border-color .25s var(--ease-expo), color .25s var(--ease-expo);
+  }
+  .detail-modal .detail-close-btn svg {
+    width: 13px;
+    height: 13px;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .55));
+  }
+  /* Elle se révèle un peu quand le curseur survole la fiche. */
+  .detail-modal:hover .detail-close-btn:not(:hover):not(:focus-visible) { color: rgba(255, 255, 255, .5); }
+  .detail-modal .detail-close-btn:hover,
+  .detail-modal .detail-close-btn:focus-visible {
+    background: rgba(0, 0, 0, .45);
+    border-color: rgba(255, 255, 255, .15);
+    color: #fff;
+  }
+}
+
 /* Le bloc affiche + titre s'efface vers le haut, la barre compacte prend le relais. */
 .detail-backdrop-content {
   opacity: calc(1 - var(--detail-p, 0) * 1.5);
