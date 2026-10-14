@@ -1516,7 +1516,7 @@ function renderCards(options = {}) {
 
   grid.setAttribute("aria-busy", String(State.libraryStatus === "loading"));
   if (!State.entries.length && State.libraryStatus === "loading") {
-    grid.innerHTML = cardSkeletons(8) + '<span class="sr-only" role="status">Chargement de la bibliothèque…</span>';
+    grid.innerHTML = cardSkeletons() + '<span class="sr-only" role="status">Chargement de la bibliothèque…</span>';
     return;
   }
   if (!State.entries.length && State.libraryStatus === "error") {
