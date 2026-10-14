@@ -12,28 +12,29 @@
   --ease-standard: cubic-bezier(.2, .8, .2, 1);
 }
 
-:where(.btn, .filter-chip) {
+.btn, .filter-chip {
   min-height: var(--control-height);
   border-radius: var(--control-radius);
 }
 
-:where(.btn-sm, .filter-chip) { min-height: var(--control-height-sm); }
-:where(.btn-icon, .topbar-filter-btn) {
+.btn-sm, .filter-chip { min-height: var(--control-height-sm); }
+.btn-icon, .topbar-filter-btn {
   width: var(--control-height);
   height: var(--control-height);
   min-width: var(--control-height);
   border-radius: var(--control-radius);
 }
 
-:where(.profile-period-switch, .profile-media-switch, .upcoming-type-switch, .journal-mode-switch) > button {
+.profile-period-switch > button, .profile-media-switch > button,
+.upcoming-type-switch > button, .journal-mode-switch > button {
   min-height: var(--control-height-sm);
   border-radius: calc(var(--control-radius) - 3px);
   font-size: var(--type-control);
   font-weight: 750;
 }
 
-:where(.profile-year-overview, .profile-dashboard-card, .profile-account-details,
-  .journal-month-summary, .upcoming-toolbar, .quick-actions-panel) {
+.profile-year-overview, .profile-dashboard-card, .profile-account-details,
+.journal-month-summary, .quick-actions-panel {
   border-radius: var(--surface-radius);
 }
 
@@ -106,12 +107,62 @@
 #page-library > :not([hidden]) ~ .library-list-heading { margin-top: 1rem; }
 #page-upcoming > .awaited-section:not([hidden]) ~ .upcoming-toolbar { margin-top: var(--page-gap); }
 
-/* Les barres collantes du Journal et des Sorties (mobile) gardent son fond et son filet, mais son
-   contenu démarre à la même hauteur que le premier bloc des autres pages. */
-#page-journal .journal-sticky-controls { margin-top: -.65rem; }
+/* Journal et Sorties : commandes dans le flux, sans panneau qui coupe
+   le fond. Le padding initial vient exclusivement de .page. */
+#page-journal .journal-sticky-controls,
+#page-upcoming > .upcoming-toolbar {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: transparent;
+  border-bottom: 0;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.upcoming-month-heading {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Les sélecteurs de date partagent la même géométrie sur toutes les pages. */
+.filter-select,
+.journal-time-step,
+.journal-month-select-wrap select {
+  height: var(--control-height);
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  font-size: var(--type-control);
+  font-weight: 650;
+}
+.upcoming-genre-filter { min-height: var(--control-height); border-radius: var(--control-radius); }
+.upcoming-genre-filter select { min-height: calc(var(--control-height) - 2px); height: auto; }
+.journal-mode-switch,
+.journal-time-nav { min-width: 0; }
+
 @media (max-width: 680px) {
-  #page-journal .journal-sticky-controls,
-  #page-upcoming > .upcoming-toolbar { margin-top: -.7rem; }
-  /* Même chose si le bandeau « Attendues » précède la barre. */
-  #page-upcoming > .awaited-section:not([hidden]) ~ .upcoming-toolbar { margin-top: calc(var(--page-gap) - .7rem); }
+  .upcoming-type-btn { padding-inline: .2rem; }
+  .upcoming-refresh-btn {
+    width: var(--control-height);
+    min-width: var(--control-height);
+    height: var(--control-height);
+    flex-basis: var(--control-height);
+    padding-inline: 0;
+  }
+}
+@media (max-width: 380px) {
+  .upcoming-toolbar-main { flex-wrap: wrap; }
+  .upcoming-type-switch { flex-basis: 100%; }
+  .profile-date-controls { flex-wrap: wrap; }
+}
+@media (pointer: coarse) {
+  :root { --control-height: 44px; --control-height-sm: 44px; }
 }

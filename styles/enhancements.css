@@ -13,9 +13,6 @@
   --ease-exit: cubic-bezier(.4,0,1,1);
   --system-bar-color: var(--bg);
   /* Charte des contrôles : deux tailles, deux rayons et un rythme commun. */
-  --control-height: 40px;
-  --control-height-sm: 36px;
-  --control-radius: 12px;
   --control-radius-inner: 9px;
   --control-padding-inline: .85rem;
   --control-gap: .4rem;
@@ -58,13 +55,9 @@ body { background-color: var(--system-bar-color); }
 .filter-select,
 .journal-time-step,
 .journal-month-select-wrap select {
-  min-height: var(--control-height-sm);
-  border-radius: var(--control-radius-inner);
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
 }
-.journal-time-nav {
-  grid-template-columns: var(--control-height-sm) minmax(150px, 1fr) var(--control-height-sm);
-}
-.journal-time-step { width: var(--control-height-sm); }
 .btn-icon-only,
 .detail-delete-action {
   width: var(--control-height);

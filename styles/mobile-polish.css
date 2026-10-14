@@ -152,12 +152,7 @@
   .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-header,
   .detail-modal.mobile-swipe-sheet > .detail-backdrop { touch-action: pan-x; }
 
-  /* Le geste remplace la croix sur toutes les feuilles mobiles. Les boutons
-     de retour du parcours d'ajout et de l'édition restent disponibles. */
-  .mobile-swipe-sheet > .modal-header > .btn-icon:last-child,
-  .metadata-sheet.mobile-swipe-sheet > .metadata-sheet-header > .btn-icon:last-child,
-  .detail-modal.mobile-swipe-sheet .detail-close-btn { display: none; }
-
+  /* Le geste complète la fermeture explicite, accessible aussi au clavier. */
   .detail-swipe-handle {
     position: absolute;
     top: 7px;
