@@ -788,10 +788,6 @@ function renderApp() {
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
-        <label class="upcoming-search upcoming-search-top" for="upcoming-search">
-          <span class="search-icon" aria-hidden="true">${iconSearch()}</span>
-          <input type="search" id="upcoming-search" placeholder="Rechercher dans les sorties" autocomplete="off" aria-label="Rechercher dans les prochaines sorties" />
-        </label>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
@@ -807,6 +803,7 @@ function renderApp() {
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
+          <input type="search" id="upcoming-search" class="upcoming-search-state" aria-label="Recherche des prochaines sorties" tabindex="-1" autocomplete="off" />
           <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
             <span>Genre</span>
             <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
@@ -827,10 +824,7 @@ function renderApp() {
 
       <!-- Journal personnel + activité communautaire -->
       <section id="page-journal" class="page">
-        <label class="journal-search topbar-search-wrap" for="journal-search">
-          <span class="search-icon" aria-hidden="true">${iconSearch()}</span>
-          <input type="search" id="journal-search" placeholder="Rechercher dans mon journal" aria-label="Rechercher une entrée dans mon journal" autocomplete="off" />
-        </label>
+
         <div class="journal-sticky-controls">
           <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
             <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" data-journal-action="mode" data-journal-mode="personal">Mon journal</button>
@@ -1180,6 +1174,27 @@ function replayMotion(element, className) {
   });
 }
 
+function filterJournalFeed(query) {
+  const feed = document.getElementById("journal-feed");
+  if (!feed) return;
+  const q = String(query || "").toLocaleLowerCase("fr-FR");
+  feed.querySelectorAll(".journal-month-group").forEach(month => {
+    let visibleCount = 0;
+    month.querySelectorAll(".journal-event-row").forEach(row => {
+      const match = !q || row.textContent.toLocaleLowerCase("fr-FR").includes(q);
+      row.hidden = !match;
+      if (match) visibleCount++;
+    });
+    month.querySelectorAll(".journal-event-group").forEach(group => {
+      const rows = [...group.querySelectorAll(".journal-event-row")];
+      const matches = rows.filter(row => !row.hidden).length;
+      group.hidden = Boolean(q) && matches === 0;
+      if (group.hidden) visibleCount = Math.max(0, visibleCount - rows.length);
+    });
+    month.hidden = Boolean(q) && visibleCount === 0;
+  });
+}
+
 function showPage(name) {
   const newPage = document.getElementById(`page-${name}`);
   if (!newPage) return;
@@ -1206,7 +1221,22 @@ function showPage(name) {
   }
 
   const searchWrap = document.querySelector(".topbar-search-wrap");
-  if (searchWrap) searchWrap.hidden = name !== "library";
+  const globalSearch = document.getElementById("global-search");
+  if (searchWrap) searchWrap.hidden = !["library", "upcoming", "journal"].includes(name);
+  if (globalSearch) {
+    const searchConfig = {
+      library: ["Rechercher dans ma bibliothèque", "Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année"],
+      upcoming: ["Rechercher dans les prochaines sorties", "Rechercher un film, une série, un jeu ou un livre parmi les prochaines sorties"],
+      journal: ["Rechercher dans mon journal", "Rechercher une œuvre ou une activité dans mon journal"],
+    }[name];
+    if (searchConfig) {
+      globalSearch.placeholder = searchConfig[0];
+      globalSearch.setAttribute("aria-label", searchConfig[1]);
+      const nextValue = name === "upcoming" ? (document.getElementById("upcoming-search")?.value || "") : name === "journal" ? (globalSearch.dataset.journalQuery || "") : (State.filters.search || "");
+      if (globalSearch.value !== nextValue) globalSearch.value = nextValue;
+    }
+  }
+  document.getElementById("btn-filter-toggle")?.toggleAttribute("hidden", name !== "library");
 
   // #1 — restaure la position de scroll
   const main = document.getElementById("main");
@@ -1217,7 +1247,7 @@ function showPage(name) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "upcoming")  upcomingFeature.render();
-  if (name === "journal")   renderJournal();
+  if (name === "journal") { renderJournal(); requestAnimationFrame(() => filterJournalFeed(globalSearch?.dataset.journalQuery || "")); }
   if (name === "library")   restorePageScroll("library");
   requestAnimationFrame(syncBackToTop);
 }
@@ -2956,15 +2986,21 @@ function bindGlobalEvents() {
   document.addEventListener("input", e => {
     if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
     if (e.target.id === "upcoming-search") upcomingFeature.setSearch(e.target.value);
-    if (e.target.id === "journal-search") journalFeature.setSearch(e.target.value);
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
-      State.filters.search = q;
-      scheduleUiSnapshot();
-      _updateFilterToggleLabel();
-      // Si on tape depuis une autre page, synchronise aussi toute la navigation.
-      if (q.length > 0 && _currentPage !== "library") navTo("library", { preserveFilters: true, preserveSearch: true });
-      else if (_currentPage === "library") scheduleLibraryRender({ resetScroll: true });
+      if (_currentPage === "upcoming") {
+        const pageSearch = document.getElementById("upcoming-search");
+        if (pageSearch) pageSearch.value = q;
+        upcomingFeature.setSearch(q);
+      } else if (_currentPage === "journal") {
+        e.target.dataset.journalQuery = q;
+        filterJournalFeed(q);
+      } else {
+        State.filters.search = q;
+        scheduleUiSnapshot();
+        _updateFilterToggleLabel();
+        if (_currentPage === "library") scheduleLibraryRender({ resetScroll: true });
+      }
     }
   });
   document.addEventListener("change", e => {
@@ -3740,7 +3776,7 @@ const journalFeature = createJournalFeature({
   confirmDialog, toast, openDetailPanel, renderDetailPanel,
   getCurrentPage: () => _currentPage,
   onContextChange: persistUiSnapshot,
-  onViewReady: restorePageScroll,
+  onViewReady: page => { restorePageScroll(page); if (page === "journal") filterJournalFeed(document.getElementById("global-search")?.dataset.journalQuery || ""); },
   sameOwner,
 });
 const { render: renderJournal, bind: bindJournalInteractions } = journalFeature;
