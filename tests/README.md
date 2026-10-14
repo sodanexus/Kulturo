@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.7
+## Validation de l’archive 4.0.8
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -65,3 +65,7 @@ Le test des liens de livre vérifie maintenant qu’un seul lien « Chercher le 
 - Contrôle TypeScript complémentaire 5.9.3 : réussi. La version native 7.0.2 reste celle du projet ; son exécution ici dépend de l’accès à `/proc/self/exe`, indisponible dans cet environnement.
 
 Ces contrôles ne sont pas une validation du rendu visuel ni des interactions sur un navigateur réel. Les parcours `browser-runner.js` ont été adaptés au champ de recherche partagé, mais n’ont pas été exécutés dans Safari/Chromium. Vérifier les pages à 390, 768 et 1120 px, les feuilles mobiles, le focus réel et le défilement. Connexion et services externes n’ont pas été testés en production. Détails : [AUDIT.md](../AUDIT.md).
+
+### Ajustement 4.0.8
+
+Croix des fiches masquée sur mobile avec geste de fermeture ; sur desktop, icône discrète et espace réservé indépendant des notes dans la barre compacte. Seul `styles/finesse.css` change le rendu. Tests techniques et compilation vérifiés ; validation visuelle Safari/iPad et desktop à effectuer.

@@ -2,6 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.8
+
+- Fiche mobile : croix masquée lorsque le geste de fermeture est activé ; l’espace correspondant est libéré dans la barre compacte.
+- Fiche desktop : croix plus petite et sans fond au repos, avec une zone réservée séparée des notes et badges en mode compact.
+
 ## 4.0.7
 
 - Journal : recherche appliquée aux données personnelles et communautaires, avec état vide et mois synchronisés ; suppression du filtre DOM concurrent.

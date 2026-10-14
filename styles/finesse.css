@@ -421,32 +421,44 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-modal .detail-backdrop.has-fallback::before { will-change: auto; }
 .detail-modal.is-collapsible .detail-close-btn { z-index: 10; }
 
-/* Ordinateur : la croix de fermeture se fait discrète. Sans fond ni bordure au
-   repos, plus petite et atténuée ; le bouton (36 px) et Échap restent inchangés,
-   et elle reprend son bouton au survol et au clavier. Les écrans tactiles gardent
-   la croix habituelle. */
-@media (hover: hover) and (pointer: fine) {
+/* La fermeture garde sa propre place à droite de la barre compacte.
+   Sa zone et celle des notes utilisent les mêmes dimensions. */
+.detail-modal {
+  --detail-close-size: var(--control-height);
+  --detail-close-inset: 1rem;
+  --detail-close-gap: 1rem;
+}
+@media (min-width: 681px) {
   .detail-modal .detail-close-btn {
+    top: calc((var(--detail-compact-h) - var(--detail-close-size)) / 2);
+    right: var(--detail-close-inset);
+    width: var(--detail-close-size);
+    min-width: var(--detail-close-size);
+    height: var(--detail-close-size);
+    min-height: var(--detail-close-size);
     background: transparent;
     border-color: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    color: rgba(255, 255, 255, .3);
-    transition: background .25s var(--ease-expo), border-color .25s var(--ease-expo), color .25s var(--ease-expo);
+    color: rgba(255, 255, 255, .42);
+    transition: background .25s var(--ease-expo), color .25s var(--ease-expo);
   }
   .detail-modal .detail-close-btn svg {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
     filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .55));
   }
-  /* Elle se révèle un peu quand le curseur survole la fiche. */
-  .detail-modal:hover .detail-close-btn:not(:hover):not(:focus-visible) { color: rgba(255, 255, 255, .5); }
   .detail-modal .detail-close-btn:hover,
   .detail-modal .detail-close-btn:focus-visible {
-    background: rgba(0, 0, 0, .45);
-    border-color: rgba(255, 255, 255, .15);
+    background: rgba(0, 0, 0, .3);
     color: #fff;
   }
+}
+@media (min-width: 681px) and (hover: hover) and (pointer: fine) {
+  .detail-modal { --detail-close-size: 32px; }
+}
+@media (max-width: 680px) {
+  .detail-modal.mobile-swipe-sheet .detail-close-btn { display: none; }
 }
 
 /* Le bloc affiche + titre s'efface vers le haut, la barre compacte prend le relais. */
@@ -463,10 +475,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   justify-content: space-between;
   gap: .75rem;
   height: var(--detail-compact-h);
-  padding: 0 3.6rem 0 1.25rem;
+  padding: 0 calc(var(--detail-close-inset) + var(--detail-close-size) + var(--detail-close-gap)) 0 1.25rem;
   opacity: calc((var(--detail-p, 0) - .45) * 2);
   transform: translate3d(0, calc((1 - var(--detail-p, 0)) * 10px), 0);
   pointer-events: none;
+}
+@media (max-width: 680px) {
+  .detail-modal.mobile-swipe-sheet .detail-compact-bar { padding-right: 1.25rem; }
 }
 .detail-compact-title {
   min-width: 0;
