@@ -510,25 +510,46 @@ function enhanceRatingScore(container, from = null) {
   }, delay);
 }
 
-// Défilement du corps : alimente --detail-p (0 → 1) pour le parallax et la
-// barre compacte, et signale s'il reste du contenu sous le pied de fiche.
+// Entête rétractable. Le bandeau est posé en absolu au-dessus du corps, qui
+// réserve sa hauteur par un padding : le bandeau peut rétrécir sans jamais
+// modifier la hauteur défilable (pas de saut ni de boucle de mise en page).
+// --detail-p (0 → 1) = progression du repli ; --detail-h = hauteur déployée.
+// Signale aussi s'il reste du contenu sous le pied de fiche.
 function bindDetailScroll(modal) {
   const body = modal?.querySelector(".detail-body");
-  if (!body) return;
+  const backdrop = modal?.querySelector(".detail-backdrop");
+  if (!body || !backdrop) return;
+  let range = 1;
   let frame = 0;
+
+  const measure = () => {
+    if (!modal.isConnected) return;
+    modal.classList.remove("is-collapsible");
+    const full = backdrop.offsetHeight;
+    const compact = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64;
+    range = Math.max(1, full - compact);
+    modal.style.setProperty("--detail-h", `${full}px`);
+    modal.classList.add("is-collapsible");
+  };
   const update = () => {
     frame = 0;
     if (!modal.isConnected) return;
-    const progress = Math.min(1, Math.max(0, body.scrollTop / 140));
+    const progress = Math.min(1, Math.max(0, body.scrollTop / range));
     modal.style.setProperty("--detail-p", progress.toFixed(3));
     modal.classList.toggle("is-detail-scrolled", progress > .5);
     modal.classList.toggle("has-more-below", body.scrollHeight - body.clientHeight - body.scrollTop > 6);
   };
   const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+
   body.addEventListener("scroll", schedule, { passive: true });
   // Le contenu s'enrichit après l'ouverture (synopsis, détails) : on recalcule.
   new MutationObserver(schedule).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-  if (typeof ResizeObserver === "function") new ResizeObserver(schedule).observe(body);
+  // Le bandeau change de hauteur quand l'image HD arrive (classe has-backdrop).
+  new MutationObserver(() => { measure(); schedule(); }).observe(backdrop, { attributes: true, attributeFilter: ["class"] });
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(() => { measure(); schedule(); }).observe(modal);
+  }
+  measure();
   update();
 }
 
