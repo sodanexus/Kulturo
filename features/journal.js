@@ -3,7 +3,7 @@ import { isClosedMonth, journalEventPresentation, statusLabelFor, yearMonthOf } 
 import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
 import { createJournalNavigation } from "./journal-navigation.js";
-import { emptyState, errorState, loadingState } from "./ui-states.js";
+import { emptyState, errorState, journalSkeleton, loadingState } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 
 export function createJournalFeature({
@@ -53,7 +53,7 @@ export function createJournalFeature({
     if (!container) return;
 
     if (State.journalDirty) {
-      container.innerHTML = loadingState("Chargement du journal…", { compact: true });
+      container.innerHTML = journalSkeleton();
       journalNavigation.syncTimeline([], "personal");
       await refreshJournalEvents({ silent: true });
       if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "personal") return;
@@ -279,7 +279,7 @@ export function createJournalFeature({
       return;
     }
 
-    container.innerHTML = loadingState("Chargement de la communauté…", { compact: true });
+    container.innerHTML = journalSkeleton(4);
     journalNavigation.syncTimeline([], "community");
 
     try {

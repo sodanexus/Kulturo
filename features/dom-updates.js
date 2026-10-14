@@ -53,9 +53,9 @@ export function patchKeyedSurface(container, html) {
   let cursor = container.firstElementChild;
   const stableMarkup = node => {
     const clone = node.cloneNode(true);
-    clone.classList.remove("profile-block-enter");
-    clone.querySelectorAll(".is-loaded, .profile-block-enter").forEach(element => {
-      element.classList.remove("is-loaded", "profile-block-enter");
+    clone.classList.remove("profile-block-enter", "is-reveal-pending", "is-revealed");
+    clone.querySelectorAll(".is-loaded, .profile-block-enter, .is-reveal-pending, .is-revealed").forEach(element => {
+      element.classList.remove("is-loaded", "profile-block-enter", "is-reveal-pending", "is-revealed");
     });
     clone.querySelectorAll("details[open]").forEach(element => element.removeAttribute("open"));
     return clone.outerHTML;

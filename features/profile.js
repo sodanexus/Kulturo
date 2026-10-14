@@ -5,7 +5,7 @@ import {
 } from "../domain.js";
 import { exploredGenres, repeatCountForPeriod } from "./insights.js";
 import { patchKeyedSurface } from "./dom-updates.js";
-import { errorState, loadingState, setButtonBusy } from "./ui-states.js";
+import { errorState, loadingState, profileSkeleton, setButtonBusy } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 export const LAST_BACKUP_KEY = "kulturo-last-backup";
 
@@ -51,27 +51,87 @@ export function createProfileFeature({
     return `<span class="profile-animated-number" data-profile-number="${esc(key)}" data-profile-value="${numeric}" data-profile-decimals="${decimals}" data-profile-prefix="${esc(options.prefix || "")}" data-profile-suffix="${esc(options.suffix || "")}">${esc(options.prefix || "")}${display}${esc(options.suffix || "")}</span>`;
   }
 
+  const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  const REVEAL_SELECTOR = ".profile-year-overview, .profile-dashboard-card";
+  // Départ des compteurs en attente de leur entrée à l'écran (WeakMap : aucun
+  // attribut ajouté au DOM, donc rien qui perturbe la comparaison des blocs).
+  const _pendingNumberFrom = new WeakMap();
+  const _pendingBlocks = new Set();
+  let _revealObserver = null;
+
+  function setProfileNumberText(element, value) {
+    const decimals = Number(element.dataset.profileDecimals || 0);
+    element.textContent = `${element.dataset.profilePrefix || ""}${value.toFixed(decimals)}${element.dataset.profileSuffix || ""}`;
+  }
+
+  function tweenProfileNumber(element, from, duration = 700) {
+    const target = Number(element.dataset.profileValue || 0);
+    const start = performance.now();
+    const draw = now => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setProfileNumberText(element, progress === 1 ? target : from + (target - from) * eased);
+      if (progress < 1 && element.isConnected) requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  }
+
+  function revealProfileBlock(block, { animate = true } = {}) {
+    if (!_pendingBlocks.delete(block)) return;
+    _revealObserver?.unobserve(block);
+    block.classList.remove("is-reveal-pending");
+    block.classList.add("is-revealed");
+    block.querySelectorAll("[data-profile-number]").forEach(element => {
+      if (!_pendingNumberFrom.has(element)) return;
+      const from = _pendingNumberFrom.get(element);
+      _pendingNumberFrom.delete(element);
+      if (animate) tweenProfileNumber(element, from);
+      else setProfileNumberText(element, Number(element.dataset.profileValue || 0));
+    });
+  }
+
+  // Les blocs neufs ou modifiés attendent d'entrer dans l'écran : barres,
+  // compteurs et vignettes se jouent alors à ce moment-là, pas hors champ.
+  function prepareProfileReveal(container) {
+    if (!container || prefersReducedMotion() || typeof IntersectionObserver !== "function") return;
+    _revealObserver ||= new IntersectionObserver(entries => {
+      entries.forEach(entry => { if (entry.isIntersecting) revealProfileBlock(entry.target); });
+    }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+    container.querySelectorAll(REVEAL_SELECTOR).forEach(block => {
+      if (block.classList.contains("is-revealed") || _pendingBlocks.has(block)) return;
+      block.classList.add("is-reveal-pending");
+      _pendingBlocks.add(block);
+    });
+  }
+
+  function observeProfileReveal() {
+    _pendingBlocks.forEach(block => _revealObserver?.observe(block));
+  }
+
+  // Quitter le Profil ne doit jamais laisser un bloc invisible à moitié révélé.
+  function flushProfileReveal() {
+    [..._pendingBlocks].forEach(block => revealProfileBlock(block, { animate: false }));
+    _revealObserver?.disconnect();
+  }
+
   function animateProfileNumbers(root) {
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const reduced = prefersReducedMotion();
     root?.querySelectorAll?.("[data-profile-number]").forEach(element => {
       const key = element.dataset.profileNumber;
       const target = Number(element.dataset.profileValue || 0);
-      const decimals = Number(element.dataset.profileDecimals || 0);
-      const prefix = element.dataset.profilePrefix || "";
-      const suffix = element.dataset.profileSuffix || "";
       const previous = _profileNumberValues.get(key);
       _profileNumberValues.set(key, target);
-      if (previous == null || previous === target || reduced) return;
-      const start = performance.now();
-      const duration = 440;
-      const draw = now => {
-        const progress = Math.min(1, (now - start) / duration);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const value = previous + (target - previous) * eased;
-        element.textContent = `${prefix}${value.toFixed(decimals)}${suffix}`;
-        if (progress < 1 && element.isConnected) requestAnimationFrame(draw);
-      };
-      requestAnimationFrame(draw);
+      if (reduced) return;
+      const pending = Boolean(element.closest(".is-reveal-pending"));
+      // Première apparition : on compte depuis 0 ; sinon depuis l'ancienne valeur.
+      const from = previous == null ? 0 : previous;
+      if (from === target) return;
+      if (pending) {
+        _pendingNumberFrom.set(element, from);
+        setProfileNumberText(element, from);
+      } else if (previous != null) {
+        tweenProfileNumber(element, from, 440);
+      }
     });
   }
 
@@ -233,7 +293,7 @@ export function createProfileFeature({
       return;
     }
     if (!container.children.length && (State.journalDirty || (State.user && State.username === null))) {
-      container.innerHTML = loadingState("Chargement du profil…");
+      container.innerHTML = profileSkeleton();
     }
 
     if (State.journalDirty) await refreshJournalEvents({ silent: true });
@@ -512,7 +572,9 @@ export function createProfileFeature({
       replayMotion(block, "profile-block-enter");
       block.addEventListener("animationend", () => block.classList.remove("profile-block-enter"), { once: true });
     });
+    prepareProfileReveal(container);
     animateProfileNumbers(container);
+    observeProfileReveal();
     hydrateFadeImages(container);
     renderGate.finish(task);
     onViewReady?.("dashboard");
@@ -541,7 +603,7 @@ export function createProfileFeature({
     render: renderDashboard, setProfileYear, setProfileMonth, setProfilePeriod,
     async retry() {
       const container = document.getElementById("dashboard-content");
-      if (container) container.innerHTML = loadingState("Chargement du profil…");
+      if (container) container.innerHTML = profileSkeleton();
       await reloadEntries();
       await renderDashboard();
     },
@@ -557,7 +619,7 @@ export function createProfileFeature({
       if (PROFILE_MEDIA_OPTIONS.some(([key]) => key === value?.media)) _profileMedia = value.media;
       _profileMonthAutoResolve = false;
     },
-    cancel() { renderGate.cancel(); },
+    cancel() { renderGate.cancel(); flushProfileReveal(); },
     setProfileMedia, openProfileCollection, openRatingCollection, saveUsername,
     reset() {
       renderGate.cancel();

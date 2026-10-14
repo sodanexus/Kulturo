@@ -42,12 +42,56 @@ export function errorState({ title = "Indisponible", message, actionHTML = "", c
   return emptyState({ icon: "error", title, message, actionHTML, className: "ui-state-error " + className });
 }
 
-// Le squelette reprend uniquement la jaquette 2:3 de la carte finale.
-// La grille parente décide de sa largeur dans les deux densités.
-export function cardSkeletons(count = 8) {
-  return Array.from({ length: Math.max(1, count) }, () =>
-    '<div class="skeleton-card" aria-hidden="true"><div class="skeleton skeleton-cover"></div></div>'
+// Le squelette reprend la carte finale : jaquette 2:3 puis, pour la plupart
+// des cartes, la ligne note / cœur. Le nombre de cartes suit la largeur d'écran
+// (la grille parente décide des colonnes), et l'éclat se propage en diagonale.
+export function cardSkeletons(count = defaultSkeletonCount()) {
+  return Array.from({ length: Math.max(1, count) }, (_, index) =>
+    '<div class="skeleton-card" aria-hidden="true" style="--i:' + index + '">' +
+      '<div class="skeleton skeleton-cover"></div>' +
+      (index % 3 === 2 ? '' : '<div class="skeleton-card-meta"><i class="skeleton"></i>' + (index % 2 ? '' : '<b class="skeleton"></b>') + '</div>') +
+    '</div>'
   ).join("");
+}
+
+function defaultSkeletonCount() {
+  const width = typeof window === "undefined" ? 1200 : window.innerWidth;
+  if (width <= 680) return 9;
+  if (width <= 1100) return 12;
+  return 18;
+}
+
+// Profil : mêmes blocs que le tableau de bord final (bilan, 4 compteurs,
+// Top, catégories) pour que la page ne « saute » pas à l'arrivée des données.
+export function profileSkeleton() {
+  const bar = (width, height = 10) => '<i class="skeleton" style="width:' + width + ';height:' + height + 'px"></i>';
+  const covers = Array.from({ length: 6 }, () => '<div class="skeleton profile-skel-cover"></div>').join("");
+  const rows = [78, 56, 42, 28].map(width =>
+    '<div class="profile-skel-row"><i class="skeleton profile-skel-dot"></i><span>' + bar("46%", 10) + bar(width + "%", 4) + '</span></div>'
+  ).join("");
+  const tiles = Array.from({ length: 4 }, () =>
+    '<div class="profile-skel-tile"><i class="skeleton profile-skel-icon"></i>' + bar("38%", 22) + bar("62%", 9) + '</div>'
+  ).join("");
+  return '<div class="ui-state-loading profile-skeleton" role="status" aria-busy="true" aria-label="Chargement du profil">' +
+    '<section class="profile-skel-card">' +
+      '<div class="profile-skel-header">' + bar("34%", 22) + '<i class="skeleton profile-skel-pill"></i></div>' +
+      '<div class="profile-skel-toolbar"><i class="skeleton profile-skel-pill"></i><i class="skeleton profile-skel-pill"></i></div>' +
+      '<div class="profile-skel-summary"><div class="skeleton profile-skel-hero"></div><div class="skeleton profile-skel-hero"></div></div>' +
+      '<div class="profile-skel-tiles">' + tiles + '</div>' +
+    '</section>' +
+    '<section class="profile-skel-card"><div class="profile-skel-heading">' + bar("30%", 12) + '</div><div class="profile-skel-covers">' + covers + '</div></section>' +
+    '<section class="profile-skel-card"><div class="profile-skel-heading">' + bar("26%", 12) + '</div>' + rows + '</section>' +
+  '</div>';
+}
+
+// Journal : titre de mois puis lignes « jaquette + deux lignes de texte ».
+export function journalSkeleton(rows = 5) {
+  const row = () =>
+    '<div class="journal-skel-row"><i class="skeleton journal-skel-cover"></i>' +
+    '<span><i class="skeleton" style="width:52%;height:11px"></i><i class="skeleton" style="width:32%;height:8px"></i></span>' +
+    '<i class="skeleton journal-skel-date"></i></div>';
+  return '<div class="ui-state-loading journal-skeleton" role="status" aria-busy="true" aria-label="Chargement du journal">' +
+    '<i class="skeleton journal-skel-month"></i>' + Array.from({ length: rows }, row).join("") + '</div>';
 }
 
 export function setButtonBusy(button, busy) {

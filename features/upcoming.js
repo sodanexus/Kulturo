@@ -530,7 +530,7 @@ function renderUpcomingCards() {
     const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
-      grid.innerHTML = '<div class="upcoming-loading">' + loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`) + '<div class="upcoming-grid">' + cardSkeletons(8) + '</div></div>';
+      grid.innerHTML = '<div class="upcoming-loading">' + loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`) + '<div class="upcoming-grid">' + cardSkeletons() + '</div></div>';
       return;
     }
     const statuses = UpcomingState.type === "all"
