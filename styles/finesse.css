@@ -451,11 +451,42 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   color: #fff;
   text-shadow: 0 1px 12px rgba(0,0,0,.6);
 }
+/* Groupe de droite : coup de cœur et revisionnage (s'il y en a), puis la note. */
+.detail-compact-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: .7rem;
+  flex-shrink: 0;
+}
+.detail-compact-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+}
+.detail-compact-badges:empty { display: none; }
+.detail-compact-fav {
+  color: var(--brand-coral);
+  font-size: 1rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, .55));
+}
+.detail-compact-repeat {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  color: var(--brand-teal);
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, .55));
+}
+.detail-compact-repeat .icon-repeat { width: 14px; height: 14px; }
+.detail-compact-repeat strong { font-size: var(--type-caption); line-height: 1; }
+/* La note garde son or de base, comme dans l'entête déployé : elle ne suit
+   plus la couleur d'accent de la jaquette. */
 .detail-compact-rating {
   flex-shrink: 0;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--brand-gold);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .6);
 }
 
 /* Ombre au-dessus du pied de fiche quand il reste du contenu à lire. */
@@ -501,7 +532,27 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-rating .rating-score.is-rating-pop .rating-star { animation: ratingStarPop .55s var(--ease-spring) both; }
 .detail-rating .rating-score.is-perfect.is-rating-pop { animation: ratingGlow 1.1s ease-out .5s 1; }
 
+/* Coup de cœur : le cœur pop à l'ouverture, juste derrière l'étoile. */
+@keyframes favHeartPop {
+  0%   { transform: scale(.3) rotate(-18deg); opacity: 0; }
+  45%  { transform: scale(1.4) rotate(6deg); opacity: 1; }
+  68%  { transform: scale(.92) rotate(0); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes favHeartGlow {
+  0%, 100% { text-shadow: 0 0 0 transparent; }
+  40%      { text-shadow: 0 0 12px color-mix(in srgb, var(--brand-coral) 80%, transparent); }
+}
+.detail-fav.is-fav-pop {
+  display: inline-block;
+  transform-origin: 50% 55%;
+  animation:
+    favHeartPop .62s var(--ease-spring) var(--fav-pop-delay, 0ms) both,
+    favHeartGlow 1s ease-out calc(var(--fav-pop-delay, 0ms) + 300ms) 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .detail-fav.is-fav-pop { animation: none; }
   .detail-backdrop-content,
   .detail-compact-bar { transform: none !important; will-change: auto; }
   .quick-status-btn.is-pop,
