@@ -968,3 +968,54 @@ body.app-shell-active #app,
 body.app-shell-active #main,
 body.app-shell-active .page { min-width: 0; max-width: 100%; }
 body.app-shell-active #main { overflow-x: clip; }
+
+/* Journal — commandes allégées : supprimer les plaques derrière les contrôles. */
+#page-journal .journal-sticky-controls {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+#page-journal .journal-mode-switch {
+  padding: 0;
+  gap: .4rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+#page-journal .journal-mode-btn {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+#page-journal .journal-mode-btn:hover {
+  background: color-mix(in srgb, var(--text-1) 5%, transparent);
+}
+#page-journal .journal-mode-btn.active {
+  border-color: color-mix(in srgb, var(--accent-2) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 16%, transparent);
+  box-shadow: none;
+}
+#page-journal .journal-time-nav {
+  background: transparent;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+#page-journal .journal-time-step,
+#page-journal .journal-month-select-wrap select {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--border);
+}
+#page-journal .journal-time-step:hover,
+#page-journal .journal-month-select-wrap select:hover {
+  background: color-mix(in srgb, var(--text-1) 5%, transparent);
+}
+#page-journal .journal-time-step:focus-visible,
+#page-journal .journal-month-select-wrap select:focus-visible,
+#page-journal .journal-mode-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-2) 75%, transparent);
+  outline-offset: 2px;
+}
