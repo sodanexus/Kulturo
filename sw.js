@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v4.0.9";
+const STATIC_CACHE = "kulturo-static-v4.0.10";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -56,9 +56,9 @@ const STATIC_ASSET_PATHS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg?v=4.0.9",
-  "icon-192.png?v=4.0.9",
-  "icon-512.png?v=4.0.9",
+  "icon.svg?v=4.0.10",
+  "icon-192.png?v=4.0.10",
+  "icon-512.png?v=4.0.10",
 ];
 const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [

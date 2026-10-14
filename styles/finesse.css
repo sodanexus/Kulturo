@@ -122,10 +122,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
     box-shadow: 0 22px 44px -14px rgba(0, 0, 0, .65), 0 0 0 1px var(--hairline-strong);
     will-change: transform;
   }
-  /* Effet « projecteur » : le reste de la grille s'efface légèrement. */
-  #cards-grid:has(.media-card:hover) .media-card:not(:hover):not(.is-wishlist):not(.is-paused):not(.is-dropped) .card-cover {
-    filter: brightness(.8) saturate(.88);
-  }
+
 }
 .media-card:active .card-cover { transform: scale(var(--media-press-scale)); }
 
@@ -328,18 +325,17 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    Ajustements — survol des affiches, fiche desktop, pied mobile
    ═══════════════════════════════════════════════════════════ */
 
-/* Desktop : le « projecteur » est plus marqué. Les autres affiches
-   s'assombrissent nettement et la fiche survolée reste pleine lumière. */
+/* Desktop : seule l’affiche ciblée se soulève. Les voisines conservent
+   leur luminosité ; le contour accompagne aussi la navigation clavier. */
 @media (hover: hover) and (pointer: fine) {
-  #cards-grid:has(.media-card:hover) .media-card:not(:hover):not(.is-wishlist):not(.is-paused):not(.is-dropped) .card-cover {
-    filter: brightness(.55) saturate(.7);
-  }
-  #cards-grid:has(.media-card:hover) .media-card:not(:hover):is(.is-wishlist, .is-paused, .is-dropped) .card-cover {
-    filter: brightness(.68) saturate(.2);
-  }
-  #cards-grid .media-card:not(:hover) .card-cover,
-  #cards-grid .media-card:not(:hover) .card-cover-placeholder {
-    transition-duration: .35s;
+  .media-card:not(.upcoming-card):is(:hover, :focus-visible) > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card:is(:hover, :has(:focus-visible)) .upcoming-cover-wrap,
+  .continue-card:is(:hover, :focus-visible) .continue-cover,
+  .profile-top-card:is(:hover, :focus-visible) .profile-top-cover {
+    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) scale(var(--media-hover-scale));
+    box-shadow: 0 14px 28px -10px rgba(0, 0, 0, .6),
+                0 0 0 1px color-mix(in srgb, var(--brand-gold) 55%, transparent),
+                0 4px 18px -8px var(--accent-glow);
   }
 }
 
@@ -736,4 +732,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .journal-skel-row:nth-child(n+6) { opacity: .35; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton-card { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-card:not(.upcoming-card):is(:hover, :focus-visible) > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card:is(:hover, :has(:focus-visible)) .upcoming-cover-wrap,
+  .continue-card:is(:hover, :focus-visible) .continue-cover,
+  .profile-top-card:is(:hover, :focus-visible) .profile-top-cover {
+    transform: none;
+  }
 }

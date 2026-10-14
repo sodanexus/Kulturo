@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.10
+
+- Desktop : suppression des deux règles qui assombrissaient les couvertures voisines au survol.
+- L’affiche ciblée se soulève de 4 px, avec un contour doré fin et une ombre douce ; zoom et inclinaison conservés. Retour visuel également au clavier.
+- Le déplacement est désactivé lorsque le mouvement réduit est demandé.
+
 ## 4.0.9
 
 - Journal : suppression des flèches ; le choix du mois filtre les événements au lieu de défiler vers une ancre. « Tout l’historique » restaure le flux complet.
