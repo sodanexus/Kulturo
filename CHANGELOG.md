@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.5
+
+- Journal : suppression du double décalage sous l’en-tête et des styles concurrents.
+- Barre de commandes opaque au défilement, y compris au-dessus de la frise ; les titres de mois restent dans le flux sur mobile.
+- Mon journal / Communauté reprennent les boutons segmentés communs ; flèches et mois utilisent les dimensions et arrondis du design system.
+
 ## À venir (non publié)
 
 - **Raccourcis de l'icône** : un appui long sur l'icône de la PWA propose **Ajouter une œuvre**, **Journal** et **Sorties**. « Ajouter » ouvre directement la feuille d'ajout (`#/library?add=1`), puis l'URL redevient normale. Sans session, l'ajout s'ouvre après la connexion. Aucune migration SQL.

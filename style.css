@@ -4674,17 +4674,6 @@ input, textarea, select { border-radius: 12px; }
   /* .7rem de padding interne + .2rem de marge = le même départ visuel
      de .9rem que Profil, Journal et Bibliothèque. */
   #page-upcoming .upcoming-toolbar { margin-top: .2rem; }
-  #page-journal .journal-sticky-controls {
-    position: sticky;
-    top: 0;
-    z-index: 80;
-    margin: .2rem 0 .8rem;
-    padding: .7rem 0 .65rem;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 95%, transparent);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-  }
   .journal-mode-switch { width: 100%; margin: 0; }
   .journal-event-row { min-height: 94px; }
 }
