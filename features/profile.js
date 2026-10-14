@@ -623,6 +623,7 @@ export function createProfileFeature({
     setProfileMedia, openProfileCollection, openRatingCollection, saveUsername,
     reset() {
       renderGate.cancel();
+      flushProfileReveal();
       _profileNumberValues.clear();
       _profileYear = _profileToday.getFullYear();
       _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");

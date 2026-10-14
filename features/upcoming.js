@@ -509,6 +509,11 @@ function renderUpcomingCards() {
   syncUpcomingTypeButtons();
   const searchInput = document.getElementById("upcoming-search");
   if (searchInput && searchInput.value !== UpcomingState.search) searchInput.value = UpcomingState.search;
+  // Le champ visible est partagé par les pages ; sa valeur suit les filtres de Sorties.
+  const globalSearch = document.getElementById("global-search");
+  if (getCurrentPage() === "upcoming" && globalSearch && globalSearch.value !== UpcomingState.search) {
+    globalSearch.value = UpcomingState.search;
+  }
   renderUpcomingGenreFilter();
   renderAwaitedReleases();
   const allResults = filteredUpcomingResults();

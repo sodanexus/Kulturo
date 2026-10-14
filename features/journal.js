@@ -1,5 +1,5 @@
 // Journal : flux personnel et Communauté, rendu et interactions.
-import { isClosedMonth, journalEventPresentation, statusLabelFor, yearMonthOf } from "../domain.js";
+import { isClosedMonth, journalEventPresentation, normalizeSearchText, statusLabelFor, yearMonthOf } from "../domain.js";
 import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
 import { createJournalNavigation } from "./journal-navigation.js";
@@ -55,7 +55,7 @@ export function createJournalFeature({
 
     if (State.journalDirty) {
       container.innerHTML = journalSkeleton();
-      journalNavigation.syncTimeline([], "personal");
+      journalNavigation.syncTimeline([], "personal", { pending: true });
       await refreshJournalEvents({ silent: true });
       if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "personal") return;
     }
@@ -76,12 +76,12 @@ export function createJournalFeature({
     const container = document.getElementById("journal-feed");
     if (!container || !State.journalAvailable) return;
     const allVisible = visibleJournalEvents();
-    const query = _journalSearch.trim().toLocaleLowerCase("fr");
+    const query = normalizeSearchText(_journalSearch);
     const visible = query ? allVisible.filter(event => {
       const entry = State.entries.find(item => item.id === event.media_id);
       const presentation = journalEventPresentation(event, entry);
       const label = presentation?.label || event.event_type || "";
-      return `${entry?.title || ""} ${label}`.toLocaleLowerCase("fr").includes(query);
+      return normalizeSearchText(`${entry?.title || ""} ${label}`).includes(query);
     }) : allVisible;
     container.innerHTML = query && !visible.length
       ? emptyState({ icon: "search", title: "Aucune entrée trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
@@ -91,7 +91,8 @@ export function createJournalFeature({
   }
 
   function journalDateLabel(value) {
-    const date = new Date(value);
+    const raw = String(value || "");
+    const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw);
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
@@ -140,7 +141,7 @@ export function createJournalFeature({
                 ${groupedItems.map(item => item.kind === "group" ? journalGroupHTML(item) : journalRowHTML(item.event)).join("")}
               </section>`;
           }).join("")}
-          ${monthKey === "unknown" || !isClosedMonth(monthKey) ? "" : journalMonthSummaryHTML(monthKey)}
+          ${_journalSearch.trim() || monthKey === "unknown" || !isClosedMonth(monthKey) ? "" : journalMonthSummaryHTML(monthKey)}
         </section>`;
     }).join("");
   }
@@ -164,7 +165,7 @@ export function createJournalFeature({
             ${favoriteCover ? `<img src="${esc(favoriteCover)}" alt="" loading="lazy" decoding="async" data-fade-image class="fade-image">` : `<span aria-hidden="true">${iconMedia(favorite.media_type, favorite.subtype)}</span>`}
             <span><small>Favori du mois</small><strong>${esc(favorite.title)}</strong></span>
             ${favorite.rating ? ratingScoreHTML(favorite.rating, "journal-month-favorite-rating") : ""}
-          </button>` : `<p class="journal-month-no-favorite">Aucune œuvre actuellement terminé à mettre en avant ce mois.</p>`}
+          </button>` : `<p class="journal-month-no-favorite">Aucune œuvre actuellement terminée à mettre en avant ce mois.</p>`}
       </aside>`;
   }
 
@@ -283,23 +284,19 @@ export function createJournalFeature({
     if (!container) return;
 
     if (_communityLoaded) {
-      container.innerHTML = renderCommunityFeed(_communityEntries);
-      journalNavigation.syncTimeline(_communityEntries, "community");
-      hydrateFadeImages(container);
+      renderCurrentCommunityView();
       return;
     }
 
     container.innerHTML = journalSkeleton(4);
-    journalNavigation.syncTimeline([], "community");
+    journalNavigation.syncTimeline([], "community", { pending: true });
 
     try {
       const entries = await Activity.getFeed(100, { signal: task.signal });
       if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "community") return;
       _communityEntries = entries.filter(entry => entry.user_id !== State.user?.id);
       _communityLoaded = true;
-      container.innerHTML = renderCommunityFeed(_communityEntries);
-      journalNavigation.syncTimeline(_communityEntries, "community");
-      hydrateFadeImages(container);
+      renderCurrentCommunityView();
     } catch (error) {
       if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "community") return;
       console.warn("[Communauté] chargement impossible", error);
@@ -309,6 +306,21 @@ export function createJournalFeature({
         actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryJournal") + '>Réessayer</button>',
       });
     }
+  }
+
+  function renderCurrentCommunityView() {
+    const container = document.getElementById("community-feed");
+    if (!container || !_communityLoaded) return;
+    const query = normalizeSearchText(_journalSearch);
+    const visible = query ? _communityEntries.filter(entry =>
+      normalizeSearchText(`${entry.title || ""} ${entry.username || ""} a ajouté ${statusLabelFor(entry.status, entry.media_type) || ""}`)
+        .includes(query)
+    ) : _communityEntries;
+    container.innerHTML = query && !visible.length
+      ? emptyState({ icon: "search", title: "Aucune activité trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
+      : renderCommunityFeed(visible);
+    journalNavigation.syncTimeline(visible, "community");
+    hydrateFadeImages(container);
   }
 
   function renderCommunityFeed(entries) {
@@ -408,7 +420,8 @@ export function createJournalFeature({
     render: renderJournal,
     setSearch(value) {
       _journalSearch = String(value || "").slice(0, 120);
-      renderCurrentJournalView();
+      if (journalNavigation.mode === "community") renderCurrentCommunityView();
+      else if (!State.journalDirty) renderCurrentJournalView();
     },
     async retry() {
       if (journalNavigation.mode === "community") _communityLoaded = false;
@@ -420,6 +433,6 @@ export function createJournalFeature({
     context: () => journalNavigation.context(),
     restoreContext: value => journalNavigation.restoreContext(value),
     cancel() { renderGate.cancel(); },
-    reset() { renderGate.cancel(); _communityEntries = []; _communityLoaded = false; },
+    reset() { renderGate.cancel(); _communityEntries = []; _communityLoaded = false; _journalSearch = ""; journalNavigation.reset(); },
   };
 }

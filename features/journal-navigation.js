@@ -1,3 +1,5 @@
+import { yearMonthOf } from "../domain.js";
+
 // ============================================================
 // Journal — état de navigation et interactions déléguées
 // ============================================================
@@ -76,19 +78,15 @@ export function createJournalNavigation(options = {}) {
     if (next) next.disabled = state.target === "all" || index <= 0;
   }
 
-  function syncTimeline(items, targetMode = mode) {
+  function syncTimeline(items, targetMode = mode, { pending = false } = {}) {
     const state = periodState(targetMode);
     const timestampOf = targetMode === "community"
       ? item => item.created_at
       : item => item.occurred_at;
     state.keys = [...new Set(items.map(item => {
-      const value = timestampOf(item);
-      if (!value) return null;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return null;
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return yearMonthOf(timestampOf(item));
     }).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-    if (state.keys.length && state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
+    if (!pending && state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
     if (targetMode !== mode) return;
 
     const select = document.getElementById("journal-month-select");
@@ -119,8 +117,7 @@ export function createJournalNavigation(options = {}) {
     if (!main || !target) return;
     const mainRect = main.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const stickyHeight = document.querySelector("#page-journal .journal-sticky-controls")?.offsetHeight || 0;
-    const top = Math.max(0, main.scrollTop + targetRect.top - mainRect.top - stickyHeight - 8);
+    const top = Math.max(0, main.scrollTop + targetRect.top - mainRect.top - 8);
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     main.scrollTo({ top, behavior: reducedMotion ? "auto" : "smooth" });
   }
@@ -174,6 +171,23 @@ export function createJournalNavigation(options = {}) {
         handlers.onHideEvent?.(control.dataset.eventId);
       }
     });
+    root.addEventListener("keydown", event => {
+      const control = event.target.closest?.('[role="tab"][data-journal-action="mode"]');
+      if (!control || !root.contains(control)) return;
+      const modes = [...JOURNAL_MODES];
+      const index = modes.indexOf(control.dataset.journalMode);
+      let nextIndex;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % modes.length;
+      else if (event.key === "ArrowLeft") nextIndex = (index + modes.length - 1) % modes.length;
+      else if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = modes.length - 1;
+      else return;
+      event.preventDefault();
+      const nextMode = modes[nextIndex];
+      if (setMode(nextMode)) handlers.onModeChange?.(mode);
+      syncMode();
+      document.getElementById(`journal-mode-${nextMode}`)?.focus();
+    });
     root.addEventListener("change", event => {
       const control = event.target.closest?.('[data-journal-action="jump-month"]');
       if (control && root.contains(control)) jumpMonth(control.value);
@@ -182,6 +196,11 @@ export function createJournalNavigation(options = {}) {
 
   return {
     get mode() { return mode; },
+    reset() {
+      mode = "personal";
+      for (const state of Object.values(periods)) { state.target = "all"; state.keys = []; }
+      expandedGroups.clear();
+    },
     bind,
     groupDomId,
     isGroupExpanded: key => expandedGroups.has(key),
