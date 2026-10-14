@@ -509,3 +509,137 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-rating .rating-score.is-rating-pop .rating-star,
   .detail-rating .rating-score.is-perfect.is-rating-pop { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Statistiques du profil : révélation à l'entrée dans l'écran
+   (classes posées par features/profile.js)
+   ═══════════════════════════════════════════════════════════ */
+.rating-hist-col:nth-child(2), .profile-top-card:nth-child(2), .profile-action-card:nth-child(2), .profile-category-row:nth-child(2), .profile-genre-row:nth-child(2) { --ri: 1; }
+.rating-hist-col:nth-child(3), .profile-top-card:nth-child(3), .profile-action-card:nth-child(3), .profile-category-row:nth-child(3), .profile-genre-row:nth-child(3) { --ri: 2; }
+.rating-hist-col:nth-child(4), .profile-top-card:nth-child(4), .profile-action-card:nth-child(4), .profile-category-row:nth-child(4), .profile-genre-row:nth-child(4) { --ri: 3; }
+.rating-hist-col:nth-child(5), .profile-top-card:nth-child(5), .profile-category-row:nth-child(5), .profile-genre-row:nth-child(5) { --ri: 4; }
+.rating-hist-col:nth-child(6), .profile-top-card:nth-child(6), .profile-category-row:nth-child(6), .profile-genre-row:nth-child(6) { --ri: 5; }
+.rating-hist-col:nth-child(7), .profile-top-card:nth-child(7) { --ri: 6; }
+.rating-hist-col:nth-child(8), .profile-top-card:nth-child(8) { --ri: 7; }
+.rating-hist-col:nth-child(9), .profile-top-card:nth-child(9) { --ri: 8; }
+.rating-hist-col:nth-child(10), .profile-top-card:nth-child(10) { --ri: 9; }
+
+.is-reveal-pending .profile-category-track i,
+.is-reveal-pending .profile-genre-track i { transform: scaleX(0); animation: none; }
+.is-reveal-pending .rating-hist-bar { transform: scaleY(0); animation: none; }
+.is-reveal-pending :is(.profile-top-card, .profile-action-card, .profile-category-row, .profile-genre-row) {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@keyframes statRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.is-revealed .profile-category-track i,
+.is-revealed .profile-genre-track i {
+  transform-origin: left center;
+  animation: barGrowX .8s var(--ease-out) calc(var(--ri, 0) * 70ms + 120ms) both;
+}
+.is-revealed .rating-hist-bar {
+  transform-origin: center bottom;
+  animation: barGrowY .75s var(--ease-out) calc(var(--ri, 0) * 50ms) both;
+}
+.is-revealed :is(.profile-top-card, .profile-action-card, .profile-category-row, .profile-genre-row) {
+  animation: statRise .5s var(--ease-out) calc(var(--ri, 0) * 55ms) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-reveal-pending .profile-category-track i,
+  .is-reveal-pending .profile-genre-track i,
+  .is-reveal-pending .rating-hist-bar { transform: none; }
+  .is-reveal-pending :is(.profile-top-card, .profile-action-card, .profile-category-row, .profile-genre-row) { opacity: 1; transform: none; }
+  .is-revealed .profile-category-track i,
+  .is-revealed .profile-genre-track i,
+  .is-revealed .rating-hist-bar,
+  .is-revealed :is(.profile-top-card, .profile-action-card, .profile-category-row, .profile-genre-row) { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Skeletons fidèles : cartes, profil, journal
+   ═══════════════════════════════════════════════════════════ */
+@keyframes skeletonIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.skeleton-card {
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  animation: skeletonIn .4s var(--ease-out) calc(var(--i, 0) * 28ms) both;
+}
+/* L'éclat part d'en haut à gauche et se propage en diagonale. */
+.skeleton-card .skeleton { animation-delay: calc(var(--i, 0) * -90ms); }
+.skeleton-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .4rem;
+  min-height: 1rem;
+  padding: 0 .1rem;
+}
+.skeleton-card-meta i { display: block; width: 38%; height: 9px; border-radius: 99px; }
+.skeleton-card-meta b { display: block; width: 14px; height: 14px; border-radius: 50%; }
+
+.profile-skeleton, .journal-skeleton { display: flex; flex-direction: column; gap: .9rem; }
+.profile-skeleton .skeleton, .journal-skeleton .skeleton { animation-delay: 0s; }
+.profile-skeleton i, .journal-skeleton i { display: block; border-radius: 99px; }
+.profile-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+}
+.profile-skel-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.profile-skel-pill { width: 112px; height: 34px; border-radius: 10px !important; }
+.profile-skel-toolbar { display: flex; gap: .6rem; }
+.profile-skel-summary { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, .75fr); gap: .75rem; }
+.profile-skel-hero { height: 108px; border-radius: var(--radius); }
+.profile-skel-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+.profile-skel-tile {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.profile-skel-icon { width: 22px; height: 22px; border-radius: 7px !important; }
+.profile-skel-heading { display: flex; }
+.profile-skel-covers { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .6rem; }
+.profile-skel-cover { aspect-ratio: 2 / 3; border-radius: var(--radius); }
+.profile-skel-row { display: flex; align-items: center; gap: .75rem; }
+.profile-skel-dot { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px !important; }
+.profile-skel-row > span { display: flex; flex: 1; flex-direction: column; gap: .5rem; min-width: 0; }
+@media (max-width: 680px) {
+  .profile-skel-summary { grid-template-columns: 1fr; }
+  .profile-skel-hero { height: 84px; }
+  .profile-skel-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-skel-covers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .profile-skel-covers .profile-skel-cover:nth-child(n+4) { display: none; }
+}
+
+.journal-skeleton { gap: .7rem; padding-top: .25rem; }
+.journal-skel-month { width: 38%; max-width: 180px; height: 16px; margin-bottom: .3rem; }
+.journal-skel-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.journal-skel-row > span { display: flex; flex: 1; flex-direction: column; gap: .5rem; min-width: 0; }
+.journal-skel-cover { width: 40px; height: 60px; flex: 0 0 40px; border-radius: 8px !important; }
+.journal-skel-date { width: 44px; height: 10px; }
+.journal-skel-row:nth-child(n+4) { opacity: .6; }
+.journal-skel-row:nth-child(n+6) { opacity: .35; }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-card { animation: none; }
+}
