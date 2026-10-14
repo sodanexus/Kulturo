@@ -404,17 +404,22 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    --detail-p (0 → 1) est posé par bindDetailScroll().
    ═══════════════════════════════════════════════════════════ */
 
-/* Parallax : l'image dérive lentement vers le haut pendant que le corps défile. */
-.detail-backdrop-layer,
-.detail-backdrop.has-fallback::before {
-  transform: translate3d(0, calc(var(--detail-p, 0) * -22px), 0) scale(calc(1 + var(--detail-p, 0) * .12));
-  will-change: transform;
+/* Entête rétractable (voir bindDetailScroll) : le bandeau est sorti du flux,
+   le corps réserve sa hauteur déployée. Hauteur = déployée → compacte. */
+.detail-modal { --detail-compact-h: 64px; }
+.detail-modal.is-collapsible .detail-backdrop {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 4;
+  height: calc(var(--detail-h) - var(--detail-p, 0) * (var(--detail-h) - var(--detail-compact-h)));
+  box-shadow: 0 14px 28px -16px rgba(0, 0, 0, calc(var(--detail-p, 0) * .75));
 }
-.detail-backdrop-gradient {
-  background:
-    linear-gradient(to bottom, rgba(0,0,0,.35) 0%, rgba(0,0,0,.65) 60%, rgba(13,13,15,1) 100%),
-    linear-gradient(rgba(13,13,15,calc(var(--detail-p, 0) * .45)), rgba(13,13,15,calc(var(--detail-p, 0) * .45)));
+.detail-modal.is-collapsible .detail-body {
+  padding-top: calc(var(--detail-h) + 1rem);
 }
+.detail-modal .detail-backdrop-layer,
+.detail-modal .detail-backdrop.has-fallback::before { will-change: auto; }
+.detail-modal.is-collapsible .detail-close-btn { z-index: 10; }
 
 /* Le bloc affiche + titre s'efface vers le haut, la barre compacte prend le relais. */
 .detail-backdrop-content {
@@ -429,7 +434,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  padding: .85rem 1.25rem;
+  height: var(--detail-compact-h);
+  padding: 0 3.6rem 0 1.25rem;
   opacity: calc((var(--detail-p, 0) - .45) * 2);
   transform: translate3d(0, calc((1 - var(--detail-p, 0)) * 10px), 0);
   pointer-events: none;
@@ -496,8 +502,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-rating .rating-score.is-perfect.is-rating-pop { animation: ratingGlow 1.1s ease-out .5s 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .detail-backdrop-layer,
-  .detail-backdrop.has-fallback::before,
   .detail-backdrop-content,
   .detail-compact-bar { transform: none !important; will-change: auto; }
   .quick-status-btn.is-pop,
