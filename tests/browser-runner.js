@@ -154,7 +154,7 @@ start.addEventListener("click", async () => {
     input.value = "introuvable"; input.dispatchEvent(new win.Event("input", { bubbles: true }));
     await waitFor(() => doc.querySelector("#upcoming-grid .ui-state"), "Recherche locale ignorée");
     assert(doc.querySelector("#page-upcoming").classList.contains("active"), "Navigation inattendue vers la Bibliothèque");
-    assert(doc.querySelector("#global-search").value === "", "Recherche Bibliothèque modifiée");
+    assert(doc.querySelector("#global-search").value === "introuvable", "Recherche visible désynchronisée");
     await waitFor(() => win.location.hash.includes("uq=introuvable"), "Recherche absente de l’URL");
     win.location.reload();
     await waitFor(() => frame.contentDocument !== doc, "Actualisation absente");
@@ -164,6 +164,7 @@ start.addEventListener("click", async () => {
     const reset = await waitFor(() => doc.querySelector('[data-ui-action="resetUpcomingFilters"]'), "Bouton de réinitialisation absent");
     reset.click();
     await waitFor(() => doc.querySelector("#upcoming-grid .upcoming-card"), "Réinitialisation échouée");
+    assert(doc.querySelector("#global-search").value === "", "Recherche visible non effacée");
   });
 
   await test("Chargement échoué : Réessayer récupère la bibliothèque", async () => {
