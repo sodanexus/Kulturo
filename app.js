@@ -788,6 +788,10 @@ function renderApp() {
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
+        <label class="upcoming-search upcoming-search-top" for="upcoming-search">
+          <span class="search-icon" aria-hidden="true">${iconSearch()}</span>
+          <input type="search" id="upcoming-search" placeholder="Rechercher dans les sorties" autocomplete="off" aria-label="Rechercher dans les prochaines sorties" />
+        </label>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
@@ -803,10 +807,6 @@ function renderApp() {
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
-          <label class="upcoming-search" for="upcoming-search">
-            <span class="sr-only">Rechercher dans les sorties</span>
-            <input type="search" id="upcoming-search" placeholder="Rechercher dans les sorties" autocomplete="off" />
-          </label>
           <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
             <span>Genre</span>
             <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
@@ -827,7 +827,10 @@ function renderApp() {
 
       <!-- Journal personnel + activité communautaire -->
       <section id="page-journal" class="page">
-
+        <label class="journal-search topbar-search-wrap" for="journal-search">
+          <span class="search-icon" aria-hidden="true">${iconSearch()}</span>
+          <input type="search" id="journal-search" placeholder="Rechercher dans mon journal" aria-label="Rechercher une entrée dans mon journal" autocomplete="off" />
+        </label>
         <div class="journal-sticky-controls">
           <div class="journal-mode-switch" role="tablist" aria-label="Type de journal">
             <button type="button" class="journal-mode-btn active" id="journal-mode-personal" role="tab" aria-controls="journal-personal-panel" aria-selected="true" data-journal-action="mode" data-journal-mode="personal">Mon journal</button>
@@ -2953,6 +2956,7 @@ function bindGlobalEvents() {
   document.addEventListener("input", e => {
     if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
     if (e.target.id === "upcoming-search") upcomingFeature.setSearch(e.target.value);
+    if (e.target.id === "journal-search") journalFeature.setSearch(e.target.value);
     if (e.target.id === "global-search") {
       const q = e.target.value.trim();
       State.filters.search = q;
