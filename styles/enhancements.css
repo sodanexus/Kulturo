@@ -53,7 +53,6 @@ body { background-color: var(--system-bar-color); }
   font-size: var(--type-control);
 }
 .filter-select,
-.journal-time-step,
 .journal-month-select-wrap select {
   min-height: var(--control-height);
   border-radius: var(--control-radius);
@@ -689,11 +688,10 @@ body { background-color: var(--system-bar-color); }
 }
 .journal-time-nav {
   display: grid;
-  grid-template-columns: var(--control-height) minmax(150px, 1fr) var(--control-height);
+  grid-template-columns: minmax(180px, 1fr);
   align-items: center;
   gap: .3rem;
 }
-.journal-time-step,
 .journal-month-select-wrap select {
   min-height: var(--control-height);
   border: 1px solid var(--border);
@@ -706,11 +704,7 @@ body { background-color: var(--system-bar-color); }
 }
 .community-event-label { color: var(--text-3); }
 .community-event-label strong { color: var(--text-1); font-weight: 800; }
-.journal-time-step { display: grid; place-items: center; width: var(--control-height); }
-.journal-time-step:disabled { opacity: .35; cursor: default; }
-.journal-time-step:not(:disabled):hover,
 .journal-month-select-wrap select:hover { border-color: var(--accent); }
-.journal-time-step:focus-visible,
 .journal-month-select-wrap select:focus-visible,
 .journal-mode-btn:focus-visible {
   outline: 2px solid var(--accent);

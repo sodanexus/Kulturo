@@ -2,7 +2,17 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.9
+
+- Journal : suppression des flèches ; le choix du mois filtre les événements au lieu de défiler vers une ancre. « Tout l’historique » restaure le flux complet.
+- Sélecteur natif flottant lorsque celui du haut quitte l’écran, au-dessus de la navigation mobile ; les deux sélecteurs partagent le mois sélectionné.
+- Mois indépendants pour Mon journal et Communauté ; changement de mois ramenant au début de la liste.
+- Contrôle flottant masqué hors du Journal, pendant une fiche ou un bandeau de mise à jour. Retour du focus au sélecteur supérieur après changement depuis le contrôle flottant.
+- Quatre tests de régression supplémentaires. Versions des dépendances conservées sans modification.
+
 ## 4.0.8
+
+- Correctif de déploiement : restauration du verrouillage original des dépendances (picomatch 4.0.7). Seule la version du projet est 4.0.8.
 
 - Fiche mobile : croix masquée lorsque le geste de fermeture est activé ; l’espace correspondant est libéré dans la barre compacte.
 - Fiche desktop : croix plus petite et sans fond au repos, avec une zone réservée séparée des notes et badges en mode compact.

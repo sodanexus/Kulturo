@@ -10,8 +10,12 @@ function harness() {
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, {
       id, dataset: {}, children: [], innerHTML: '', classList: { toggle() {} },
+      addEventListener(type, handler) { handlers[type] = handler; },
+      contains() { return true; },
       setAttribute() {}, replaceChildren(...children) { this.children = children; },
       focus() { document.activeElement = this; },
+      scrollTo({ top }) { this.scrollTop = top; },
+      getBoundingClientRect() { return { top: 0, bottom: 100 }; },
     });
     return nodes.get(id);
   };
@@ -42,8 +46,8 @@ test('Journal : un chargement conserve le mois demandé ; un résultat vide le r
   nav.syncTimeline([]);
   assert.equal(nav.context().periods.personal, 'all');
   assert.equal(node('journal-month-select').value, 'all');
-  assert.equal(node('journal-time-prev').disabled, true);
-  assert.equal(node('journal-time-next').disabled, true);
+  assert.equal(node('journal-month-select').disabled, true);
+  assert.equal(node('journal-floating-month-select').disabled, true);
 });
 
 test('Journal : flèches, Home et End changent le panneau et déplacent le focus', () => {
@@ -129,4 +133,62 @@ test('Journal : une date sans heure conserve son jour local dans le libellé', a
   feature.setSearch('ete');
   await feature.render();
   assert.match(node('journal-feed').innerHTML, /dimanche 1 mars 2026/);
+});
+
+
+test('Journal : sélectionner un mois filtre les événements sans perdre les autres choix', async () => {
+  const { feature, node, handlers } = featureFixture();
+  feature.bind();
+  await feature.render();
+  const select = node('journal-month-select');
+  select.value = '2026-02'; select.closest = () => select;
+  node('main').scrollTop = 900;
+  handlers.change({ target: select });
+  assert.match(node('journal-feed').innerHTML, /Autre titre/);
+  assert.doesNotMatch(node('journal-feed').innerHTML, /Été retrouvé/);
+  assert.equal(node('main').scrollTop, 0);
+  assert.equal(node('journal-month-select').children.length, 3);
+  assert.equal(node('journal-floating-month-select').value, '2026-02');
+  select.value = 'all'; handlers.change({ target: select });
+  assert.match(node('journal-feed').innerHTML, /Été retrouvé/);
+  assert.match(node('journal-feed').innerHTML, /Autre titre/);
+});
+
+test('Journal : un changement depuis le contrôle flottant rend le focus au sélecteur supérieur', async () => {
+  const { feature, node, handlers } = featureFixture();
+  feature.bind(); await feature.render();
+  const select = node('journal-floating-month-select');
+  select.value = '2026-03'; select.closest = () => select; select.focus();
+  handlers.change({ target: select });
+  assert.equal(document.activeElement.id, 'journal-month-select');
+  assert.equal(node('journal-month-select').value, '2026-03');
+  assert.doesNotMatch(node('journal-feed').innerHTML, /Autre titre/);
+});
+
+test('Journal : le sélecteur flottant apparaît hors champ et disparaît pour une fiche ou un bandeau', async () => {
+  const { feature, node } = featureFixture();
+  await feature.render(); node('update-banner').hidden = true;
+  const select = node('journal-month-select');
+  feature.syncFloating(); assert.equal(node('journal-floating-month').hidden, true);
+  select.getBoundingClientRect = () => ({ bottom: -1 });
+  feature.syncFloating(); assert.equal(node('journal-floating-month').hidden, false);
+  node('main').inert = true;
+  feature.syncFloating(); assert.equal(node('journal-floating-month').hidden, true);
+  node('main').inert = false; node('update-banner').hidden = false;
+  feature.syncFloating(); assert.equal(node('journal-floating-month').hidden, true);
+});
+
+test('Journal : les mois personnel et communauté restent indépendants', () => {
+  harness();
+  const nav = createJournalNavigation();
+  const personal = [{ occurred_at: '2026-02-01' }, { occurred_at: '2026-03-01' }];
+  const community = [{ created_at: '2026-04-01' }, { created_at: '2026-05-01' }];
+  nav.syncTimeline(personal);
+  nav.selectMonth('2026-02');
+  nav.setMode('community'); nav.syncTimeline(community, 'community'); nav.selectMonth('2026-05');
+  assert.deepEqual(nav.filterMonth(community, 'community'), [community[1]]);
+  nav.setMode('personal');
+  assert.deepEqual(nav.filterMonth(personal), [personal[0]]);
+  assert.equal(nav.context().periods.personal, '2026-02');
+  assert.equal(nav.context().periods.community, '2026-05');
 });

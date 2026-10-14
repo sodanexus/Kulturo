@@ -135,7 +135,6 @@
 
 /* Les sélecteurs de date partagent la même géométrie sur toutes les pages. */
 .filter-select,
-.journal-time-step,
 .journal-month-select-wrap select {
   height: var(--control-height);
   min-height: var(--control-height);
@@ -165,4 +164,36 @@
 }
 @media (pointer: coarse) {
   :root { --control-height: 44px; --control-height-sm: 44px; }
+}
+
+/* Le sélecteur natif reste utilisable au toucher comme au clavier. */
+.journal-floating-month {
+  position: fixed;
+  right: max(1.25rem, var(--safe-right));
+  bottom: calc(1.25rem + var(--safe-bottom));
+  z-index: 90;
+  max-width: calc(100vw - 2.5rem);
+}
+.journal-floating-month select {
+  width: auto;
+  max-width: 100%;
+  min-height: 44px;
+  padding: .65rem 2rem .65rem 1rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--control-radius);
+  background-color: var(--bg-2);
+  color: var(--accent-2);
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+  cursor: pointer;
+}
+html[data-page="journal"] #main { padding-bottom: calc(5.5rem + var(--safe-bottom)); }
+@media (max-width: 680px) {
+  .journal-floating-month {
+    right: max(.85rem, var(--safe-right));
+    bottom: calc(84px + var(--safe-bottom));
+  }
+  html[data-page="journal"] #main { padding-bottom: calc(9rem + var(--safe-bottom)); }
+  .journal-month-select-wrap select { font-size: 1rem; }
 }

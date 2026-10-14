@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.8
+## Validation de l’archive 4.0.9
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -69,3 +69,9 @@ Ces contrôles ne sont pas une validation du rendu visuel ni des interactions su
 ### Ajustement 4.0.8
 
 Croix des fiches masquée sur mobile avec geste de fermeture ; sur desktop, icône discrète et espace réservé indépendant des notes dans la barre compacte. Seul `styles/finesse.css` change le rendu. Tests techniques et compilation vérifiés ; validation visuelle Safari/iPad et desktop à effectuer.
+
+Correctif de l’archive 4.0.8 : installation `npm ci --ignore-scripts` vérifiée avec un cache vierge après restauration des dépendances originales dans `package-lock.json`.
+
+### Journal 4.0.9
+
+81 tests techniques, compilation et contrôle de cohérence de version. Quatre tests supplémentaires couvrent le filtre par mois, la conservation des choix, l’indépendance des modes, le contrôle flottant et son focus. Sept parcours en DOM simulé passent, dont le changement de mois depuis le véritable sélecteur flottant (géométrie simulée). Le rendu et l’ouverture du sélecteur natif sur Safari/iOS restent à confirmer sur appareil réel.

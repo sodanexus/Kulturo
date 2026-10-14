@@ -124,11 +124,12 @@ function syncDialogBackground() {
   const blocked = Boolean(document.querySelector(
     "#modal-overlay, #filter-modal-overlay, #metadata-overlay, #confirm-overlay"
   ));
-  document.querySelectorAll("#topbar, #sidebar, #main, #bottom-nav, #update-banner, #back-to-top").forEach(element => {
+  document.querySelectorAll("#topbar, #sidebar, #main, #bottom-nav, #update-banner, #back-to-top, #journal-floating-month").forEach(element => {
     element.inert = blocked;
     if (blocked) element.setAttribute("aria-hidden", "true");
     else element.removeAttribute("aria-hidden");
   });
+  journalFeature.syncFloating();
 }
 
 function activateDialog(dialog, options = {}) {
@@ -831,14 +832,12 @@ function renderApp() {
             <button type="button" class="journal-mode-btn" id="journal-mode-community" role="tab" aria-controls="journal-community-panel" aria-selected="false" data-journal-action="mode" data-journal-mode="community">Communauté</button>
           </div>
           <div class="journal-time-nav" id="journal-time-nav" aria-label="Navigation dans le temps">
-            <button type="button" class="journal-time-step" id="journal-time-prev" data-journal-action="step-month" data-direction="1" aria-label="Mois plus ancien">←</button>
             <label class="journal-month-select-wrap">
-              <span class="sr-only">Aller à un mois</span>
-              <select id="journal-month-select" data-journal-action="jump-month">
+              <span class="sr-only">Filtrer par mois</span>
+              <select id="journal-month-select" data-journal-action="select-month">
                 <option value="all">Tout l’historique</option>
               </select>
             </label>
-            <button type="button" class="journal-time-step" id="journal-time-next" data-journal-action="step-month" data-direction="-1" aria-label="Mois plus récent">→</button>
           </div>
         </div>
 
@@ -868,6 +867,13 @@ function renderApp() {
       <button class="btn btn-primary btn-sm" id="apply-update-btn" ${uiAction("applyAppUpdate")}>Mettre à jour</button>
       <button class="update-banner-close" ${uiAction("dismissUpdateBanner")} aria-label="Masquer">${iconX()}</button>
     </aside>
+
+    <label id="journal-floating-month" class="journal-floating-month" hidden>
+      <span class="sr-only">Changer le mois du journal</span>
+      <select id="journal-floating-month-select" data-journal-action="select-month">
+        <option value="all">Tout l’historique</option>
+      </select>
+    </label>
 
     <button id="back-to-top" class="back-to-top" ${uiAction("scrollToTop")} aria-label="Revenir en haut" title="Revenir en haut" hidden>
       <span aria-hidden="true">↑</span>
@@ -1235,7 +1241,8 @@ function syncBackToTop() {
   const main = document.getElementById("main");
   const button = document.getElementById("back-to-top");
   if (!main || !button) return;
-  button.hidden = main.scrollTop < 560;
+  button.hidden = _currentPage === "journal" || main.scrollTop < 560;
+  journalFeature.syncFloating();
 }
 
 function scrollToTop() {
@@ -3009,6 +3016,7 @@ function bindGlobalEvents() {
   window.addEventListener("resize", () => {
     clearTimeout(synopsisResizeTimer);
     synopsisResizeTimer = setTimeout(() => {
+      syncBackToTop();
       document.querySelectorAll(".detail-synopsis-wrap[id^='syn-']").forEach(wrap => {
         _scheduleSynopsisOverflowCheck(wrap.id.slice(4));
       });
@@ -3098,6 +3106,7 @@ function syncUpdateBanner() {
   const ready = Boolean(window.__kulturoUpdateRegistration?.waiting);
   banner.hidden = !ready || _updateBannerDismissed;
   document.getElementById("back-to-top")?.classList.toggle("is-obscured", !banner.hidden);
+  journalFeature.syncFloating();
 }
 
 function dismissUpdateBanner() {

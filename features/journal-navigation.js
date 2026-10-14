@@ -69,15 +69,6 @@ export function createJournalNavigation(options = {}) {
     return true;
   }
 
-  function syncTimeButtons(targetMode = mode) {
-    const state = periodState(targetMode);
-    const index = state.keys.indexOf(state.target);
-    const previous = document.getElementById("journal-time-prev");
-    const next = document.getElementById("journal-time-next");
-    if (previous) previous.disabled = !state.keys.length || (state.target !== "all" && index >= state.keys.length - 1);
-    if (next) next.disabled = state.target === "all" || index <= 0;
-  }
-
   function syncTimeline(items, targetMode = mode, { pending = false } = {}) {
     const state = periodState(targetMode);
     const timestampOf = targetMode === "community"
@@ -89,45 +80,35 @@ export function createJournalNavigation(options = {}) {
     if (!pending && state.target !== "all" && !state.keys.includes(state.target)) state.target = "all";
     if (targetMode !== mode) return;
 
-    const select = document.getElementById("journal-month-select");
+    for (const id of ["journal-month-select", "journal-floating-month-select"]) {
+      const select = document.getElementById(id);
+      if (!select) continue;
+      const choices = [new Option("Tout l’historique", "all")];
+      state.keys.forEach(key => choices.push(new Option(monthLabel(key), key)));
+      select.replaceChildren(...choices);
+      select.value = pending ? "all" : state.target;
+      select.disabled = pending || !state.keys.length;
+    }
     const nav = document.getElementById("journal-time-nav");
-    if (!select || !nav) return;
-    const options = [new Option("Tout l’historique", "all")];
-    state.keys.forEach(key => options.push(new Option(monthLabel(key), key)));
-    select.replaceChildren(...options);
-    select.value = state.target;
-    nav.dataset.journalMode = targetMode;
-    syncTimeButtons(targetMode);
+    if (nav) nav.dataset.journalMode = targetMode;
   }
 
-  function jumpMonth(value) {
+  function filterMonth(items, targetMode = mode) {
+    const target = periodState(targetMode).target;
+    if (target === "all") return items;
+    return items.filter(item => yearMonthOf(targetMode === "community" ? item.created_at : item.occurred_at) === target);
+  }
+
+  function selectMonth(value) {
     const state = periodState();
     if (value !== "all" && !state.keys.includes(value)) return;
+    const fromFloating = document.activeElement?.id === "journal-floating-month-select";
     state.target = value;
-    onChange();
-    const select = document.getElementById("journal-month-select");
-    if (select) select.value = value;
-    syncTimeButtons();
-
     const main = document.getElementById("main");
-    const feedId = mode === "community" ? "community-feed" : "journal-feed";
-    const target = value === "all"
-      ? document.querySelector(`#${feedId} .journal-month-group`)
-      : document.getElementById(monthDomId(mode, value));
-    if (!main || !target) return;
-    const mainRect = main.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    const top = Math.max(0, main.scrollTop + targetRect.top - mainRect.top - 8);
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    main.scrollTo({ top, behavior: reducedMotion ? "auto" : "smooth" });
-  }
-
-  function stepMonth(direction) {
-    const state = periodState();
-    if (!state.keys.length) return;
-    const currentIndex = state.target === "all" ? -1 : state.keys.indexOf(state.target);
-    const nextIndex = Math.min(state.keys.length - 1, Math.max(0, currentIndex + Number(direction || 0)));
-    jumpMonth(state.keys[nextIndex]);
+    main?.scrollTo({ top: 0, behavior: "instant" });
+    options.onMonthChange?.();
+    onChange();
+    if (fromFloating) document.getElementById("journal-month-select")?.focus({ preventScroll: true });
   }
 
   function toggleGroup(key) {
@@ -158,8 +139,6 @@ export function createJournalNavigation(options = {}) {
       if (action === "mode") {
         const changed = setMode(control.dataset.journalMode);
         if (changed) handlers.onModeChange?.(mode);
-      } else if (action === "step-month") {
-        stepMonth(control.dataset.direction);
       } else if (action === "toggle-group") {
         toggleGroup(control.dataset.groupKey);
       } else if (action === "open-personal") {
@@ -189,8 +168,8 @@ export function createJournalNavigation(options = {}) {
       document.getElementById(`journal-mode-${nextMode}`)?.focus();
     });
     root.addEventListener("change", event => {
-      const control = event.target.closest?.('[data-journal-action="jump-month"]');
-      if (control && root.contains(control)) jumpMonth(control.value);
+      const control = event.target.closest?.('[data-journal-action="select-month"]');
+      if (control && root.contains(control)) selectMonth(control.value);
     });
   }
 
@@ -204,10 +183,10 @@ export function createJournalNavigation(options = {}) {
     bind,
     groupDomId,
     isGroupExpanded: key => expandedGroups.has(key),
-    jumpMonth,
+    selectMonth,
+    filterMonth,
     monthDomId,
     setMode,
-    stepMonth,
     syncMode,
     syncTimeline,
     toggleGroup,

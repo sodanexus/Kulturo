@@ -21,7 +21,14 @@ export function createJournalFeature({
   let _communityLoaded = false;
   let _journalSearch = "";
   const renderGate = createAsyncGate();
-  const journalNavigation = createJournalNavigation({ onChange: onContextChange });
+  const journalNavigation = createJournalNavigation({
+    onChange: onContextChange,
+    onMonthChange: () => {
+      if (journalNavigation.mode === "community") renderCurrentCommunityView();
+      else renderCurrentJournalView();
+      syncFloating();
+    },
+  });
 
   function visibleJournalEvents() {
     const existingIds = new Set(State.entries.map(entry => entry.id));
@@ -46,6 +53,7 @@ export function createJournalFeature({
       replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
       renderGate.finish(task);
       onViewReady?.("journal");
+      syncFloating();
     }
   }
 
@@ -83,10 +91,11 @@ export function createJournalFeature({
       const label = presentation?.label || event.event_type || "";
       return normalizeSearchText(`${entry?.title || ""} ${label}`).includes(query);
     }) : allVisible;
-    container.innerHTML = query && !visible.length
-      ? emptyState({ icon: "search", title: "Aucune entrée trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
-      : renderJournalFeed(visible);
     journalNavigation.syncTimeline(visible, "personal");
+    const selected = journalNavigation.filterMonth(visible, "personal");
+    container.innerHTML = query && !selected.length
+      ? emptyState({ icon: "search", title: "Aucune entrée trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
+      : renderJournalFeed(selected);
     hydrateFadeImages(container);
   }
 
@@ -316,10 +325,11 @@ export function createJournalFeature({
       normalizeSearchText(`${entry.title || ""} ${entry.username || ""} a ajouté ${statusLabelFor(entry.status, entry.media_type) || ""}`)
         .includes(query)
     ) : _communityEntries;
-    container.innerHTML = query && !visible.length
-      ? emptyState({ icon: "search", title: "Aucune activité trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
-      : renderCommunityFeed(visible);
     journalNavigation.syncTimeline(visible, "community");
+    const selected = journalNavigation.filterMonth(visible, "community");
+    container.innerHTML = query && !selected.length
+      ? emptyState({ icon: "search", title: "Aucune activité trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
+      : renderCommunityFeed(selected);
     hydrateFadeImages(container);
   }
 
@@ -407,7 +417,18 @@ export function createJournalFeature({
     }, { readOnly: true, transitionSource });
   }
 
+  function syncFloating() {
+    const floating = document.getElementById("journal-floating-month");
+    const select = document.getElementById("journal-month-select");
+    const main = document.getElementById("main");
+    if (!floating || !select || !main) return;
+    const banner = document.getElementById("update-banner");
+    const allowed = getCurrentPage?.() === "journal" && !main.inert && !select.disabled && (!banner || banner.hidden);
+    floating.hidden = !allowed || select.getBoundingClientRect().bottom > main.getBoundingClientRect().top;
+  }
+
   function bindJournalInteractions() {
+    journalNavigation.bind(document.getElementById("journal-floating-month"));
     journalNavigation.bind(document.getElementById("page-journal"), {
       onModeChange: () => renderJournal(),
       onOpenPersonal: openJournalMedia,
@@ -422,6 +443,7 @@ export function createJournalFeature({
       _journalSearch = String(value || "").slice(0, 120);
       if (journalNavigation.mode === "community") renderCurrentCommunityView();
       else if (!State.journalDirty) renderCurrentJournalView();
+      syncFloating();
     },
     async retry() {
       if (journalNavigation.mode === "community") _communityLoaded = false;
@@ -429,6 +451,7 @@ export function createJournalFeature({
       await renderJournal();
     },
     bind: bindJournalInteractions,
+    syncFloating,
     invalidate() { _communityLoaded = false; },
     context: () => journalNavigation.context(),
     restoreContext: value => journalNavigation.restoreContext(value),
