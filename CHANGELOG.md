@@ -2,6 +2,16 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.7
+
+- Journal : recherche appliquée aux données personnelles et communautaires, avec état vide et mois synchronisés ; suppression du filtre DOM concurrent.
+- Recherche : accents et ligatures normalisés dans toutes les vues utilisant la recherche commune.
+- Journal : navigation clavier des onglets, réinitialisation des mois vides et des états à la déconnexion, dates sans heure interprétées localement.
+- Sorties : champ de recherche visible synchronisé lors des réinitialisations ; commandes et mois dans le flux, sans fond flottant.
+- Design : tailles et typographie communes des contrôles, cibles tactiles de 44 px pour ces contrôles, départ de page unifié, même icône Profil.
+- Accessibilité : boutons de fermeture conservés sur mobile, éléments summary inclus dans le cycle de focus des dialogues, retour en haut respectant le mouvement réduit.
+- Sept tests de régression ajoutés. Bilan et limites de l’audit dans AUDIT.md.
+
 ## 4.0.6
 
 - Journal : les commandes défilent avec le contenu sur un fond transparent, sans rectangle opaque ni coupure de la frise dorée.

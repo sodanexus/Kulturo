@@ -759,7 +759,7 @@ function renderApp() {
           <span class="nav-label">Journal</span>
         </button>
         <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" ${uiAction("navTo", ["dashboard"])}>
-          <span class="nav-icon">${iconChart()}</span>
+          <span class="nav-icon">${iconUser()}</span>
           <span class="nav-label">Profil</span>
         </button>
       </div>
@@ -1174,27 +1174,6 @@ function replayMotion(element, className) {
   });
 }
 
-function filterJournalFeed(query) {
-  const feed = document.getElementById("journal-feed");
-  if (!feed) return;
-  const q = String(query || "").toLocaleLowerCase("fr-FR");
-  feed.querySelectorAll(".journal-month-group").forEach(month => {
-    let visibleCount = 0;
-    month.querySelectorAll(".journal-event-row").forEach(row => {
-      const match = !q || row.textContent.toLocaleLowerCase("fr-FR").includes(q);
-      row.hidden = !match;
-      if (match) visibleCount++;
-    });
-    month.querySelectorAll(".journal-event-group").forEach(group => {
-      const rows = [...group.querySelectorAll(".journal-event-row")];
-      const matches = rows.filter(row => !row.hidden).length;
-      group.hidden = Boolean(q) && matches === 0;
-      if (group.hidden) visibleCount = Math.max(0, visibleCount - rows.length);
-    });
-    month.hidden = Boolean(q) && visibleCount === 0;
-  });
-}
-
 function showPage(name) {
   const newPage = document.getElementById(`page-${name}`);
   if (!newPage) return;
@@ -1227,7 +1206,7 @@ function showPage(name) {
     const searchConfig = {
       library: ["Rechercher dans ma bibliothèque", "Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année"],
       upcoming: ["Rechercher dans les prochaines sorties", "Rechercher un film, une série, un jeu ou un livre parmi les prochaines sorties"],
-      journal: ["Rechercher dans mon journal", "Rechercher une œuvre ou une activité dans mon journal"],
+      journal: ["Rechercher dans le journal", "Rechercher une œuvre, une activité ou un membre dans le journal affiché"],
     }[name];
     if (searchConfig) {
       globalSearch.placeholder = searchConfig[0];
@@ -1247,7 +1226,7 @@ function showPage(name) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "upcoming")  upcomingFeature.render();
-  if (name === "journal") { renderJournal(); requestAnimationFrame(() => filterJournalFeed(globalSearch?.dataset.journalQuery || "")); }
+  if (name === "journal") renderJournal();
   if (name === "library")   restorePageScroll("library");
   requestAnimationFrame(syncBackToTop);
 }
@@ -1262,7 +1241,7 @@ function syncBackToTop() {
 function scrollToTop() {
   const main = document.getElementById("main");
   if (!main) return;
-  main.scrollTo({ top: 0, behavior: "smooth" });
+  main.scrollTo({ top: 0, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth" });
 }
 
 // ── Filter bar ────────────────────────────────────────────────
@@ -2994,7 +2973,7 @@ function bindGlobalEvents() {
         upcomingFeature.setSearch(q);
       } else if (_currentPage === "journal") {
         e.target.dataset.journalQuery = q;
-        filterJournalFeed(q);
+        journalFeature.setSearch(q);
       } else {
         State.filters.search = q;
         scheduleUiSnapshot();
@@ -3776,7 +3755,7 @@ const journalFeature = createJournalFeature({
   confirmDialog, toast, openDetailPanel, renderDetailPanel,
   getCurrentPage: () => _currentPage,
   onContextChange: persistUiSnapshot,
-  onViewReady: page => { restorePageScroll(page); if (page === "journal") filterJournalFeed(document.getElementById("global-search")?.dataset.journalQuery || ""); },
+  onViewReady: restorePageScroll,
   sameOwner,
 });
 const { render: renderJournal, bind: bindJournalInteractions } = journalFeature;

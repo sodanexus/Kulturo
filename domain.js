@@ -128,6 +128,8 @@ export function normalizeSearchText(value) {
     .normalize("NFD")
     .replace(/\p{M}+/gu, "")
     .toLocaleLowerCase("fr-FR")
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .replace(/\s+/g, " ");
