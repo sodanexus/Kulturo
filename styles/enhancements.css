@@ -943,3 +943,65 @@ body { background-color: var(--system-bar-color); }
     transition: none !important;
   }
 }
+
+
+/* Recherche cohérente en tête des pages Journal et Prochaines sorties. */
+#page-journal .journal-search,
+#page-upcoming .upcoming-search-top {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 .8rem;
+}
+#page-journal .journal-search input,
+#page-upcoming .upcoming-search-top input {
+  width: 100%;
+  min-height: 44px;
+  padding: .65rem .9rem .65rem 2.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--type-control);
+}
+#page-journal .journal-search .search-icon,
+#page-upcoming .upcoming-search-top .search-icon {
+  position: absolute;
+  top: 50%;
+  left: .85rem;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+#page-journal .journal-search input:focus,
+#page-upcoming .upcoming-search-top input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+/* Les commandes d’action du Journal partagent des dimensions et un fond lisible. */
+#page-journal .journal-time-step,
+#page-journal .journal-month-select-wrap select { min-height: 40px; }
+#page-journal .journal-time-step {
+  width: 40px;
+  border-radius: 10px;
+  background: var(--bg-3);
+}
+#page-journal .journal-event-group-toggle { min-height: 80px; cursor: pointer; }
+#page-journal .journal-event-group-toggle:hover { background: color-mix(in srgb, var(--accent) 7%, var(--bg-2)); }
+#page-journal .journal-event-delete {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  align-self: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-3);
+}
+#page-journal .journal-event-delete:hover { background: var(--bg-4); }
