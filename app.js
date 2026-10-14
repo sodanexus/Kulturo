@@ -661,7 +661,7 @@ function restoreNavigation(snapshot = restoreUiSnapshot(), preparedRoute = undef
     }
   }
   _pendingRouteDetailId = routeDetailId;
-  restorePendingRouteDetail();
+  if (!restorePendingRouteDetail()) openAddFromRoute(route);
 }
 
 function restorePendingRouteDetail() {
@@ -671,6 +671,16 @@ function restorePendingRouteDetail() {
   const id = _pendingRouteDetailId;
   _pendingRouteDetailId = null;
   queueMicrotask(() => openDetailPanel(id, { history: "none" }));
+  return true;
+}
+
+// Raccourci « Ajouter » du manifeste (#/library?add=1) : ouvre l'ajout une seule
+// fois, puis l'URL retrouve sa forme normale pour qu'une actualisation ne le
+// rouvre pas. Sans session, le paramètre attend la connexion.
+function openAddFromRoute(route) {
+  if (!route?.add || !State.user || document.getElementById("modal-overlay")) return false;
+  history.replaceState(appHistoryState(_currentPage), "", historyUrl(_currentPage));
+  queueMicrotask(() => { if (!document.getElementById("modal-overlay")) UI.openAddModal(); });
   return true;
 }
 
@@ -2883,6 +2893,8 @@ async function handleSmartBack(event) {
     if (target?.layer === "modal" && target.modal === "detail" && target.mediaId) {
       _pendingRouteDetailId = target.mediaId;
       restorePendingRouteDetail();
+    } else if (openAddFromRoute(route)) {
+      // Le raccourci « Ajouter » ouvre la feuille d'ajout par-dessus la page.
     } else if (target?.page === "library") {
       const search = document.getElementById("global-search");
       if (search) search.value = State.filters.search || "";

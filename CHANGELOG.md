@@ -4,6 +4,9 @@
 
 ## À venir (non publié)
 
+- **Raccourcis de l'icône** : un appui long sur l'icône de la PWA propose **Ajouter une œuvre**, **Journal** et **Sorties**. « Ajouter » ouvre directement la feuille d'ajout (`#/library?add=1`), puis l'URL redevient normale. Sans session, l'ajout s'ouvre après la connexion. Aucune migration SQL.
+- Barre compacte de la fiche : la note garde son or d'origine au lieu de suivre la couleur de la jaquette, et affiche aussi le **coup de cœur** et le **revisionnage** (avec son compteur) lorsqu'ils existent. Ils se mettent à jour en direct.
+- Fiche : le cœur du coup de cœur « pop » à l'ouverture, juste derrière l'étoile de la note, et quand une œuvre devient coup de cœur. Désactivé si le mouvement est réduit.
 - Les grands titres de page (Bibliothèque, Profil, Sorties, Journal), leur phrase d'introduction et leur ligne de séparation sont supprimés. Toutes les pages démarrent à la même hauteur, sur ordinateur comme sur téléphone.
 - Correction : depuis le Profil, un clic sur une note de l'histogramme (ou sur Terminés, En cours, Coups de cœur, Envies) ouvre bien la Bibliothèque filtrée. Les filtres étaient remis à zéro par la transition de page.
 - Le statut **En pause** est supprimé : ces médias deviennent **En cours**. **Un SQL est nécessaire** : exécuter une fois `schema.sql` dans Supabase (il convertit les médias concernés sans créer de faux événements dans le Journal). Les anciennes sauvegardes contenant ce statut restent restaurables.
