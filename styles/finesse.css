@@ -323,3 +323,77 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
     background: color-mix(in srgb, var(--bg-2) 97%, transparent);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Ajustements — survol des affiches, fiche desktop, pied mobile
+   ═══════════════════════════════════════════════════════════ */
+
+/* Desktop : le « projecteur » est plus marqué. Les autres affiches
+   s'assombrissent nettement et la fiche survolée reste pleine lumière. */
+@media (hover: hover) and (pointer: fine) {
+  #cards-grid:has(.media-card:hover) .media-card:not(:hover):not(.is-wishlist):not(.is-paused):not(.is-dropped) .card-cover {
+    filter: brightness(.38) saturate(.6);
+  }
+  #cards-grid:has(.media-card:hover) .media-card:not(:hover):is(.is-wishlist, .is-paused, .is-dropped) .card-cover {
+    filter: brightness(.55) saturate(.15);
+  }
+  #cards-grid .media-card:not(:hover) .card-cover,
+  #cards-grid .media-card:not(:hover) .card-cover-placeholder {
+    transition-duration: .35s;
+  }
+}
+
+/* Desktop : fiche plus généreuse. */
+@media (min-width: 681px) {
+  .detail-modal {
+    --modal-max-width: 860px;
+    height: min(880px, calc(100dvh - 3rem - var(--safe-top) - var(--safe-bottom)));
+    max-height: min(880px, calc(100dvh - 3rem - var(--safe-top) - var(--safe-bottom)));
+  }
+  .detail-backdrop { height: 240px; }
+  .detail-backdrop.has-backdrop { height: 300px; }
+  .detail-poster,
+  .detail-poster-placeholder { width: 128px; min-width: 128px; height: 192px; }
+  .detail-title { font-size: clamp(1.6rem, 2.2vw, 2.1rem); }
+}
+
+/* Mobile : le pied de fiche tient sur une seule ligne.
+   [corbeille] ········ [IMDb] [Bande-annonce] [   Modifier   ]
+   Les liens externes passent en icônes (le libellé reste lu par les
+   lecteurs d'écran via aria-label), l'action principale prend la place restante. */
+@media (max-width: 680px) {
+  .detail-modal .modal-footer {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: .5rem;
+  }
+  .detail-modal .detail-footer-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    margin-left: 0;
+    gap: .5rem;
+  }
+  .detail-modal .detail-delete-action { flex: 0 0 var(--control-height); }
+  .detail-modal .detail-ext-link {
+    flex: 0 0 var(--control-height);
+    width: var(--control-height);
+    height: var(--control-height);
+    min-height: var(--control-height);
+    padding: 0;
+    justify-content: center;
+  }
+  .detail-modal .detail-ext-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .detail-modal .detail-footer-actions > .btn-primary {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: var(--control-height);
+    justify-content: center;
+  }
+}
