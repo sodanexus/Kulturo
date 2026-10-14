@@ -683,28 +683,16 @@ body { background-color: var(--system-bar-color); }
 
 /* Journal temporel ------------------------------------------- */
 #page-journal .journal-sticky-controls {
-  /* #main défile déjà sous la topbar : aucun second décalage. */
-  position: sticky;
-  top: 0;
-  z-index: 80;
+  /* Les commandes suivent le flux : aucune plaque ne coupe l'atmosphère
+     du Journal, ni ne recouvre la frise lors du défilement. */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .7rem;
   margin: 0 0 .8rem;
   padding: .65rem 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  isolation: isolate;
-}
-/* Le fond couvre aussi la frise située dans la gouttière du Journal. */
-#page-journal .journal-sticky-controls::before {
-  content: "";
-  position: absolute;
-  inset: 0 -1rem;
-  z-index: -1;
-  background: var(--bg);
-  pointer-events: none;
+  background: transparent;
 }
 .journal-time-nav {
   display: grid;
