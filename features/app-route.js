@@ -107,5 +107,8 @@ export function parseAppRoute(hash = "") {
       modal: params.get("modal") || null,
       mediaId: mediaId && mediaId.length <= 100 ? mediaId : null,
     },
+    // Raccourci du manifeste « Ajouter » (#/library?add=1) : action ponctuelle,
+    // jamais reconstruite par buildAppRoute pour que l'URL redevienne propre.
+    add: params.get("add") === "1",
   };
 }

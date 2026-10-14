@@ -364,7 +364,10 @@ function renderDetailPanel(e, options = {}) {
           <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
           ${!isPreview ? `<div class="detail-compact-bar" aria-hidden="true">
             <span class="detail-compact-title">${esc(e.title)}</span>
-            <span class="detail-compact-rating" id="detail-compact-rating-${e.id}">${compactRatingLabel(e.rating)}</span>
+            <span class="detail-compact-meta">
+              <span class="detail-compact-badges" id="detail-compact-badges-${e.id}">${compactBadgesHTML(e)}</span>
+              <span class="detail-compact-rating" id="detail-compact-rating-${e.id}">${compactRatingLabel(e.rating)}</span>
+            </span>
           </div>` : `<div class="detail-compact-bar" aria-hidden="true"><span class="detail-compact-title">${esc(e.title)}</span></div>`}
           <div class="detail-backdrop-content">
             ${posterHTML}
@@ -412,6 +415,7 @@ function renderDetailPanel(e, options = {}) {
   bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
   bindDetailScroll(root.querySelector(".detail-modal"));
   enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
+  if (!options.restoreView) popFavoriteHeart(root.querySelector(`#detail-fav-${CSS.escape(String(e.id))}`), 200);
   hydrateFadeImages(root);
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
@@ -468,6 +472,45 @@ function formatRatingValue(value) {
 function compactRatingLabel(rating) {
   const value = Number(rating);
   return Number.isFinite(value) && value > 0 ? `★ ${formatRatingValue(value)}` : "";
+}
+
+// Barre compacte : coup de cœur et revisionnage, seulement s'il y en a.
+// Mêmes couleurs que dans l'entête déployé (corail et turquoise).
+function compactBadgesHTML(entry) {
+  let html = "";
+  if (entry.is_favorite) {
+    html += `<span class="detail-compact-fav">♥</span>`;
+  }
+  if (isReplayEntry(entry)) {
+    const info = repeatInfo(entry);
+    const progress = repeatProgressLabel(entry, info);
+    html += `<span class="detail-compact-repeat ${progress ? "is-progress" : ""}">${iconRepeat()}<strong>${info.total}×</strong></span>`;
+  }
+  return html;
+}
+
+// Cœur : même entrée en scène que l'étoile de la note. Il pop une fois, avec
+// un léger décalage derrière l'étoile ; le délai passe par --fav-pop-delay pour
+// que l'état de départ (invisible) s'applique dès l'ajout de la classe.
+function popFavoriteHeart(el, delay = 0) {
+  if (!el || !el.classList.contains("is-active") || prefersReducedMotion()) return;
+  el._favPopCleanup?.();
+  el.classList.remove("is-fav-pop");
+  void el.offsetWidth; // relance l'animation si elle était en cours
+  el.style.setProperty("--fav-pop-delay", `${delay}ms`);
+  el.classList.add("is-fav-pop");
+  // La classe part à la fin de la lueur (la dernière animation), avec un filet de sécurité.
+  const cleanup = () => {
+    clearTimeout(timer);
+    el.removeEventListener("animationend", onEnd);
+    el.classList.remove("is-fav-pop");
+    el.style.removeProperty("--fav-pop-delay");
+    el._favPopCleanup = null;
+  };
+  const onEnd = event => { if (event.animationName === "favHeartGlow") cleanup(); };
+  const timer = setTimeout(cleanup, delay + 1600);
+  el.addEventListener("animationend", onEnd);
+  el._favPopCleanup = cleanup;
 }
 
 // Note affichée dans le conteneur (0 si « Non noté »).
@@ -979,7 +1022,11 @@ function syncOpenDetail(entry, feedback = "") {
   }
 
   const favorite = document.getElementById(`detail-fav-${entry.id}`);
-  if (favorite) favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
+  if (favorite) {
+    const wasFavorite = favorite.classList.contains("is-active");
+    favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
+    if (!wasFavorite && entry.is_favorite) popFavoriteHeart(favorite);
+  }
 
   const repeat = document.getElementById(`detail-repeat-${entry.id}`);
   if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
@@ -992,6 +1039,8 @@ function syncOpenDetail(entry, feedback = "") {
   }
   const compactRating = document.getElementById(`detail-compact-rating-${entry.id}`);
   if (compactRating) compactRating.textContent = compactRatingLabel(entry.rating);
+  const compactBadges = document.getElementById(`detail-compact-badges-${entry.id}`);
+  if (compactBadges) compactBadges.innerHTML = compactBadgesHTML(entry);
 
   if (feedback) {
     const feedbackEl = document.getElementById(`quick-feedback-${entry.id}`);
