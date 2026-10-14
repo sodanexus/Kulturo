@@ -19,6 +19,7 @@ export function createJournalFeature({
   } catch {}
   let _communityEntries = [];
   let _communityLoaded = false;
+  let _journalSearch = "";
   const renderGate = createAsyncGate();
   const journalNavigation = createJournalNavigation({ onChange: onContextChange });
 
@@ -74,8 +75,17 @@ export function createJournalFeature({
   function renderCurrentJournalView() {
     const container = document.getElementById("journal-feed");
     if (!container || !State.journalAvailable) return;
-    const visible = visibleJournalEvents();
-    container.innerHTML = renderJournalFeed(visible);
+    const allVisible = visibleJournalEvents();
+    const query = _journalSearch.trim().toLocaleLowerCase("fr");
+    const visible = query ? allVisible.filter(event => {
+      const entry = State.entries.find(item => item.id === event.media_id);
+      const presentation = journalEventPresentation(event, entry);
+      const label = presentation?.label || event.event_type || "";
+      return `${entry?.title || ""} ${label}`.toLocaleLowerCase("fr").includes(query);
+    }) : allVisible;
+    container.innerHTML = query && !visible.length
+      ? emptyState({ icon: "search", title: "Aucune entrée trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
+      : renderJournalFeed(visible);
     journalNavigation.syncTimeline(visible, "personal");
     hydrateFadeImages(container);
   }
@@ -396,6 +406,10 @@ export function createJournalFeature({
 
   return {
     render: renderJournal,
+    setSearch(value) {
+      _journalSearch = String(value || "").slice(0, 120);
+      renderCurrentJournalView();
+    },
     async retry() {
       if (journalNavigation.mode === "community") _communityLoaded = false;
       else State.journalDirty = true;
