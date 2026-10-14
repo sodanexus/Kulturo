@@ -340,7 +340,7 @@ function renderDetailPanel(e, options = {}) {
   const transitionOrigin = captureDetailCoverOrigin(options.transitionSource, e.id, coverUrl);
 
   const externalHTML = mediaLinks(e).map(link =>
-    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()} ${esc(link.label)}</a>`
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
   ).join("");
 
   // Backdrop header
