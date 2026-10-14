@@ -682,7 +682,8 @@ body { background-color: var(--system-bar-color); }
 .detail-info-skeleton i + i { width: 51%; }
 
 /* Journal temporel ------------------------------------------- */
-.journal-sticky-controls {
+#page-journal .journal-sticky-controls {
+  /* #main défile déjà sous la topbar : aucun second décalage. */
   position: sticky;
   top: 0;
   z-index: 80;
@@ -693,21 +694,29 @@ body { background-color: var(--system-bar-color); }
   margin: 0 0 .8rem;
   padding: .65rem 0;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 95%, transparent);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: var(--bg);
+  isolation: isolate;
+}
+/* Le fond couvre aussi la frise située dans la gouttière du Journal. */
+#page-journal .journal-sticky-controls::before {
+  content: "";
+  position: absolute;
+  inset: 0 -1rem;
+  z-index: -1;
+  background: var(--bg);
+  pointer-events: none;
 }
 .journal-time-nav {
   display: grid;
-  grid-template-columns: 34px minmax(150px, 1fr) 34px;
+  grid-template-columns: var(--control-height) minmax(150px, 1fr) var(--control-height);
   align-items: center;
   gap: .3rem;
 }
 .journal-time-step,
 .journal-month-select-wrap select {
-  min-height: 34px;
+  min-height: var(--control-height);
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--control-radius);
   background: var(--bg-2);
   color: var(--text-2);
   font: inherit;
@@ -716,8 +725,16 @@ body { background-color: var(--system-bar-color); }
 }
 .community-event-label { color: var(--text-3); }
 .community-event-label strong { color: var(--text-1); font-weight: 800; }
-.journal-time-step { display: grid; place-items: center; width: 34px; }
-.journal-time-step:disabled { opacity: .35; }
+.journal-time-step { display: grid; place-items: center; width: var(--control-height); }
+.journal-time-step:disabled { opacity: .35; cursor: default; }
+.journal-time-step:not(:disabled):hover,
+.journal-month-select-wrap select:hover { border-color: var(--accent); }
+.journal-time-step:focus-visible,
+.journal-month-select-wrap select:focus-visible,
+.journal-mode-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .journal-month-select-wrap select { width: 100%; padding: .35rem 1.8rem .35rem .65rem; }
 .journal-month-group { scroll-margin-top: 112px; }
 .journal-month-group + .journal-month-group { margin-top: 1.2rem; }
@@ -887,14 +904,8 @@ body { background-color: var(--system-bar-color); }
   .journal-event-group-toggle { min-height: 72px; padding: .6rem .65rem; }
   .journal-event-group-copy strong { font-size: var(--type-control); line-height: 1.3; }
   .journal-month-heading {
-    position: sticky;
-    top: 112px;
-    z-index: 55;
     margin: 0 -.2rem .5rem;
     padding: .45rem .2rem;
-    background: color-mix(in srgb, var(--bg) 94%, transparent);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
   }
 }
 
@@ -949,89 +960,9 @@ body { background-color: var(--system-bar-color); }
 .upcoming-search-state { display: none !important; }
 .topbar-search-wrap[hidden], [hidden] { display: none !important; }
 
-/* Journal : les boutons de mode restent transparents dans leur segment,
-   sans plaque sombre parasite derrière chaque bouton. */
-#page-journal .journal-mode-switch {
-  background: transparent;
-  border-color: var(--border);
-  box-shadow: none;
-}
-#page-journal .journal-mode-btn { background: transparent; box-shadow: none; }
-#page-journal .journal-mode-btn.active {
-  background: var(--accent-glow);
-  box-shadow: none;
-}
-
 /* Évite tout débordement horizontal global sans casser les carrousels internes. */
 html, body { max-width: 100%; overflow-x: clip; }
 body.app-shell-active #app,
 body.app-shell-active #main,
 body.app-shell-active .page { min-width: 0; max-width: 100%; }
 body.app-shell-active #main { overflow-x: clip; }
-
-/* Journal — commandes allégées : supprimer les plaques derrière les contrôles. */
-#page-journal .journal-sticky-controls {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-#page-journal .journal-mode-switch {
-  padding: 0;
-  gap: .4rem;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-#page-journal .journal-mode-btn {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  box-shadow: none;
-  animation: none;
-}
-#page-journal .journal-mode-btn:hover {
-  background: color-mix(in srgb, var(--text-1) 5%, transparent);
-}
-#page-journal .journal-mode-btn.active {
-  border-color: color-mix(in srgb, var(--accent-2) 55%, transparent);
-  background: color-mix(in srgb, var(--accent-2) 16%, transparent);
-  box-shadow: none;
-}
-#page-journal .journal-time-nav {
-  background: transparent;
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-}
-#page-journal .journal-time-step,
-#page-journal .journal-month-select-wrap select {
-  background: transparent;
-  box-shadow: none;
-  border-color: var(--border);
-}
-#page-journal .journal-time-step:hover,
-#page-journal .journal-month-select-wrap select:hover {
-  background: color-mix(in srgb, var(--text-1) 5%, transparent);
-}
-#page-journal .journal-time-step:focus-visible,
-#page-journal .journal-month-select-wrap select:focus-visible,
-#page-journal .journal-mode-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-2) 75%, transparent);
-  outline-offset: 2px;
-}
-
-
-/* Correctif : les commandes sticky du journal doivent rester sous la topbar
-   et masquer le contenu qui défile derrière elles. */
-#page-journal .journal-sticky-controls {
-  top: 78px;
-  z-index: 120;
-  background: var(--bg);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  isolation: isolate;
-}
-@media (max-width: 680px) {
-  #page-journal .journal-sticky-controls { top: 72px; }
-  #page-journal .journal-month-heading { top: 124px; z-index: 110; }
-}
