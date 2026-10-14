@@ -2,6 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.6
+
+- Journal : les commandes défilent avec le contenu sur un fond transparent, sans rectangle opaque ni coupure de la frise dorée.
+- Navigation mensuelle : alignement adapté à la suppression de la barre fixe.
+
 ## 4.0.5
 
 - Journal : suppression du double décalage sous l’en-tête et des styles concurrents.

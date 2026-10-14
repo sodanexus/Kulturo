@@ -31,9 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.0.5
+## Version actuelle · 4.0.6
 
-La 4.0.5 distingue les séries en bleu et réduit le texte des synopsis de 16 à 14 px.
+La 4.0.6 distingue les séries en bleu et réduit le texte des synopsis de 16 à 14 px.
 
 La 4.0.3 aligne les titres Journal et Profil sur Bibliothèque et simplifie les livres à un seul lien « Chercher le livre ».
 
