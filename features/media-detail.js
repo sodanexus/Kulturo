@@ -362,6 +362,10 @@ function renderDetailPanel(e, options = {}) {
           <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
           <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
+          ${!isPreview ? `<div class="detail-compact-bar" aria-hidden="true">
+            <span class="detail-compact-title">${esc(e.title)}</span>
+            <span class="detail-compact-rating" id="detail-compact-rating-${e.id}">${compactRatingLabel(e.rating)}</span>
+          </div>` : `<div class="detail-compact-bar" aria-hidden="true"><span class="detail-compact-title">${esc(e.title)}</span></div>`}
           <div class="detail-backdrop-content">
             ${posterHTML}
             <div class="detail-backdrop-info">
@@ -406,6 +410,8 @@ function renderDetailPanel(e, options = {}) {
   }
   syncSystemBar(getCurrentPage(), null);
   bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
+  bindDetailScroll(root.querySelector(".detail-modal"));
+  enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
   hydrateFadeImages(root);
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
@@ -451,6 +457,80 @@ function renderDetailPanel(e, options = {}) {
   return detailSessionId;
 }
 
+
+// ── Mouvement de la fiche : défilement, note ─────────────────
+const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+
+function formatRatingValue(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function compactRatingLabel(rating) {
+  const value = Number(rating);
+  return Number.isFinite(value) && value > 0 ? `★ ${formatRatingValue(value)}` : "";
+}
+
+// Note affichée dans le conteneur (0 si « Non noté »).
+function ratingValueOf(container) {
+  const match = /Note ([\d.]+) sur 10/.exec(container?.querySelector(".rating-score")?.getAttribute("aria-label") || "");
+  return match ? Number(match[1]) : 0;
+}
+
+// Étoile qui « pop » et note qui monte jusqu'à sa valeur.
+// from === null ou from === note actuelle : affichage statique, sans animation.
+function enhanceRatingScore(container, from = null) {
+  const el = container?.querySelector(".rating-score");
+  if (!el) return;
+  const target = ratingValueOf(container);
+  if (!target) return;
+  const render = value => {
+    const num = el.querySelector(".rating-num");
+    if (num) num.textContent = formatRatingValue(value);
+  };
+  el.innerHTML = `<span class="rating-star" aria-hidden="true">★</span><span class="rating-num">${formatRatingValue(target)}</span>/10`;
+  if (from === null || from === target || prefersReducedMotion()) return;
+
+  el.classList.add("is-rating-pop");
+  const decimals = Number.isInteger(target) && Number.isInteger(from) ? 0 : 1;
+  const duration = 650;
+  const delay = from === 0 ? 260 : 0; // à l'ouverture, on laisse la fiche se poser
+  render(from);
+  setTimeout(() => {
+    const start = performance.now();
+    const tick = now => {
+      if (!el.isConnected) return;
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const value = from + (target - from) * eased;
+      render(t === 1 ? target : Number(value.toFixed(decimals)));
+      if (t < 1) requestAnimationFrame(tick);
+      else setTimeout(() => el.classList.remove("is-rating-pop"), 700);
+    };
+    requestAnimationFrame(tick);
+  }, delay);
+}
+
+// Défilement du corps : alimente --detail-p (0 → 1) pour le parallax et la
+// barre compacte, et signale s'il reste du contenu sous le pied de fiche.
+function bindDetailScroll(modal) {
+  const body = modal?.querySelector(".detail-body");
+  if (!body) return;
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    if (!modal.isConnected) return;
+    const progress = Math.min(1, Math.max(0, body.scrollTop / 140));
+    modal.style.setProperty("--detail-p", progress.toFixed(3));
+    modal.classList.toggle("is-detail-scrolled", progress > .5);
+    modal.classList.toggle("has-more-below", body.scrollHeight - body.clientHeight - body.scrollTop > 6);
+  };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+  body.addEventListener("scroll", schedule, { passive: true });
+  // Le contenu s'enrichit après l'ouverture (synopsis, détails) : on recalcule.
+  new MutationObserver(schedule).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  if (typeof ResizeObserver === "function") new ResizeObserver(schedule).observe(body);
+  update();
+}
 
 // ── Body enrichi de la fiche détail ──────────────────────────
 function quickActionsHTML(entry) {
@@ -861,7 +941,15 @@ function refreshDetailEnrichment(entry, options = {}) {
 
 function syncOpenDetail(entry, feedback = "") {
   const quickActions = document.getElementById(`detail-quick-actions-${entry.id}`);
-  if (quickActions) quickActions.outerHTML = quickActionsHTML(entry);
+  if (quickActions) {
+    const previousStatus = quickActions.querySelector(".quick-status-btn.active")?.dataset.status;
+    quickActions.outerHTML = quickActionsHTML(entry);
+    const activeButton = document.querySelector(`#detail-quick-actions-${CSS.escape(String(entry.id))} .quick-status-btn.active`);
+    if (activeButton && previousStatus !== activeButton.dataset.status) {
+      activeButton.classList.add("is-pop");
+      activeButton.addEventListener("animationend", () => activeButton.classList.remove("is-pop"), { once: true });
+    }
+  }
 
   const statusBadge = document.getElementById(`detail-status-${entry.id}`);
   if (statusBadge) {
@@ -876,7 +964,13 @@ function syncOpenDetail(entry, feedback = "") {
   if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
 
   const ratingDisplay = document.getElementById(`detail-rating-${entry.id}`);
-  if (ratingDisplay) ratingDisplay.innerHTML = ratingScoreHTML(entry.rating, "detail-rating-score");
+  if (ratingDisplay) {
+    const previousRating = ratingValueOf(ratingDisplay);
+    ratingDisplay.innerHTML = ratingScoreHTML(entry.rating, "detail-rating-score");
+    enhanceRatingScore(ratingDisplay, previousRating);
+  }
+  const compactRating = document.getElementById(`detail-compact-rating-${entry.id}`);
+  if (compactRating) compactRating.textContent = compactRatingLabel(entry.rating);
 
   if (feedback) {
     const feedbackEl = document.getElementById(`quick-feedback-${entry.id}`);
