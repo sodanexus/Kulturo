@@ -65,6 +65,9 @@ if (manifest.start_url !== "./" || manifest.scope !== "./") fail("le manifeste P
 if (!manifest.icons?.length || manifest.icons.some(icon => !String(icon.src).endsWith(`?v=${VERSION}`))) {
   fail("les icônes du manifeste n'utilisent pas la version courante.");
 }
+if ((manifest.shortcuts || []).some(item => (item.icons || []).some(icon => !String(icon.src).endsWith(`?v=${VERSION}`)))) {
+  fail("les icônes des raccourcis du manifeste n'utilisent pas la version courante.");
+}
 
 requireMatch("config.js", new RegExp(`version:\\s*["']${VERSION.replaceAll(".", "\\.")}["']`), `app.version ${VERSION}`);
 requireMatch("src/main.ts", new RegExp(`KULTURO_RUNTIME = ["']${VERSION.replaceAll(".", "\\.")}["']`), "la version du runtime TypeScript");
