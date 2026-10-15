@@ -53,7 +53,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition } from "./features/motion.js";
+import { runViewTransition, motionDuration } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -2737,7 +2737,7 @@ async function closeModal(force = false, options = {}) {
   detailSessions.startClosing(closingSessionId);
   const coverTransitionDuration = options.skipCoverTransition ? 0 : mediaDetailFeature.startCoverClose(overlay);
   overlay.classList.add("is-closing");
-  setTimeout(cleanup, coverTransitionDuration || 180);
+  setTimeout(cleanup, coverTransitionDuration || motionDuration());
   return true;
 }
 function closeModalOnBg(e) {
@@ -2783,7 +2783,7 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
         syncDialogBackground();
         dialogFocus.deactivate(confirmModal, { restoreFocus: true });
         resolve(result);
-      }, 180);
+      }, motionDuration());
     };
     document.getElementById("confirm-ok").onclick     = () => cleanup(true);
     document.getElementById("confirm-cancel").onclick = () => cleanup(false);
@@ -2956,19 +2956,6 @@ function bindGlobalEvents() {
     clearTimeout(prefetchTimer);
     if (prefetchTarget === target) prefetchTarget = null;
   });
-  // Ripple effect sur les boutons
-  document.addEventListener("click", e => {
-    const btn = e.target.closest(".btn");
-    if (!btn) return;
-    const ripple = document.createElement("span");
-    ripple.className = "ripple-effect";
-    const rect = btn.getBoundingClientRect();
-    ripple.style.left = (e.clientX - rect.left) + "px";
-    ripple.style.top  = (e.clientY - rect.top)  + "px";
-    btn.appendChild(ripple);
-    ripple.addEventListener("animationend", () => ripple.remove());
-  });
-
   document.addEventListener("input", e => {
     if (e.target.closest?.("#modal-overlay") && e.target.type !== "hidden") markModalDirty();
     if (e.target.id === "upcoming-search") upcomingFeature.setSearch(e.target.value);
@@ -3985,7 +3972,7 @@ window.UI = {
       overlay.remove();
       syncDialogBackground();
       if (filterDialog) dialogFocus.deactivate(filterDialog, { restoreFocus: true });
-    }, 180);
+    }, motionDuration());
   },
 
   toggleFavFilter: () => {

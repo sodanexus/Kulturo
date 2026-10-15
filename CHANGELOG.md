@@ -2,6 +2,18 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.12
+
+- Rythme commun : appui 100 ms, changement d’état 180 ms, fenêtres 250 ms.
+- Relief discret sur les affiches ; cadre doré réservé aux notes de 10/10.
+- Boutons et sélecteurs sans soulèvement ; retour d’appui commun et focus clavier visible.
+- Suppression des vagues au clic et des apparitions répétées de toute la grille.
+- Fermeture des fenêtres synchronisée avec le CSS, y compris le mouvement réduit.
+
+## 4.0.11
+
+- Journal : suppression de la frise verticale décorative (ligne, point et animation au défilement), dans les deux modes et sur tous les écrans.
+
 ## 4.0.10
 
 - Desktop : suppression des deux règles qui assombrissaient les couvertures voisines au survol.
