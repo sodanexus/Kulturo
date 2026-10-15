@@ -1255,7 +1255,7 @@ function _scheduleSynopsisOverflowCheck(entryId) {
   }
 }
 
-function scrollExpandedSynopsisIntoView(wrap) {
+function scrollExpandedSynopsisIntoView(wrap, expanded = true) {
   const body = wrap?.closest(".detail-body");
   const section = wrap?.closest(".detail-section");
   if (!body || !section) return;
@@ -1263,7 +1263,14 @@ function scrollExpandedSynopsisIntoView(wrap) {
   // Deux frames laissent démarrer l'ouverture du texte avant de déplacer le
   // conteneur. Le synopsis se cale alors en haut et masque Actions rapides.
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (!wrap.isConnected || !wrap.classList.contains("expanded")) return;
+    if (!wrap.isConnected || wrap.classList.contains("expanded") !== expanded) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (!expanded) {
+      // Le retour au sommet redéploie naturellement l'entête via bindDetailScroll.
+      // Même enchaînement que Voir plus : hauteur, puis défilement de la fiche.
+      body.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+      return;
+    }
     const bodyRect = body.getBoundingClientRect();
     const sectionRect = section.getBoundingClientRect();
     // L'entête rétractable recouvre le haut du corps : une fois replié, le
@@ -1276,7 +1283,6 @@ function scrollExpandedSynopsisIntoView(wrap) {
     // le synopsis. Une hauteur de lecture minimale fournit la course manquante.
     body.style.setProperty("--synopsis-reading-height", `${Math.max(0, body.clientHeight - headerOffset - 8)}px`);
     const target = Math.max(0, body.scrollTop + sectionRect.top - bodyRect.top - headerOffset - 8);
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     body.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
   }));
 }
