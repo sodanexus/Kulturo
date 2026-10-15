@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.10
+## Validation de l’archive 4.0.12
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -79,3 +79,11 @@ Correctif de l’archive 4.0.8 : installation `npm ci --ignore-scripts` vérifi�
 ### Survol desktop 4.0.10
 
 Suppression des deux effets de projecteur, remplacés par une élévation et un contour sur la seule affiche ciblée. Changement visuel dans `styles/finesse.css`. 81 tests et compilation vérifiés ; aspect final à confirmer dans un navigateur réel.
+
+### Journal 4.0.11
+
+Suppression des pseudo-éléments de la frise et de l’animation `journalThread` dans `styles/finesse.css`. Tests techniques, cohérence de version et build de production vérifiés. Validation visuelle sur appareil réel non effectuée.
+
+### Interactions 4.0.12
+
+82 tests Node réussis, build Vite réussi, contrôle TypeScript via le moteur JS 5.9.3 (le binaire natif 7.0.2 ne fonctionne pas dans cet environnement). Sept parcours fonctionnels validés dans un DOM simulé : bibliothèque, journal, communauté/clavier, profil, sorties, édition, mois flottant. Aucune validation visuelle dans un navigateur réel pour cette livraison. Les dépendances du package-lock sont inchangées.
