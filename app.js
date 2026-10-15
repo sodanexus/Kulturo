@@ -53,7 +53,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition, motionDuration } from "./features/motion.js";
+import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -1604,6 +1604,7 @@ function renderCards(options = {}) {
     update: (node, entry) => patchMediaCardNode(node, entry),
   });
   hydrateFadeImages(grid);
+  if (options.resetScroll) revealSurface(grid);
 }
 
 function filterEntries(entries) {
@@ -2735,6 +2736,7 @@ async function closeModal(force = false, options = {}) {
   // La jaquette peut finir son animation, mais les enrichissements de la
   // fiche fermée n'ont plus aucune raison de continuer en arrière-plan.
   detailSessions.startClosing(closingSessionId);
+  prepareDialogClose(overlay);
   const coverTransitionDuration = options.skipCoverTransition ? 0 : mediaDetailFeature.startCoverClose(overlay);
   overlay.classList.add("is-closing");
   setTimeout(cleanup, coverTransitionDuration || motionDuration());
@@ -2776,6 +2778,7 @@ function confirmDialog(title, message, confirmLabel = "Confirmer", variant = "da
     syncDialogBackground();
     const cleanup = (result) => {
       if (overlay.classList.contains("is-closing")) return;
+      prepareDialogClose(overlay);
       overlay.classList.add("is-closing");
       setTimeout(() => {
         overlay.remove();
@@ -3228,6 +3231,9 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
   let distance = 0;
   let tracking = false;
   let resetTimer = 0;
+  let lastY = 0;
+  let lastTime = 0;
+  let velocity = 0;
 
   const reset = () => {
     tracking = false;
@@ -3241,11 +3247,11 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
       sheet.style.transition = "";
       sheet.style.transform = "";
       sheet.style.animation = "";
-    }, 230);
+    }, motionDuration("--motion-state", 180));
   };
 
   sheet.addEventListener("touchstart", event => {
-    if (window.innerWidth > 680) return;
+    if (window.innerWidth > 680 || overlay.classList.contains("is-closing") || event.touches.length !== 1) return;
     const touch = event.touches[0];
     const gripDistance = touch.clientY - sheet.getBoundingClientRect().top;
     const touchesHeader = swipeHandles.some(handle => handle.contains(event.target));
@@ -3254,21 +3260,28 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
     if (event.target.closest("button, a, input, textarea, select, label")) return;
     clearTimeout(resetTimer);
     startX = touch.clientX;
-    startY = touch.clientY;
+    const transform = getComputedStyle(sheet).transform;
+    let offset = 0;
+    try { offset = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42; } catch {}
+    startY = touch.clientY - Math.max(0, offset);
     startTime = performance.now();
-    distance = 0;
+    lastTime = startTime;
+    lastY = touch.clientY;
+    velocity = 0;
+    distance = Math.max(0, offset);
     tracking = true;
     // Une animation CSS avec `fill: both` garde la priorité sur le transform.
     // On la fige donc avant de laisser la fiche suivre le doigt en direct.
     sheet.style.animation = "none";
     sheet.style.transition = "none";
-    sheet.style.transform = "translate3d(0, 0, 0)";
+    sheet.style.transform = `translate3d(0, ${distance}px, 0)`;
     overlay.classList.add("is-swipe-settled");
     overlay.classList.add("is-swipe-tracking");
   }, { passive: true });
 
   sheet.addEventListener("touchmove", event => {
     if (!tracking) return;
+    if (event.touches.length !== 1) { reset(); return; }
     const touch = event.touches[0];
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
@@ -3278,16 +3291,20 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
     }
     if (deltaY < 6) return;
     event.preventDefault();
-    distance = Math.min(deltaY, window.innerHeight * .55);
+    const now = performance.now();
+    velocity = (touch.clientY - lastY) / Math.max(1, now - lastTime);
+    lastY = touch.clientY;
+    lastTime = now;
+    const limit = window.innerHeight * .55;
+    distance = deltaY <= limit ? deltaY : limit + (deltaY - limit) * .2;
     sheet.style.transform = `translate3d(0, ${distance}px, 0)`;
   }, { passive: false });
 
   sheet.addEventListener("touchend", () => {
     if (!tracking) return;
-    const elapsed = Math.max(1, performance.now() - startTime);
-    const velocity = distance / elapsed;
+    if (performance.now() - lastTime > 100) velocity = 0;
     tracking = false;
-    if (distance > 92 || velocity > .55) {
+    if (shouldDismissSheet(distance, velocity)) {
       if (shouldResetBeforeDismiss()) {
         reset();
         dismiss();
@@ -3298,7 +3315,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
       sheet.style.setProperty("--swipe-start", `${distance}px`);
       sheet.style.animation = "";
       sheet.style.transition = "";
-      sheet.style.transform = "";
+      sheet.style.transform = `translate3d(0, ${distance}px, 0)`;
       dismiss();
       return;
     }
@@ -3940,7 +3957,9 @@ window.UI = {
   toggleSynopsis: (id) => {
     const wrap = document.getElementById(id);
     if (!wrap || !wrap.classList.contains("is-overflowing")) return;
-    const isExpanded = wrap.classList.toggle("expanded");
+    const isExpanded = !wrap.classList.contains("expanded");
+    const section = wrap.closest(".detail-section");
+    const animation = animateHeightChange(section, () => wrap.classList.toggle("expanded", isExpanded));
     const btn = wrap.querySelector(".detail-synopsis-toggle");
     if (btn) {
       btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
@@ -3949,7 +3968,9 @@ window.UI = {
       requestAnimationFrame(() => btn.classList.add("is-changing"));
       btn.addEventListener("animationend", () => btn.classList.remove("is-changing"), { once: true });
     }
-    if (isExpanded) scrollExpandedSynopsisIntoView(wrap);
+    animation.then(completed => {
+      if (completed && isExpanded && wrap.classList.contains("expanded")) scrollExpandedSynopsisIntoView(wrap);
+    });
   },
 
   applyFilters: () => {
@@ -3967,6 +3988,7 @@ window.UI = {
     if (!overlay) return;
     if (overlay.classList.contains("is-closing")) return;
     const filterDialog = overlay.querySelector(".filter-modal");
+    prepareDialogClose(overlay);
     overlay.classList.add("is-closing");
     setTimeout(() => {
       overlay.remove();

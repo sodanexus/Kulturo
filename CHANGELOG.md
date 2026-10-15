@@ -2,6 +2,22 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.14
+
+- Courbe de décélération commune ; fermeture des fenêtres depuis leur état visible, même pendant leur ouverture.
+- Le retour de la jaquette repart de sa position en cours et partage les 250 ms des fenêtres.
+- Synopsis et enrichissement des fiches : hauteurs animées, interruptibles, sans empilement des anciens blocs.
+- Geste mobile : reprise depuis la position visible, retour doux, résistance progressive, rejet des petites secousses et des gestes multitouch.
+- Fondus courts des flux Journal, Sorties et des filtres de bibliothèque ; suppression des cascades redondantes.
+- Dimensions des couvertures réservées et fondu de chargement conservé.
+- Navigation rapide : un changement obsolète ne peut plus remplacer le dernier choix.
+- Libération des observateurs de fiche ; restauration fiable du libellé et de l’état des boutons après chargement.
+- Respect du mouvement réduit pour les nouveaux effets.
+
+## 4.0.13
+
+- Synopsis déplié : réserve une zone de lecture pour permettre son alignement sous la barre compacte même sur une grande fiche desktop. Voir moins libère cet espace ; la hauteur suit le redimensionnement.
+
 ## 4.0.12
 
 - Rythme commun : appui 100 ms, changement d’état 180 ms, fenêtres 250 ms.
