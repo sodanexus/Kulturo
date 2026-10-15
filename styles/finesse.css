@@ -702,3 +702,56 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
     transform: none;
   }
 }
+
+
+/* ============================================================
+   Lumière au curseur : sur toutes les affiches
+   « À reprendre » avait la lueur dans la jaquette même. Ailleurs elle était
+   posée sur la carte, derrière l'image (z-index 3) : on ne la voyait pas. Elle
+   passe maintenant devant, suit l'inclinaison de l'affiche et existe aussi dans
+   les Sorties, le Top du Profil et les lignes du Journal.
+   ============================================================ */
+:root { --poster-glow: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .17), transparent 58%); }
+
+/* Bibliothèque : devant l'image, et dans le même mouvement qu'elle. */
+.media-card:not(.upcoming-card)::after {
+  z-index: 4;
+  transition: background .35s var(--ease-expo), transform var(--motion-state, 250ms) var(--ease-interface, var(--ease-expo));
+}
+@media (hover: hover) and (pointer: fine) {
+  .media-card:not(.upcoming-card).is-tilting::after {
+    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px) scale(var(--media-hover-scale, 1.03));
+  }
+}
+
+/* Sorties, Top du Profil, lignes du Journal : la lueur vit dans le cadre de l'affiche. */
+.upcoming-card::after { display: none; }
+.upcoming-cover-wrap::after,
+.profile-top-cover::after,
+.activity-cover-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255, 255, 255, .1);
+  transition: background .35s var(--ease-expo);
+}
+.upcoming-card.is-tilting .upcoming-cover-wrap::after,
+.profile-top-card.is-tilting .profile-top-cover::after,
+.journal-event-row.is-tilting .activity-cover-frame::after { background: var(--poster-glow); }
+
+.profile-top-cover { position: relative; }
+.activity-cover-frame {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0;
+}
+.journal-event-row.is-grouped .activity-cover-frame { border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .media-card:not(.upcoming-card)::after { transition: background .35s var(--ease-expo); }
+}

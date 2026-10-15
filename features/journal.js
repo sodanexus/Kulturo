@@ -216,8 +216,8 @@ export function createJournalFeature({
     const presentation = journalEventPresentation(event, entry);
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
-      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async">`
-      : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
+      ? `<span class="activity-cover-frame"><img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async"></span>`
+      : `<span class="activity-cover-frame"><span class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</span></span>`;
     const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata : {};
     const tone = journalActionTone(event.event_type, metadata);
     const currentRating = Number(entry.rating);
@@ -377,8 +377,8 @@ export function createJournalFeature({
     const status = statusLabelFor(entry.status, entry.media_type) || "Ajouté";
     const coverUrl = safeMediaUrl(entry.cover_url);
     const coverHTML = coverUrl
-      ? `<img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async">`
-      : `<div class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</div>`;
+      ? `<span class="activity-cover-frame"><img src="${esc(coverUrl)}" class="activity-cover fade-image" data-fade-image data-image-fallback="hide" alt="" loading="lazy" decoding="async"></span>`
+      : `<span class="activity-cover-frame"><span class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</span></span>`;
     const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
     const tone = journalActionTone("added", { status: entry.status });
 

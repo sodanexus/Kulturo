@@ -4,10 +4,11 @@
 
 ## À venir (non publié)
 
+- **Lumière au curseur sur toutes les affiches.** La lueur qui suit la souris (et l'inclinaison) n'existait vraiment que dans « À reprendre » : sur la grille de la Bibliothèque elle était posée derrière l'image, donc invisible. Elle passe devant la jaquette et suit son inclinaison, et elle existe maintenant aussi dans les Sorties, le Top du Profil (qui s'incline aussi) et les lignes du Journal personnel et de la Communauté. Souris uniquement ; mouvement réduit respecté.
 - **Couleur de nuance plus juste.** Le calcul passe de la saturation HSL à l'espace perceptuel OKLCH. Un noir à peine teinté ne choisit plus de teinte « bleue » : l'affiche reste neutre. Une affiche sombre ou à fond blanc garde la couleur de son sujet (le rouge d'une affiche d'horreur, le bleu d'un personnage sur fond blanc) au lieu de tomber dans le gris. La teinte est choisie par surface × chroma sur un histogramme circulaire lissé (une teinte n'est plus coupée entre deux cases), puis moyennée dans l'espace OKLab.
 - L'image est analysée aux proportions d'une affiche (40 × 60 au lieu de 28 × 28 écrasé) ; les marges sont ignorées et le bandeau de crédits du bas est allégé.
 - L'aura ne reprend plus la luminosité de l'affiche (une affiche sombre donnait une aura noire, invisible) : c'est une lumière franche et saturée, distincte des couleurs plus claires des commandes. Les affiches presque monochromes restent neutres.
-- **Aura de la fiche renforcée sur ordinateur** : liseré teinté, halo proche, grande nappe sous la fiche et reflet en haut ; lueur plus étendue dans l'entête et plus profonde dans le corps. Mobile inchangé.
+- **Aura de la fiche renforcée sur ordinateur** : liseré teinté, halo proche, grande nappe sous la fiche et reflet en haut ; lueur de l'entête un peu plus présente qu'avant mais mesurée, et plus profonde dans le corps. Mobile inchangé.
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 

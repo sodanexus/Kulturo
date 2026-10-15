@@ -1,7 +1,7 @@
 // ============================================================
 // Finesse — micro-interactions de précision (aucune dépendance)
 //  • barre de progression de lecture sous la barre supérieure
-//  • inclinaison + lueur des affiches qui suivent le curseur
+//  • inclinaison + lueur des affiches qui suivent le curseur (partout où il y a des affiches)
 //  • reflet doré quand une œuvre change de statut (playCardSheen)
 //  • fondu progressif de la couleur de la barre système (applySystemBarColor)
 // Tout est délégué au document : les re-rendus de l'application
@@ -11,6 +11,11 @@
 import { prefersReducedMotion } from "./motion.js";
 
 const TILT_MAX = 5; // degrés
+// Tout ce qui porte une affiche : grille (Bibliothèque, Sorties), « À reprendre »
+// et « Attendues », Top du Profil, lignes du Journal. La position du curseur est
+// mesurée sur l'affiche de l'élément, quel que soit l'endroit survolé.
+const POSTER_HOSTS = ".media-card, .continue-card, .profile-top-card, .journal-event-row";
+const POSTER_COVERS = ".card-cover, .card-cover-placeholder, .continue-cover, .profile-top-cover, .activity-cover-frame";
 let frame = 0;
 let active = null;
 let scrollTicking = false;
@@ -25,7 +30,7 @@ function releaseCard(card) {
 
 function onPointerMove(event) {
   if (event.pointerType !== "mouse" || prefersReducedMotion()) return;
-  const card = event.target instanceof Element ? event.target.closest(".media-card, .continue-card") : null;
+  const card = event.target instanceof Element ? event.target.closest(POSTER_HOSTS) : null;
   if (card !== active) {
     releaseCard(active);
     active = card;
@@ -33,7 +38,7 @@ function onPointerMove(event) {
   if (!card) return;
   cancelAnimationFrame(frame);
   frame = requestAnimationFrame(() => {
-    const cover = card.querySelector(".card-cover, .card-cover-placeholder, .continue-cover") || card;
+    const cover = card.querySelector(POSTER_COVERS) || card;
     const rect = cover.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
