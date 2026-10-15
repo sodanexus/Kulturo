@@ -3969,7 +3969,9 @@ window.UI = {
       btn.addEventListener("animationend", () => btn.classList.remove("is-changing"), { once: true });
     }
     animation.then(completed => {
-      if (completed && isExpanded && wrap.classList.contains("expanded")) scrollExpandedSynopsisIntoView(wrap);
+      if (completed && wrap.classList.contains("expanded") === isExpanded) {
+        scrollExpandedSynopsisIntoView(wrap, isExpanded);
+      }
     });
   },
 

@@ -2,6 +2,10 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.15
+
+- Voir moins : après le repli du synopsis, retour doux au sommet de la fiche pour retrouver l’entête déployé. Même enchaînement que Voir plus, sur desktop et mobile, avec respect du mouvement réduit et contrôle de l’état en cas de clics rapides.
+
 ## 4.0.14
 
 - Courbe de décélération commune ; fermeture des fenêtres depuis leur état visible, même pendant leur ouverture.
