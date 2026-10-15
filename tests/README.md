@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.12
+## Validation de l’archive 4.0.14
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -87,3 +87,11 @@ Suppression des pseudo-éléments de la frise et de l’animation `journalThread
 ### Interactions 4.0.12
 
 82 tests Node réussis, build Vite réussi, contrôle TypeScript via le moteur JS 5.9.3 (le binaire natif 7.0.2 ne fonctionne pas dans cet environnement). Sept parcours fonctionnels validés dans un DOM simulé : bibliothèque, journal, communauté/clavier, profil, sorties, édition, mois flottant. Aucune validation visuelle dans un navigateur réel pour cette livraison. Les dépendances du package-lock sont inchangées.
+
+### Synopsis 4.0.13
+
+Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’applique qu’au synopsis déplié et est recalculée au redimensionnement. Alignement visuel desktop/mobile à confirmer en navigateur réel.
+
+### Fluidité 4.0.14
+
+88 tests Node validés, dont navigation concurrente, inversion de hauteur, fermeture depuis l’état visible, geste intentionnel et restauration des boutons. Huit parcours fonctionnels vérifiés dans un DOM simulé, dont le synopsis déplié/replié. Build Vite et TypeScript JS 5.9.3 validés ; le compilateur natif 7.0.2 reste indisponible dans cet environnement. Les animations, leurs performances et les gestes doivent encore être examinés sur de vrais navigateurs et téléphones. Les dépendances sont inchangées.
