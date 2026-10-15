@@ -157,10 +157,39 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   .detail-synopsis-clip, .journal-event-group-expand { transition: none; }
 }
 
-.modal-overlay.has-cover-transition .detail-modal { animation-duration: var(--motion-dialog); }
 .journal-event-group-inner { transition: padding var(--motion-state) var(--ease-interface); }
 
-.modal-overlay.has-cover-transition.is-cover-transition-closing,
-.modal-overlay.has-cover-transition.is-cover-transition-closing .detail-modal {
-  animation-duration: var(--motion-dialog);
+
+/* L'affiche est déjà à sa place ; seule la fiche porte le mouvement. */
+@property --cover-ambient { syntax: "<color>"; inherits: true; initial-value: #333333; }
+@property --cover-ambient-soft { syntax: "<color>"; inherits: true; initial-value: #555555; }
+.detail-modal {
+  --accent: #aaaaaa;
+  --accent-2: #cccccc;
+  --accent-glow: rgba(128,128,128,.16);
+  transition: --accent var(--motion-dialog) var(--ease-interface),
+    --accent-2 var(--motion-dialog) var(--ease-interface),
+    --accent-glow var(--motion-dialog) var(--ease-interface),
+    --cover-ambient var(--motion-dialog) var(--ease-interface),
+    --cover-ambient-soft var(--motion-dialog) var(--ease-interface),
+    box-shadow var(--motion-dialog) var(--ease-interface);
+}
+.detail-modal[data-cover-accent="dominant"] .detail-backdrop::after {
+  animation: ambientSoftIn var(--motion-dialog) var(--ease-interface) both;
+}
+@keyframes ambientSoftIn { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 680px) {
+  .modal-overlay:not(.is-closing):not(.is-restoring-view):not(.is-modal-replacement):not(.is-swipe-settled) .detail-modal {
+    animation: detailSheetIn var(--motion-dialog) var(--ease-interface) both;
+  }
+  .modal-overlay.is-closing:not(.is-swipe-dismiss) .detail-modal { animation-name: detailSheetOut; }
+}
+@keyframes detailSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes detailSheetOut {
+  from { opacity: var(--close-sheet-opacity, 1); transform: var(--close-transform, none); }
+  to { opacity: 0; transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-modal { transition: none; }
+  .detail-modal[data-cover-accent="dominant"] .detail-backdrop::after { animation: none; opacity: 1; }
 }

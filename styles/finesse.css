@@ -196,8 +196,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .detail-modal[data-cover-accent="dominant"] {
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, .07),
-              0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
-              0 40px 110px -44px color-mix(in srgb, var(--accent) 55%, transparent);
+              0 0 0 1px color-mix(in srgb, var(--cover-ambient, var(--accent)) 20%, transparent),
+              0 40px 110px -44px color-mix(in srgb, var(--cover-ambient, var(--accent)) 55%, transparent);
 }
 .detail-backdrop::after {
   content: "";
@@ -207,12 +207,12 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   pointer-events: none;
   opacity: 0;
   background:
-    radial-gradient(80% 140% at 16% 100%, color-mix(in srgb, var(--accent) 46%, transparent), transparent 70%),
-    radial-gradient(55% 100% at 100% 0%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 72%);
+    radial-gradient(80% 140% at 16% 100%, color-mix(in srgb, var(--cover-ambient, var(--accent)) 46%, transparent), transparent 70%),
+    radial-gradient(55% 100% at 100% 0%, color-mix(in srgb, var(--cover-ambient-soft, var(--accent-2)) 24%, transparent), transparent 72%);
 }
 .detail-modal[data-cover-accent="dominant"] .detail-backdrop::after { animation: ambientIn 1.2s var(--ease-expo) .05s both; }
 .detail-modal[data-cover-accent="dominant"] .detail-body {
-  background-image: radial-gradient(70% 240px at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 80%);
+  background-image: radial-gradient(70% 240px at 18% 0%, color-mix(in srgb, var(--cover-ambient, var(--accent)) 8%, transparent), transparent 80%);
   background-repeat: no-repeat;
 }
 @keyframes ambientIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }

@@ -1,5 +1,5 @@
-import { motionDuration, prepareDialogClose, MOTION_EASING, animateHeightChange, revealSurface } from "./motion.js";
-// Fiches œuvre : rendu, enrichissement, métadonnées et transitions de jaquette.
+import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface } from "./motion.js";
+// Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
 import {
@@ -141,9 +141,6 @@ function prefetchDetail(id) {
 }
 
 // ── Fiche détaillée ───────────────────────────────────────────
-const DETAIL_COVER_TRANSITION_MS = 250;
-let _activeDetailCoverTransition = null;
-let _detailCoverFlight = null;
 let _releaseDetailScroll = null;
 
 function releaseDetailDomResources() {
@@ -160,178 +157,6 @@ function releaseDetailDomResources() {
 
 const detailSessions = createDetailSessionManager({ onDispose: releaseDetailDomResources });
 
-function transitionCoverImage(source) {
-  if (!source) return null;
-  if (source instanceof HTMLImageElement) return source;
-  return source.querySelector?.(
-    ".card-cover, .awaited-release-cover, .continue-cover img, .profile-top-cover img, .activity-cover, img"
-  ) || null;
-}
-
-function validTransitionRect(rect) {
-  return Boolean(rect && rect.width >= 24 && rect.height >= 32 &&
-    rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth);
-}
-
-function captureDetailCoverOrigin(source, mediaId, coverUrl) {
-  if (!source || !coverUrl || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return null;
-  const image = transitionCoverImage(source);
-  if (!image || !image.complete || image.naturalWidth < 1) return null;
-  const rect = image.getBoundingClientRect();
-  if (!validTransitionRect(rect)) return null;
-  const style = getComputedStyle(image);
-  return {
-    mediaId: String(mediaId || ""),
-    sourceElement: image,
-    sourceContainer: source,
-    src: image.currentSrc || image.src || coverUrl,
-    sourceRadius: style.borderRadius || "0px",
-  };
-}
-
-function finishDetailCoverFlight() {
-  const flight = _detailCoverFlight;
-  if (!flight) return;
-  _detailCoverFlight = null;
-
-  // Sur Safari, annuler une animation déjà arrivée à son terme peut renvoyer
-  // son calque à la position de départ pendant une image. On ne l'annule que
-  // lorsqu'elle est réellement encore en cours.
-  try {
-    if (flight.animation && flight.animation.playState !== "finished") flight.animation.cancel();
-  } catch {}
-
-  // Le clone et les vraies images se passent le relais dans la même frame,
-  // sans réutiliser le fondu générique de chargement des jaquettes.
-  const handoffElements = [...new Set([flight.source, flight.target].filter(Boolean))];
-  handoffElements.forEach(element => element.classList.add("is-cover-transition-handoff"));
-  flight.clone?.remove();
-  flight.source?.classList.remove("is-cover-transition-source");
-  flight.target?.classList.remove("is-cover-transition-target");
-  flight.overlay?.classList.remove("is-cover-transitioning");
-  requestAnimationFrame(() => {
-    handoffElements.forEach(element => element.classList.remove("is-cover-transition-handoff"));
-  });
-}
-
-function createCoverFlightClone(src, rect, radius) {
-  const clone = new Image();
-  clone.className = "detail-cover-flight";
-  clone.alt = "";
-  clone.src = src;
-  Object.assign(clone.style, {
-    left: `${rect.left}px`,
-    top: `${rect.top}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
-    borderRadius: radius || "0px",
-  });
-  document.body.appendChild(clone);
-  return clone;
-}
-
-function animateCoverFlight({ clone, fromRect, toRect, fromRadius, toRadius }) {
-  const dx = toRect.left - fromRect.left;
-  const dy = toRect.top - fromRect.top;
-  const scaleX = toRect.width / fromRect.width;
-  const scaleY = toRect.height / fromRect.height;
-  return clone.animate([
-    {
-      transform: "translate3d(0,0,0) scale(1,1)",
-      borderRadius: fromRadius,
-      boxShadow: "0 4px 18px rgba(0,0,0,.28)",
-    },
-    {
-      transform: `translate3d(${dx}px,${dy}px,0) scale(${scaleX},${scaleY})`,
-      borderRadius: toRadius,
-      boxShadow: "0 10px 30px rgba(0,0,0,.56)",
-    },
-  ], {
-    duration: DETAIL_COVER_TRANSITION_MS,
-    easing: MOTION_EASING,
-    fill: "forwards",
-  });
-}
-
-function startDetailCoverOpen(origin, target, overlay) {
-  if (!origin || !(target instanceof HTMLImageElement) || !overlay) {
-    target?.classList.remove("is-cover-transition-target");
-    return false;
-  }
-  finishDetailCoverFlight();
-  const fromRect = origin.sourceElement.getBoundingClientRect();
-  const toRect = target.getBoundingClientRect();
-  if (!validTransitionRect(fromRect) || !validTransitionRect(toRect)) {
-    target.classList.remove("is-cover-transition-target");
-    return false;
-  }
-
-  origin.sourceElement.classList.add("is-cover-transition-source");
-  target.classList.add("is-cover-transition-target");
-  overlay.classList.add("is-cover-transitioning");
-  const clone = createCoverFlightClone(origin.src, fromRect, origin.sourceRadius);
-  const toRadius = getComputedStyle(target).borderRadius || origin.sourceRadius;
-  const animation = animateCoverFlight({
-    clone,
-    fromRect,
-    toRect,
-    fromRadius: origin.sourceRadius,
-    toRadius,
-  });
-  const flight = { animation, clone, source: origin.sourceElement, target, overlay };
-  _detailCoverFlight = flight;
-  _activeDetailCoverTransition = origin;
-  animation.finished
-    .catch(() => {})
-    .finally(() => { if (_detailCoverFlight === flight) finishDetailCoverFlight(); });
-  return true;
-}
-
-function resolveDetailCoverDestination(state) {
-  if (!state) return null;
-  const direct = state.sourceElement;
-  if (direct?.isConnected && validTransitionRect(direct.getBoundingClientRect())) return direct;
-  const candidates = [...document.querySelectorAll("[data-transition-media]")]
-    .filter(element => element.dataset.transitionMedia === state.mediaId);
-  for (const candidate of candidates) {
-    const image = transitionCoverImage(candidate);
-    if (image?.complete && image.naturalWidth > 0 && validTransitionRect(image.getBoundingClientRect())) return image;
-  }
-  return null;
-}
-
-function startDetailCoverClose(overlay) {
-  if (!_activeDetailCoverTransition || !overlay || overlay.classList.contains("is-swipe-dismiss") ||
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return 0;
-  // Repartir du clone en vol si l'utilisateur referme avant la fin d'ouverture.
-  const visibleClone = _detailCoverFlight?.clone;
-  const visibleRect = visibleClone?.getBoundingClientRect();
-  const visibleRadius = visibleClone ? getComputedStyle(visibleClone).borderRadius : null;
-  finishDetailCoverFlight();
-  const target = overlay.querySelector(".detail-poster");
-  const destination = resolveDetailCoverDestination(_activeDetailCoverTransition);
-  if (!(target instanceof HTMLImageElement) || !destination) return 0;
-  const fromRect = validTransitionRect(visibleRect) ? visibleRect : target.getBoundingClientRect();
-  const toRect = destination.getBoundingClientRect();
-  if (!validTransitionRect(fromRect) || !validTransitionRect(toRect)) return 0;
-
-  const fromRadius = visibleRadius || getComputedStyle(target).borderRadius || "0px";
-  const toRadius = getComputedStyle(destination).borderRadius || fromRadius;
-  target.classList.add("is-cover-transition-target");
-  destination.classList.add("is-cover-transition-source");
-  overlay.classList.add("is-cover-transitioning", "is-cover-transition-closing");
-  const clone = createCoverFlightClone(target.currentSrc || target.src || _activeDetailCoverTransition.src, fromRect, fromRadius);
-  const animation = animateCoverFlight({ clone, fromRect, toRect, fromRadius, toRadius });
-  const flight = { animation, clone, source: destination, target, overlay };
-  _detailCoverFlight = flight;
-  animation.finished
-    .catch(() => {})
-    .finally(() => { if (_detailCoverFlight === flight) finishDetailCoverFlight(); });
-  // Laisse une frame de sécurité avant de retirer le DOM : le dernier état
-  // de la jaquette atteint ainsi toujours sa destination, même à 120 Hz.
-  return DETAIL_COVER_TRANSITION_MS + 34;
-}
-
 function renderDetailPanel(e, options = {}) {
   rememberModalReturnFocus(options.transitionSource, e.id);
   markModalPristine();
@@ -345,7 +170,6 @@ function renderDetailPanel(e, options = {}) {
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
-  const transitionOrigin = captureDetailCoverOrigin(options.transitionSource, e.id, coverUrl);
 
   const externalHTML = mediaLinks(e).map(link =>
     `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
@@ -355,7 +179,7 @@ function renderDetailPanel(e, options = {}) {
   const backdropClass = backdropUrl ? "detail-backdrop has-backdrop" : (coverUrl ? "detail-backdrop has-backdrop has-fallback" : "detail-backdrop");
 
   const posterHTML = coverUrl
-    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image${transitionOrigin ? " is-cover-transition-target" : ""}" decoding="async" data-fade-image data-image-fallback="hide">`
+    ? `<img src="${esc(coverUrl)}" alt="${esc(e.title)}" class="detail-poster fade-image" decoding="async" data-fade-image data-image-fallback="hide">`
     : `<div class="detail-poster detail-poster-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
   const root = document.getElementById("modal-root");
@@ -363,7 +187,7 @@ function renderDetailPanel(e, options = {}) {
   if (previousDetailDialog) dialogFocus.deactivate(previousDetailDialog, { restoreFocus: false });
   const detailSessionId = detailSessions.begin(e.id);
   root.innerHTML = `
-    <div class="modal-overlay${transitionOrigin ? " has-cover-transition" : ""}" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
+    <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal detail-modal" data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
@@ -458,14 +282,6 @@ function renderDetailPanel(e, options = {}) {
   activateDialog(root.querySelector(".detail-modal"), {
     initialFocus: options.restoreView ? '[data-ui-action="openEditFromDetail"]' : ".detail-close-btn",
   });
-  if (transitionOrigin) {
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (!detailSessions.isActive(detailSessionId, e.id)) return;
-      const overlay = root.querySelector("#modal-overlay");
-      const target = overlay?.querySelector(".detail-poster");
-      startDetailCoverOpen(transitionOrigin, target, overlay);
-    }));
-  }
   return detailSessionId;
 }
 
@@ -789,9 +605,6 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
 
 function openMetadataMedia(id) {
   if (!State.entries.some(entry => entry.id === id)) return;
-  // La seconde fiche n'a pas été ouverte depuis la jaquette d'origine : la
-  // faire repartir vers cette ancienne carte produirait un trajet trompeur.
-  if (_activeDetailCoverTransition?.mediaId !== String(id)) _activeDetailCoverTransition = null;
   closeMetadataPanel({ restoreFocus: false });
   setTimeout(() => openDetailPanel(id), motionDuration() + 10);
 }
@@ -1468,10 +1281,6 @@ async function openDetailPanel(id, options = {}) {
     quickSetStatus,
     quickAdjustRepeat,
     scrollExpandedSynopsisIntoView,
-    finishCoverFlight: finishDetailCoverFlight,
-    startCoverClose: startDetailCoverClose,
-    activeCoverOrigin: () => _activeDetailCoverTransition,
-    setActiveCoverOrigin: value => { _activeDetailCoverTransition = value || null; },
-    clearActiveCoverOrigin: () => { _activeDetailCoverTransition = null; },
+
   };
 }

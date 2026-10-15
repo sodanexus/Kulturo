@@ -5,9 +5,9 @@
 const accentCache = new Map();
 const pendingAccents = new Map();
 const MAX_ACCENT_CACHE = 120;
-const ACCENT_CACHE_VERSION = "4";
+const ACCENT_CACHE_VERSION = "5";
 const ACCENT_CACHE_VERSION_KEY = "kulturo-cover-accent-version";
-const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v4";
+const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v5";
 let storageHydrated = false;
 
 function ensureStorageVersion() {
@@ -15,6 +15,7 @@ function ensureStorageVersion() {
   try {
     if (localStorage.getItem(ACCENT_CACHE_VERSION_KEY) !== ACCENT_CACHE_VERSION) {
       localStorage.removeItem(ACCENT_CACHE_STORAGE_KEY);
+      localStorage.removeItem("kulturo-cover-accents-v4");
       localStorage.setItem(ACCENT_CACHE_VERSION_KEY, ACCENT_CACHE_VERSION);
     }
   } catch {}
@@ -29,7 +30,7 @@ function hydrateAccentCache() {
     const stored = JSON.parse(localStorage.getItem(ACCENT_CACHE_STORAGE_KEY) || "[]");
     if (!Array.isArray(stored)) return;
     stored.slice(-MAX_ACCENT_CACHE).forEach(([key, accent]) => {
-      if (typeof key === "string" && accent?.accent && accent?.accent2 && accent?.system) {
+      if (typeof key === "string" && accent?.accent && accent?.accent2 && accent?.system && accent?.ambient && accent?.ambientSoft) {
         accentCache.set(key, accent);
       }
     });
@@ -85,54 +86,46 @@ function rgbToHsl(red, green, blue) {
   return { h: hue, s: saturation, l: lightness };
 }
 
-function quantizedColor(data) {
+// Regrouper par familles de teintes plutôt que par triplets RGB exacts :
+// un fond nuancé compte comme une même couleur et ne perd pas face à un logo uni.
+export function accentFromPixels(data) {
   const buckets = new Map();
-  let fallback = { r: 216, g: 180, b: 106, weight: 0 };
-
-  for (let index = 0; index < data.length; index += 16) {
-    const alpha = (data[index + 3] || 255) / 255;
+  for (let index = 0; index + 3 < data.length; index += 4) {
+    const alpha = data[index + 3] / 255;
     if (alpha < .45) continue;
-    const r = data[index];
-    const g = data[index + 1];
-    const b = data[index + 2];
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const luminance = (.2126 * r + .7152 * g + .0722 * b) / 255;
-    const saturation = max ? (max - min) / max : 0;
-    const fallbackWeight = 1 + saturation * 2;
-
-    // Les gris quasi blancs/noirs sont peu utiles comme couleur d'interface,
-    // mais restent disponibles comme repli si la couverture est monochrome.
-    if (luminance > .055 && luminance < .96 && saturation > .08) {
-      const qr = Math.round(r / 16) * 16;
-      const qg = Math.round(g / 16) * 16;
-      const qb = Math.round(b / 16) * 16;
-      const key = `${qr},${qg},${qb}`;
-      const bucket = buckets.get(key) || { r: qr, g: qg, b: qb, weight: 0 };
-      bucket.weight += fallbackWeight * (1 + (1 - Math.abs(luminance - .56)));
-      buckets.set(key, bucket);
-    }
-    if (fallbackWeight > fallback.weight) fallback = { r, g, b, weight: fallbackWeight };
+    const r = data[index], g = data[index + 1], b = data[index + 2];
+    const { h, s, l } = rgbToHsl(r, g, b);
+    const neutral = s < .12 || l < .045 || l > .97;
+    const key = neutral ? 'neutral' : Math.round(h / 30) % 12;
+    const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0, score: 0, neutral };
+    bucket.r += r * alpha; bucket.g += g * alpha; bucket.b += b * alpha;
+    bucket.count += alpha;
+    // La surface domine ; une couleur vive ne reçoit qu'un petit bonus.
+    bucket.score += alpha * (neutral ? 1 : 1 + s * .15);
+    buckets.set(key, bucket);
   }
-
-  return [...buckets.values()].sort((a, b) => b.weight - a.weight)[0] || fallback;
+  const winner = [...buckets.values()].sort((a, b) => b.score - a.score)[0];
+  if (!winner) return null;
+  return accentFromRGB(winner.r / winner.count, winner.g / winner.count, winner.b / winner.count, winner.neutral);
 }
 
-function accentFromRGB(red, green, blue) {
+function accentFromRGB(red, green, blue, forceNeutral = false) {
   const { h, s, l } = rgbToHsl(red, green, blue);
-  const saturation = clamp(Math.max(s * 100, 42), 42, 78);
-  const lightness = clamp(52 + l * 18, 52, 70);
-  const secondaryLightness = clamp(lightness + 11, 60, 82);
-  const hue = Number(h.toFixed(1));
-  const sat = Number(saturation.toFixed(1));
-  const glowLightness = clamp(lightness - 8, 42, 64);
-  const systemLightness = 10;
-
+  const neutral = forceNeutral || s < .12;
+  const hue = neutral ? 0 : Number(h.toFixed(1));
+  const sat = neutral ? 0 : Number(clamp(s * 100, 0, 72).toFixed(1));
+  // Les commandes restent claires sur la fiche sombre. L'ambiance conserve
+  // séparément la luminosité et la saturation de la couleur source.
+  const lightness = Number(clamp(60 + l * 12, 60, 72).toFixed(1));
+  const ambientSat = neutral ? 0 : Number(clamp(s * 100, 0, 85).toFixed(1));
+  const ambientLight = Number(clamp(l * 100, 12, 64).toFixed(1));
   return {
-    accent: `hsl(${hue} ${sat}% ${Number(lightness.toFixed(1))}%)`,
-    accent2: `hsl(${hue} ${sat}% ${Number(secondaryLightness.toFixed(1))}%)`,
-    glow: `hsl(${hue} ${sat}% ${Number(glowLightness.toFixed(1))}% / .18)`,
-    system: `hsl(${hue} ${Math.min(58, sat)}% ${systemLightness}%)`,
+    accent: `hsl(${hue} ${sat}% ${lightness}%)`,
+    accent2: `hsl(${hue} ${sat}% ${Math.min(82, lightness + 10)}%)`,
+    ambient: `hsl(${hue} ${ambientSat}% ${ambientLight}%)`,
+    ambientSoft: `hsl(${hue} ${ambientSat}% ${Math.min(74, ambientLight + 10)}%)`,
+    glow: `hsl(${hue} ${ambientSat}% ${ambientLight}% / .16)`,
+    system: `hsl(${hue} ${Math.min(40, ambientSat)}% 10%)`,
     hue,
   };
 }
@@ -173,8 +166,7 @@ function sampleImage(image) {
     if (!context) return null;
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    const color = quantizedColor(data);
-    return accentFromRGB(color.r, color.g, color.b);
+    return accentFromPixels(data);
   } catch {
     // Les images distantes sans en-tête CORS ne peuvent pas être lues par un
     // canvas. Le composant conserve alors son accent de secours.
@@ -222,6 +214,8 @@ export function applyCoverAccent(element, accent) {
   element.style.setProperty("--accent", accent.accent);
   element.style.setProperty("--accent-2", accent.accent2);
   element.style.setProperty("--accent-glow", accent.glow);
+  element.style.setProperty("--cover-ambient", accent.ambient);
+  element.style.setProperty("--cover-ambient-soft", accent.ambientSoft);
   element.dataset.coverAccent = "dominant";
   return true;
 }

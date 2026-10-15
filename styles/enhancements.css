@@ -185,31 +185,6 @@ body { background-color: var(--system-bar-color); }
 }
 .fade-image.is-loaded { opacity: 1; }
 
-/* Transition partagée jaquette → fiche. Le clone reste sur sa propre couche
-   GPU pendant que la feuille se pose derrière lui. */
-.detail-cover-flight {
-  position: fixed;
-  z-index: 1200;
-  display: block;
-  margin: 0;
-  object-fit: cover;
-  pointer-events: none;
-  transform: translateZ(0);
-  transform-origin: left top;
-  will-change: transform, border-radius, box-shadow;
-}
-.is-cover-transition-source,
-.is-cover-transition-target {
-  visibility: hidden !important;
-  opacity: 0 !important;
-}
-.is-cover-transition-handoff {
-  transition: none !important;
-}
-.modal-overlay.has-cover-transition .detail-modal {
-  animation: detailSharedShellIn 340ms var(--ease-interface) both;
-}
-
 /* La fiche réserve sa géométrie finale avant le départ de la jaquette.
    Les enrichissements grandissent dans le corps défilable sans déplacer le
    panneau centré, ce qui stabilise la destination sur iPad et desktop. */
@@ -230,27 +205,6 @@ body { background-color: var(--system-bar-color); }
     height: min(760px, calc(92dvh - var(--safe-top)));
     max-height: min(760px, calc(92dvh - var(--safe-top)));
   }
-}
-
-@keyframes detailSharedShellIn {
-  /* La jaquette porte déjà le mouvement. Garder la géométrie de la fiche
-     fixe garantit que sa destination ne se déplace pas pendant la course. */
-  from { opacity: .38; }
-  to { opacity: 1; }
-}
-.modal-overlay.has-cover-transition.is-cover-transition-closing {
-  animation: detailSharedOverlayOut 340ms var(--ease-interface) both;
-}
-.modal-overlay.has-cover-transition.is-cover-transition-closing .detail-modal {
-  animation: detailSharedShellOut 340ms var(--ease-interface) both;
-}
-@keyframes detailSharedOverlayOut {
-  from { opacity: 1; backdrop-filter: blur(6px); }
-  to { opacity: 0; backdrop-filter: blur(0); }
-}
-@keyframes detailSharedShellOut {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to { opacity: .18; transform: translateY(8px) scale(.992); }
 }
 
 /* Icônes d'interface : une seule famille SVG, indépendante des emojis système. */

@@ -2,6 +2,15 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.0.16
+
+- Retrait du clone animé de jaquette : ouverture douce de la fiche sur desktop, glissement depuis le bas sur mobile. La pochette reste dans son emplacement, restitution du focus conservée.
+- Analyse des couleurs par familles de teintes et surface occupée, bonus de saturation limité.
+- Gris, noir et blanc conservés neutres ; correction des pixels transparents traités comme opaques.
+- Ambiance fidèle distincte des couleurs plus claires des commandes ; attente et échec d’analyse neutres dans la fiche.
+- Réutilisation de la teinte déjà obtenue pendant les enrichissements ; invalidation du cache de couleurs précédent.
+- Six tests de couleur ajoutés : monochrome, petit logo, fond nuancé, transparence et séparation ambiance/commandes.
+
 ## 4.0.15
 
 - Voir moins : après le repli du synopsis, retour doux au sommet de la fiche pour retrouver l’entête déployé. Même enchaînement que Voir plus, sur desktop et mobile, avec respect du mouvement réduit et contrôle de l’état en cas de clics rapides.

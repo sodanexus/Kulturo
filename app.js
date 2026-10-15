@@ -40,7 +40,7 @@ import {
 import { elementFromHTML, reconcileKeyedChildren } from "./features/dom-updates.js";
 import { cardSkeletons, emptyState, errorState, loadingState, setButtonBusy } from "./features/ui-states.js";
 import { clearApiCache } from "./features/request-client.js";
-import { applyCoverAccent, coverAccentForUrl } from "./features/cover-accent.js";
+import { applyCoverAccent, coverAccentForUrl, accentFromSample } from "./features/cover-accent.js";
 import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
 import { createUiActionDispatcher } from "./features/ui-actions.js";
 import { createDialogFocusManager } from "./features/dialog-focus.js";
@@ -406,17 +406,20 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
     delete element.dataset.coverAccentUrl;
     delete element.dataset.coverAccentFallback;
     delete element.dataset.coverAccent;
+    element.style.removeProperty("--cover-ambient");
+    element.style.removeProperty("--cover-ambient-soft");
     element.style.removeProperty("--accent");
     element.style.removeProperty("--accent-2");
     element.style.removeProperty("--accent-glow");
     return;
   }
+  const preserveAccent = element.dataset.coverAccent === "dominant" && element.dataset.coverAccentUrl === (cleanUrl || cleanFallbackUrl);
   element.dataset.coverAccentUrl = cleanUrl || cleanFallbackUrl;
   element.dataset.coverAccentFallback = cleanUrl && cleanFallbackUrl ? cleanFallbackUrl : "";
-  element.style.removeProperty("--accent");
-  element.style.removeProperty("--accent-2");
-  element.style.removeProperty("--accent-glow");
-  element.dataset.coverAccent = "pending";
+  if (!preserveAccent) {
+    applyCoverAccent(element, accentFromSample(128, 128, 128));
+    element.dataset.coverAccent = "pending";
+  }
   const identity = element.dataset.coverAccentUrl;
   const fallbackIdentity = element.dataset.coverAccentFallback;
   (async () => {
@@ -500,7 +503,6 @@ async function init() {
           _uiSnapshotTimer = 0;
           document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
           detailSessions?.dispose();
-          mediaDetailFeature?.finishCoverFlight();
           dialogFocus.clear({ restoreFocus: false });
           libraryLoadGate.cancel();
           journalLoadGate.cancel();
@@ -1825,9 +1827,7 @@ function openEditFromDetail(id) {
     id,
     scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
     synopsisExpanded: Boolean(detail.querySelector(".detail-synopsis-wrap.expanded")),
-    coverOrigin: mediaDetailFeature.activeCoverOrigin(),
   };
-  mediaDetailFeature.finishCoverFlight();
   detailSessions.dispose();
   dialogFocus.deactivate(detail, { restoreFocus: false });
   window._apiSelected = null;
@@ -1848,7 +1848,6 @@ function returnToDetail() {
   _modalDirty = false;
   window._apiSelected = null;
   window._apiResults = [];
-  mediaDetailFeature.setActiveCoverOrigin(context.coverOrigin);
   openDetailPanel(context.id, { restoreView: context });
   return true;
 }
@@ -2700,8 +2699,6 @@ async function closeModal(force = false, options = {}) {
       if (closingDialog) dialogFocus.deactivate(closingDialog, { restoreFocus: false });
       return;
     }
-    mediaDetailFeature.finishCoverFlight();
-    mediaDetailFeature.clearActiveCoverOrigin();
     detailSessions.dispose(closingSessionId);
     document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
     if (root) {
@@ -2737,9 +2734,8 @@ async function closeModal(force = false, options = {}) {
   // fiche fermée n'ont plus aucune raison de continuer en arrière-plan.
   detailSessions.startClosing(closingSessionId);
   prepareDialogClose(overlay);
-  const coverTransitionDuration = options.skipCoverTransition ? 0 : mediaDetailFeature.startCoverClose(overlay);
   overlay.classList.add("is-closing");
-  setTimeout(cleanup, coverTransitionDuration || motionDuration());
+  setTimeout(cleanup, motionDuration());
   return true;
 }
 function closeModalOnBg(e) {

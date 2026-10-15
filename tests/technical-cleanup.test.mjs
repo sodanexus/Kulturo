@@ -428,7 +428,7 @@ test("les fiches média vivent dans leur module dédié", () => {
   assert.match(detail, /function renderDetailPanel\(/);
   assert.match(detail, /function openDetailPanel\(/);
   assert.match(detail, /function refreshDetailEnrichment\(/);
-  assert.match(detail, /function startDetailCoverOpen\(/);
+  assert.doesNotMatch(detail, /function startDetailCoverOpen\(/);
 });
 
 test("l’interface générée ne contient plus de gestionnaire d’événement inline", () => {
