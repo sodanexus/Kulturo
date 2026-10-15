@@ -217,6 +217,34 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 @keyframes ambientIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
 
+/* Ordinateur : une aura plus présente. La fiche flotte sur un fond sombre, la
+   lumière de la jaquette peut donc déborder franchement autour d'elle : liseré
+   teinté, halo proche, grande nappe sous la fiche et reflet en haut. Dans
+   l'entête, la lueur gagne en étendue ; dans le corps, elle descend plus bas.
+   Sur mobile la fiche occupe tout l'écran : rien ne change. */
+@media (min-width: 681px) {
+  .detail-modal[data-cover-accent="dominant"] {
+    box-shadow:
+      var(--shadow-lg),
+      inset 0 1px 0 color-mix(in srgb, var(--cover-ambient-soft, var(--accent-2)) 34%, rgba(255, 255, 255, .06)),
+      0 0 0 1px color-mix(in srgb, var(--cover-ambient, var(--accent)) 42%, transparent),
+      0 0 46px -6px color-mix(in srgb, var(--cover-ambient, var(--accent)) 38%, transparent),
+      0 34px 140px -24px color-mix(in srgb, var(--cover-ambient, var(--accent)) 62%, transparent),
+      0 -26px 110px -46px color-mix(in srgb, var(--cover-ambient-soft, var(--accent-2)) 34%, transparent);
+  }
+  .detail-backdrop::after {
+    background:
+      radial-gradient(95% 170% at 14% 100%, color-mix(in srgb, var(--cover-ambient, var(--accent)) 74%, transparent), transparent 72%),
+      radial-gradient(62% 120% at 100% 0%, color-mix(in srgb, var(--cover-ambient-soft, var(--accent-2)) 40%, transparent), transparent 74%),
+      linear-gradient(to bottom, color-mix(in srgb, var(--cover-ambient, var(--accent)) 16%, transparent), transparent 62%);
+  }
+  .detail-modal[data-cover-accent="dominant"] .detail-body {
+    background-image:
+      radial-gradient(85% 380px at 14% 0%, color-mix(in srgb, var(--cover-ambient, var(--accent)) 18%, transparent), transparent 80%),
+      radial-gradient(60% 300px at 100% 24%, color-mix(in srgb, var(--cover-ambient-soft, var(--accent-2)) 7%, transparent), transparent 82%);
+  }
+}
+
 /* ── États vides : les trois cercles du logo ──────────────── */
 .empty-icon.is-trio {
   width: auto; height: auto;
