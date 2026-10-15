@@ -1,4 +1,4 @@
-import { motionDuration } from "./motion.js";
+import { motionDuration, prepareDialogClose, MOTION_EASING, animateHeightChange, revealSurface } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et transitions de jaquette.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
@@ -141,11 +141,14 @@ function prefetchDetail(id) {
 }
 
 // ── Fiche détaillée ───────────────────────────────────────────
-const DETAIL_COVER_TRANSITION_MS = 340;
+const DETAIL_COVER_TRANSITION_MS = 250;
 let _activeDetailCoverTransition = null;
 let _detailCoverFlight = null;
+let _releaseDetailScroll = null;
 
 function releaseDetailDomResources() {
+  _releaseDetailScroll?.();
+  _releaseDetailScroll = null;
   document.querySelectorAll("#modal-root .detail-info-slot").forEach(slot => {
     clearTimeout(slot._detailInfoTimer);
     slot._detailInfoTimer = 0;
@@ -245,7 +248,7 @@ function animateCoverFlight({ clone, fromRect, toRect, fromRadius, toRadius }) {
     },
   ], {
     duration: DETAIL_COVER_TRANSITION_MS,
-    easing: "cubic-bezier(.2,.78,.18,1)",
+    easing: MOTION_EASING,
     fill: "forwards",
   });
 }
@@ -300,15 +303,19 @@ function resolveDetailCoverDestination(state) {
 function startDetailCoverClose(overlay) {
   if (!_activeDetailCoverTransition || !overlay || overlay.classList.contains("is-swipe-dismiss") ||
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return 0;
+  // Repartir du clone en vol si l'utilisateur referme avant la fin d'ouverture.
+  const visibleClone = _detailCoverFlight?.clone;
+  const visibleRect = visibleClone?.getBoundingClientRect();
+  const visibleRadius = visibleClone ? getComputedStyle(visibleClone).borderRadius : null;
   finishDetailCoverFlight();
   const target = overlay.querySelector(".detail-poster");
   const destination = resolveDetailCoverDestination(_activeDetailCoverTransition);
   if (!(target instanceof HTMLImageElement) || !destination) return 0;
-  const fromRect = target.getBoundingClientRect();
+  const fromRect = validTransitionRect(visibleRect) ? visibleRect : target.getBoundingClientRect();
   const toRect = destination.getBoundingClientRect();
   if (!validTransitionRect(fromRect) || !validTransitionRect(toRect)) return 0;
 
-  const fromRadius = getComputedStyle(target).borderRadius || "0px";
+  const fromRadius = visibleRadius || getComputedStyle(target).borderRadius || "0px";
   const toRadius = getComputedStyle(destination).borderRadius || fromRadius;
   target.classList.add("is-cover-transition-target");
   destination.classList.add("is-cover-transition-source");
@@ -563,6 +570,7 @@ function bindDetailScroll(modal) {
   const body = modal?.querySelector(".detail-body");
   const backdrop = modal?.querySelector(".detail-backdrop");
   if (!body || !backdrop) return;
+  _releaseDetailScroll?.();
   let range = 1;
   let frame = 0;
 
@@ -574,6 +582,7 @@ function bindDetailScroll(modal) {
     range = Math.max(1, full - compact);
     modal.style.setProperty("--detail-h", `${full}px`);
     modal.classList.add("is-collapsible");
+    body.style.setProperty("--synopsis-reading-height", `${Math.max(0, body.clientHeight - compact - 8)}px`);
   };
   const update = () => {
     frame = 0;
@@ -587,12 +596,21 @@ function bindDetailScroll(modal) {
 
   body.addEventListener("scroll", schedule, { passive: true });
   // Le contenu s'enrichit après l'ouverture (synopsis, détails) : on recalcule.
-  new MutationObserver(schedule).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  const bodyObserver = new MutationObserver(schedule);
+  bodyObserver.observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
   // Le bandeau change de hauteur quand l'image HD arrive (classe has-backdrop).
-  new MutationObserver(() => { measure(); schedule(); }).observe(backdrop, { attributes: true, attributeFilter: ["class"] });
-  if (typeof ResizeObserver === "function") {
-    new ResizeObserver(() => { measure(); schedule(); }).observe(modal);
-  }
+  const backdropObserver = new MutationObserver(() => { measure(); schedule(); });
+  backdropObserver.observe(backdrop, { attributes: true, attributeFilter: ["class"] });
+  const resizeObserver = typeof ResizeObserver === "function"
+    ? new ResizeObserver(() => { measure(); schedule(); }) : null;
+  resizeObserver?.observe(modal);
+  _releaseDetailScroll = () => {
+    body.removeEventListener("scroll", schedule);
+    bodyObserver.disconnect();
+    backdropObserver.disconnect();
+    resizeObserver?.disconnect();
+    if (frame) cancelAnimationFrame(frame);
+  };
   measure();
   update();
 }
@@ -764,6 +782,7 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
   };
   if (!overlay || immediate) { finish(); return; }
   if (overlay.classList.contains("is-closing")) return;
+  prepareDialogClose(overlay);
   overlay.classList.add("is-closing");
   setTimeout(finish, motionDuration());
 }
@@ -962,7 +981,6 @@ function replaceDetailInfo(entry, options = {}) {
   if (!slot) return;
   const body = slot.closest(".detail-body");
   const previousScroll = body?.scrollTop || 0;
-  const previousHeight = slot.getBoundingClientRect().height;
   const current = slot.querySelector(":scope > .detail-info-content");
   const next = document.createElement("div");
   next.className = "detail-info-content detail-info-arriving";
@@ -970,25 +988,13 @@ function replaceDetailInfo(entry, options = {}) {
   if (current?.innerHTML === next.innerHTML) return;
 
   clearTimeout(slot._detailInfoTimer);
-  slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-  slot.style.height = `${previousHeight}px`;
-  slot.classList.add("is-transitioning", "is-resizing", "is-revealing");
-  current?.classList.add("detail-info-leaving");
-  slot.append(next);
-  const nextHeight = slot.getBoundingClientRect().height;
-  const measuredNextHeight = next.scrollHeight;
-  slot.getBoundingClientRect();
-  requestAnimationFrame(() => {
-    if (!slot.isConnected) return;
-    slot.style.height = `${measuredNextHeight || nextHeight}px`;
-  });
-  slot._detailInfoTimer = detailSessions.schedule(() => {
-    if (!slot.isConnected) return;
-    current?.remove();
-    next.classList.remove("detail-info-arriving");
+  animateHeightChange(slot, () => {
     slot.style.height = "";
     slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-  }, 330, sessionId);
+    next.classList.remove("detail-info-arriving");
+    slot.replaceChildren(next);
+  });
+  revealSurface(next);
 
   if (body) body.scrollTop = previousScroll;
 }
@@ -1266,6 +1272,9 @@ function scrollExpandedSynopsisIntoView(wrap) {
     const headerOffset = modal?.classList.contains("is-collapsible")
       ? (parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64)
       : 0;
+    // Sur les grandes fiches, le navigateur borne sinon le scroll avant
+    // le synopsis. Une hauteur de lecture minimale fournit la course manquante.
+    body.style.setProperty("--synopsis-reading-height", `${Math.max(0, body.clientHeight - headerOffset - 8)}px`);
     const target = Math.max(0, body.scrollTop + sectionRect.top - bodyRect.top - headerOffset - 8);
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     body.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });

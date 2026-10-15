@@ -94,18 +94,25 @@ export function journalSkeleton(rows = 5) {
     '<i class="skeleton journal-skel-month"></i>' + Array.from({ length: rows }, row).join("") + '</div>';
 }
 
+const busyButtons = new WeakMap();
 export function setButtonBusy(button, busy) {
   if (!button) return;
-  button.disabled = busy;
-  button.classList.toggle("is-saving", busy);
   if (busy) {
-    button.dataset.idleLabel = button.getAttribute("aria-label") || "";
+    if (!busyButtons.has(button)) busyButtons.set(button, {
+      disabled: button.disabled, label: button.getAttribute("aria-label"),
+    });
+    button.disabled = true;
+    button.classList.add("is-saving");
     button.setAttribute("aria-busy", "true");
     button.setAttribute("aria-label", "Enregistrement en cours");
   } else {
+    const idle = busyButtons.get(button);
+    if (!idle) return;
+    button.disabled = idle.disabled;
+    button.classList.remove("is-saving");
     button.removeAttribute("aria-busy");
-    if (button.dataset.idleLabel) button.setAttribute("aria-label", button.dataset.idleLabel);
+    if (idle.label !== null) button.setAttribute("aria-label", idle.label);
     else button.removeAttribute("aria-label");
-    delete button.dataset.idleLabel;
+    busyButtons.delete(button);
   }
 }

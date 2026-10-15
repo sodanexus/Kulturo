@@ -6,15 +6,26 @@ export function prefersReducedMotion() {
   return Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
 }
 
+let activeViewTransition;
+let viewSequence = 0;
+
 export function runViewTransition(update, name = "page") {
+  const sequence = ++viewSequence;
+  activeViewTransition?.skipTransition?.();
   const documentRef = globalThis.document;
-  if (!documentRef?.startViewTransition || prefersReducedMotion()) return update();
+  if (!documentRef?.startViewTransition || prefersReducedMotion()) {
+    if (documentRef?.documentElement) delete documentRef.documentElement.dataset.viewTransition;
+    activeViewTransition = null;
+    return update();
+  }
   documentRef.documentElement.dataset.viewTransition = name;
   try {
-    const transition = documentRef.startViewTransition(() => update());
+    const transition = documentRef.startViewTransition(() => { if (sequence === viewSequence) return update(); });
+    activeViewTransition = transition;
     const cleanup = () => {
-      if (documentRef.documentElement.dataset.viewTransition === name) {
+      if (sequence === viewSequence && documentRef.documentElement.dataset.viewTransition === name) {
         delete documentRef.documentElement.dataset.viewTransition;
+        activeViewTransition = null;
       }
     };
     // Une transition peut être volontairement sautée par le navigateur. Son
@@ -23,7 +34,7 @@ export function runViewTransition(update, name = "page") {
     transition.finished.then(cleanup, cleanup);
     return transition;
   } catch {
-    delete documentRef.documentElement.dataset.viewTransition;
+    if (sequence === viewSequence) delete documentRef.documentElement.dataset.viewTransition;
     return update();
   }
 }
@@ -35,4 +46,68 @@ export function motionDuration(token = "--motion-dialog", fallback = 250) {
   const value = root && globalThis.getComputedStyle?.(root).getPropertyValue(token).trim();
   const match = value && /^(\d*\.?\d+)(ms|s)$/.exec(value);
   return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : fallback;
+}
+
+export const MOTION_EASING = 'cubic-bezier(.22, 1, .36, 1)';
+
+// Mémoriser l'état réellement visible avant de remplacer l'animation CSS.
+export function prepareDialogClose(overlay) {
+  if (!overlay || prefersReducedMotion()) return;
+  const sheet = overlay.querySelector('.modal, .metadata-sheet');
+  const backdropStyle = getComputedStyle(overlay);
+  overlay.style.setProperty('--close-opacity', backdropStyle.opacity);
+  if (sheet) {
+    const style = getComputedStyle(sheet);
+    sheet.style.setProperty('--close-transform', style.transform);
+    sheet.style.setProperty('--close-sheet-opacity', style.opacity);
+  }
+}
+
+const heightAnimations = new WeakMap();
+export function animateHeightChange(element, update) {
+  if (!element) { update(); return Promise.resolve(true); }
+  const from = element.getBoundingClientRect().height;
+  heightAnimations.get(element)?.cancel();
+  element.setAttribute('data-height-changing', '');
+  update();
+  const to = element.getBoundingClientRect().height;
+  if (!element.animate || prefersReducedMotion() || Math.abs(to - from) < 1) {
+    element.removeAttribute('data-height-changing');
+    return Promise.resolve(true);
+  }
+  const animation = element.animate([
+    { height: `${from}px`, minHeight: `${from}px`, maxHeight: `${from}px`, overflow: 'clip' },
+    { height: `${to}px`, minHeight: `${to}px`, maxHeight: `${to}px`, overflow: 'clip' },
+  ], { duration: motionDuration('--motion-state', 180), easing: MOTION_EASING });
+  heightAnimations.set(element, animation);
+  return animation.finished.then(() => true, () => false).then(completed => {
+    completed = completed && heightAnimations.get(element) === animation;
+    if (heightAnimations.get(element) === animation) {
+      heightAnimations.delete(element);
+      element.removeAttribute('data-height-changing');
+    }
+    return completed;
+  });
+}
+
+const surfaceAnimations = new WeakMap();
+export function revealSurface(element) {
+  if (!element?.animate || prefersReducedMotion() ||
+      globalThis.document?.documentElement?.dataset.viewTransition) return;
+  const previous = surfaceAnimations.get(element);
+  const opacity = previous ? getComputedStyle(element).opacity : '.7';
+  previous?.cancel();
+  const animation = element.animate([{ opacity }, { opacity: 1 }], {
+    duration: motionDuration('--motion-state', 180), easing: MOTION_EASING,
+  });
+  surfaceAnimations.set(element, animation);
+  animation.finished.then(cleanup, cleanup);
+  function cleanup() {
+    if (surfaceAnimations.get(element) === animation) surfaceAnimations.delete(element);
+  }
+}
+
+export function shouldDismissSheet(distance, velocity) {
+  // Une petite secousse ne doit jamais fermer une fiche.
+  return distance > 92 || (distance > 24 && velocity > .55);
 }

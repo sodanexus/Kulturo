@@ -1,3 +1,4 @@
+import { revealSurface } from "./motion.js";
 // Journal : flux personnel et Communauté, rendu et interactions.
 import { isClosedMonth, journalEventPresentation, normalizeSearchText, statusLabelFor, yearMonthOf } from "../domain.js";
 import { journalMonthSummary } from "./insights.js";
@@ -50,7 +51,7 @@ export function createJournalFeature({
       await renderPersonalJournal(task);
     }
     if (renderGate.isCurrent(task) && getCurrentPage?.() === "journal" && journalNavigation.mode === requestedMode) {
-      replayMotion(document.getElementById(`journal-${requestedMode}-panel`), "journal-panel-enter");
+      // Le flux possède son propre fondu ; ne pas réanimer chaque groupe.
       renderGate.finish(task);
       onViewReady?.("journal");
       syncFloating();
@@ -97,6 +98,7 @@ export function createJournalFeature({
       ? emptyState({ icon: "search", title: "Aucune entrée trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
       : renderJournalFeed(selected);
     hydrateFadeImages(container);
+    revealSurface(container);
   }
 
   function journalDateLabel(value) {
@@ -331,6 +333,7 @@ export function createJournalFeature({
       ? emptyState({ icon: "search", title: "Aucune activité trouvée", message: `Aucun résultat pour « ${esc(_journalSearch.trim())} ».` })
       : renderCommunityFeed(selected);
     hydrateFadeImages(container);
+    revealSurface(container);
   }
 
   function renderCommunityFeed(entries) {

@@ -1,3 +1,4 @@
+import { revealSurface } from "./motion.js";
 // ============================================================
 // Onglet Sorties : chargement, filtres, wishlist et rendu
 // ============================================================
@@ -592,12 +593,8 @@ function renderUpcomingCards() {
         ${group.items.map(upcomingCardHTML).join("")}
       </div>
     </section>`).join("");
-  requestAnimationFrame(() => {
-    grid.querySelectorAll(".upcoming-card").forEach((card, i) => {
-      card.style.animationDelay = `${Math.min(i * 40, 480)}ms`;
-    });
-    hydrateFadeImages(grid);
-  });
+  hydrateFadeImages(grid);
+  revealSurface(grid);
 }
 
 function upcomingCardHTML(it) {
