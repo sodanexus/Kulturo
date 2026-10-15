@@ -107,3 +107,60 @@ select { transition: background-color var(--motion-state), border-color var(--mo
     transition-duration: 0ms !important;
   }
 }
+
+/* Une zone de lecture permet aussi aux grandes fiches desktop de défiler
+   jusqu'au synopsis. Voir moins restitue immédiatement la hauteur naturelle. */
+.detail-synopsis-section:has(.detail-synopsis-wrap.expanded) {
+  min-height: var(--synopsis-reading-height, 0px);
+  flex-shrink: 0;
+}
+
+/* Une courbe de décélération commune, sans dépassement ni rebond. */
+:root {
+  --ease-interface: cubic-bezier(.22, 1, .36, 1);
+  --ease-out: var(--ease-interface);
+  --ease-smooth: var(--ease-interface);
+  --ease-expo: var(--ease-interface);
+  --ease-spring: var(--ease-interface);
+}
+.modal-overlay, .modal, .metadata-sheet, .page.active,
+.journal-panel-enter, .toast {
+  animation-timing-function: var(--ease-interface);
+}
+.modal-overlay.is-closing:not(.is-swipe-dismiss) { animation-name: continuousOverlayOut; }
+.modal-overlay.is-closing:not(.is-swipe-dismiss) .modal { animation-name: continuousDialogOut; }
+@keyframes continuousOverlayOut {
+  from { opacity: var(--close-opacity, 1); }
+  to { opacity: 0; }
+}
+@keyframes continuousDialogOut {
+  from { opacity: var(--close-sheet-opacity, 1); transform: var(--close-transform, none); }
+  to { opacity: 0; transform: translateY(14px) scale(.985); }
+}
+@media (max-width: 680px) {
+  .modal-overlay.is-closing:not(.is-swipe-dismiss) .modal { animation-name: continuousSheetOut; }
+}
+@keyframes continuousSheetOut {
+  from { opacity: var(--close-sheet-opacity, 1); transform: var(--close-transform, none); }
+  to { opacity: 0; transform: translateY(40px); }
+}
+/* La hauteur de section inclut le texte et sa zone de lecture ; un deuxième
+   mouvement du clip provoquerait une mesure intermédiaire et un saut final. */
+[data-height-changing] .detail-synopsis-clip { transition: none !important; }
+.detail-synopsis-clip { transition: max-height var(--motion-state) var(--ease-interface); }
+.journal-event-group-expand { transition-duration: var(--motion-state); transition-timing-function: var(--ease-interface); }
+.journal-panel-enter .activity-date-group,
+.upcoming-month-section, #cards-grid.filter-transition { animation: none; }
+/* Les dimensions des couvertures sont réservées avant le téléchargement. */
+:is(.card-cover, .activity-cover, .detail-poster, .metadata-media-cover) { object-fit: cover; aspect-ratio: 2 / 3; }
+@media (prefers-reduced-motion: reduce) {
+  .detail-synopsis-clip, .journal-event-group-expand { transition: none; }
+}
+
+.modal-overlay.has-cover-transition .detail-modal { animation-duration: var(--motion-dialog); }
+.journal-event-group-inner { transition: padding var(--motion-state) var(--ease-interface); }
+
+.modal-overlay.has-cover-transition.is-cover-transition-closing,
+.modal-overlay.has-cover-transition.is-cover-transition-closing .detail-modal {
+  animation-duration: var(--motion-dialog);
+}
