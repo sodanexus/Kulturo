@@ -1,0 +1,109 @@
+/* Rythme partagé : appui, changement d'état, fenêtres. */
+:root {
+  --motion-press: 100ms;
+  --motion-state: 180ms;
+  --motion-dialog: 250ms;
+  --motion-touch: var(--motion-press);
+  --motion-fast: var(--motion-press);
+  --motion-feedback: var(--motion-state);
+  --motion-base: var(--motion-state);
+  --motion-content: var(--motion-state);
+  --motion-layout: var(--motion-dialog);
+  --motion-slow: var(--motion-dialog);
+}
+
+/* Les commandes restent en place ; la couleur active reste lisible. */
+:is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
+.journal-mode-btn, .profile-period-switch > button, .profile-media-switch > button,
+.modal-type-tab, .quick-status-btn, .wz-status-btn, .nav-item, .bottom-nav-item,
+.profile-action-card) {
+  transition: background-color var(--motion-state), color var(--motion-state),
+    border-color var(--motion-state), box-shadow var(--motion-state),
+    filter var(--motion-state), transform var(--motion-press) var(--ease-interface);
+}
+@media (hover: hover) and (pointer: fine) {
+  :is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
+  .journal-mode-btn, .profile-period-switch > button, .profile-media-switch > button,
+  .modal-type-tab, .quick-status-btn, .wz-status-btn, .nav-item, .bottom-nav-item,
+  .profile-action-card):hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+    transform: none;
+    filter: brightness(1.08);
+  }
+  .profile-action-card:hover { border-color: var(--border-2); box-shadow: none; }
+  .profile-action-card:hover i { transform: none; }
+  .btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 1px 2px rgba(0,0,0,.3); }
+}
+:is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
+.journal-mode-btn, .profile-period-switch > button, .profile-media-switch > button,
+.modal-type-tab, .quick-status-btn, .wz-status-btn, .nav-item, .bottom-nav-item,
+.profile-action-card):active:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+  transform: scale(.98);
+  transition-duration: var(--motion-press);
+}
+:is(button, a, select, [role="button"], [role="tab"]):focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 3px;
+}
+select { transition: background-color var(--motion-state), border-color var(--motion-state); }
+
+/* Une seule surface animée par affiche. Le cadre 10/10 accompagne le relief. */
+.media-card { --cover-status-ring: 0 0 0 0 transparent; }
+.media-card.perfect { --cover-status-ring: 0 0 0 2px rgba(200,169,110,.8); }
+.media-card:not(.upcoming-card) > :is(.card-cover, .card-cover-placeholder),
+.upcoming-card .upcoming-cover-wrap, .continue-card .continue-cover,
+.profile-top-card .profile-top-cover {
+  box-shadow: var(--cover-status-ring, 0 0 0 0 transparent), var(--media-cover-shadow);
+  transition: opacity var(--motion-state), transform var(--motion-state) var(--ease-interface),
+    box-shadow var(--motion-state), filter var(--motion-state) !important;
+}
+.media-card:not(.card-enter):not(.card-exit),
+#cards-grid > .media-card:nth-child(-n+24) .card-cover.fade-image.is-loaded,
+.activity-date-group { animation: none; }
+@media (hover: hover) and (pointer: fine) {
+  .media-card:not(.upcoming-card):is(:hover, :focus-visible, .is-tilting) > :is(.card-cover, .card-cover-placeholder),
+  .upcoming-card:is(:hover, :focus-within) .upcoming-cover-wrap,
+  .continue-card:is(:hover, :focus-visible, .is-tilting) .continue-cover,
+  .profile-top-card:is(:hover, :focus-visible) .profile-top-cover {
+    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px) scale(var(--media-hover-scale));
+    box-shadow: var(--cover-status-ring, 0 0 0 0 transparent), var(--media-cover-shadow-hover);
+  }
+  .upcoming-card.is-tilting .card-cover { transform: none; box-shadow: none; }
+}
+:is(.media-card:not(.upcoming-card), .continue-card, .profile-top-card):active > :is(.card-cover, .card-cover-placeholder, .continue-cover, .profile-top-cover),
+.upcoming-card:active .upcoming-cover-wrap {
+  transform: scale(var(--media-press-scale));
+  transition-duration: var(--motion-press) !important;
+}
+
+/* Éviter le cumul entre animation de page et View Transition du navigateur. */
+.page.active { animation-duration: var(--motion-state); }
+:root[data-view-transition="page"] .page.active { animation: none; }
+::view-transition-old(kulturo-main), ::view-transition-new(kulturo-main) {
+  animation-duration: var(--motion-state);
+}
+.modal-overlay, .modal-overlay.is-closing,
+.modal-overlay .modal, .modal-overlay.is-closing .modal {
+  animation-duration: var(--motion-dialog);
+}
+.metadata-overlay, .metadata-sheet { transition-duration: var(--motion-dialog); }
+.mobile-swipe-overlay.is-closing.is-swipe-dismiss .mobile-swipe-sheet {
+  animation-duration: var(--motion-dialog);
+}
+@media (max-width: 680px) {
+  .modal-overlay.is-closing:not(.is-swipe-dismiss) .modal { animation-name: unifiedSheetOut; }
+}
+@keyframes unifiedSheetOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(40px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-press: 0ms; --motion-state: 0ms; --motion-dialog: 0ms; }
+  :is(.media-card, .continue-card, .profile-top-card, .upcoming-card) :is(.card-cover, .card-cover-placeholder, .continue-cover, .profile-top-cover, .upcoming-cover-wrap),
+  :is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
+  .journal-mode-btn, .profile-period-switch > button, .profile-media-switch > button,
+  .modal-type-tab, .quick-status-btn, .wz-status-btn, .nav-item, .bottom-nav-item,
+  .profile-action-card):is(:hover, :active) {
+    transform: none !important;
+    transition-duration: 0ms !important;
+  }
+}

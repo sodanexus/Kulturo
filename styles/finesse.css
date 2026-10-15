@@ -167,28 +167,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    Passe 2 — transitions, révélation des images, fiche en ambiance
    ============================================================ */
 
-/* Une règle existante impose « transition: opacity !important » à toutes les
-   images à fondu : elle supprimait le glissement et l'ombre des affiches.
-   On la remplace ici par une transition complète, toujours fluide. */
-.card-cover.fade-image {
-  transition: opacity .7s var(--ease-expo), transform .55s var(--ease-expo),
-              box-shadow .45s var(--ease-expo), filter .7s var(--ease-expo) !important;
-}
-.media-card.is-tilting .card-cover.fade-image,
-.continue-card.is-tilting .continue-cover {
-  transition: opacity .7s var(--ease-expo), transform 90ms linear,
-              box-shadow .3s var(--ease-expo), filter .7s var(--ease-expo) !important;
-}
-.media-card:active .card-cover.fade-image { transition-duration: .12s !important; }
-
-/* Révélation : un léger zoom qui se pose, uniquement sur les premières affiches.
-   Volontairement sans flou ni animation continue : sur iPhone, des centaines de calques
-   filtrés ou animés en même temps font tuer la page par Safari (erreur « problème récurrent »). */
-#cards-grid > .media-card:nth-child(-n+24) .card-cover.fade-image.is-loaded {
-  animation: coverSettle .9s var(--ease-expo) backwards;
-}
-@keyframes coverSettle { from { transform: scale(1.045); } }
-
 /* Changement de statut / coup de cœur / 10 sur 10 : un reflet doré traverse l'affiche
    (classe posée par features/finesse.js → playCardSheen). */
 .media-card.is-sheen::after {
@@ -257,38 +235,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .empty-state { animation: emptyIn .7s var(--ease-expo) both; }
 @keyframes emptyIn { from { opacity: 0; transform: translateY(8px); } }
 
-/* ── Journal : un fil qui se dessine au défilement ────────── */
-.journal-month-group { position: relative; }
-.journal-month-group::before {
-  content: "";
-  position: absolute;
-  top: .55rem; bottom: .5rem;
-  left: -.85rem;
-  width: 7px;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 4px, var(--accent) 0 3px, transparent 3.5px) 0 0 / 7px 8px no-repeat,
-    linear-gradient(to bottom, var(--border), transparent) 50% 0 / 1px 100% no-repeat;
-}
-@supports (animation-timeline: view()) {
-  .journal-month-group::after {
-    content: "";
-    position: absolute;
-    top: .55rem; bottom: .5rem;
-    left: calc(-.85rem + 3px);
-    width: 1px;
-    pointer-events: none;
-    transform-origin: top;
-    background: linear-gradient(to bottom, var(--accent), color-mix(in srgb, var(--accent) 10%, transparent));
-    box-shadow: 0 0 8px var(--accent-glow);
-    animation: journalThread linear both;
-    animation-timeline: view();
-    animation-range: entry 5% cover 70%;
-  }
-}
-@keyframes journalThread { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-@media (max-width: 680px) { .journal-month-group::before, .journal-month-group::after { left: -.6rem; } .journal-month-group::after { left: calc(-.6rem + 3px); } }
-
 /* ============================================================
    Mobile & tactile
    Pas de survol ni d'inclinaison au doigt (ils gêneraient le défilement) :
@@ -324,20 +270,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* ═══════════════════════════════════════════════════════════
    Ajustements — survol des affiches, fiche desktop, pied mobile
    ═══════════════════════════════════════════════════════════ */
-
-/* Desktop : seule l’affiche ciblée se soulève. Les voisines conservent
-   leur luminosité ; le contour accompagne aussi la navigation clavier. */
-@media (hover: hover) and (pointer: fine) {
-  .media-card:not(.upcoming-card):is(:hover, :focus-visible) > :is(.card-cover, .card-cover-placeholder),
-  .upcoming-card:is(:hover, :has(:focus-visible)) .upcoming-cover-wrap,
-  .continue-card:is(:hover, :focus-visible) .continue-cover,
-  .profile-top-card:is(:hover, :focus-visible) .profile-top-cover {
-    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) scale(var(--media-hover-scale));
-    box-shadow: 0 14px 28px -10px rgba(0, 0, 0, .6),
-                0 0 0 1px color-mix(in srgb, var(--brand-gold) 55%, transparent),
-                0 4px 18px -8px var(--accent-glow);
-  }
-}
 
 /* Desktop : fiche plus généreuse. */
 @media (min-width: 681px) {
