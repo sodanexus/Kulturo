@@ -1,3 +1,4 @@
+import { motionDuration } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et transitions de jaquette.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
@@ -764,7 +765,7 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
   if (!overlay || immediate) { finish(); return; }
   if (overlay.classList.contains("is-closing")) return;
   overlay.classList.add("is-closing");
-  setTimeout(finish, 180);
+  setTimeout(finish, motionDuration());
 }
 
 function openMetadataMedia(id) {
@@ -773,7 +774,7 @@ function openMetadataMedia(id) {
   // faire repartir vers cette ancienne carte produirait un trajet trompeur.
   if (_activeDetailCoverTransition?.mediaId !== String(id)) _activeDetailCoverTransition = null;
   closeMetadataPanel({ restoreFocus: false });
-  setTimeout(() => openDetailPanel(id), 190);
+  setTimeout(() => openDetailPanel(id), motionDuration() + 10);
 }
 
 function detailSectionHTML(label, html, className = "") {

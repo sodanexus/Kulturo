@@ -27,3 +27,12 @@ export function runViewTransition(update, name = "page") {
     return update();
   }
 }
+
+// Le JS attend la même durée que le CSS avant de retirer une fenêtre.
+export function motionDuration(token = "--motion-dialog", fallback = 250) {
+  if (prefersReducedMotion()) return 0;
+  const root = globalThis.document?.documentElement;
+  const value = root && globalThis.getComputedStyle?.(root).getPropertyValue(token).trim();
+  const match = value && /^(\d*\.?\d+)(ms|s)$/.exec(value);
+  return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : fallback;
+}
