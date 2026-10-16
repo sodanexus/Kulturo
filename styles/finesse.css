@@ -711,7 +711,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    passe maintenant devant, suit l'inclinaison de l'affiche et existe aussi dans
    les Sorties, le Top du Profil et les lignes du Journal.
    ============================================================ */
-:root { --poster-glow: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .17), transparent 58%); }
 
 /* Bibliothèque : devant l'image, et dans le même mouvement qu'elle. */
 .media-card:not(.upcoming-card)::after {
@@ -740,7 +739,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .upcoming-card.is-tilting .upcoming-cover-wrap::after,
 .profile-top-card.is-tilting .profile-top-cover::after,
-.journal-event-row.is-tilting .activity-cover-frame::after { background: var(--poster-glow); }
+.journal-event-row.is-tilting .activity-cover-frame::after {
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .17), transparent 58%);
+}
 
 .profile-top-cover { position: relative; }
 .activity-cover-frame {
