@@ -752,6 +752,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   line-height: 0;
 }
 .journal-event-row.is-grouped .activity-cover-frame { border-radius: 8px; }
+/* Même rendu partout : la Bibliothèque et « À reprendre » promeuvent déjà
+   l'affiche sur sa propre couche pendant l'inclinaison (bords nets, mouvement
+   fluide). Les Sorties et le Top du Profil font de même. */
+@media (hover: hover) and (pointer: fine) {
+  .upcoming-card.is-tilting .upcoming-cover-wrap,
+  .profile-top-card.is-tilting .profile-top-cover { will-change: transform; }
+}
 @media (prefers-reduced-motion: reduce) {
   .media-card:not(.upcoming-card)::after { transition: background .35s var(--ease-expo); }
 }
