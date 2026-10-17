@@ -420,7 +420,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
   background: var(--accent);
   color: #0d0d0f;
 }
-.btn-primary:hover { background: var(--accent-2); }
+.btn-primary:hover { background-color: var(--accent-2); }
 .btn-secondary {
   background: var(--bg-3);
   color: var(--text);
@@ -1814,7 +1814,7 @@ details[open] .advanced-summary::before { transform: rotate(90deg); }
 }
 .btn:active { transform: scale(.97); }
 .btn-primary:hover {
-  background: var(--accent-2);
+  background-color: var(--accent-2);
   box-shadow: 0 4px 20px rgba(200,169,110,.3);
 }
 .btn-secondary:hover {

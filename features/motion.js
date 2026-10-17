@@ -16,7 +16,9 @@ export function runViewTransition(update, name = "page") {
   if (!documentRef?.startViewTransition || prefersReducedMotion()) {
     if (documentRef?.documentElement) delete documentRef.documentElement.dataset.viewTransition;
     activeViewTransition = null;
-    return update();
+    const result = update();
+    revealSurface(documentRef?.querySelector?.(".page.active"));
+    return result;
   }
   documentRef.documentElement.dataset.viewTransition = name;
   try {

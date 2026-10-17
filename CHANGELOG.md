@@ -12,6 +12,12 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.20
+
+- Généralisation de la correction du survol à tous les boutons principaux, dont Enregistrer : le dégradé n’est plus supprimé par les anciennes règles background.
+- Suppression du redémarrage de l’animation CSS de page à la fin d’une View Transition ; navigation par un fondu sans translation, avec repli en fondu lorsque l’API n’est pas disponible.
+- Suppression du déplacement d’entrée des pochettes du Profil et de leurs blocs, sans modifier les effets de survol intentionnels.
+
 ## 4.0.19
 
 - Rythme commun : appuis 100 ms, états des commandes 180 ms, contenus 280 ms, fenêtres et disposition 350 ms.

@@ -197,7 +197,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 /* Conserver le même dégradé au repos et au survol : la règle historique
    background au hover supprimait brutalement l'image de fond. */
 @media (hover: hover) and (pointer: fine) {
-  .detail-modal .btn-primary:hover {
+  .btn-primary:hover {
     background: linear-gradient(180deg, var(--accent-2), var(--accent));
   }
 }
@@ -210,3 +210,13 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 .journal-event-group-chevron { transition-duration: var(--motion-layout); }
 .detail-synopsis-arriving, .detail-synopsis-leaving,
 .detail-info-arriving, .detail-info-leaving { animation-duration: var(--motion-content); }
+
+/* Une seule transition de navigation : aucun second départ de page après
+   la disparition de data-view-transition, et aucun déplacement des affiches. */
+.page.active { animation: none; }
+@keyframes kulturo-page-out { to { opacity: 0; } }
+@keyframes kulturo-page-in { from { opacity: 0; } }
+.is-reveal-pending .profile-top-card { opacity: 1; transform: none; }
+.is-revealed .profile-top-card { animation: none; }
+@keyframes stableSurfaceIn { from { opacity: .7; } to { opacity: 1; } }
+.profile-block-enter { animation-name: stableSurfaceIn; }
