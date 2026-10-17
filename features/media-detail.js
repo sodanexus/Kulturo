@@ -1,7 +1,8 @@
 import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface, replaceModalContent } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
+import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, OpenLibraryDetails } from "../api.js";
+import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
   repeatProgressLabel, staleRepeatEvents, statusLabelFor, statusTransitionChanges,
@@ -1101,6 +1102,18 @@ function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(
     }));
     bdEl.classList.add("has-backdrop");
     releaseLoader();
+    startBackdropDrift(layer);
+    const entry = State.entries.find(x => x.id === entryId);
+    if (entry?.source_api === "tmdb" && entry.external_id) {
+      const narrow = window.matchMedia?.("(max-width: 680px)").matches;
+      startBackdropShow({
+        bdEl,
+        firstLayer: layer,
+        getUrls: () => TMDbImages.fetch(entry.external_id, entry.subtype || "movie", { size: narrow ? "w780" : "w1280" }),
+        isActive: () => detailSessions.isActive(sessionId, entryId),
+        track: image => detailSessions.trackImage(image, sessionId),
+      }).catch(() => {});
+    }
   };
   img.onerror = releaseLoader;
   img.decoding = "async";
