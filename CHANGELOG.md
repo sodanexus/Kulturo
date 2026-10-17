@@ -12,6 +12,11 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.18
+
+- Voir plus / Voir moins : la zone visible du texte évolue sur les mêmes 350 ms que la hauteur de section et le défilement. Le texte ne passe plus instantanément de sa hauteur courte à sa hauteur complète.
+- Une inversion en cours de mouvement reprend la hauteur visible du texte ; les dimensions temporaires sont libérées à la fin.
+
 ## 4.0.17
 
 - Synopsis : dépliage/repli et défilement synchronisés sur 350 ms, avec une courbe commune et inversion depuis la position visible.

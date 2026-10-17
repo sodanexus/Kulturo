@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.0.17
+## Validation de l’archive 4.0.18
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -107,3 +107,7 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 ### Synopsis synchronisé 4.0.17
 
 104 tests Node réussis, dont progression commune hauteur/défilement et inversion à mi-parcours. Huit parcours DOM simulés réussis. Build Vite et contrôle TypeScript via JS 5.9.3 validés. Vérification visuelle sur navigateur réel non effectuée ; fluidité et survol à confirmer sur appareil. Dépendances inchangées.
+
+### Texte progressif 4.0.18
+
+104 tests Node réussis, avec vérification de la hauteur du texte à mi-parcours et lors de l’inversion. Huit parcours DOM simulés réussis. Build Vite et TypeScript JS 5.9.3 validés. Rendu visuel à confirmer sur appareil réel.
