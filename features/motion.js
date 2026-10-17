@@ -40,7 +40,7 @@ export function runViewTransition(update, name = "page") {
 }
 
 // Le JS attend la même durée que le CSS avant de retirer une fenêtre.
-export function motionDuration(token = "--motion-dialog", fallback = 250) {
+export function motionDuration(token = "--motion-dialog", fallback = 350) {
   if (prefersReducedMotion()) return 0;
   const root = globalThis.document?.documentElement;
   const value = root && globalThis.getComputedStyle?.(root).getPropertyValue(token).trim();
@@ -48,7 +48,7 @@ export function motionDuration(token = "--motion-dialog", fallback = 250) {
   return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : fallback;
 }
 
-export const MOTION_EASING = 'cubic-bezier(.22, 1, .36, 1)';
+export const MOTION_EASING = 'cubic-bezier(.333333, 0, .666667, 1)';
 
 // Mémoriser l'état réellement visible avant de remplacer l'animation CSS.
 export function prepareDialogClose(overlay) {
@@ -78,7 +78,7 @@ export function animateHeightChange(element, update) {
   const animation = element.animate([
     { height: `${from}px`, minHeight: `${from}px`, maxHeight: `${from}px`, overflow: 'clip' },
     { height: `${to}px`, minHeight: `${to}px`, maxHeight: `${to}px`, overflow: 'clip' },
-  ], { duration: motionDuration('--motion-state', 180), easing: MOTION_EASING });
+  ], { duration: motionDuration('--motion-layout', 350), easing: MOTION_EASING });
   heightAnimations.set(element, animation);
   return animation.finished.then(() => true, () => false).then(completed => {
     completed = completed && heightAnimations.get(element) === animation;
@@ -98,7 +98,7 @@ export function revealSurface(element) {
   const opacity = previous ? getComputedStyle(element).opacity : '.7';
   previous?.cancel();
   const animation = element.animate([{ opacity }, { opacity: 1 }], {
-    duration: motionDuration('--motion-state', 180), easing: MOTION_EASING,
+    duration: motionDuration('--motion-content', 280), easing: MOTION_EASING,
   });
   surfaceAnimations.set(element, animation);
   animation.finished.then(cleanup, cleanup);
@@ -110,4 +110,22 @@ export function revealSurface(element) {
 export function shouldDismissSheet(distance, velocity) {
   // Une petite secousse ne doit jamais fermer une fiche.
   return distance > 92 || (distance > 24 && velocity > .55);
+}
+
+// Conserver une enveloppe continue entre consultation et édition, sans
+// agrandir le texte : seules les dimensions du panneau sont interpolées.
+export function transitionDialogReplacement(previousRect, next) {
+  if (!previousRect || !next?.animate || prefersReducedMotion()) return;
+  const rect = next.getBoundingClientRect();
+  if (!rect.width || !rect.height || !previousRect.width || !previousRect.height) return;
+  const maxWidth = `${Math.max(previousRect.width, rect.width)}px`;
+  const maxHeight = `${Math.max(previousRect.height, rect.height)}px`;
+  const animation = next.animate([
+    { width: `${previousRect.width}px`, height: `${previousRect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
+    { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
+  ], { duration: motionDuration('--motion-layout', 350), easing: MOTION_EASING });
+  animation.finished.catch(() => {});
+  for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer')) {
+    revealSurface(part);
+  }
 }

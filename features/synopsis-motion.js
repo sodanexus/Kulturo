@@ -1,4 +1,4 @@
-import { prefersReducedMotion } from './motion.js';
+import { prefersReducedMotion, motionDuration } from './motion.js';
 
 const active = new WeakMap();
 export const synopsisProgress = t => t * t * (3 - 2 * t);
@@ -67,10 +67,11 @@ export function animateSynopsis(wrap, expanded) {
   setTextHeight(fromTextHeight);
   setHeight(fromHeight);
   body.scrollTop = fromScroll;
+  const duration = Math.max(1, motionDuration("--motion-layout", 350));
   const start = performance.now();
   const tick = now => {
     if (!wrap.isConnected) { finish(); return; }
-    const t = Math.min(1, Math.max(0, (now - start) / 350));
+    const t = Math.min(1, Math.max(0, (now - start) / duration));
     const progress = synopsisProgress(t);
     setTextHeight(fromTextHeight + (toTextHeight - fromTextHeight) * progress);
     setHeight(fromHeight + (toHeight - fromHeight) * progress);

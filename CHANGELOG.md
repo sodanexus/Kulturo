@@ -12,6 +12,15 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.19
+
+- Rythme commun : appuis 100 ms, états des commandes 180 ms, contenus 280 ms, fenêtres et disposition 350 ms.
+- Courbe commune aux panneaux, hauteurs, groupes du Journal et retours de geste mobile ; aucune cascade ajoutée.
+- Fiche ↔ Modifier : transition des dimensions du panneau et fondu des contenus, sans mise à l’échelle du texte ; contexte de lecture conservé.
+- Enrichissements des fiches et changements de résultats utilisent les durées communes ; délais de nettoyage synchronisés.
+- Le synopsis garde sa progression synchronisée et lit désormais la durée de disposition partagée.
+- Deux tests supplémentaires couvrent la transition fiche/édition et son absence en mouvement réduit.
+
 ## 4.0.18
 
 - Voir plus / Voir moins : la zone visible du texte évolue sur les mêmes 350 ms que la hauteur de section et le défilement. Le texte ne passe plus instantanément de sa hauteur courte à sa hauteur complète.

@@ -54,7 +54,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet } from "./features/motion.js";
+import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, transitionDialogReplacement } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -1823,6 +1823,7 @@ function openEditFromDetail(id) {
   const entry = State.entries.find(item => item.id === id);
   const detail = document.querySelector("#modal-overlay .detail-modal");
   if (!entry || !detail || _detailEditContext) return;
+  const previousRect = detail.getBoundingClientRect();
   _detailEditContext = {
     id,
     scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
@@ -1833,6 +1834,7 @@ function openEditFromDetail(id) {
   window._apiSelected = null;
   openModal(entry);
   document.getElementById("modal-overlay")?.classList.add("is-modal-replacement");
+  transitionDialogReplacement(previousRect, document.querySelector("#modal-overlay .edit-modal"));
 }
 
 function returnToDetail() {
@@ -1840,6 +1842,7 @@ function returnToDetail() {
   if (!context || !State.entries.some(entry => entry.id === context.id)) return false;
   _detailEditContext = null;
   const edit = document.querySelector("#modal-overlay .edit-modal");
+  const previousRect = edit?.getBoundingClientRect();
   if (edit) dialogFocus.deactivate(edit, { restoreFocus: false });
   document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
   _wizardState = null;
@@ -1849,6 +1852,7 @@ function returnToDetail() {
   window._apiSelected = null;
   window._apiResults = [];
   openDetailPanel(context.id, { restoreView: context });
+  transitionDialogReplacement(previousRect, document.querySelector("#modal-overlay .detail-modal"));
   return true;
 }
 
@@ -3235,7 +3239,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
     tracking = false;
     distance = 0;
     overlay.classList.remove("is-swipe-tracking");
-    sheet.style.transition = "transform var(--motion-base) var(--ease-interface)";
+    sheet.style.transition = "transform var(--motion-layout) var(--ease-interface)";
     sheet.style.transform = "translate3d(0, 0, 0)";
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
@@ -3243,7 +3247,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
       sheet.style.transition = "";
       sheet.style.transform = "";
       sheet.style.animation = "";
-    }, motionDuration("--motion-state", 180));
+    }, motionDuration("--motion-layout", 350));
   };
 
   sheet.addEventListener("touchstart", event => {

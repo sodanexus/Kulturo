@@ -758,7 +758,7 @@ function replaceDetailSynopsis(entry, options = {}) {
       if (!slot.isConnected) return;
       slot.replaceChildren();
       slot.classList.remove("is-transitioning");
-    }, 180, sessionId);
+    }, motionDuration("--motion-content", 280), sessionId);
     return;
   }
 
@@ -779,11 +779,11 @@ function replaceDetailSynopsis(entry, options = {}) {
       previous.remove();
       next.classList.remove("detail-synopsis-arriving");
       slot.classList.remove("is-transitioning");
-    }, 270, sessionId);
+    }, motionDuration("--motion-content", 280), sessionId);
   } else {
     next.classList.add("detail-synopsis-arriving");
     slot.replaceChildren(next);
-    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), 270, sessionId);
+    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), motionDuration("--motion-content", 280), sessionId);
   }
 }
 

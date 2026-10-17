@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animateHeightChange, prepareDialogClose, runViewTransition, shouldDismissSheet } from '../features/motion.js';
+import { animateHeightChange, prepareDialogClose, runViewTransition, shouldDismissSheet, transitionDialogReplacement } from '../features/motion.js';
 import { setButtonBusy } from '../features/ui-states.js';
 
 function installGlobals(values) {
@@ -105,4 +105,28 @@ test('repeated busy state preserves the original label and disabled state', () =
   assert.equal(button.disabled, true);
   assert.equal(attributes.get('aria-label'), 'Enregistrer');
   assert.equal(attributes.has('aria-busy'), false);
+});
+
+
+test('detail/edit transition changes the shell dimensions without scaling text', async () => {
+  let frames, options;
+  const restore = installGlobals({ matchMedia: () => ({ matches: false }) });
+  try {
+    const next = { getBoundingClientRect: () => ({ width: 560, height: 640 }),
+      querySelectorAll: () => [], animate: (f, o) => { frames=f; options=o; return { finished: Promise.resolve() }; } };
+    transitionDialogReplacement({ width: 860, height: 800 }, next);
+    assert.equal(frames[0].width, '860px');
+    assert.equal(frames[1].width, '560px');
+    assert.equal(frames[0].height, '800px');
+    assert.equal(frames[1].height, '640px');
+    assert.equal(frames.some(frame => 'transform' in frame), false);
+    assert.equal(options.duration, 350);
+  } finally { restore(); }
+});
+
+test('detail/edit transition honors reduced motion', () => {
+  const restore = installGlobals({ matchMedia: () => ({ matches: true }) });
+  try {
+    transitionDialogReplacement({ width: 860, height: 800 }, { animate() { throw Error('unexpected motion'); } });
+  } finally { restore(); }
 });

@@ -2,12 +2,12 @@
 :root {
   --motion-press: 100ms;
   --motion-state: 180ms;
-  --motion-dialog: 250ms;
+  --motion-dialog: 350ms;
   --motion-touch: var(--motion-press);
   --motion-fast: var(--motion-press);
   --motion-feedback: var(--motion-state);
   --motion-base: var(--motion-state);
-  --motion-content: var(--motion-state);
+  --motion-content: 280ms;
   --motion-layout: var(--motion-dialog);
   --motion-slow: var(--motion-dialog);
 }
@@ -97,7 +97,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   to { opacity: 0; transform: translateY(40px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --motion-press: 0ms; --motion-state: 0ms; --motion-dialog: 0ms; }
+  :root { --motion-press: 0ms; --motion-state: 0ms; --motion-dialog: 0ms; --motion-content: 0ms; }
   :is(.media-card, .continue-card, .profile-top-card, .upcoming-card) :is(.card-cover, .card-cover-placeholder, .continue-cover, .profile-top-cover, .upcoming-cover-wrap),
   :is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
   .journal-mode-btn, .profile-period-switch > button, .profile-media-switch > button,
@@ -117,7 +117,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 
 /* Une courbe de décélération commune, sans dépassement ni rebond. */
 :root {
-  --ease-interface: cubic-bezier(.22, 1, .36, 1);
+  --ease-interface: cubic-bezier(.333333, 0, .666667, 1);
   --ease-out: var(--ease-interface);
   --ease-smooth: var(--ease-interface);
   --ease-expo: var(--ease-interface);
@@ -148,7 +148,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
    mouvement du clip provoquerait une mesure intermédiaire et un saut final. */
 [data-height-changing] .detail-synopsis-clip { transition: none !important; }
 .detail-synopsis-clip { transition: max-height var(--motion-state) var(--ease-interface); }
-.journal-event-group-expand { transition-duration: var(--motion-state); transition-timing-function: var(--ease-interface); }
+.journal-event-group-expand { transition-duration: var(--motion-layout); transition-timing-function: var(--ease-interface); }
 .journal-panel-enter .activity-date-group,
 .upcoming-month-section, #cards-grid.filter-transition { animation: none; }
 /* Les dimensions des couvertures sont réservées avant le téléchargement. */
@@ -157,7 +157,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   .detail-synopsis-clip, .journal-event-group-expand { transition: none; }
 }
 
-.journal-event-group-inner { transition: padding var(--motion-state) var(--ease-interface); }
+.journal-event-group-inner { transition: padding var(--motion-layout) var(--ease-interface); }
 
 
 /* L'affiche est déjà à sa place ; seule la fiche porte le mouvement. */
@@ -201,3 +201,12 @@ select { transition: background-color var(--motion-state), border-color var(--mo
     background: linear-gradient(180deg, var(--accent-2), var(--accent));
   }
 }
+
+/* Contenu et dépliables partagent une progression posée, sans cascade. */
+.page.active, ::view-transition-old(kulturo-main), ::view-transition-new(kulturo-main) {
+  animation-duration: var(--motion-content);
+  animation-timing-function: var(--ease-interface);
+}
+.journal-event-group-chevron { transition-duration: var(--motion-layout); }
+.detail-synopsis-arriving, .detail-synopsis-leaving,
+.detail-info-arriving, .detail-info-leaving { animation-duration: var(--motion-content); }

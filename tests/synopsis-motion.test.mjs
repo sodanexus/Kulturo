@@ -20,7 +20,7 @@ function fixture() {
   Object.assign(globalThis,{
     document:{createElement:()=>({style:{},setAttribute(){},remove(){}})},
     requestAnimationFrame:fn=>{callbacks.set(++next,fn);return next},cancelAnimationFrame:id=>callbacks.delete(id),
-    performance:{now:()=>clock},matchMedia:()=>({matches:false}),getComputedStyle:()=>({paddingBottom:'8px',getPropertyValue:()=> '64px'})
+    performance:{now:()=>clock},matchMedia:()=>({matches:false}),getComputedStyle:()=>({paddingBottom:'8px',getPropertyValue:key=>key==='--detail-compact-h'?'64px':'350ms'})
   });
   return {wrap,body,section,clip,attrs,step(time){clock=time;const batch=[...callbacks.values()];callbacks.clear();batch.forEach(fn=>fn(time));},restore(){for(const[k,v]of original){if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}}};
 }
