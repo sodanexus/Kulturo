@@ -64,8 +64,10 @@ export async function startBackdropShow({ bdEl, firstLayer, getUrls, isActive, t
   if (!backdropMotionAllowed() || saveDataOn()) return null;
   let urls = [];
   try { urls = (await getUrls()) || []; } catch { return null; }
-  const known = new Set([firstLayer.style.backgroundImage]);
-  urls = urls.filter(url => url && !known.has(`url(${JSON.stringify(url)})`)).slice(0, MAX_EXTRA);
+  // Même fichier à une autre taille (mobile : 780 px contre 1280 px) = doublon.
+  const fileKey = value => String(value).replace(/["')]+$/, "").split("/").pop().replace(/\.\w+$/, "");
+  const known = new Set([fileKey(firstLayer.style.backgroundImage)]);
+  urls = urls.filter(url => url && !known.has(fileKey(url)) && known.add(fileKey(url))).slice(0, MAX_EXTRA);
   if (!urls.length || !isActive() || !bdEl.isConnected) return null;
   urls = await preload(urls, { track, isActive });
   if (!urls.length || !isActive() || !bdEl.isConnected) return null;

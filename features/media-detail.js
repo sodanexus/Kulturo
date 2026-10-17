@@ -1,7 +1,7 @@
 import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface, replaceModalContent } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, OpenLibraryDetails } from "../api.js";
+import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
@@ -1104,12 +1104,17 @@ function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(
     releaseLoader();
     startBackdropDrift(layer);
     const entry = State.entries.find(x => x.id === entryId);
-    if (entry?.source_api === "tmdb" && entry.external_id) {
-      const narrow = window.matchMedia?.("(max-width: 680px)").matches;
+    const narrow = window.matchMedia?.("(max-width: 680px)").matches;
+    const getUrls = entry?.external_id && entry.source_api === "tmdb"
+      ? () => TMDbImages.fetch(entry.external_id, entry.subtype || "movie", { size: narrow ? "w780" : "w1280" })
+      : entry?.external_id && entry.source_api === "igdb"
+        ? () => IGDBImages.fetch(entry.external_id, { size: narrow ? "t_screenshot_big" : "t_1080p" })
+        : null;
+    if (getUrls) {
       startBackdropShow({
         bdEl,
         firstLayer: layer,
-        getUrls: () => TMDbImages.fetch(entry.external_id, entry.subtype || "movie", { size: narrow ? "w780" : "w1280" }),
+        getUrls,
         isActive: () => detailSessions.isActive(sessionId, entryId),
         track: image => detailSessions.trackImage(image, sessionId),
       }).catch(() => {});
@@ -1136,7 +1141,8 @@ async function openDetailPanel(id, options = {}) {
 
   // Une ancienne fiche TMDb peut avoir été considérée comme enrichie avant
   // l'arrivée des bannières. Elle bénéficie d'une unique vérification fraîche.
-  const needsBackdropRepair = e.media_type === "movie" && !e.backdrop_url && !e._backdropRepairAttempted;
+  const needsBackdropRepair = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) &&
+    !e.backdrop_url && !e._backdropRepairAttempted;
   if (e._detailsFetched && !needsBackdropRepair) {
     _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
     return;
@@ -1187,7 +1193,7 @@ async function openDetailPanel(id, options = {}) {
       return;
     }
 
-    const refreshBackdrop = e.media_type === "movie" && !e.backdrop_url;
+    const refreshBackdrop = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) && !e.backdrop_url;
     if (refreshBackdrop) e._backdropRepairAttempted = true;
     const details = await requestPrefetchedDetails(e, {
       fresh: refreshBackdrop,

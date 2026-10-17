@@ -9,6 +9,7 @@ export const IGDB = { available: () => true, upcoming: () => request("upcoming/g
 export const GoogleBooks = { available: () => true, upcoming: () => request("upcoming/book") };
 export const TMDbDetails = { fetch: (id, _subtype, options) => request(`details/${id}`, options) };
 export const TMDbImages = { fetch: async () => [] };
+export const IGDBImages = { fetch: async () => [] };
 export const IGDBDetails = { fetch: (id, options) => request(`details/${id}`, options) };
 export const OpenLibraryDetails = { fetch: (id, _fallback, options) => request(`details/${id}`, options) };
 export const searchMedia = async () => [];

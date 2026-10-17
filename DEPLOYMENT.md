@@ -10,7 +10,7 @@
 
 La source reste directement publiable depuis une branche GitHub Pages. Le mode recommandé est toutefois le workflow inclus : dans **Settings → Pages → Build and deployment**, sélectionner **GitHub Actions**. À chaque envoi sur `main`, il contrôle la version, exécute les tests, construit l’application avec Vite et publie exactement le dossier `dist`.
 
-**Depuis la 3.4.6, aucun redéploiement de fonction Edge n'est nécessaire.** La suppression du statut *En pause* demande toutefois d'exécuter une fois `schema.sql` dans **Supabase → SQL Editor** (voir l'entrée « À venir » de l'historique) ; le script est rejouable sans risque.
+**La 4.1 demande de redéployer `igdb-proxy`** (Supabase → Edge Functions → igdb-proxy → coller le contenu de `supabase/functions/igdb-proxy/index.ts` → Deploy) pour que les fiches de jeux affichent leur bannière animée ; c'est optionnel, rien ne casse sans cela. Les autres fonctions n'ont pas changé. La suppression du statut *En pause* demande toutefois d'exécuter une fois `schema.sql` dans **Supabase → SQL Editor** (voir l'entrée « À venir » de l'historique) ; le script est rejouable sans risque.
 
 ## Depuis une version antérieure à la 3.4.6
 

@@ -544,19 +544,33 @@ export const TMDbImages = {
   },
 };
 
+// Captures d'écran IGDB : t_1080p pour le bureau, t_screenshot_big (889 × 500)
+// pour le mobile.
+function igdbScreenshotUrls(game, size = "t_1080p", limit = 4) {
+  return (game?.screenshots || [])
+    .map(shot => shot?.image_id)
+    .filter(id => typeof id === "string" && /^[a-z0-9]+$/i.test(id))
+    .slice(0, limit)
+    .map(id => `https://images.igdb.com/igdb/image/upload/${size}/${id}.jpg`);
+}
+
+async function fetchIgdbGame(externalId, options = {}) {
+  if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
+  const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
+  const data = await apiFetch(proxyUrl, {
+    method: "POST",
+    headers: await edgeFunctionHeaders(),
+    body: JSON.stringify({ id: Number(externalId) }),
+    cachePolicy: "detail",
+    timeoutMs: 12_000,
+    signal: options.signal,
+  });
+  return Array.isArray(data) ? data[0] : data;
+}
+
 export const IGDBDetails = {
   async fetch(externalId, options = {}) {
-    if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
-    const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
-    const data = await apiFetch(proxyUrl, {
-      method: "POST",
-      headers: await edgeFunctionHeaders(),
-      body: JSON.stringify({ id: Number(externalId) }),
-      cachePolicy: "detail",
-      timeoutMs: 12_000,
-      signal: options.signal,
-    });
-    const g = Array.isArray(data) ? data[0] : data;
+    const g = await fetchIgdbGame(externalId, options);
     if (!g) return null;
 
     const developer  = g.involved_companies?.find(c => c.developer)?.company?.name || null;
@@ -565,8 +579,19 @@ export const IGDBDetails = {
     // Une seule route traduit les textes externes : groq-proxy est partagée
     // avec les livres et reste indépendante du catalogue IGDB.
     const description = g.summary ? await translateViaProxy(g.summary, options) : null;
+    // La première capture sert de bannière enregistrée (comme TMDb).
+    const backdrop_url = igdbScreenshotUrls(g, "t_1080p", 1)[0] || null;
 
-    return { developer, publisher, platform, description };
+    return { backdrop_url, developer, publisher, platform, description };
+  },
+};
+
+// Captures supplémentaires pour le défilement de la bannière (même requête que
+// les détails : la réponse est déjà en cache).
+export const IGDBImages = {
+  async fetch(externalId, options = {}) {
+    const g = await fetchIgdbGame(externalId, options);
+    return igdbScreenshotUrls(g, options.size || "t_1080p", 4);
   },
 };
 
