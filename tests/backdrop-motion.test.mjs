@@ -41,3 +41,7 @@ test("les jeux ont leur bannière : proxy, API et fiche", () => {
   assert.match(api, /backdrop_url, developer, publisher, platform, description/);
   assert.match(read("../features/media-detail.js"), /IGDBImages\.fetch/);
 });
+
+test("la jaquette floutée reste sous l'image sortante pendant le fondu", () => {
+  assert.match(read("../styles/finesse.css"), /\.detail-backdrop\.has-show\.has-fallback::before \{ z-index: -2; \}/);
+});

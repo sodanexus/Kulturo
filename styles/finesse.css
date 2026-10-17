@@ -775,6 +775,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   animation: backdropDrift 18s linear forwards;
 }
 .detail-backdrop-layer.is-leaving { z-index: -1; }
+/* La jaquette floutée (fiches ouvertes avant l'arrivée de la bannière, comme
+   les jeux) passe sous l'image sortante, sinon elle apparaît pendant le fondu. */
+.detail-backdrop.has-show.has-fallback::before { z-index: -2; }
 .detail-backdrop.has-show .detail-backdrop-layer {
   transition: opacity 1.9s cubic-bezier(.4, 0, .2, 1);
 }
