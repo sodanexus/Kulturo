@@ -763,3 +763,26 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .media-card:not(.upcoming-card)::after { transition: background .35s var(--ease-expo); }
 }
+
+
+/* ============================================================
+   Bannière vivante : dérive lente de l'image et fondu enchaîné
+   entre plusieurs images (voir features/backdrop-motion.js).
+   ============================================================ */
+.detail-backdrop-layer { transform-origin: center; }
+.detail-backdrop-layer.is-current,
+.detail-backdrop-layer.is-leaving {
+  animation: backdropDrift 18s linear forwards;
+}
+.detail-backdrop-layer.is-leaving { z-index: -1; }
+.detail-backdrop.has-show .detail-backdrop-layer {
+  transition: opacity 1.9s cubic-bezier(.4, 0, .2, 1);
+}
+@keyframes backdropDrift {
+  from { transform: scale(1.04) translate(0, 0); }
+  to   { transform: scale(1.12) translate(var(--bd-dx, -2%), var(--bd-dy, -1%)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-backdrop-layer.is-current,
+  .detail-backdrop-layer.is-leaving { animation: none; }
+}
