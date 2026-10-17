@@ -5,7 +5,7 @@
 const accentCache = new Map();
 const pendingAccents = new Map();
 const MAX_ACCENT_CACHE = 120;
-const ACCENT_CACHE_VERSION = "6";
+const ACCENT_CACHE_VERSION = "7";
 const ACCENT_CACHE_VERSION_KEY = "kulturo-cover-accent-version";
 const ACCENT_CACHE_STORAGE_KEY = "kulturo-cover-accents-v6";
 let storageHydrated = false;
@@ -250,8 +250,8 @@ function accentFromOklch(L, C, hue, neutral) {
   }
   const accent = oklchToHsl(clamp(L, .68, .76), clamp(C * 1.15, .09, .17), hue);
   const accent2 = oklchToHsl(clamp(L, .68, .76) + .08, clamp(C * .95, .07, .14), hue);
-  const ambient = oklchToHsl(clamp(L * .6 + .32, .5, .66), clamp(C * 1.3, .11, .2), hue);
-  const ambientSoft = oklchToHsl(clamp(L * .6 + .32, .5, .66) + .1, clamp(C * 1.05, .09, .16), hue);
+  const ambient = oklchToHsl(clamp(L * .6 + .32, .5, .66), clamp(C * 1.15, .09, .17), hue);
+  const ambientSoft = oklchToHsl(clamp(L * .6 + .32, .5, .66) + .1, clamp(C * .95, .08, .14), hue);
   const system = oklchToHsl(.17, clamp(C * .3, .015, .045), hue);
   return {
     accent: hsl(accent),

@@ -2,8 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
-## À venir (non publié)
+## 4.1.0
 
+Version de finition visuelle : bannière de fiche animée, survol des affiches uniforme et réactif, aura et couleur de nuance plus justes. Aucun SQL ni redéploiement de fonction Edge.
+
+- **Aura un peu plus discrète** : environ un quart d'intensité en moins sur le liseré, les halos, la lueur de la bannière et le fond du corps de la fiche, et couleur d'aura légèrement moins saturée. Le caractère de l'effet ne change pas.
 - **Bannière vivante dans la fiche.** L'image de fond dérive très lentement (zoom de 4 à 12 % sur 18 s, direction différente à chaque image). Pour les films et séries, 3 images de fond supplémentaires (sans texte, les mieux notées de TMDb) s'enchaînent en fondu toutes les 7 s ; l'image sortante reste opaque sous la nouvelle jusqu'à la fin du fondu, sans creux de luminosité. Les jeux et livres gardent la dérive sur leur image unique.
 - Garde-fous : rien ne bouge avec « réduire les animations », le diaporama ne charge pas d'images supplémentaires en mode économie de données, se met en pause hors écran et quand l'onglet est masqué, et s'arrête à la fermeture de la fiche. Images en 780 px de large sur mobile. Aucune donnée enregistrée, aucun SQL : les images viennent de TMDb à l'ouverture (mises en cache par le client).
 - **Animations plus vives, toujours douces.** Toutes les courbes étaient remplacées par une seule courbe symétrique (ease-in-out) qui démarre de vitesse nulle : même à 140 ms, le mouvement paraissait en retard. Les entrées et changements d'état reprennent une décélération franche (départ à pleine vitesse, arrivée douce), les fondus une courbe standard, les longues entrées la courbe « expo ». Aucun rebond. Durées inchangées.
@@ -13,7 +16,7 @@
 - L'image est analysée aux proportions d'une affiche (40 × 60 au lieu de 28 × 28 écrasé) ; les marges sont ignorées et le bandeau de crédits du bas est allégé.
 - L'aura ne reprend plus la luminosité de l'affiche (une affiche sombre donnait une aura noire, invisible) : c'est une lumière franche et saturée, distincte des couleurs plus claires des commandes. Les affiches presque monochromes restent neutres.
 - **Aura de la fiche renforcée sur ordinateur** : liseré teinté, halo proche, grande nappe sous la fiche et reflet en haut ; lueur de l'entête un peu plus présente qu'avant mais mesurée, et plus profonde dans le corps. Mobile inchangé.
-- Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
+- Cache des couleurs invalidé (v7) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
 ## 4.0.23

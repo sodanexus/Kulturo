@@ -31,7 +31,14 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.0.23
+## Version actuelle · 4.1.0
+
+La 4.1 donne de la vie à l'interface sans la rendre bruyante :
+
+- **Bannière vivante** — dans la fiche, l'image de fond dérive très lentement ; pour les films et séries, plusieurs images de fond TMDb s'enchaînent en fondu. Rien ne bouge avec « réduire les animations », et rien n'est enregistré en base.
+- **Survol des affiches** — même comportement partout (Bibliothèque, À reprendre, Sorties, Profil, Journal) : légère inclinaison et lueur qui suit la souris, avec une réponse immédiate à l'entrée et un relâchement doux à la sortie.
+- **Animations plus vives** — des courbes qui démarrent à pleine vitesse, pour un rendu fluide qui semble réactif.
+- **Aura et couleur de nuance** — la couleur de la jaquette est extraite en espace perceptuel (OKLCH) ; l'aura de la fiche est plus présente sur ordinateur.
 
 La 4.0.23 distingue les séries en bleu et réduit le texte des synopsis de 16 à 14 px.
 
@@ -52,7 +59,7 @@ Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouve
 
 [Historique des versions](CHANGELOG.md) · [Mise à jour et déploiement](DEPLOYMENT.md) · [Vérifications](tests/README.md)
 
-Depuis la **3.4.6**, la 4.0 ne demande aucun nouveau SQL ni redéploiement de fonction Edge. La migration de la base locale IndexedDB est automatique sur chaque appareil.
+Depuis la **3.4.6**, les versions 4.0 et 4.1 ne demandent aucun nouveau SQL ni redéploiement de fonction Edge. La migration de la base locale IndexedDB est automatique sur chaque appareil.
 
 ---
 
