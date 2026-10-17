@@ -67,7 +67,7 @@ export function animateSynopsis(wrap, expanded) {
   setTextHeight(fromTextHeight);
   setHeight(fromHeight);
   body.scrollTop = fromScroll;
-  const duration = Math.max(1, motionDuration("--motion-layout", 350));
+  const duration = Math.max(1, motionDuration("--motion-layout", 280));
   const start = performance.now();
   const tick = now => {
     if (!wrap.isConnected) { finish(); return; }

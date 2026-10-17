@@ -20,29 +20,29 @@ function fixture() {
   Object.assign(globalThis,{
     document:{createElement:()=>({style:{},setAttribute(){},remove(){}})},
     requestAnimationFrame:fn=>{callbacks.set(++next,fn);return next},cancelAnimationFrame:id=>callbacks.delete(id),
-    performance:{now:()=>clock},matchMedia:()=>({matches:false}),getComputedStyle:()=>({paddingBottom:'8px',getPropertyValue:key=>key==='--detail-compact-h'?'64px':'350ms'})
+    performance:{now:()=>clock},matchMedia:()=>({matches:false}),getComputedStyle:()=>({paddingBottom:'8px',getPropertyValue:key=>key==='--detail-compact-h'?'64px':'280ms'})
   });
   return {wrap,body,section,clip,attrs,step(time){clock=time;const batch=[...callbacks.values()];callbacks.clear();batch.forEach(fn=>fn(time));},restore(){for(const[k,v]of original){if(v)Object.defineProperty(globalThis,k,v);else delete globalThis[k]}}};
 }
 test('synopsis height and scroll share the same progress and clean up after collapse',()=>{
  const f=fixture();try{
-  animateSynopsis(f.wrap,true);f.step(175);
+  animateSynopsis(f.wrap,true);f.step(140);
   assert.equal(parseFloat(f.clip.style.height),320);
   assert.equal(parseFloat(f.section.style.height),360);
   assert.equal(f.body.scrollTop,114);
-  f.step(350);assert.equal(f.body.scrollTop,228);assert.equal(f.attrs.size,0);
-  animateSynopsis(f.wrap,false);f.step(525);
+  f.step(280);assert.equal(f.body.scrollTop,228);assert.equal(f.attrs.size,0);
+  animateSynopsis(f.wrap,false);f.step(420);
   assert.equal(parseFloat(f.clip.style.height),320);
   assert.equal(parseFloat(f.section.style.height),360);assert.equal(f.body.scrollTop,114);
-  f.step(700);assert.equal(f.clip.style.height,undefined);assert.equal(f.body.scrollTop,0);assert.equal(f.body.style.getPropertyValue('padding-bottom'),'');
+  f.step(560);assert.equal(f.clip.style.height,undefined);assert.equal(f.body.scrollTop,0);assert.equal(f.body.style.getPropertyValue('padding-bottom'),'');
  }finally{f.restore()}
 });
 test('reversing a synopsis animation starts at its visible position',()=>{
  const f=fixture();try{
-  animateSynopsis(f.wrap,true);f.step(175);
+  animateSynopsis(f.wrap,true);f.step(140);
   animateSynopsis(f.wrap,false);
   assert.equal(parseFloat(f.clip.style.height),320);
   assert.equal(parseFloat(f.section.style.height),360);assert.equal(f.body.scrollTop,114);
-  f.step(525);assert.equal(f.body.scrollTop,0);assert.equal(f.attrs.size,0);
+  f.step(420);assert.equal(f.body.scrollTop,0);assert.equal(f.attrs.size,0);
  }finally{f.restore()}
 });

@@ -1,13 +1,13 @@
 /* Rythme partagé : appui, changement d'état, fenêtres. */
 :root {
-  --motion-press: 100ms;
-  --motion-state: 180ms;
-  --motion-dialog: 350ms;
+  --motion-press: 80ms;
+  --motion-state: 140ms;
+  --motion-dialog: 280ms;
   --motion-touch: var(--motion-press);
   --motion-fast: var(--motion-press);
   --motion-feedback: var(--motion-state);
   --motion-base: var(--motion-state);
-  --motion-content: 280ms;
+  --motion-content: 220ms;
   --motion-layout: var(--motion-dialog);
   --motion-slow: var(--motion-dialog);
 }

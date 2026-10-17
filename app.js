@@ -3247,7 +3247,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
       sheet.style.transition = "";
       sheet.style.transform = "";
       sheet.style.animation = "";
-    }, motionDuration("--motion-layout", 350));
+    }, motionDuration("--motion-layout", 280));
   };
 
   sheet.addEventListener("touchstart", event => {

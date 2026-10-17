@@ -42,7 +42,7 @@ export function runViewTransition(update, name = "page") {
 }
 
 // Le JS attend la même durée que le CSS avant de retirer une fenêtre.
-export function motionDuration(token = "--motion-dialog", fallback = 350) {
+export function motionDuration(token = "--motion-dialog", fallback = 280) {
   if (prefersReducedMotion()) return 0;
   const root = globalThis.document?.documentElement;
   const value = root && globalThis.getComputedStyle?.(root).getPropertyValue(token).trim();
@@ -80,7 +80,7 @@ export function animateHeightChange(element, update) {
   const animation = element.animate([
     { height: `${from}px`, minHeight: `${from}px`, maxHeight: `${from}px`, overflow: 'clip' },
     { height: `${to}px`, minHeight: `${to}px`, maxHeight: `${to}px`, overflow: 'clip' },
-  ], { duration: motionDuration('--motion-layout', 350), easing: MOTION_EASING });
+  ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
   heightAnimations.set(element, animation);
   return animation.finished.then(() => true, () => false).then(completed => {
     completed = completed && heightAnimations.get(element) === animation;
@@ -100,7 +100,7 @@ export function revealSurface(element) {
   const opacity = previous ? getComputedStyle(element).opacity : '.7';
   previous?.cancel();
   const animation = element.animate([{ opacity }, { opacity: 1 }], {
-    duration: motionDuration('--motion-content', 280), easing: MOTION_EASING,
+    duration: motionDuration('--motion-content', 220), easing: MOTION_EASING,
   });
   surfaceAnimations.set(element, animation);
   animation.finished.then(cleanup, cleanup);
@@ -125,7 +125,7 @@ export function transitionDialogReplacement(previousRect, next) {
   const animation = next.animate([
     { width: `${previousRect.width}px`, height: `${previousRect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
     { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
-  ], { duration: motionDuration('--motion-layout', 350), easing: MOTION_EASING });
+  ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
   animation.finished.catch(() => {});
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer')) {
     revealSurface(part);

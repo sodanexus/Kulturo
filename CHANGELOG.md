@@ -12,6 +12,11 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.21
+
+- Rythme plus réactif : appuis 80 ms, survols/états 140 ms, contenus 220 ms, panneaux et dépliages 280 ms.
+- Courbes, synchronisation du synopsis et mouvement réduit conservés ; valeurs de repli JavaScript et tests ajustés aux nouvelles durées.
+
 ## 4.0.20
 
 - Généralisation de la correction du survol à tous les boutons principaux, dont Enregistrer : le dégradé n’est plus supprimé par les anciennes règles background.
