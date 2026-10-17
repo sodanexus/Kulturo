@@ -54,7 +54,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, transitionDialogReplacement } from "./features/motion.js";
+import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -1823,7 +1823,6 @@ function openEditFromDetail(id) {
   const entry = State.entries.find(item => item.id === id);
   const detail = document.querySelector("#modal-overlay .detail-modal");
   if (!entry || !detail || _detailEditContext) return;
-  const previousRect = detail.getBoundingClientRect();
   _detailEditContext = {
     id,
     scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
@@ -1834,7 +1833,6 @@ function openEditFromDetail(id) {
   window._apiSelected = null;
   openModal(entry);
   document.getElementById("modal-overlay")?.classList.add("is-modal-replacement");
-  transitionDialogReplacement(previousRect, document.querySelector("#modal-overlay .edit-modal"));
 }
 
 function returnToDetail() {
@@ -1842,7 +1840,6 @@ function returnToDetail() {
   if (!context || !State.entries.some(entry => entry.id === context.id)) return false;
   _detailEditContext = null;
   const edit = document.querySelector("#modal-overlay .edit-modal");
-  const previousRect = edit?.getBoundingClientRect();
   if (edit) dialogFocus.deactivate(edit, { restoreFocus: false });
   document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
   _wizardState = null;
@@ -1852,7 +1849,6 @@ function returnToDetail() {
   window._apiSelected = null;
   window._apiResults = [];
   openDetailPanel(context.id, { restoreView: context });
-  transitionDialogReplacement(previousRect, document.querySelector("#modal-overlay .detail-modal"));
   return true;
 }
 
@@ -1953,14 +1949,14 @@ function _renderWizard() {
 
   const previousDialog = root.querySelector("#modal-overlay .modal");
   if (previousDialog) dialogFocus.deactivate(previousDialog, { restoreFocus: false });
-  root.innerHTML = `
+  replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal modal-wizard" data-step="${s.step}" ${cover ? `data-cover-accent-url="${esc(cover)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="add-sheet-title">
         <div class="modal-header wz-header">${headerHTML}</div>
         <div class="modal-body wz-body">${bodyHTML}</div>
         ${footerHTML ? `<div class="modal-footer">${footerHTML}</div>` : ""}
       </div>
-    </div>`;
+    </div>`);
   pushHistoryLayer("modal", { modal: "add", step: s.step });
   syncSystemBar(_currentPage, null);
   if (s.step === 2) bindCoverAccent(root.querySelector(".modal-wizard"), cover);
@@ -2009,7 +2005,7 @@ function _renderWizard() {
 function _openModalClassic(entry) {
   const root = document.getElementById("modal-root");
   const entryCoverUrl = safeMediaUrl(entry.cover_url);
-  root.innerHTML = `
+  replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="edit-sheet-title">
         <div class="modal-header">
@@ -2094,7 +2090,7 @@ function _openModalClassic(entry) {
           <button class="btn btn-primary" ${uiAction("saveEntry")}>Enregistrer</button>
         </div>
       </div>
-    </div>`;
+    </div>`);
   pushHistoryLayer(_detailEditContext ? "edit" : "modal", { modal: "edit", mediaId: entry.id });
   syncSystemBar(_currentPage, null);
   bindCoverAccent(root.querySelector(".edit-modal"), entryCoverUrl);
@@ -3541,7 +3537,7 @@ function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
   const ignoredCount = plan.invalid.length + plan.conflicts.length + Number(plan.journal?.invalid || 0);
   const restorableCount = plan.added.length + plan.updated.length + journalCount;
   const root = document.getElementById("modal-root");
-  root.innerHTML = `
+  replaceModalContent(root, `
     <div class="modal-overlay backup-restore-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal backup-restore-modal" role="dialog" aria-modal="true" aria-labelledby="backup-restore-title" aria-describedby="backup-restore-description">
         <div class="modal-header">
@@ -3572,7 +3568,7 @@ function renderBackupRestorePreview(plan, fileName = "sauvegarde Kulturo") {
           </button>
         </div>
       </div>
-    </div>`;
+    </div>`);
   if (!alreadyOpen) pushHistoryLayer("modal", { modal: "backup-restore" });
   activateDialog(root.querySelector(".backup-restore-modal"), { initialFocus: "#backup-restore-confirm:not([disabled])" });
   setupMobileSheetSwipe({

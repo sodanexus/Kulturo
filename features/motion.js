@@ -123,11 +123,28 @@ export function transitionDialogReplacement(previousRect, next) {
   const maxWidth = `${Math.max(previousRect.width, rect.width)}px`;
   const maxHeight = `${Math.max(previousRect.height, rect.height)}px`;
   const animation = next.animate([
-    { width: `${previousRect.width}px`, height: `${previousRect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
-    { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, overflow: 'clip' },
+    { width: `${previousRect.width}px`, height: `${previousRect.height}px`, maxWidth, maxHeight, minWidth: '0px', minHeight: '0px', flexShrink: 0, overflow: 'clip' },
+    { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, minWidth: '0px', minHeight: '0px', flexShrink: 0, overflow: 'clip' },
   ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
   animation.finished.catch(() => {});
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer')) {
     revealSurface(part);
   }
+}
+
+// Tous les remplacements du panneau principal passent ici, indépendamment
+// du bouton, du retour navigateur ou de l'étape de formulaire qui les déclenche.
+export function replaceModalContent(root, html) {
+  const previous = root.querySelector('#modal-overlay .modal');
+  const previousRect = previous?.getBoundingClientRect();
+  root.innerHTML = html;
+  const next = root.querySelector('#modal-overlay .modal');
+  if (!previousRect || !next) return;
+  next.closest('.modal-overlay')?.classList.add('is-modal-replacement');
+  // Attendre les réglages synchrones (synopsis, champs, focus), mais démarrer
+  // avant la première peinture de la nouvelle fenêtre.
+  queueMicrotask(() => {
+    if (!next.isConnected || root.querySelector('#modal-overlay .modal') !== next) return;
+    transitionDialogReplacement(previousRect, next);
+  });
 }

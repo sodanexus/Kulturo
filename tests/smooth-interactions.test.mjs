@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animateHeightChange, prepareDialogClose, runViewTransition, shouldDismissSheet, transitionDialogReplacement } from '../features/motion.js';
+import { animateHeightChange, prepareDialogClose, runViewTransition, shouldDismissSheet, transitionDialogReplacement, replaceModalContent } from '../features/motion.js';
 import { setButtonBusy } from '../features/ui-states.js';
 
 function installGlobals(values) {
@@ -129,4 +129,32 @@ test('detail/edit transition honors reduced motion', () => {
   try {
     transitionDialogReplacement({ width: 860, height: 800 }, { animate() { throw Error('unexpected motion'); } });
   } finally { restore(); }
+});
+
+
+test('modal replacement animates expansion and contraction after content setup', async () => {
+  const restore = installGlobals({ matchMedia: () => ({ matches: false }) });
+  try {
+    for (const [from, to] of [[560,860],[860,560]]) {
+      let current = { getBoundingClientRect: () => ({ width: from, height: 640 }) };
+      let frames;
+      const next = { isConnected: true, closest: () => ({ classList: { add() {} } }),
+        getBoundingClientRect: () => ({ width: to, height: 800 }), querySelectorAll: () => [],
+        animate: f => { frames=f; return { finished: Promise.resolve() }; } };
+      const root = { querySelector: () => current, set innerHTML(value) { current=next; } };
+      replaceModalContent(root, '<dialog>');
+      assert.equal(frames, undefined);
+      await Promise.resolve();
+      assert.equal(frames[0].width, `${from}px`);
+      assert.equal(frames[1].width, `${to}px`);
+    }
+  } finally { restore(); }
+});
+
+test('an obsolete modal replacement does not animate a detached panel', async () => {
+  let current={getBoundingClientRect:()=>({width:560,height:640})};
+  const next={isConnected:true,closest:()=>({classList:{add(){}}}),animate(){throw Error('obsolete panel');}};
+  const root={querySelector:()=>current,set innerHTML(value){current=next;}};
+  replaceModalContent(root,'next');current=null;next.isConnected=false;
+  await Promise.resolve();
 });

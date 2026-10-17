@@ -1,4 +1,4 @@
-import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface } from "./motion.js";
+import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface, replaceModalContent } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, IGDBDetails, OpenLibraryDetails } from "../api.js";
@@ -186,7 +186,7 @@ function renderDetailPanel(e, options = {}) {
   const previousDetailDialog = root.querySelector("#modal-overlay .detail-modal");
   if (previousDetailDialog) dialogFocus.deactivate(previousDetailDialog, { restoreFocus: false });
   const detailSessionId = detailSessions.begin(e.id);
-  root.innerHTML = `
+  replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
       <div class="modal detail-modal" data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
@@ -238,7 +238,7 @@ function renderDetailPanel(e, options = {}) {
             </div>`}
         </div>
       </div>
-    </div>`;
+    </div>`);
 
   if (options.history !== "none") {
     pushHistoryLayer("modal", { modal: options.preview ? "upcoming" : "detail", mediaId: e.id || null });

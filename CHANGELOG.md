@@ -12,6 +12,13 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.22
+
+- Remplacement du panneau principal centralisé : fiche, édition, étapes d’ajout et autres panneaux utilisent le même redimensionnement dans les deux sens.
+- Démarrage avant peinture mais après préparation du contenu ; les retours Annuler, Echap, navigateur et Enregistrer partagent le même chemin.
+- Dimensions minimales et flex contrôlés pendant la transition pour permettre aussi l’agrandissement depuis un panneau plus petit ; aucune animation différée sur un panneau déjà remplacé.
+- Durée de 280 ms et respect du mouvement réduit conservés.
+
 ## 4.0.21
 
 - Rythme plus réactif : appuis 80 ms, survols/états 140 ms, contenus 220 ms, panneaux et dépliages 280 ms.
