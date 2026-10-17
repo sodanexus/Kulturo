@@ -51,6 +51,7 @@ const STATIC_ASSET_PATHS = [
   "features/media-repository.js",
   "features/motion.js",
   "features/synopsis-motion.js",
+  "features/backdrop-motion.js",
   "features/media-metadata.js",
   "features/profile.js",
   "features/request-client.js",

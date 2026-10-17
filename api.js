@@ -526,6 +526,24 @@ export const TMDbDetails = {
   },
 };
 
+// Images de fond supplémentaires (sans texte, les mieux notées d'abord).
+export const TMDbImages = {
+  async fetch(externalId, subtype = "movie", options = {}) {
+    if (!CONFIG?.tmdb?.apiKey || !externalId) return [];
+    const ep = subtype === "tv" ? "tv" : "movie";
+    const size = options.size || "w1280";
+    const data = await apiFetch(
+      `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=null`,
+      { cachePolicy: "detail", signal: options.signal }
+    );
+    return (data?.backdrops || [])
+      .filter(b => b?.file_path && !b.iso_639_1 && (b.width || 0) >= 1280)
+      .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+      .slice(0, 8)
+      .map(b => `https://image.tmdb.org/t/p/${size}${b.file_path}`);
+  },
+};
+
 export const IGDBDetails = {
   async fetch(externalId, options = {}) {
     if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
