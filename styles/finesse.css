@@ -715,7 +715,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* Bibliothèque : devant l'image, et dans le même mouvement qu'elle. */
 .media-card:not(.upcoming-card)::after {
   z-index: 4;
-  transition: background .35s var(--ease-expo), transform var(--motion-state, 250ms) var(--ease-interface, var(--ease-expo));
+  transition: background .35s var(--ease-expo), transform var(--poster-dur, 140ms) var(--poster-ease, var(--ease-interface));
 }
 @media (hover: hover) and (pointer: fine) {
   .media-card:not(.upcoming-card).is-tilting::after {

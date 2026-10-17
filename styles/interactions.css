@@ -53,8 +53,23 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 .upcoming-card .upcoming-cover-wrap, .continue-card .continue-cover,
 .profile-top-card .profile-top-cover {
   box-shadow: var(--cover-status-ring, 0 0 0 0 transparent), var(--media-cover-shadow);
-  transition: opacity var(--motion-state), transform var(--motion-state) var(--ease-interface),
-    box-shadow var(--motion-state), filter var(--motion-state) !important;
+  transition: opacity var(--motion-state),
+    transform var(--poster-dur) var(--poster-ease),
+    box-shadow calc(var(--poster-dur) * 1.6) var(--poster-ease),
+    filter var(--motion-state) !important;
+}
+/* Réactif à l'entrée, doux à la sortie : l'affiche répond dès le premier
+   pixel (90 ms, départ à pleine vitesse), puis se relâche en 260 ms. La même
+   durée sert à la lueur (finesse.css) pour que les deux restent solidaires. */
+.media-card, .continue-card, .profile-top-card, .upcoming-card {
+  --poster-dur: 260ms;
+  --poster-ease: cubic-bezier(.23, 1, .32, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .media-card:is(:hover, :focus-visible), .continue-card:is(:hover, :focus-visible),
+  .profile-top-card:is(:hover, :focus-visible), .upcoming-card:is(:hover, :focus-within) {
+    --poster-dur: 90ms;
+  }
 }
 .media-card:not(.card-enter):not(.card-exit),
 #cards-grid > .media-card:nth-child(-n+24) .card-cover.fade-image.is-loaded,
@@ -115,13 +130,15 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   flex-shrink: 0;
 }
 
-/* Une courbe de décélération commune, sans dépassement ni rebond. */
+/* Des courbes qui démarrent vite : une animation qui part de vitesse nulle
+   (ease-in-out) paraît en retard. Entrées et états en décélération franche,
+   fondus en courbe standard, longues entrées en « expo ». Aucun rebond. */
 :root {
-  --ease-interface: cubic-bezier(.333333, 0, .666667, 1);
+  --ease-interface: cubic-bezier(.23, 1, .32, 1);
   --ease-out: var(--ease-interface);
-  --ease-smooth: var(--ease-interface);
-  --ease-expo: var(--ease-interface);
-  --ease-spring: var(--ease-interface);
+  --ease-smooth: cubic-bezier(.4, 0, .2, 1);
+  --ease-expo: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.2, .85, .25, 1);
 }
 .modal-overlay, .modal, .metadata-sheet, .page.active,
 .journal-panel-enter, .toast {
