@@ -1,3 +1,4 @@
+import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 // app.js — Kulturo · Logique principale
 // ============================================================
@@ -90,7 +91,6 @@ let openMetadataMedia;
 let closeMetadataPanel;
 let quickSetStatus;
 let quickAdjustRepeat;
-let scrollExpandedSynopsisIntoView;
 let canEnrichMediaDetails;
 let requestPrefetchedDetails;
 let refreshDetailEnrichment;
@@ -3734,7 +3734,6 @@ mediaDetailFeature = createMediaDetailFeature({
   closeMetadataPanel,
   quickSetStatus,
   quickAdjustRepeat,
-  scrollExpandedSynopsisIntoView,
   canEnrichMediaDetails,
   requestPrefetchedDetails,
   refreshDetailEnrichment,
@@ -3954,8 +3953,7 @@ window.UI = {
     const wrap = document.getElementById(id);
     if (!wrap || !wrap.classList.contains("is-overflowing")) return;
     const isExpanded = !wrap.classList.contains("expanded");
-    const section = wrap.closest(".detail-section");
-    const animation = animateHeightChange(section, () => wrap.classList.toggle("expanded", isExpanded));
+    animateSynopsis(wrap, isExpanded);
     const btn = wrap.querySelector(".detail-synopsis-toggle");
     if (btn) {
       btn.textContent = isExpanded ? "Voir moins" : "Voir plus";
@@ -3964,11 +3962,7 @@ window.UI = {
       requestAnimationFrame(() => btn.classList.add("is-changing"));
       btn.addEventListener("animationend", () => btn.classList.remove("is-changing"), { once: true });
     }
-    animation.then(completed => {
-      if (completed && wrap.classList.contains("expanded") === isExpanded) {
-        scrollExpandedSynopsisIntoView(wrap, isExpanded);
-      }
-    });
+
   },
 
   applyFilters: () => {

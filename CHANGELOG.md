@@ -12,6 +12,13 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.17
+
+- Synopsis : dépliage/repli et défilement synchronisés sur 350 ms, avec une courbe commune et inversion depuis la position visible.
+- Une réserve temporaire de défilement évite le retour brutal des informations au repli ; elle est supprimée à la fin ou à l’interruption. Mouvement réduit respecté.
+- Desktop : conservation du dégradé de Modifier au survol, pour supprimer la bascule brusque vers un fond uni.
+- Travail effectué sur l’archive « Kulturo-main (a jour).zip » fournie le 17 octobre, en conservant ses autres modifications.
+
 ## 4.0.16
 
 - Retrait du clone animé de jaquette : ouverture douce de la fiche sur desktop, glissement depuis le bas sur mobile. La pochette reste dans son emplacement, restitution du focus conservée.

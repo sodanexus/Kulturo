@@ -193,3 +193,11 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   .detail-modal { transition: none; }
   .detail-modal[data-cover-accent="dominant"] .detail-backdrop::after { animation: none; opacity: 1; }
 }
+
+/* Conserver le même dégradé au repos et au survol : la règle historique
+   background au hover supprimait brutalement l'image de fond. */
+@media (hover: hover) and (pointer: fine) {
+  .detail-modal .btn-primary:hover {
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  }
+}
