@@ -26,3 +26,11 @@ test("les affiches du Journal personnel et de la Communauté ont leur cadre", ()
   const journal = read("../features/journal.js");
   assert.equal((journal.match(/<span class="activity-cover-frame">/g) || []).length, 4);
 });
+
+test("animations : courbes à départ rapide et survol d'affiche asymétrique", () => {
+  const css = read("../styles/interactions.css");
+  assert.doesNotMatch(css, /cubic-bezier\(\.333333, 0, \.666667, 1\)/);
+  assert.match(css, /--poster-dur: 90ms/);
+  assert.match(css, /--poster-dur: 260ms/);
+  assert.match(read("../styles/finesse.css"), /transform var\(--poster-dur/);
+});
