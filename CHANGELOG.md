@@ -12,6 +12,12 @@
 - Cache des couleurs invalidé (v6) : les affiches sont ré-analysées à la prochaine ouverture. Aucun SQL.
 - Tests de couleur : l'ancien test « ambiance sombre » devient « aura visible sur affiche sombre » ; six nouveaux tests (noir teinté, sujet coloré sur fond sombre, fond blanc, teinte à cheval sur deux cases, validité des sorties).
 
+## 4.0.23
+
+- Journal mobile : retrait du focus du sélecteur natif avant le filtrage et suppression du transfert automatique vers l’autre select. Navigation clavier desktop conservée.
+- Les options du mois ne sont plus reconstruites quand leur liste est inchangée, afin de ne pas perturber le menu natif.
+- Durées et courbes d’animation inchangées.
+
 ## 4.0.22
 
 - Remplacement du panneau principal centralisé : fiche, édition, étapes d’ajout et autres panneaux utilisent le même redimensionnement dans les deux sens.

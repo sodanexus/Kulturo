@@ -192,3 +192,27 @@ test('Journal : les mois personnel et communauté restent indépendants', () => 
   assert.equal(nav.context().periods.personal, '2026-02');
   assert.equal(nav.context().periods.community, '2026-05');
 });
+
+
+test('Journal mobile : ferme le sélecteur flottant sans focaliser un autre select', async () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia');
+  globalThis.matchMedia = () => ({ matches: true });
+  try {
+    const { feature, node, handlers } = featureFixture();
+    feature.bind(); await feature.render();
+    const select = node('journal-floating-month-select');
+    const originalOptions = select.children;
+    let blurred = false;
+    select.blur = () => { blurred = true; document.activeElement = null; };
+    select.value = '2026-03'; select.closest = () => select; select.focus();
+    handlers.change({ target: select });
+    assert.equal(blurred, true);
+    assert.equal(document.activeElement, null);
+    assert.equal(node('journal-month-select').value, '2026-03');
+    assert.equal(select.children, originalOptions);
+    assert.equal(node('main').scrollTop, 0);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'matchMedia', previous);
+    else delete globalThis.matchMedia;
+  }
+});

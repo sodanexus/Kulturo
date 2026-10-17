@@ -85,7 +85,11 @@ export function createJournalNavigation(options = {}) {
       if (!select) continue;
       const choices = [new Option("Tout l’historique", "all")];
       state.keys.forEach(key => choices.push(new Option(monthLabel(key), key)));
-      select.replaceChildren(...choices);
+      const current = Array.from(select.options || select.children || []);
+      if (current.length !== choices.length || current.some((option, index) =>
+        option.value !== choices[index].value || option.text !== choices[index].text)) {
+        select.replaceChildren(...choices);
+      }
       select.value = pending ? "all" : state.target;
       select.disabled = pending || !state.keys.length;
     }
@@ -99,16 +103,19 @@ export function createJournalNavigation(options = {}) {
     return items.filter(item => yearMonthOf(targetMode === "community" ? item.created_at : item.occurred_at) === target);
   }
 
-  function selectMonth(value) {
+  function selectMonth(value, source = document.activeElement) {
     const state = periodState();
     if (value !== "all" && !state.keys.includes(value)) return;
-    const fromFloating = document.activeElement?.id === "journal-floating-month-select";
+    const fromFloating = source?.id === "journal-floating-month-select";
+    const touchLayout = globalThis.matchMedia?.("(hover: none), (pointer: coarse)")?.matches === true;
+    // Fermer le contrôle natif avant de masquer son conteneur ou de filtrer.
+    if (touchLayout) source?.blur?.();
     state.target = value;
     const main = document.getElementById("main");
     main?.scrollTo({ top: 0, behavior: "instant" });
     options.onMonthChange?.();
     onChange();
-    if (fromFloating) document.getElementById("journal-month-select")?.focus({ preventScroll: true });
+    if (fromFloating && !touchLayout) document.getElementById("journal-month-select")?.focus({ preventScroll: true });
   }
 
   function toggleGroup(key) {
@@ -169,7 +176,7 @@ export function createJournalNavigation(options = {}) {
     });
     root.addEventListener("change", event => {
       const control = event.target.closest?.('[data-journal-action="select-month"]');
-      if (control && root.contains(control)) selectMonth(control.value);
+      if (control && root.contains(control)) selectMonth(control.value, control);
     });
   }
 
