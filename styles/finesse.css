@@ -822,10 +822,22 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   background:
     linear-gradient(rgba(19, 21, 27, calc(var(--detail-p, 0) * .88)), rgba(19, 21, 27, calc(var(--detail-p, 0) * .88))),
     linear-gradient(to bottom,
-      rgba(0, 0, 0, .28) 0,
-      rgba(0, 0, 0, .42) calc(var(--detail-banner-h) * .55),
+      rgba(0, 0, 0, .16) 0,
+      transparent calc(var(--detail-banner-h) * .3),
+      color-mix(in srgb, var(--bg-2) 55%, transparent) calc(var(--detail-banner-h) * .72),
       var(--bg-2) var(--detail-banner-h),
       var(--bg-2) 100%);
+}
+/* L'image occupe exactement la bannière (et non toute la hauteur de l'entête,
+   jaquette comprise) : elle est donc complète, intacte jusqu'au tiers, puis
+   fondue dans la fiche tout en bas, comme sur la maquette. */
+.detail-modal .detail-backdrop-layer {
+  inset: 0 0 auto 0;
+  height: min(var(--detail-banner-h), 100%);
+}
+.detail-modal .detail-backdrop.has-fallback::before {
+  inset: -24px -12% auto -12%;
+  height: calc(var(--detail-banner-h) + 48px);
 }
 .detail-modal .detail-title { text-shadow: none; }
 .detail-modal .detail-backdrop-info { padding-bottom: .15rem; }
@@ -845,13 +857,24 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    Synopsis, une ligne de repères, des crédits en liens soulignés,
    un casting qui défile, les notes externes et l'historique en
    une ligne discrète. Pas de titres de section hors « Synopsis ». */
+.detail-modal {
+  --fiche-text: #e8e8ec;   /* crédits */
+  --fiche-soft: #c9cad2;   /* synopsis */
+  --fiche-chip: #d6d7de;   /* puces du casting */
+  --fiche-chip-bg: #1d2028;
+  --fiche-muted: #8b8d98;  /* repères, historique, libellés */
+  --fiche-line: #3a3d49;   /* soulignement des liens */
+}
 .detail-info-content { display: flex; flex-direction: column; gap: 0; }
+.detail-modal .detail-synopsis-text { color: var(--fiche-soft); }
+.detail-modal .detail-synopsis-section .detail-section-label { color: var(--fiche-muted); }
+.detail-modal .detail-synopsis-toggle { color: var(--accent); }
 .detail-section-label { color: var(--text-3); }
 .detail-synopsis-section .detail-section-label { margin-bottom: .1rem; }
 
 .detail-facts {
   margin: 1.1rem 0 .3rem;
-  color: var(--text-3);
+  color: var(--fiche-muted);
   font-size: var(--type-body);
   font-variant-numeric: tabular-nums;
 }
@@ -859,10 +882,10 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin: 0 0 .9rem;
   font-size: var(--type-body);
   line-height: 1.75;
-  color: var(--text-2);
+  color: var(--fiche-text);
 }
-.detail-sep { color: var(--text-3); }
-.detail-facts .detail-sep { color: var(--border-2); }
+/* Points de séparation bien visibles (même teinte que le texte discret). */
+.detail-sep { color: var(--fiche-muted); padding: 0 .1em; }
 
 /* Lien souligné : même action qu'une puce (feuille de l'artiste, du genre…). */
 .detail-link {
@@ -870,9 +893,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   padding: 0;
   margin: 0;
   border: 0;
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--fiche-line);
   background: none;
-  color: var(--text-1);
+  color: var(--fiche-text);
   font: inherit;
   line-height: inherit;
   cursor: pointer;
@@ -902,8 +925,12 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   white-space: nowrap;
   scroll-snap-align: start;
   border-color: transparent;
+  background: var(--fiche-chip-bg);
+  color: var(--fiche-chip);
   padding: .3rem .75rem;
 }
+.detail-cast-row .detail-chip > span { color: inherit; font-size: inherit; }
+.detail-cast-row .detail-chip:hover { color: var(--accent-2); }
 @media (hover: hover) {
   /* À la souris, une fine barre rend le défilement découvrable. */
   .detail-cast-row { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; padding-bottom: .35rem; }
@@ -916,14 +943,16 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   display: inline-flex;
   align-items: center;
   gap: .45rem;
-  padding: .25rem .7rem .25rem .3rem;
+  box-sizing: border-box;
+  min-height: 30px;
+  padding: 0 .7rem 0 .3rem;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--text-2);
+  color: var(--fiche-soft);
   font-size: var(--type-body);
   line-height: 1.2;
 }
-.detail-external-rating strong { color: var(--text-1); font-weight: 700; font-variant-numeric: tabular-nums; }
+.detail-external-rating strong { color: var(--fiche-text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .detail-external-rating small { color: var(--text-3); font-size: var(--type-caption); }
 .detail-external-logo {
   display: grid;
@@ -939,6 +968,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .detail-external-logo.is-tmdb { background: linear-gradient(90deg, #90cea1, #01b4e4); color: #0d253f; }
 .detail-external-logo.is-igdb { background: #9147ff; }
+.detail-external-skeleton { min-height: 30px; }
+.detail-info-skeleton[data-block] { margin: 0 0 .9rem; }
 .detail-external-skeleton i {
   display: block; width: 92px; height: 30px; border-radius: 999px;
   background: linear-gradient(90deg, var(--bg-3), var(--bg-4), var(--bg-3));
@@ -951,11 +982,10 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin: .25rem 0 0;
   padding-top: .8rem;
   border-top: 1px solid var(--border);
-  color: var(--text-3);
+  color: var(--fiche-muted);
   font-size: var(--type-label);
   line-height: 1.6;
 }
-.detail-history .detail-sep { color: var(--border-2); }
 
 /* Modifier : section Relecture sous le statut. */
 .edit-repeat-group[hidden] { display: none; }
@@ -963,6 +993,12 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .edit-repeat-group .quick-repeat-stepper { width: auto; min-width: 190px; }
 .edit-repeat-hint { color: var(--text-3); font-size: var(--type-caption); }
 
+/* Un bloc qui arrive après coup (note externe, casting…) entre en douceur :
+   fondu + léger glissement, pendant que la hauteur de la fiche s'ajuste. */
+.detail-block-in { animation: detailBlockIn .35s var(--ease-interface, ease-out) both; }
+@keyframes detailBlockIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .detail-external-skeleton i { animation: none; }
+  .detail-block-in { animation: none; }
 }
