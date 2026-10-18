@@ -30,7 +30,7 @@ const IGDB_FIELDS = "name,cover.image_id,summary,first_release_date,genres.name,
 // Seule la fiche détaillée demande les captures d'écran (bannière animée) et
 // les notes (joueurs / presse) :
 // la recherche et les sorties gardent la même réponse, légère.
-const IGDB_DETAIL_FIELDS = `${IGDB_FIELDS},screenshots.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count`;
+const IGDB_DETAIL_FIELDS = `${IGDB_FIELDS},screenshots.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count,version_parent`;
 
 async function igdbRequest(endpoint: string, query: string, headers: Record<string, string>): Promise<any[]> {
   const response = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
@@ -276,6 +276,17 @@ Deno.serve(async (req) => {
       });
       if (!igdbRes.ok) throw new Error(`IGDB HTTP ${igdbRes.status}`);
       games = await igdbRes.json();
+      const game = games[0];
+      const parentId = Number(game?.version_parent);
+      if (Number.isSafeInteger(parentId) && parentId > 0 && parentId !== id &&
+          (!game?.screenshots?.length || !game.rating || !game.aggregated_rating)) {
+        // Une édition partage parfois ses médias avec le jeu de base. Ne jamais
+        // utiliser parent_game : un DLC/remake doit conserver ses propres notes.
+        try {
+          const parents = await igdbRequest("games", `fields name,screenshots.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count; where id = ${parentId}; limit 1;`, headers);
+          if (parents[0]) game.version_parent_details = parents[0];
+        } catch { /* Conserver les données de l'édition si le parent est indisponible. */ }
+      }
     } else {
       // ── Recherche par texte ────────────────────────────────
       const igdbRes = await fetch("https://api.igdb.com/v4/games", {
