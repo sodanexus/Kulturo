@@ -526,7 +526,10 @@ export const TMDbDetails = {
       Number(d.vote_count) > 0 ? externalRating("tmdb", "TMDb", d.vote_average, 10, { votes: Number(d.vote_count) }) : null,
     ].filter(Boolean);
 
-    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers, external_ratings };
+    const releaseDate = ep === "movie" ? d.release_date : d.first_air_date;
+    const release_year = releaseDate ? Number.parseInt(String(releaseDate).slice(0, 4), 10) || null : null;
+
+    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers, external_ratings, release_year };
   },
 };
 
@@ -602,7 +605,9 @@ export const IGDBDetails = {
       Number(g.aggregated_rating_count) > 0 ? externalRating("igdb", "IGDB", g.aggregated_rating, 100, { kind: "presse", votes: Number(g.aggregated_rating_count) }) : null,
     ].filter(Boolean);
 
-    return { backdrop_url, developer, publisher, platform, description, external_ratings };
+    const release_year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null;
+
+    return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year };
   },
 };
 
@@ -685,7 +690,8 @@ export const OpenLibraryDetails = {
     if (!work && !editions.length && !rawDescription) return null;
     const cleanDescription = plainBookDescription(rawDescription);
     const description = cleanDescription ? await translateViaProxy(cleanDescription, options) : null;
-    return { description, page_count, isbn, publisher };
+    const release_year = Number.parseInt(String(work?.first_publish_date || "").match(/\d{4}/)?.[0], 10) || null;
+    return { description, page_count, isbn, publisher, release_year };
   },
 };
 

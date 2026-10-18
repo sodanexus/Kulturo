@@ -4,14 +4,18 @@
 
 ## 4.2.1
 
-Bas de fiche plus épuré, dans l'esprit de la maquette. Aucun SQL, aucune fonction Edge à redéployer. L'en-tête (jaquette qui chevauche la bannière), la bannière vivante, la barre compacte, le synopsis « Voir plus » et les chargements progressifs sont inchangés.
+Bas de fiche plus épuré, dans l'esprit de la maquette, et bannière complétée. Aucun SQL, aucune fonction Edge à redéployer. L'en-tête (jaquette qui chevauche la bannière), la bannière vivante, la barre compacte, le synopsis « Voir plus » et les chargements progressifs sont conservés.
 
-- **Repères** : une seule ligne discrète sous le synopsis (année ou sortie, durée ; saisons, épisodes et diffusion ; plateformes ; pages). Plus de lignes « Année / Durée / … » avec libellés.
-- **Crédits en liens soulignés** : « De Denis Villeneuve · Science-fiction, Aventure », « Créée par … », « Développé par … · Édité par … ». Chaque nom souligné ouvre la même feuille qu'avant (œuvres de la bibliothèque + recherche externe).
-- **Casting qui défile** : une rangée horizontale de puces, bords fondus, accroche au défilement tactile ; fine barre visible à la souris. Chaque puce ouvre toujours la fiche de la personne.
-- **Notes externes avec logo coloré** : pastille TMDb (dégradé vert-bleu) ou IGDB (violet) suivie de la note ; le nom complet, le profil (joueurs, presse) et les votes restent dans l'infobulle et le libellé d'accessibilité.
-- **Historique en une ligne** : « Ajouté le … · Commencé le … · Vu le … · 1 revisionnage », sous un filet.
-- Seul « Synopsis » garde un titre de section. Le test de structure de la fiche est adapté.
+- **Bannière complète** : l'image occupe exactement la hauteur de la bannière (elle était étirée sur toute la hauteur de l'en-tête, jaquette comprise, puis masquée par le voile dès 200 px : d'où un dégradé « au milieu »). Elle reste intacte sur le premier tiers et ne se fond dans la fiche qu'en bas. Même principe pour la jaquette floutée des fiches sans bannière.
+- **Année uniforme** : une année seule (jamais « 18 septembre 2026 »), tirée de `release_year` ou, à défaut, de la date de sortie. Les fiches qui n'avaient pas d'année la reçoivent à l'ouverture (TMDb, IGDB, Open Library) et elle est enregistrée si elle manquait.
+- **Repères** : une seule ligne « 2024 · 2 h 46 » (série : « 2023 · 3 saisons · 24 épisodes · En cours » ; jeu : « 2023 · PC, PS5 » ; livre : « 2020 · 352 pages »). Points de séparation bien visibles, aussi dans l'historique.
+- **Crédits en liens soulignés** : « De Denis Villeneuve · Science-fiction, Aventure », « Créée par … », « Développé par … · Édité par … ». Chaque nom ouvre la même feuille qu'avant.
+- **Casting qui défile** : rangée horizontale de puces, bords fondus ; fine barre visible à la souris.
+- **Couleurs de la maquette** : synopsis #c9cad2, crédits #e8e8ec, puces du casting #d6d7de sur #1d2028, repères et historique #8b8d98.
+- **Notes externes avec logo coloré** (TMDb, IGDB), nom complet, profil et votes dans l'infobulle.
+- **Arrivée en douceur** : à l'arrivée des détails, seuls les blocs nouveaux (note, casting, crédits) apparaissent en fondu ; le reste ne clignote plus. L'emplacement de la note est réservé à sa taille exacte pendant le chargement et il n'y a plus qu'un seul squelette (plus de barres grises qui disparaissent d'un coup).
+- **Historique** : « Ajouté le … · Commencé le … · Vu le … · 1 revisionnage ».
+- Seul « Synopsis » garde un titre de section. Tests adaptés et complétés.
 
 ## 4.2.0
 
