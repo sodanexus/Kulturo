@@ -2,6 +2,13 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.11
+
+- **Modifier réorganisé**, sans changement de fonctionnement : le type (Film, Série, Jeu, Livre) devient un sélecteur compact à côté du titre, à la place des quatre onglets ; un bloc **Mon avis** regroupe statut et note, puis revoir et coup de cœur sur une même ligne ; **Supprimer** devient un lien discret à gauche du pied, séparé d'Annuler et d'Enregistrer ; les détails facultatifs sont regroupés (Informations, Synopsis et couverture). Le nom de l'œuvre est atténué dans l'en-tête.
+- Les onglets de type d'origine restent dans la page, masqués : ils portent l'action et l'état du type, que le sélecteur pilote et reflète (changer le type met toujours à jour les libellés de statut et la recherche).
+- Mobile : le focus initial ne tombe plus sur le sélecteur de type (la croix y est masquée), ce qui évitait un anneau de focus parasite.
+- Aucun SQL, aucune modification de fonction Supabase.
+
 ## 4.2.10
 
 - **Traduire en français** : le bouton apparaît dès que le synopsis contient du texte, sans dépendre de la détection de langue (qui pouvait le cacher à tort). Le clic est une demande explicite : le texte est traduit même s'il paraît français ; si le résultat est identique, un message indique que le synopsis est déjà en français. Bouton ajusté à son texte au lieu de s'étirer sur toute la largeur.

@@ -2012,26 +2012,35 @@ function _openModalClassic(entry) {
       <div class="modal edit-modal" data-edit-view="main" ${entryCoverUrl ? `data-cover-accent-url="${esc(entryCoverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="edit-sheet-title">
         <div class="modal-header">
           <button type="button" class="btn-icon edit-details-back" ${uiAction("setEditDetailsView", [false])} aria-label="Revenir à la modification principale">←</button>
-          <h3 id="edit-sheet-title"><span class="edit-title-main">Modifier ${esc(entry.title || "cette œuvre")}</span><span class="edit-title-details">Détails facultatifs — ${esc(entry.title || "œuvre")}</span></h3>
+          <h3 id="edit-sheet-title"><span class="edit-title-main">Modifier <span class="edit-title-name">${esc(entry.title || "cette œuvre")}</span></span><span class="edit-title-details">Détails facultatifs — ${esc(entry.title || "œuvre")}</span></h3>
           <button class="btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
         </div>
         <div class="modal-body">
           <div class="edit-primary-view">
             <div class="form-group modal-search-unified">
-              <div class="modal-type-tabs">
+              <div class="edit-title-row">
+                <select id="f-type-select" class="edit-type-select" aria-label="Type d’œuvre">
+                  <option value="movie" ${entry.media_type==="movie" && entry.subtype!=="tv" ? "selected" : ""}>Film</option>
+                  <option value="tv" ${entry.media_type==="movie" && entry.subtype==="tv" ? "selected" : ""}>Série</option>
+                  <option value="game" ${entry.media_type==="game" ? "selected" : ""}>Jeu</option>
+                  <option value="book" ${entry.media_type==="book" ? "selected" : ""}>Livre</option>
+                </select>
+              <div class="api-search-wrap">
+                <input type="text" id="f-api-search" placeholder="Rechercher un titre ou un ISBN…" autocomplete="off" value="${esc(entry.title||"")}" />
+                <div class="api-results" id="api-results" style="display:none"></div>
+              </div>
+              </div>
+              <div class="modal-type-tabs edit-type-legacy" aria-hidden="true">
                 <button type="button" class="modal-type-tab ${entry.media_type==="movie" && normalizedSubtype(entry)==="movie" ? "active" : ""}" data-type="movie" ${uiAction("setModalType", ["movie"])}>${iconMedia("movie")} Films</button>
                 <button type="button" class="modal-type-tab ${entry.media_type==="movie" && entry.subtype==="tv" ? "active" : ""}" data-type="tv" ${uiAction("setModalType", ["tv"])}>${iconMedia("movie", "tv")} Séries</button>
                 <button type="button" class="modal-type-tab ${entry.media_type==="game" ? "active" : ""}" data-type="game" ${uiAction("setModalType", ["game"])}>${iconMedia("game")} Jeux</button>
                 <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" ${uiAction("setModalType", ["book"])}>${iconMedia("book")} Livres</button>
               </div>
-              <div class="api-search-wrap">
-                <input type="text" id="f-api-search" placeholder="Rechercher un titre ou un ISBN…" autocomplete="off" value="${esc(entry.title||"")}" />
-                <div class="api-results" id="api-results" style="display:none"></div>
-              </div>
               <input type="hidden" id="f-subtype" value="${normalizedSubtype(entry) || ""}" />
               <input type="hidden" id="f-type" value="${entry.media_type || "movie"}" />
               <input type="hidden" id="f-title" value="${esc(entry.title||"")}" />
             </div>
+            <div class="edit-section-label">Mon avis</div>
             <div class="form-row">
               <div class="form-group">
                 <label>Statut</label>
@@ -2046,6 +2055,7 @@ function _openModalClassic(entry) {
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>
+            <div class="edit-avis-grid">
             <div class="form-group edit-repeat-group" id="edit-repeat" data-edit-repeat></div>
             <label class="toggle-row favorite-toggle">
               <span class="toggle-label">♥ Coup de cœur</span>
@@ -2054,6 +2064,7 @@ function _openModalClassic(entry) {
                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
               </span>
             </label>
+            </div>
             <button type="button" class="edit-details-trigger" ${uiAction("setEditDetailsView", [true])}>
               <span class="edit-details-trigger-icon" aria-hidden="true">＋</span>
               <span class="edit-details-trigger-copy">
@@ -2066,6 +2077,7 @@ function _openModalClassic(entry) {
           <details class="advanced-details edit-details-panel">
             <summary class="advanced-summary">Détails facultatifs <span class="advanced-hint" id="edit-details-desktop-summary">genre, auteur, plateforme, couverture, synopsis</span></summary>
             <div class="advanced-body">
+              <div class="edit-section-label">Informations</div>
               <div class="form-row">
                 <div class="form-group">
                   <label>Genre</label>
@@ -2080,6 +2092,7 @@ function _openModalClassic(entry) {
                 <label>Plateforme</label>
                 <input type="text" id="f-platform" value="${esc(entry.platform||"")}" placeholder="PS5, PC, Switch…" />
               </div>
+              <div class="edit-section-label">Synopsis et couverture</div>
               <div class="form-group">
                 <label for="f-description">Synopsis</label>
                 <textarea id="f-description" rows="5" placeholder="Ajouter un synopsis si le catalogue n’en propose pas…">${esc(entry.description || "")}</textarea>
@@ -2093,7 +2106,7 @@ function _openModalClassic(entry) {
           </details>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-danger btn-sm" ${uiAction("deleteEntry", [entry.id])}>Supprimer</button>
+          <button class="btn btn-danger btn-sm edit-delete-link" ${uiAction("deleteEntry", [entry.id])}>Supprimer</button>
           <button class="btn btn-secondary" ${uiAction("closeModal")}>Annuler</button>
           <button class="btn btn-primary" ${uiAction("saveEntry")}>Enregistrer</button>
         </div>
@@ -2119,6 +2132,7 @@ function _openModalClassic(entry) {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
   });
   setupSynopsisTranslation();
+  setupEditTypeSelect();
   document.getElementById("f-cover")?.addEventListener("change", event => {
     bindCoverAccent(root.querySelector(".edit-modal"), event.target.value);
   });
@@ -2133,7 +2147,12 @@ function _openModalClassic(entry) {
     dismiss: () => closeModal(),
     shouldResetBeforeDismiss: () => _modalDirty || _saveInProgress,
   });
-  activateDialog(root.querySelector(".edit-modal"), { initialFocus: ".modal-header .btn-icon:last-child" });
+  // Sur mobile la croix est masquée : le focus tombait sur le sélecteur de type,
+  // dont l'anneau de focus s'affiche toujours. Annuler est un bouton neutre.
+  const compactEdit = window.matchMedia?.("(max-width: 680px)")?.matches;
+  activateDialog(root.querySelector(".edit-modal"), {
+    initialFocus: compactEdit ? ".edit-modal .modal-footer .btn-secondary" : ".modal-header .btn-icon:last-child",
+  });
 }
 
 // ── Relecture dans Modifier ─────────────────────────────────
@@ -2203,6 +2222,23 @@ function adjustEditRepeat(delta) {
   // Le rendu remplace les boutons : le focus clavier revient sur le même sens.
   const buttons = [...document.querySelectorAll("#edit-repeat .quick-repeat-adjust")];
   (buttons.find(b => b.dataset.repeatDir === String(direction) && !b.disabled) || buttons.find(b => !b.disabled))?.focus({ preventScroll: true });
+}
+
+// Le type s'affiche en sélecteur compact. Les onglets d'origine restent dans la
+// page, masqués : ils portent l'action setModalType et l'état du type, et le
+// sélecteur ne fait que les piloter et les refléter.
+function setupEditTypeSelect() {
+  const select = document.getElementById("f-type-select");
+  const tabs = [...document.querySelectorAll(".edit-modal .modal-type-tab")];
+  const host = document.querySelector(".edit-modal .modal-type-tabs");
+  if (!select || !tabs.length || !host) return;
+  const sync = () => {
+    const active = tabs.find(tab => tab.classList.contains("active"));
+    if (active && select.value !== active.dataset.type) select.value = active.dataset.type;
+  };
+  select.addEventListener("change", () => tabs.find(tab => tab.dataset.type === select.value)?.click());
+  new MutationObserver(sync).observe(host, { subtree: true, attributes: true, attributeFilter: ["class"] });
+  sync();
 }
 
 // « Traduire en français » : propose la traduction dans le champ, sans rien
