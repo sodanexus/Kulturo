@@ -40,6 +40,17 @@ test("la fiche est minimaliste : repères, crédits en liens, casting qui défil
   assert.match(css, /\.detail-external-logo\.is-igdb/);
 });
 
+test("les repères affichent toujours l'année seule, séparée par des points visibles", () => {
+  const detail = read("../features/media-detail.js");
+  const facts = detail.slice(detail.indexOf("// Repères"), detail.indexOf("if (facts.length)"));
+  assert.match(facts, /Number\(e\.release_year\)/);
+  assert.match(facts, /e\.release_date/);       // repli : année de la date de sortie
+  assert.doesNotMatch(facts, /formatReleaseDate/); // jamais la date complète
+  assert.match(read("../styles/finesse.css"), /\.detail-sep \{ color: var\(--fiche-muted\)/);
+  // L'année manquante est complétée à l'ouverture (TMDb, IGDB, Open Library).
+  assert.ok(DETAIL_ENRICHMENT_FIELDS.includes("release_year"));
+});
+
 test("les notes externes sont transitoires et nommées par leur source", () => {
   assert.ok(!DETAIL_ENRICHMENT_FIELDS.includes("external_ratings"));
   const api = read("../api.js");
