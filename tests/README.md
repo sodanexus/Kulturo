@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.3
+## Validation de l’archive 4.2.4
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -142,9 +142,17 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 - La fluidité visuelle et les bannières doivent encore être appréciées dans un navigateur réel et sur mobile ; les parcours simulés ne valident pas le rendu graphique.
 
 
-### Vérifications 4.2.3
+### Vérifications 4.2.4
 
 - Tests natifs : jaquettes en cache, décodage, changement de source et images détachées ; cache réseau rafraîchi ; notes et captures IGDB des éditions, valeurs invalides et réduction des mouvements.
 - 11 parcours DOM simulés en mouvement réduit et 12 en mouvement actif. Le parcours supplémentaire vérifie les appels d'animation de Modifier → Annuler → fiche avec des rectangles simulés distincts (640 × 760 et 560 × 620).
 - Compilation Vite et TypeScript JS 5.9.3 ; dépendances du projet conservées. Syntaxe de la fonction Supabase contrôlée par transpilation TypeScript, pas d'exécution Deno distante.
 - Limites : aucune validation visuelle dans un navigateur réel, aucun appel au service IGDB de production. Le rendu des fondus et le retour sur mobile doivent être confirmés sur appareil réel.
+
+
+### Validation 4.2.4
+
+- 139 tests techniques réussis, dont rapprochement strict des jeux et protection des notes contre une réponse de sauvegarde obsolète.
+- 13 parcours jsdom réussis avec IndexedDB et catalogues simulés : navigation, ajout, recherche, synopsis, édition, annulation, redimensionnement aller/retour et arrivée des notes après la transition de hauteur.
+- Le scénario d’enrichissement utilise des identifiants fictifs pour Alan Wake 2 / II et L.A. Noire. Il vérifie le comportement du code, pas les réponses du service IGDB déployé ni les identifiants des fiches de l’utilisateur.
+- Build Vite et contrôle TypeScript de secours validés ; le compilateur natif verrouillé reste indisponible dans cet environnement. Le rendu réel, les gestes mobiles et la perception du fondu doivent être vérifiés sur appareil.

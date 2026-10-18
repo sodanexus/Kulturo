@@ -2,6 +2,16 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.4
+
+- Synopsis et informations externes : une seule transition de hauteur, puis apparition en fondu des nouveaux blocs ; les informations inchangées restent montées.
+- Calcul du bouton Voir plus intégré à la hauteur cible, sans recalcul retardé au milieu du fondu.
+- Correction des notes et du casting fraîchement chargés qui pouvaient être écrasés par un ancien instantané renvoyé lors de la sauvegarde.
+- Redimensionnement commun étendu aux détails du formulaire et aux changements de statut ; transitions interrompues reprises depuis les dimensions visibles, y compris au retour Annuler → fiche.
+- Jeux sans identifiant IGDB valide : rapprochement strict du titre et de l’année, ponctuation normalisée et seconde recherche en chiffres romains (ex. Alan Wake 2 / II). Les résultats ambigus ne sont pas associés automatiquement.
+- Erreurs de catalogue visibles avec une commande Réessayer ; réponses IGDB malformées rejetées explicitement.
+- Aucun changement SQL ou supplémentaire au proxy par rapport à 4.2.3. Si seul le site a été mis à jour auparavant, déployer également la fonction igdb-proxy fournie depuis 4.2.3.
+
 ## 4.2.3
 
 - Retrait des fonds ajoutés sous la note et les étiquettes ; voile de bannière conservé.

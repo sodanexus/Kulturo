@@ -68,6 +68,14 @@ export function prepareDialogClose(overlay) {
 }
 
 const heightAnimations = new WeakMap();
+export async function waitForHeightTransition(element) {
+  while (heightAnimations.has(element)) {
+    const animation = heightAnimations.get(element);
+    await animation.finished.catch(() => {});
+    // Le nettoyage de animateHeightChange termine sa chaîne de promesses.
+    await Promise.resolve();
+  }
+}
 export function animateHeightChange(element, update) {
   if (!element) { update(); return Promise.resolve(true); }
   const from = element.getBoundingClientRect().height;
@@ -96,14 +104,14 @@ export function animateHeightChange(element, update) {
 }
 
 const surfaceAnimations = new WeakMap();
-export function revealSurface(element, { from = 0 } = {}) {
+export function revealSurface(element, { from = 0, delay = 0 } = {}) {
   if (!element?.animate || prefersReducedMotion() ||
       globalThis.document?.documentElement?.dataset.viewTransition) return;
   const previous = surfaceAnimations.get(element);
   const opacity = previous ? getComputedStyle(element).opacity : from;
   previous?.cancel();
   const animation = element.animate([{ opacity }, { opacity: 1 }], {
-    duration: motionDuration('--motion-content', 420), easing: 'cubic-bezier(.25, .1, .25, 1)',
+    duration: motionDuration('--motion-content', 420), delay, fill: 'backwards', easing: 'cubic-bezier(.25, .1, .25, 1)',
   });
   surfaceAnimations.set(element, animation);
   animation.finished.then(cleanup, cleanup);
@@ -119,8 +127,23 @@ export function shouldDismissSheet(distance, velocity) {
 
 // Conserver une enveloppe continue entre consultation et édition, sans
 // agrandir le texte : seules les dimensions du panneau sont interpolées.
+const dialogAnimations = new WeakMap();
+export function waitForDialogTransition(element) {
+  return dialogAnimations.get(element)?.finished.catch(() => {}) || Promise.resolve();
+}
+export function animateDialogUpdate(element, update) {
+  if (!element) { update(); return; }
+  const previous = element.getBoundingClientRect();
+  dialogAnimations.get(element)?.cancel();
+  dialogAnimations.delete(element);
+  update();
+  return transitionDialogReplacement(previous, element);
+}
+
 export function transitionDialogReplacement(previousRect, next) {
   if (!previousRect || !next?.animate || prefersReducedMotion()) return;
+  dialogAnimations.get(next)?.cancel();
+  dialogAnimations.delete(next);
   const rect = next.getBoundingClientRect();
   if (!rect.width || !rect.height || !previousRect.width || !previousRect.height) return;
   // Contraindre min ET max à chaque extrémité : la hauteur fixe de la fiche
@@ -133,14 +156,19 @@ export function transitionDialogReplacement(previousRect, next) {
   const animation = next.animate([frame(previousRect), frame(rect)], {
     duration: motionDuration('--motion-layout', 360), easing: MOTION_EASING, fill: 'both',
   });
-  const finish = () => { animation.cancel?.(); };
-  animation.finished.then(finish, () => {});
+  dialogAnimations.set(next, animation);
+  const finish = () => {
+    if (dialogAnimations.get(next) === animation) dialogAnimations.delete(next);
+    animation.cancel?.();
+  };
+  animation.finished.then(finish, () => { if (dialogAnimations.get(next) === animation) dialogAnimations.delete(next); });
   // Le marqueur reste sur cette instance : retirer ce marqueur relancerait
   // l'animation CSS d'entrée du corps après la fin du redimensionnement.
 
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer, :scope > .metadata-sheet-header, :scope > .metadata-sheet-body, :scope > .metadata-sheet-footer')) {
     revealSurface(part);
   }
+  return animation;
 }
 
 // Tous les remplacements du panneau principal passent ici, indépendamment

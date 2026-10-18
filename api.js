@@ -246,7 +246,7 @@ export const TMDb = {
 // On passe par une Edge Function Supabase qui fait le proxy.
 export const IGDB = {
   available() {
-    return CONFIG?.supabase?.url && CONFIG?.igdb?.clientId && !CONFIG.igdb.clientId.includes("VOTRE_");
+    return Boolean(CONFIG?.supabase?.url);
   },
 
   async search(query, options = {}) {
@@ -584,7 +584,12 @@ async function fetchIgdbGame(externalId, options = {}) {
     timeoutMs: 12_000,
     signal: options.signal,
   });
-  return Array.isArray(data) ? data[0] : data;
+  if (data?.error) throw new Error(String(data.error));
+  const game = Array.isArray(data) ? data[0] : data;
+  if (game && (!Number.isSafeInteger(Number(game.id)) || Number(game.id) <= 0)) {
+    throw new Error("Réponse IGDB invalide : identifiant du jeu absent");
+  }
+  return game || null;
 }
 
 export const IGDBDetails = {

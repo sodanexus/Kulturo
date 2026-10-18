@@ -33,3 +33,14 @@ export function collectDetailUpdates(entry, details) {
   });
   return updates;
 }
+
+// La sauvegarde locale peut renvoyer un ancien instantané. Les notes/cast
+// fraîchement reçus et l'état de la requête active restent prioritaires.
+export function mergeDetailResponse(entry, updated, details = entry) {
+  const transient = Object.fromEntries(['external_ratings', 'cast_people']
+    .filter(key => Array.isArray(details?.[key])).map(key => [key, details[key]]));
+  const fields = Object.fromEntries(Object.entries(updated || {}).filter(([key]) =>
+    !key.startsWith('_') && !['external_ratings', 'cast_people'].includes(key)));
+  Object.assign(entry, fields, transient);
+  return entry;
+}

@@ -275,3 +275,12 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .detail-backdrop-info, .detail-block-in, .detail-synopsis-arriving, .detail-info-arriving,
   .detail-modal .detail-body, .detail-synopsis-leaving { animation: none; }
 }
+
+/* Le chargement ne doit pas ancrer le scroll sur une note qui se déplace. */
+.detail-body { overflow-anchor: none; scrollbar-gutter: stable; }
+.detail-enrichment { display: flex; flex-direction: column; gap: .75rem; flex: 0 0 auto; min-width: 0; }
+.detail-enrichment[data-height-changing] { overflow: clip; }
+
+.detail-load-status { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; color: var(--text-3); font-size: var(--type-label); line-height: 1.6; }
+
+.detail-enrichment > * { flex-shrink: 0; }

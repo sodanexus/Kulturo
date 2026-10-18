@@ -1,7 +1,8 @@
-import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement } from "./motion.js";
+import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
+import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
+import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
@@ -11,7 +12,7 @@ import {
   entriesForMetadata, metadataDefinition, metadataExternalLink, splitMetadataValues,
 } from "./media-metadata.js";
 import { createDetailSessionManager } from "./detail-session.js";
-import { collectDetailUpdates } from "./detail-enrichment.js";
+import { collectDetailUpdates, mergeDetailResponse } from "./detail-enrichment.js";
 
 export function createMediaDetailFeature({
   State, Media, Journal, refreshJournalEvents, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
@@ -30,6 +31,8 @@ function canEnrichMediaDetails(entry) {
 }
 
 function canResolveMediaIdentity(entry) {
+  if (entry?.media_type === "game") return Boolean(entry.title &&
+    !(Number.isSafeInteger(Number(entry.external_id)) && Number(entry.external_id) > 0) && IGDB.available());
   return Boolean(
     entry?.media_type === "movie" &&
     !entry.external_id &&
@@ -38,19 +41,24 @@ function canResolveMediaIdentity(entry) {
   );
 }
 
-async function repairMissingTMDbIdentity(entry, options = {}) {
+async function repairMissingMediaIdentity(entry, options = {}) {
   if (!canResolveMediaIdentity(entry)) return false;
   const owner = options.owner || State.user?.id;
   if (!owner) return false;
   const expectedSubtype = entry.subtype === "tv" ? "tv" : "movie";
   const expectedTitle = normalizeTitle(entry.title);
   const expectedYear = Number(entry.release_year) || null;
-  const results = await TMDb.search(entry.title, options);
+  const results = await (entry.media_type === "game" ? IGDB : TMDb).search(entry.title, options);
+  if (entry.media_type === "game" && !exactGameMatch(entry, results)) {
+    for (const query of gameSearchQueries(entry.title).slice(1)) {
+      results.push(...await IGDB.search(query, options));
+    }
+  }
   const exactMatches = results.filter(candidate =>
     normalizeTitle(candidate.title) === expectedTitle &&
     (candidate.subtype === "tv" ? "tv" : "movie") === expectedSubtype
   );
-  const match = (expectedYear
+  const match = entry.media_type === "game" ? exactGameMatch(entry, results) : (expectedYear
     ? exactMatches.find(candidate => Number(candidate.release_year) === expectedYear)
     : null) || (!expectedYear ? exactMatches[0] : null);
   if (!match) return false;
@@ -58,14 +66,14 @@ async function repairMissingTMDbIdentity(entry, options = {}) {
 
   const identity = {
     external_id: match.external_id,
-    source_api: "tmdb",
+    source_api: entry.media_type === "game" ? "igdb" : "tmdb",
   };
   ["subtype", "release_year", "cover_url", "genre", "description"].forEach(field => {
     if (!entry[field] && match[field] != null) identity[field] = match[field];
   });
   const updated = await Media.update(entry.id, identity, { signal: options.signal });
   if (options.signal?.aborted || !sameOwner(owner, State.user?.id)) return false;
-  Object.assign(entry, updated);
+  mergeDetailResponse(entry, updated);
   cacheEntriesLocally();
 
   const detailModal = document.getElementById(`detail-body-${entry.id}`)?.closest(".detail-modal");
@@ -746,6 +754,9 @@ function renderDetailInfoHTML(e, options = {}) {
     if (history.length) html += `<p class="detail-history detail-history-section" data-block="history">${history.map(esc).join(SEP)}</p>`;
   }
 
+  if (e._detailLoadError && !options.detailsLoading) {
+    html += `<div class="detail-load-status" data-block="load-status" role="status"><span>${esc(e._detailLoadError)}</span><button type="button" class="btn btn-ghost btn-sm" ${uiAction("retryDetailInfo", [e.id])}>Réessayer</button></div>`;
+  }
   return html;
 }
 
@@ -761,113 +772,76 @@ function renderDetailBody(e, options = {}) {
 
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
-  html += `<div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
-  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div>`;
+  html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
+  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
   return html;
 }
 
-function replaceDetailSynopsis(entry, options = {}) {
-  const sessionId = detailSessions.activeId(entry.id);
-  if (!sessionId) return;
-  const slot = document.getElementById(`detail-synopsis-slot-${entry.id}`);
-  if (!slot) return;
-  const nextHTML = renderDetailSynopsisHTML(entry, options);
-  const previous = slot.firstElementChild;
-  const currentText = slot.querySelector(".detail-synopsis-text")?.textContent || "";
-
-  // Si le synopsis était déjà présent et n'a pas changé, l'enrichissement des
-  // autres informations ne doit pas le faire clignoter une seconde fois.
-  if (entry.description && currentText === String(entry.description) &&
-      !previous?.classList.contains("detail-synopsis-loading")) return;
-
-  if (!nextHTML) {
-    if (!previous) return;
-    previous.classList.add("detail-synopsis-leaving");
-    detailSessions.schedule(() => {
-      if (!slot.isConnected) return;
-      slot.replaceChildren();
-      slot.classList.remove("is-transitioning");
-    }, motionDuration("--motion-content", 420), sessionId);
-    return;
-  }
-
-  const template = document.createElement("template");
-  template.innerHTML = nextHTML.trim();
-  const next = template.content.firstElementChild;
-  if (!next) return;
-
-  // Le squelette et le texte partagent temporairement la même cellule : la
-  // place reste réservée pendant que leurs opacités se croisent.
-  if (previous?.classList.contains("detail-synopsis-loading")) {
-    slot.classList.add("is-transitioning");
-    previous.classList.add("detail-synopsis-leaving");
-    next.classList.add("detail-synopsis-arriving");
-    animateHeightChange(slot, () => slot.append(next));
-    detailSessions.schedule(() => {
-      if (!slot.isConnected) return;
-      animateHeightChange(slot, () => previous.remove());
-      next.classList.remove("detail-synopsis-arriving");
-      slot.classList.remove("is-transitioning");
-    }, motionDuration("--motion-content", 420), sessionId);
-  } else {
-    next.classList.add("detail-synopsis-arriving");
-    animateHeightChange(slot, () => slot.replaceChildren(next));
-    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), motionDuration("--motion-content", 420), sessionId);
-  }
-}
-
-function replaceDetailInfo(entry, options = {}) {
-  const sessionId = detailSessions.activeId(entry.id);
-  if (!sessionId) return;
-  const slot = document.getElementById(`detail-info-slot-${entry.id}`);
-  if (!slot) return;
-  const body = slot.closest(".detail-body");
-  const previousScroll = body?.scrollTop || 0;
-  const current = slot.querySelector(":scope > .detail-info-content");
-  const next = document.createElement("div");
-  next.className = "detail-info-content";
-  next.innerHTML = renderDetailInfoHTML(entry, options);
-  const stableMarkup = node => {
-    const copy = node.cloneNode(true);
-    copy.classList.remove("detail-block-in");
-    copy.querySelectorAll(".detail-block-in").forEach(block => block.classList.remove("detail-block-in"));
-    // class="" and an absent class attribute must compare equally.
-    copy.querySelectorAll('[class=""]').forEach(block => block.removeAttribute("class"));
-    if (copy.getAttribute("class") === "") copy.removeAttribute("class");
-    return copy.outerHTML;
-  };
-  if (current && stableMarkup(current) === stableMarkup(next)) return;
-
-  clearTimeout(slot._detailInfoTimer);
-  animateHeightChange(slot, () => {
-    slot.style.height = "";
-    slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-    if (!current) { next.classList.add("detail-block-in"); slot.replaceChildren(next); return; }
-    // Par blocs : ce qui n'a pas changé reste en place (rien ne clignote) ;
-    // seul ce qui arrive (note externe, casting…) entre en douceur, et la
-    // hauteur de la fiche s'ajuste par l'animation de hauteur.
-    const previous = new Map([...current.children].map(node => [node.dataset.block, node]));
-    const blocks = [...next.children].map(node => {
-      const before = previous.get(node.dataset.block);
-      if (before && stableMarkup(before) === stableMarkup(node)) return before;
-      node.classList.add("detail-block-in");
-      return node;
-    });
-    current.replaceChildren(...blocks);
+// Une seule transaction de géométrie pour le synopsis ET les notes. Aucun
+// retrait différé de squelette, aucun recalcul de bouton en milieu de fondu.
+const enrichmentVersions = new WeakMap();
+function stableDetailMarkup(node) {
+  if (!node) return "";
+  const copy = node.cloneNode(true);
+  [copy, ...copy.querySelectorAll(".detail-block-in")].forEach(item => {
+    item.classList.remove("detail-block-in");
+    if (item.getAttribute("class") === "") item.removeAttribute("class");
   });
-
-  if (body) body.scrollTop = previousScroll;
+  [copy, ...copy.querySelectorAll("[data-detail-awaiting]")].forEach(item => {
+    if (!item.hasAttribute("data-detail-awaiting")) return;
+    item.removeAttribute("data-detail-awaiting");
+    item.style.removeProperty("opacity");
+    if (!item.getAttribute("style")) item.removeAttribute("style");
+  });
+  return copy.outerHTML;
 }
-
-function refreshDetailEnrichment(entry, options = {}) {
+async function refreshDetailEnrichment(entry, options = {}) {
   const sessionId = detailSessions.activeId(entry.id);
-  if (!sessionId) return;
-  replaceDetailSynopsis(entry, options);
-  replaceDetailInfo(entry, options);
-  if (entry.description) {
-    // Le texte se pose d'abord ; le contrôle arrive ensuite sans clignoter.
-    detailSessions.schedule(() => _scheduleSynopsisOverflowCheck(entry.id), 90, sessionId);
+  const body = document.getElementById(`detail-body-${entry.id}`);
+  const region = body?.querySelector(".detail-enrichment");
+  if (!sessionId || !region) return;
+  const version = (enrichmentVersions.get(region) || 0) + 1;
+  enrichmentVersions.set(region, version);
+  await waitForDialogTransition(body.closest(".modal"));
+  if (!region.isConnected || !detailSessions.isActive(sessionId, entry.id) || enrichmentVersions.get(region) !== version) return;
+  const synopsisSlot = region.querySelector(".detail-synopsis-slot");
+  const info = region.querySelector(".detail-info-content");
+  const synopsis = document.createElement("template");
+  synopsis.innerHTML = renderDetailSynopsisHTML(entry, options).trim();
+  const nextSynopsis = synopsis.content.firstElementChild;
+  const nextInfo = document.createElement("div");
+  nextInfo.innerHTML = renderDetailInfoHTML(entry, options);
+  const sameSynopsis = entry.description && synopsisSlot.querySelector(".detail-synopsis-text")?.textContent === String(entry.description);
+  const changeSynopsis = !sameSynopsis && stableDetailMarkup(synopsisSlot.firstElementChild) !== stableDetailMarkup(nextSynopsis);
+  const previous = new Map([...info.children].map(node => [node.dataset.block, node]));
+  const changed = [];
+  const blocks = [...nextInfo.children].map(node => {
+    const old = previous.get(node.dataset.block);
+    if (old && stableDetailMarkup(old) === stableDetailMarkup(node)) return old;
+    changed.push(node);
+    return node;
+  });
+  if (!changeSynopsis && !changed.length && blocks.length === info.children.length) return;
+  const scroll = body.scrollTop;
+  const arriving = [...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
+  for (const node of arriving) { node.setAttribute("data-detail-awaiting", ""); node.style.opacity = "0"; }
+  const heightMotion = animateHeightChange(region, () => {
+    if (changeSynopsis) synopsisSlot.replaceChildren(...(nextSynopsis ? [nextSynopsis] : []));
+    info.replaceChildren(...blocks);
+    // Le bouton et le nombre de lignes font partie de la hauteur cible.
+    _checkSynopsisOverflow(entry.id);
+  });
+  body.scrollTop = scroll;
+  await heightMotion;
+  await waitForHeightTransition(region);
+  if (!detailSessions.isActive(sessionId, entry.id)) return;
+  for (const node of arriving) {
+    if (!node.isConnected) continue;
+    node.removeAttribute("data-detail-awaiting");
+    node.style.removeProperty("opacity");
+    if (!node.getAttribute("style")) node.removeAttribute("style");
+    revealSurface(node, { delay: changeSynopsis && node !== nextSynopsis ? 90 : 0 });
   }
 }
 
@@ -969,15 +943,16 @@ function _checkSynopsisOverflow(entryId) {
 }
 
 function _scheduleSynopsisOverflowCheck(entryId) {
-  // Deux frames laissent à la modale le temps d'obtenir sa largeur définitive.
-  requestAnimationFrame(() => requestAnimationFrame(() => _checkSynopsisOverflow(entryId)));
-
-  // La police web peut modifier les retours à la ligne après le premier rendu.
-  if (document.fonts?.ready) {
-    document.fonts.ready
-      .then(() => _checkSynopsisOverflow(entryId))
-      .catch(() => {});
-  }
+  const modal = document.getElementById(`detail-body-${entryId}`)?.closest(".modal");
+  const check = () => waitForDialogTransition(modal).then(() => {
+    if (modal?.isConnected) {
+      const region = modal.querySelector(".detail-enrichment");
+      animateHeightChange(region, () => _checkSynopsisOverflow(entryId));
+    }
+  });
+  // Laisser replaceModalContent installer sa transition avant de l'attendre.
+  queueMicrotask(check);
+  document.fonts?.ready?.then(check).catch(() => {});
 }
 
 function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(entryId)) {
@@ -1046,7 +1021,12 @@ async function openDetailPanel(id, options = {}) {
   if (!detailOwner) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
-  const detailsLoading = !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
+  if (options.fresh) { e._detailsFetched = false; e._detailsFetchedAt = 0; e._backdropRepairAttempted = false; }
+  delete e._detailLoadError;
+  if (e.media_type === "game" && e._detailsFetched && !e.external_ratings?.length && !e.backdrop_url) {
+    e._detailLoadError = "Les notes et captures IGDB manquent pour cette fiche. Réessayez ou vérifiez son association dans Modifier.";
+  }
+  const detailsLoading = (!e._detailsFetched || canResolveMediaIdentity(e)) && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
   const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
   const detailSignal = detailSessions.signal(detailSessionId);
   const ownsDetailSession = () => sameOwner(detailOwner, State.user?.id) &&
@@ -1060,7 +1040,7 @@ async function openDetailPanel(id, options = {}) {
   const needsDetailRefresh = Boolean(e.external_id) &&
     (!e.backdrop_url || !e.external_ratings?.length) &&
     (!e._detailsFetchedAt || Date.now() - e._detailsFetchedAt > DETAIL_PREFETCH_TTL);
-  if (e._detailsFetched && !needsBackdropRepair && !needsDetailRefresh) {
+  if (e._detailsFetched && !needsBackdropRepair && !needsDetailRefresh && !canResolveMediaIdentity(e)) {
     _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
     return;
   }
@@ -1073,7 +1053,7 @@ async function openDetailPanel(id, options = {}) {
     // réparer Fight Club et les fiches équivalentes sans associer une œuvre au hasard.
     if (canResolveMediaIdentity(e)) {
       try {
-        await repairMissingTMDbIdentity(e, { signal: detailSignal, owner: detailOwner });
+        await repairMissingMediaIdentity(e, { signal: detailSignal, owner: detailOwner });
       } catch (error) {
         if (error?.name !== "AbortError") console.warn("[Detail] identity repair error:", error);
       }
@@ -1086,7 +1066,7 @@ async function openDetailPanel(id, options = {}) {
       try {
         const updated = await Media.update(e.id, e._detailsPending, { signal: detailSignal });
         if (!ownsDetailSession()) return;
-        Object.assign(e, updated);
+        mergeDetailResponse(e, updated);
         delete e._detailsPending;
         e._detailsFetched = true;
         cacheEntriesLocally();
@@ -1100,10 +1080,11 @@ async function openDetailPanel(id, options = {}) {
         _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
         if (!e.description) refreshDetailEnrichment(e, { detailsLoading: false });
       }
-      return;
+      if (e._detailsPending) return;
     }
 
     if (!canEnrichMediaDetails(e)) {
+      if (e.media_type === "game") e._detailLoadError = "Cette fiche n’est pas reliée à un jeu IGDB identifié sans ambiguïté. Choisissez le résultat du catalogue dans Modifier.";
       if (ownsDetailSession()) {
         refreshDetailEnrichment(e, { detailsLoading: false });
       }
@@ -1113,17 +1094,21 @@ async function openDetailPanel(id, options = {}) {
     const refreshBackdrop = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) && !e.backdrop_url;
     if (refreshBackdrop) e._backdropRepairAttempted = true;
     const details = await requestPrefetchedDetails(e, {
-      fresh: refreshBackdrop || needsDetailRefresh,
+      fresh: Boolean(options.fresh) || refreshBackdrop || needsDetailRefresh,
       signal: detailSignal,
     });
     if (!ownsDetailSession()) return;
 
     if (!details) {
+      e._detailLoadError = "Le catalogue n’a pas renvoyé les informations de cette œuvre.";
       refreshDetailEnrichment(e, { detailsLoading: false });
       return;
     }
     if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
     if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
+    if (e.media_type === "game" && !details.external_ratings?.length && !details.backdrop_url) {
+      e._detailLoadError = "IGDB n’a renvoyé ni note ni capture pour cette fiche. Vérifiez la liaison dans Modifier et la mise à jour du service igdb-proxy.";
+    }
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = collectDetailUpdates(e, details);
     Object.assign(e, toSave);
@@ -1135,7 +1120,7 @@ async function openDetailPanel(id, options = {}) {
       try {
         const updated = await Media.update(e.id, toSave, { signal: detailSignal });
         if (!ownsDetailSession()) return;
-        Object.assign(e, updated);
+        mergeDetailResponse(e, updated);
         cacheEntriesLocally();
       } catch (error) {
         persisted = false;
@@ -1162,6 +1147,7 @@ async function openDetailPanel(id, options = {}) {
   } catch(err) {
     if (err?.name !== "AbortError") console.warn("[Detail] fetch error:", err);
     if (ownsDetailSession()) {
+      e._detailLoadError = "Les informations du catalogue n’ont pas pu être chargées. Vous pouvez réessayer.";
       refreshDetailEnrichment(e, { detailsLoading: false });
     }
   } finally {
@@ -1174,8 +1160,17 @@ async function openDetailPanel(id, options = {}) {
 
 
 
+function retryDetailInfo(id) {
+  const body = document.getElementById(`detail-body-${id}`);
+  if (!body || State.entries.find(item => item.id === id)?._detailsFetching) return;
+  return openDetailPanel(id, { fresh: true, restoreView: {
+    scrollTop: body.scrollTop, synopsisExpanded: Boolean(body.querySelector(".detail-synopsis-wrap.expanded")),
+  } });
+}
+
   return {
     detailSessions,
+    retryDetailInfo,
     canEnrichMediaDetails,
     requestPrefetchedDetails,
     prefetchDetail,

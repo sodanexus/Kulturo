@@ -56,7 +56,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent } from "./features/motion.js";
+import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent, animateDialogUpdate } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -2100,9 +2100,14 @@ function _openModalClassic(entry) {
   buildRatingStars(entry.rating || 0);
   _editRepeatDelta = 0;
   renderEditRepeat();
-  document.getElementById("f-status")?.addEventListener("change", renderEditRepeat);
+  document.getElementById("f-status")?.addEventListener("change", () => animateDialogUpdate(root.querySelector(".edit-modal"), renderEditRepeat));
   updateApiAvailLabel(entry.media_type || "movie");
   setupApiSearch();
+  const detailsPanel = root.querySelector(".advanced-details");
+  detailsPanel?.querySelector("summary")?.addEventListener("click", event => {
+    event.preventDefault();
+    animateDialogUpdate(root.querySelector(".edit-modal"), () => { detailsPanel.open = !detailsPanel.open; });
+  });
   syncEditDetailsSummary();
   ["f-genre", "f-author", "f-platform", "f-cover"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
@@ -2215,9 +2220,10 @@ function setEditDetailsView(showDetails) {
   const modal = document.querySelector(".edit-modal");
   const details = modal?.querySelector(".edit-details-panel");
   if (!modal || !details) return;
-  modal.dataset.editView = showDetails ? "details" : "main";
-  details.open = Boolean(showDetails);
-  replayMotion(showDetails ? details : modal.querySelector(".edit-primary-view"), "edit-view-enter");
+  animateDialogUpdate(modal, () => {
+    modal.dataset.editView = showDetails ? "details" : "main";
+    details.open = Boolean(showDetails);
+  });
   const body = modal.querySelector(".modal-body");
   if (body) body.scrollTop = 0;
   requestAnimationFrame(() => {
@@ -2547,7 +2553,7 @@ function fillFromApi(idx) {
   if (editModal) bindCoverAccent(editModal, it.cover_url);
   if (it.cover_url || it.genre) {
     const details = document.querySelector(".advanced-details");
-    if (details && !window.matchMedia?.("(max-width: 680px)")?.matches) details.open = true;
+    if (details && !window.matchMedia?.("(max-width: 680px)")?.matches) animateDialogUpdate(editModal, () => { details.open = true; });
   }
 }
 
@@ -3916,6 +3922,7 @@ window.UI = {
   openMetadataFromElement,
   openMetadataMedia,
   closeMetadataPanel,
+  retryDetailInfo: id => mediaDetailFeature.retryDetailInfo(id),
   setEditDetailsView,
   closeModal,
   openEditFromDetail,

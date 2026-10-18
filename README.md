@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.3
+## Version actuelle · 4.2.4
 
 La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
 
