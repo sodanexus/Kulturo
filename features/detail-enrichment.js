@@ -17,6 +17,7 @@ export const DETAIL_ENRICHMENT_FIELDS = Object.freeze([
   "page_count",
   "isbn",
   "platform",
+  "release_year",
 ]);
 
 export function collectDetailUpdates(entry, details) {

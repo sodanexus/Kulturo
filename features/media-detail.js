@@ -1,4 +1,4 @@
-import { motionDuration, prepareDialogClose, animateHeightChange, revealSurface, replaceModalContent } from "./motion.js";
+import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
@@ -655,11 +655,12 @@ function renderDetailInfoHTML(e, options = {}) {
   const SEP = `<span class="detail-sep" aria-hidden="true"> · </span>`;
   let html = "";
 
-  // Repères : une seule ligne discrète, propre à chaque type.
+  // Repères : une seule ligne discrète. L'année seule (jamais la date
+  // complète), tirée de release_year ou, à défaut, de la date de sortie.
+  const year = Number(e.release_year) ||
+    Number.parseInt(String(e.release_date || "").slice(0, 4), 10) || null;
   const facts = [
-    e.release_date
-      ? formatReleaseDate(e.release_date, e.release_date_precision || e.date_precision || "day")
-      : e.release_year,
+    year,
     e.media_type === "movie" && !isSeries ? formatDuration(e.duration) : null,
     isSeries && e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null,
     isSeries && e.episodes_count ? `${e.episodes_count} épisodes` : null,
@@ -669,7 +670,7 @@ function renderDetailInfoHTML(e, options = {}) {
     e.media_type === "book" && e.isbn ? `ISBN ${e.isbn}` : null,
   ].map(item => String(item ?? "").trim()).filter(Boolean);
   if (facts.length) {
-    html += `<p class="detail-facts" data-detail-key="facts">${facts.map(esc).join(SEP)}</p>`;
+    html += `<p class="detail-facts" data-block="facts">${facts.map(esc).join(SEP)}</p>`;
   }
 
   // Crédits : personnes, studios et genres, en liens soulignés explorables.
@@ -689,7 +690,7 @@ function renderDetailInfoHTML(e, options = {}) {
   const genres = metadataLinksHTML(e, "genre", e.genre);
   if (genres) credits.push(`<span class="detail-credit" data-detail-key="genre">${genres}</span>`);
   if (credits.length) {
-    html += `<p class="detail-credits detail-credits-section">${credits.join(SEP)}</p>`;
+    html += `<p class="detail-credits detail-credits-section" data-block="credits">${credits.join(SEP)}</p>`;
   }
 
   // Casting : rangée qui défile, une puce par personne.
@@ -698,7 +699,7 @@ function renderDetailInfoHTML(e, options = {}) {
       ? e.cast_people.map(person => person.name).filter(Boolean)
       : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
     const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
-    if (cast) html += `<div class="detail-cast-section" role="group" aria-label="Casting"><div class="detail-cast-row">${cast}</div></div>`;
+    if (cast) html += `<div class="detail-cast-section" data-block="cast" role="group" aria-label="Casting"><div class="detail-cast-row">${cast}</div></div>`;
   }
 
   // Notes externes : logo coloré + note, sans titre de section.
@@ -706,16 +707,18 @@ function renderDetailInfoHTML(e, options = {}) {
   const awaitsRatings = options.detailsLoading && !ratings.length &&
     ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
   if (ratings.length) {
-    html += `<div class="detail-external-section">${externalRatingsHTML(ratings)}</div>`;
+    html += `<div class="detail-external-section" data-block="external">${externalRatingsHTML(ratings)}</div>`;
   } else if (awaitsRatings) {
-    html += `<div class="detail-external-section"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
+    html += `<div class="detail-external-section" data-block="external"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
   }
 
-  const awaitsMoreInfo = options.detailsLoading && (
+  // Un seul emplacement d'attente : celui de la note quand il y en a un ;
+  // les barres génériques ne servent qu'aux fiches sans note externe (livres).
+  const awaitsMoreInfo = options.detailsLoading && !awaitsRatings && (
     e.media_type === "book" || (["movie", "game"].includes(e.media_type) && Boolean(e.external_id))
   );
   if (awaitsMoreInfo) {
-    html += `<div class="detail-info-skeleton" role="status" aria-label="Chargement des informations complémentaires">
+    html += `<div class="detail-info-skeleton" data-block="loading" role="status" aria-label="Chargement des informations complémentaires">
       <span class="sr-only">Chargement des informations complémentaires…</span>
       <i aria-hidden="true"></i><i aria-hidden="true"></i>
     </div>`;
@@ -732,7 +735,7 @@ function renderDetailInfoHTML(e, options = {}) {
       dateItem(words.done, e.date_finished),
       info.total > 1 ? `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}` : "",
     ].filter(Boolean);
-    if (history.length) html += `<p class="detail-history detail-history-section">${history.map(esc).join(SEP)}</p>`;
+    if (history.length) html += `<p class="detail-history detail-history-section" data-block="history">${history.map(esc).join(SEP)}</p>`;
   }
 
   return html;
@@ -815,7 +818,7 @@ function replaceDetailInfo(entry, options = {}) {
   const previousScroll = body?.scrollTop || 0;
   const current = slot.querySelector(":scope > .detail-info-content");
   const next = document.createElement("div");
-  next.className = "detail-info-content detail-info-arriving";
+  next.className = "detail-info-content";
   next.innerHTML = renderDetailInfoHTML(entry, options);
   if (current?.innerHTML === next.innerHTML) return;
 
@@ -823,10 +826,19 @@ function replaceDetailInfo(entry, options = {}) {
   animateHeightChange(slot, () => {
     slot.style.height = "";
     slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-    next.classList.remove("detail-info-arriving");
-    slot.replaceChildren(next);
+    if (!current) { slot.replaceChildren(next); return; }
+    // Par blocs : ce qui n'a pas changé reste en place (rien ne clignote) ;
+    // seul ce qui arrive (note externe, casting…) entre en douceur, et la
+    // hauteur de la fiche s'ajuste par l'animation de hauteur.
+    const previous = new Map([...current.children].map(node => [node.dataset.block, node]));
+    const blocks = [...next.children].map(node => {
+      const before = previous.get(node.dataset.block);
+      if (before && before.outerHTML === node.outerHTML) return before;
+      node.classList.add("detail-block-in");
+      return node;
+    });
+    current.replaceChildren(...blocks);
   });
-  revealSurface(next);
 
   if (body) body.scrollTop = previousScroll;
 }
