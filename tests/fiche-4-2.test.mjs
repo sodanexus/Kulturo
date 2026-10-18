@@ -22,13 +22,22 @@ test("le badge de statut s'affiche aussi pour le propriétaire, sans être un bo
   assert.match(read("../styles/finesse.css"), /\.detail-modal \.detail-badges \.badge \{ cursor: default; pointer-events: none; \}/);
 });
 
-test("la fiche présente Informations, Crédits, Casting, Notes externes et Historique", () => {
+test("la fiche est minimaliste : repères, crédits en liens, casting qui défile, notes, historique", () => {
   const detail = read("../features/media-detail.js");
-  for (const label of ["Informations", "Crédits", "Casting", "Notes externes", "Historique"]) {
-    assert.match(detail, new RegExp(`detailSectionHTML\\("${label}"`), label);
+  // Seul « Synopsis » garde un titre de section.
+  assert.match(detail, /detailSectionHTML\("Synopsis"/);
+  for (const hook of ["detail-facts", "detail-credits", "detail-cast-row", "detail-external-section", "detail-history"]) {
+    assert.ok(detail.includes(hook), hook);
   }
+  // Crédits et genres ouvrent la même feuille que les puces du casting.
+  assert.match(detail, /metadataLinkHTML\(entry, kind, item\)/);
+  assert.match(detail, /class="detail-link"/);
   // L'historique personnel n'apparaît pas sur les fiches partagées.
-  assert.match(detail, /if \(!options\.readOnly\) \{[\s\S]+detailSectionHTML\("Historique"/);
+  assert.match(detail, /if \(!options\.readOnly\) \{[\s\S]+detail-history/);
+  // Logo coloré par source.
+  const css = read("../styles/finesse.css");
+  assert.match(css, /\.detail-external-logo\.is-tmdb/);
+  assert.match(css, /\.detail-external-logo\.is-igdb/);
 });
 
 test("les notes externes sont transitoires et nommées par leur source", () => {
