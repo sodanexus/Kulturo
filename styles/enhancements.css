@@ -865,7 +865,8 @@ body { background-color: var(--system-bar-color); }
 @media (max-width: 680px) {
   .profile-habits-grid { grid-template-columns: 1fr; gap: .75rem; }
   .profile-repeat-section { min-height: 128px; }
-  .profile-repeat-value { font-size: var(--type-metric-lg); }
+  .profile-repeat-value,
+  .profile-year-primary strong { font-size: var(--type-metric-lg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
