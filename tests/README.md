@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.14
+## Validation de l’archive 4.2.11
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -177,11 +177,3 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 - Module API réel testé avec réponses Open Library simulées : ISBN de Nijigahara Holograph, titre français, auteur, identifiant d’œuvre, pages et ISBN conservés.
 - 15 parcours jsdom, dont saisie d’un synopsis contenant des caractères HTML, sauvegarde et réouverture dans Modifier.
 - Build et contrôle TypeScript de secours validés. Les réponses des services réels, le rendu et les gestes sur appareil ne sont pas couverts par ces simulations.
-
-
-### Validation 4.2.14
-
-- 157 tests techniques et 12 parcours jsdom réussis (navigation, recherche, ajout, journal, synopsis, édition et annulation).
-- Comparaison avec l’archive 4.2.11 : blocs CSS des étiquettes de catégories, blocs d’aura et algorithme de nuances identiques.
-- Contrastes des principales paires texte/fond vérifiés (au moins 4,5:1), notes et étoiles séparées de l’accent jade. Icônes PNG rendues depuis le SVG et inspectées.
-- Build Vite et contrôle TypeScript de secours validés. Les parcours simulés ne remplacent pas une validation visuelle sur navigateur ou appareil réel.
