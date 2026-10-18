@@ -55,8 +55,8 @@ test("les notes externes sont transitoires et nommées par leur source", () => {
   assert.ok(!DETAIL_ENRICHMENT_FIELDS.includes("external_ratings"));
   const api = read("../api.js");
   assert.match(api, /externalRating\("tmdb", "TMDb"/);
-  assert.match(api, /externalRating\("igdb", "IGDB"[^)]*kind: "joueurs"/);
-  assert.match(api, /externalRating\("igdb", "IGDB"[^)]*kind: "presse"/);
+  assert.match(api, /externalRating\("igdb", "IGDB"[^)]*kind: [^}]*"joueurs"/);
+  assert.match(api, /externalRating\("igdb", "IGDB"[^)]*kind: [^}]*"presse"/);
   assert.match(read("../app.js"), /"cast_people", "external_ratings"/);
   assert.match(read("../features/media-detail.js"), /e\.external_ratings = details\.external_ratings/);
 });

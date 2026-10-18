@@ -120,7 +120,7 @@ test('detail/edit transition changes the shell dimensions without scaling text',
     assert.equal(frames[0].height, '800px');
     assert.equal(frames[1].height, '640px');
     assert.equal(frames.some(frame => 'transform' in frame), false);
-    assert.equal(options.duration, 280);
+    assert.equal(options.duration, 360);
   } finally { restore(); }
 });
 

@@ -33,7 +33,7 @@ test("les images supplémentaires ne sont pas enregistrées en base", () => {
 
 test("les jeux ont leur bannière : proxy, API et fiche", () => {
   const proxy = read("../supabase/functions/igdb-proxy/index.ts");
-  assert.match(proxy, /IGDB_DETAIL_FIELDS = `\$\{IGDB_FIELDS\},screenshots\.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count`/);
+  assert.match(proxy, /IGDB_DETAIL_FIELDS = `\$\{IGDB_FIELDS\},screenshots\.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count,version_parent`/);
   assert.match(proxy, /fields \$\{IGDB_DETAIL_FIELDS\}; where id/);
   assert.doesNotMatch(proxy, /search "[^"]*"; fields \$\{IGDB_DETAIL_FIELDS\}/);
   const api = read("../api.js");
