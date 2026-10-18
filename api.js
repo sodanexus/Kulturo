@@ -1,3 +1,4 @@
+import { normalizeISBN, isLatinTitle, preferredBookTitle } from "./features/book-search.js";
 import { igdbMediaData } from "./features/igdb-media.js";
 // ============================================================
 // api.js — Intégrations APIs médias
@@ -356,21 +357,48 @@ export const OpenLibrary = {
   available() { return true; }, // pas de clé requise
 
   async search(query, options = {}) {
-    const url = `${CONFIG.openLibrary.baseUrl}/search.json?q=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,subject,cover_i`;
-    const data = await apiFetch(url, { cachePolicy: "search", signal: options.signal });
-    return (data.docs || []).map(b => ({
-      external_id:  b.key?.replace("/works/", "") || null,
-      title:        b.title,
-      cover_url:    b.cover_i
-        ? `${CONFIG.openLibrary.coverBase}/${b.cover_i}-M.jpg`
-        : null,
-      // Le résumé complet et sa traduction sont chargés dans la fiche détail.
-      description:  null,
+    const isbn = normalizeISBN(query);
+    if (isbn) {
+      let edition;
+      try {
+        edition = await apiFetch(`${CONFIG.openLibrary.baseUrl}/isbn/${isbn}.json`, { cachePolicy: "search", signal: options.signal });
+      } catch (error) {
+        if (error?.message?.includes("404")) return [];
+        throw error;
+      }
+      const authors = await Promise.all((edition.authors || []).slice(0, 2).map(async author => {
+        if (!/^\/authors\/OL\d+A$/.test(author.key || "")) return null;
+        try { return (await apiFetch(`${CONFIG.openLibrary.baseUrl}${author.key}.json`, { cachePolicy: "detail", signal: options.signal })).name; }
+        catch (error) { if (error?.name === "AbortError") throw error; return null; }
+      }));
+      return edition.title ? [{
+        external_id: (edition.works?.[0]?.key || edition.key || '').replace(/^\/(works|books)\//, ''),
+        title: edition.title, author: authors.filter(Boolean).join(', ') || null,
+        cover_url: edition.covers?.find(id => id > 0) ? `${CONFIG.openLibrary.coverBase}/${edition.covers.find(id => id > 0)}-M.jpg` : null,
+        description: plainBookDescription(typeof edition.description === "string" ? edition.description : edition.description?.value),
+        isbn, page_count: edition.number_of_pages || null, publisher: edition.publishers?.[0] || null,
+        release_year: Number(String(edition.publish_date || '').match(/\d{4}/)?.[0]) || null,
+        source_api: 'openlibrary', genre: null, platform: null,
+      }] : [];
+    }
+    const fields = 'key,title,author_name,first_publish_year,subject,cover_i,editions,editions.title,editions.language';
+    const search = lang => apiFetch(`${CONFIG.openLibrary.baseUrl}/search.json?q=${encodeURIComponent(query)}&lang=${lang}&limit=6&fields=${fields}`, { cachePolicy: "search", signal: options.signal });
+    const data = await search('fr');
+    const docs = data.docs || [];
+    let alternatives = [];
+    if (docs.some(b => !isLatinTitle(preferredBookTitle(b)))) {
+      try { alternatives = (await search('en')).docs || []; }
+      catch (error) { if (error?.name === 'AbortError') throw error; }
+    }
+    return docs.map(b => ({
+      external_id: b.key?.replace("/works/", "") || null,
+      title: preferredBookTitle(b, alternatives.find(a => a.key === b.key)),
+      cover_url: b.cover_i ? `${CONFIG.openLibrary.coverBase}/${b.cover_i}-M.jpg` : null,
+      description: null,
       release_year: b.first_publish_year || null,
-      genre:        b.subject?.slice(0, 3).join(", ") || null,
-      author:       b.author_name?.[0] || null,
-      platform:     null,
-      source_api:   "openlibrary",
+      genre: b.subject?.slice(0, 3).join(", ") || null,
+      author: b.author_name?.[0] || null,
+      platform: null, source_api: "openlibrary",
     }));
   },
 };
@@ -657,9 +685,10 @@ async function translateViaProxy(text, options = {}) {
 
 export const OpenLibraryDetails = {
   async fetch(externalId, fallback = {}, options = {}) {
+    const editionOnly = /^OL\d+M$/.test(externalId || "");
     const [workResult, editionsResult] = await Promise.allSettled([
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}.json`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve(null),
-      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve({ entries: [] }),
+      externalId ? apiFetch(`${CONFIG.openLibrary.baseUrl}/${editionOnly ? "books" : "works"}/${externalId}.json`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve(null),
+      externalId && !editionOnly ? apiFetch(`${CONFIG.openLibrary.baseUrl}/works/${externalId}/editions.json?limit=20`, { cachePolicy: "detail", signal: options.signal }) : Promise.resolve({ entries: [] }),
     ]);
     if (options.signal?.aborted) {
       const error = new Error("Requête annulée");
@@ -667,7 +696,7 @@ export const OpenLibraryDetails = {
       throw error;
     }
     const work = workResult.status === "fulfilled" ? workResult.value : null;
-    const editions = editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
+    const editions = editionOnly && work ? [work] : editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
     const descriptionValue = value => typeof value === "string" ? value : value?.value || null;
     const editionWithDescription = editions.find(edition => descriptionValue(edition.description));
     const editionWithPages = editions.find(edition => edition.number_of_pages);

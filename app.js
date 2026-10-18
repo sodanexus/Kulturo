@@ -1,3 +1,4 @@
+import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
 import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
@@ -1883,7 +1884,7 @@ function _renderWizard() {
     bodyHTML = `
       <div class="api-search-wrap wz-universal-search">
         <span class="wz-search-icon" aria-hidden="true">${iconSearch()}</span>
-        <input type="text" id="f-api-search" placeholder="Ex. The Brutalist, Dune, Elden Ring…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
+        <input type="text" id="f-api-search" placeholder="Titre d’une œuvre ou ISBN d’un livre…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
         <div class="api-results wz-universal-results" id="api-results" style="display:none"></div>
       </div>
       <div class="wz-search-start" id="wz-search-start">
@@ -2024,7 +2025,7 @@ function _openModalClassic(entry) {
                 <button type="button" class="modal-type-tab ${entry.media_type==="book" ? "active" : ""}" data-type="book" ${uiAction("setModalType", ["book"])}>${iconMedia("book")} Livres</button>
               </div>
               <div class="api-search-wrap">
-                <input type="text" id="f-api-search" placeholder="Rechercher ou saisir un titre…" autocomplete="off" value="${esc(entry.title||"")}" />
+                <input type="text" id="f-api-search" placeholder="Rechercher un titre ou un ISBN…" autocomplete="off" value="${esc(entry.title||"")}" />
                 <div class="api-results" id="api-results" style="display:none"></div>
               </div>
               <input type="hidden" id="f-subtype" value="${normalizedSubtype(entry) || ""}" />
@@ -2057,13 +2058,13 @@ function _openModalClassic(entry) {
               <span class="edit-details-trigger-icon" aria-hidden="true">＋</span>
               <span class="edit-details-trigger-copy">
                 <strong>Détails facultatifs</strong>
-                <small id="edit-details-summary">Genre, auteur, plateforme, couverture</small>
+                <small id="edit-details-summary">Genre, auteur, plateforme, couverture, synopsis</small>
               </span>
               <span class="edit-details-trigger-arrow" aria-hidden="true">→</span>
             </button>
           </div>
           <details class="advanced-details edit-details-panel">
-            <summary class="advanced-summary">Détails facultatifs <span class="advanced-hint" id="edit-details-desktop-summary">genre, auteur, plateforme, couverture</span></summary>
+            <summary class="advanced-summary">Détails facultatifs <span class="advanced-hint" id="edit-details-desktop-summary">genre, auteur, plateforme, couverture, synopsis</span></summary>
             <div class="advanced-body">
               <div class="form-row">
                 <div class="form-group">
@@ -2078,6 +2079,10 @@ function _openModalClassic(entry) {
               <div class="form-group">
                 <label>Plateforme</label>
                 <input type="text" id="f-platform" value="${esc(entry.platform||"")}" placeholder="PS5, PC, Switch…" />
+              </div>
+              <div class="form-group">
+                <label for="f-description">Synopsis</label>
+                <textarea id="f-description" rows="5" placeholder="Ajouter un synopsis si le catalogue n’en propose pas…">${esc(entry.description || "")}</textarea>
               </div>
               <div class="form-group">
                 <label>Image de couverture (URL)</label>
@@ -2109,7 +2114,7 @@ function _openModalClassic(entry) {
     animateDialogUpdate(root.querySelector(".edit-modal"), () => { detailsPanel.open = !detailsPanel.open; });
   });
   syncEditDetailsSummary();
-  ["f-genre", "f-author", "f-platform", "f-cover"].forEach(id => {
+  ["f-genre", "f-author", "f-platform", "f-cover", "f-description"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
   });
   document.getElementById("f-cover")?.addEventListener("change", event => {
@@ -2204,8 +2209,9 @@ function syncEditDetailsSummary() {
     ["f-author", "Auteur / réalisation"],
     ["f-platform", "Plateforme"],
     ["f-cover", "Couverture"],
+    ["f-description", "Synopsis"],
   ].filter(([id]) => document.getElementById(id)?.value?.trim()).map(([, label]) => label);
-  const text = labels.length ? labels.join(" · ") : "Genre, auteur, plateforme, couverture";
+  const text = labels.length ? labels.join(" · ") : "Genre, auteur, plateforme, couverture, synopsis";
   const mobileSummary = document.getElementById("edit-details-summary");
   const desktopSummary = document.getElementById("edit-details-desktop-summary");
   if (mobileSummary) mobileSummary.textContent = text;
@@ -2414,7 +2420,7 @@ function setupWizardUniversalSearch() {
             <div class="wz-skeleton-result"><i></i><span><b></b><small></small></span></div>`).join("")}
         </div>`;
 
-      const requests = ["movie", "game", "book"].map(async type => {
+      const requests = (normalizeISBN(query) ? ["book"] : ["movie", "game", "book"]).map(async type => {
         try {
           const items = await searchMedia(query, type, { signal });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
@@ -2546,6 +2552,8 @@ function fillFromApi(idx) {
   set("f-genre",  it.genre);
   set("f-author", it.author);
   set("f-platform", it.platform);
+  const synopsisInput = document.getElementById("f-description");
+  if (synopsisInput && !synopsisInput.value.trim()) synopsisInput.value = it.description || "";
   window._apiSelected = it;
   document.getElementById("api-results").style.display = "none";
   syncEditDetailsSummary();
@@ -2598,7 +2606,10 @@ async function saveEntry() {
     release_date:  selected?.release_date ?? (keepExistingApi ? existing.release_date : null),
     release_date_precision: selected?.date_precision ?? selected?.release_date_precision
       ?? (keepExistingApi ? existing.release_date_precision : "day"),
-    description:   selected?.description  ?? (keepExistingApi ? existing.description : null),
+    description: document.getElementById("f-description") ? document.getElementById("f-description").value.trim() || null : selected?.description ?? (keepExistingApi ? existing.description : null),
+    isbn: selected?.isbn ?? (keepExistingApi ? existing.isbn : null),
+    page_count: selected?.page_count ?? (keepExistingApi ? existing.page_count : null),
+    publisher: selected?.publisher ?? (keepExistingApi ? existing.publisher : null),
   };
 
   // Ces colonnes existent déjà. La même logique est utilisée dans Modifier et

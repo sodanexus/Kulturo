@@ -2,6 +2,14 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.7
+
+- Recherche ISBN-10/13 dans le champ existant, espaces/tirets acceptés et clé vérifiée. La recherche universelle interroge uniquement les livres pour un ISBN valide.
+- Lecture de l’édition précise par ISBN : titre, auteur, couverture, pages, éditeur et ISBN conservés à l’ajout. Support des éditions dépourvues de lien vers une œuvre.
+- Recherche Open Library avec préférence française et titre d’édition ; repli en alphabet latin depuis les éditions de la même œuvre, sans traduction inventée du titre.
+- Champ Synopsis dans Modifier → Détails facultatifs, échappé et enregistré. Les descriptions déjà renseignées ne sont plus remplacées par l’enrichissement des catalogues, y compris pour les jeux et livres.
+- Aucun SQL, aucune modification de fonction Supabase. Les titres des entrées déjà enregistrées ne sont pas migrés automatiquement.
+
 ## 4.2.6
 
 - Un synopsis non vide affiché reste monté pendant toute la consultation. Une traduction tardive IGDB/Open Library est sauvegardée pour la prochaine ouverture au lieu de remplacer le texte en cours de lecture.

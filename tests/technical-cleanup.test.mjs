@@ -121,7 +121,7 @@ test("l'enrichissement d'une fiche préserve les données personnelles existante
   assert.deepEqual(filmUpdates, { backdrop_url: "https://image.tmdb.org/t/p/w1280/example.jpg" });
 
   const game = { source_api: "igdb", description: "English text" };
-  assert.deepEqual(collectDetailUpdates(game, { description: "Texte français" }), { description: "Texte français" });
+  assert.deepEqual(collectDetailUpdates(game, { description: "Texte français" }), {});
 });
 
 test("une ancienne fermeture ne peut pas détruire la nouvelle fiche", () => {

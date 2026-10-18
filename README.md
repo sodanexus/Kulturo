@@ -31,9 +31,11 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.6
+## Version actuelle · 4.2.7
 
-Le synopsis déjà affiché reste stable pendant la lecture, même si une nouvelle traduction arrive avec les détails. Cette traduction est sauvegardée pour la prochaine ouverture. Aucun changement de fonction Supabase depuis 4.2.5.
+Recherche des livres par titre ou ISBN-10/13 avec contrôle de clé. Titres des éditions françaises privilégiés, puis alternatives en alphabet latin. Le synopsis est modifiable dans Modifier → Détails facultatifs ; un texte déjà renseigné n’est plus écrasé par les catalogues. Aucun SQL et aucune nouvelle fonction Supabase.
+
+Le synopsis déjà affiché reste stable pendant la lecture. La traduction reste utilisée pour enrichir les fiches sans synopsis ; les textes déjà renseignés sont conservés. Aucun changement de fonction Supabase depuis 4.2.5.
 
 La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
 
