@@ -2,6 +2,20 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.13
+
+- Corrige la couleur des notes personnelles dans les listes de métadonnées : elles restent dorées, indépendamment de la nuance de la fiche.
+- Audit : 157 tests et 12 parcours simulés validés, dont les retours Annuler et le sélecteur flottant du journal.
+
+## 4.2.12
+
+- Palette commune charbon/graphite : surfaces neutres, textes gris légèrement verts et accent jade pour les commandes, liens et navigation.
+- Notes personnelles, sélection des étoiles, moyennes et histogramme conservés en or, indépendamment de l’accent de l’interface. Cadres 10/10 conservés.
+- Troisième cercle du logo et des états vides bleu ardoise ; intersections harmonisées, favicon SVG et icônes PNG 192/512 régénérés.
+- Fonds d’ambiance des pages discrètement jade/graphite et barre système uniforme entre Bibliothèque, Journal, Sorties et Profil.
+- Couleurs Film/Série/Jeu/Livre inchangées. Algorithme des nuances et blocs d’aura des fiches inchangés.
+- Aucun SQL, aucune modification des fonctions Supabase ou des animations.
+
 ## 4.2.11
 
 - **Modifier réorganisé**, sans changement de fonctionnement : le type (Film, Série, Jeu, Livre) devient un sélecteur compact à côté du titre, à la place des quatre onglets ; un bloc **Mon avis** regroupe statut et note, puis revoir et coup de cœur sur une même ligne ; **Supprimer** devient un lien discret à gauche du pied, séparé d'Annuler et d'Enregistrer ; les détails facultatifs sont regroupés (Informations, Synopsis et couverture). Le nom de l'œuvre est atténué dans l'en-tête.
