@@ -566,7 +566,7 @@ let _systemMediaType = null;
 function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customColor = null) {
   _systemPage = page || "library";
   _systemMediaType = mediaType || null;
-  const pageColors = { library: "#121617", upcoming: "#121617", journal: "#121617", dashboard: "#121617" };
+  const pageColors = { library: "#161719", upcoming: "#161719", journal: "#161719", dashboard: "#161719" };
   const mediaColors = { movie: "#171014", game: "#0e131d", book: "#0d1713" };
   const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
   applySystemBarColor(color);

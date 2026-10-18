@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="90 55 200 120" role="img">
   <title>Logo Kulturo</title>
-  <desc>Trois cercles superposés en rouge corail, vert sarcelle et bleu ardoise.</desc>
+  <desc>Trois cercles superposés en rouge corail, vert sarcelle et ivoire.</desc>
   <defs>
     <clipPath id="logo-red"><circle cx="150" cy="115" r="40"/></clipPath>
     <clipPath id="logo-teal"><circle cx="190" cy="115" r="40"/></clipPath>
   </defs>
   <circle cx="150" cy="115" r="40" fill="#E8553A"/>
   <circle cx="190" cy="115" r="40" fill="#1FA88C"/>
-  <circle cx="230" cy="115" r="40" fill="#879FC9"/>
+  <circle cx="230" cy="115" r="40" fill="#E6E2D8"/>
   <circle cx="190" cy="115" r="40" fill="#1C3820" clip-path="url(#logo-red)"/>
-  <circle cx="230" cy="115" r="40" fill="#356B79" clip-path="url(#logo-teal)"/>
+  <circle cx="230" cy="115" r="40" fill="#479E89" clip-path="url(#logo-teal)"/>
 </svg>

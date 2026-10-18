@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.14
+
+- Palette graphite et ivoire : fonds neutres, commandes et navigation ivoire, troisième cercle du logo ivoire.
+- Notes personnelles dorées, catégories, nuances et auras conservées.
+- Aucune modification de la logique métier ni des durées des animations.
+
 ## 4.2.13
 
 - Corrige la couleur des notes personnelles dans les listes de métadonnées : elles restent dorées, indépendamment de la nuance de la fiche.

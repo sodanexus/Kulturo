@@ -31,9 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.13
+## Version actuelle · 4.2.14
 
-Palette charbon/graphite avec commandes jade. Les notes personnelles et les cadres 10/10 restent en or ; les étiquettes de catégories et les nuances/aura issues des jaquettes sont conservées. Le troisième cercle du logo devient bleu ardoise, également dans les icônes PWA. Cette version repart de la 4.2.11 et conserve ses améliorations du formulaire Modifier. Aucun SQL ni redéploiement Supabase.
+Palette graphite avec commandes ivoire. Les notes personnelles et les cadres 10/10 restent en or ; les étiquettes de catégories et les nuances/aura issues des jaquettes sont conservées. Le troisième cercle du logo devient ivoire, également dans les icônes PWA. Cette version repart de la 4.2.11 et conserve ses améliorations du formulaire Modifier. Aucun SQL ni redéploiement Supabase.
 
 Les synopsis étrangers des livres sont traduits en français par Groq, y compris pour les ajouts par ISBN, avec une seule apparition en fondu. Un bouton **Traduire en français** (Modifier → Détails facultatifs) permet de traduire un synopsis déjà enregistré : la traduction est proposée, puis enregistrée seulement si tu la valides. Les textes saisis à la main ne sont jamais modifiés automatiquement.
 

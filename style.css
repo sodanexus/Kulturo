@@ -9,18 +9,18 @@
 /* ── Variables ────────────────────────────────────────────── */
 :root {
   /* Palette sombre */
-  --bg:          #121617;
+  --bg:          #161719;
   --bg-1:        var(--bg);
-  --bg-2:        #1a2022;
-  --bg-3:        #22292b;
-  --bg-4:        #2c3436;
-  --border:      #303b3d;
-  --border-2:    #465355;
-  --text:        #e9efed;
-  --text-2:      #bdc9c5;
-  --text-3:      #a0aeaa;
-  --brand-jade: #79c7ae;
-  --brand-logo-third: #879fc9;
+  --bg-2:        #1e2023;
+  --bg-3:        #27292d;
+  --bg-4:        #303338;
+  --border:      #35383d;
+  --border-2:    #50545b;
+  --text:        #eeede8;
+  --text-2:      #c8c7c2;
+  --text-3:      #aaa9a5;
+  --brand-ivory: #e6e2d8;
+  --brand-logo-third: #e6e2d8;
   --brand-gold-light: #efcf8c;
   --brand-gold:  #d8b46a;
   --brand-coral: #e8553a;
@@ -30,9 +30,9 @@
   --brand-gold-glow:  rgba(216,180,106,.16);
   --brand-coral-glow: rgba(232,85,58,.15);
   --brand-teal-glow:  rgba(31,168,140,.15);
-  --accent:      var(--brand-jade);
-  --accent-2:    #a2d9c5;
-  --accent-glow: rgba(121,199,174,.15);
+  --accent:      var(--brand-ivory);
+  --accent-2:    #f4f1ea;
+  --accent-glow: rgba(230,226,216,.15);
   --game:        #7ea6ff;
   --movie:       #ff7f96;
   --book:        #69d4a2;
@@ -3181,7 +3181,7 @@ input, textarea, select { border-radius: 12px; }
   box-shadow: var(--media-cover-shadow);
 }
 .card-status-label {
-  background: rgba(18,22,23,.76);
+  background: rgba(22,23,25,.76);
   border-color: rgba(255,255,255,.1);
   border-radius: var(--radius-pill);
 }
@@ -3351,7 +3351,7 @@ input, textarea, select { border-radius: 12px; }
   height: 32px;
   border: 1px solid rgba(255,255,255,.22);
   border-radius: 50%;
-  background: rgba(18,22,23,.72);
+  background: rgba(22,23,25,.72);
   color: var(--accent-2);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -3957,7 +3957,7 @@ input, textarea, select { border-radius: 12px; }
   height: 24px;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 8px;
-  background: rgba(18,22,23,.78);
+  background: rgba(22,23,25,.78);
   color: var(--accent-2);
   font-size: var(--type-caption);
   font-weight: 800;
@@ -4045,7 +4045,7 @@ input, textarea, select { border-radius: 12px; }
 }
 .backup-restore-count strong { color: var(--text-1); font-size: var(--type-title-sm); }
 .backup-restore-count span { color: var(--text-3); font-size: var(--type-caption); }
-.backup-restore-count.is-added strong { color: var(--brand-jade); }
+.backup-restore-count.is-added strong { color: var(--brand-ivory); }
 .backup-restore-count.is-updated strong { color: var(--brand-coral); }
 .backup-restore-journal {
   display: flex;
