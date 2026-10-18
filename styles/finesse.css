@@ -789,3 +789,99 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-backdrop-layer.is-current,
   .detail-backdrop-layer.is-leaving { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   4.2 — Fiche : en-tête à jaquette chevauchante, sections, notes
+   La bannière occupe le haut (--detail-banner-h) ; en dessous, le
+   voile se fond dans la surface de la fiche. La jaquette, agrandie,
+   démarre sur la bannière et déborde dessous, avec titre et note.
+   Les hauteurs ne s'appliquent qu'en dehors de .is-collapsible :
+   le défilement pilote alors la hauteur par --detail-h (voir
+   bindDetailScroll).
+   ═══════════════════════════════════════════════════════════ */
+.detail-modal { --detail-banner-h: 120px; --detail-poster-w: 96px; --detail-poster-h: 144px; }
+.detail-modal:not(.is-collapsible) .detail-backdrop { height: 196px; }
+.detail-modal:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 214px; }
+.detail-modal .detail-backdrop.has-backdrop { --detail-banner-h: 128px; }
+.detail-modal .detail-backdrop-content {
+  gap: .85rem;
+  padding: .75rem 1rem;
+  align-items: flex-end;
+}
+.detail-modal .detail-poster,
+.detail-modal .detail-poster-placeholder {
+  width: var(--detail-poster-w);
+  min-width: var(--detail-poster-w);
+  height: var(--detail-poster-h);
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .65), 0 0 0 1px rgba(255, 255, 255, .08);
+}
+/* Voile : léger sur la bannière, plein sous elle. La couche compacte
+   (barre au défilement) reprend un fond sombre au fil de --detail-p. */
+.detail-modal .detail-backdrop-gradient {
+  background:
+    linear-gradient(rgba(19, 21, 27, calc(var(--detail-p, 0) * .88)), rgba(19, 21, 27, calc(var(--detail-p, 0) * .88))),
+    linear-gradient(to bottom,
+      rgba(0, 0, 0, .28) 0,
+      rgba(0, 0, 0, .42) calc(var(--detail-banner-h) * .55),
+      var(--bg-2) var(--detail-banner-h),
+      var(--bg-2) 100%);
+}
+.detail-modal .detail-title { text-shadow: none; }
+.detail-modal .detail-backdrop-info { padding-bottom: .15rem; }
+.detail-modal .detail-badges { margin-top: .5rem; }
+/* Badge de statut : purement informatif sur la fiche. */
+.detail-modal .detail-badges .badge { cursor: default; pointer-events: none; }
+
+@media (min-width: 681px) {
+  .detail-modal { --detail-banner-h: 150px; --detail-poster-w: 144px; --detail-poster-h: 216px; }
+  .detail-modal:not(.is-collapsible) .detail-backdrop { height: 270px; }
+  .detail-modal:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 320px; }
+  .detail-modal .detail-backdrop.has-backdrop { --detail-banner-h: 200px; }
+  .detail-modal .detail-backdrop-content { gap: 1.25rem; padding: 1rem 1.5rem; }
+}
+
+/* Sections de la fiche : espacées et lisibles. */
+.detail-info-content { display: flex; flex-direction: column; gap: 1.35rem; }
+.detail-info-content > .detail-meta { margin: 0; }
+.detail-section-label { color: var(--text-3); }
+
+/* Notes externes : source toujours nommée, distincte de la note perso. */
+.detail-external-ratings { display: flex; flex-wrap: wrap; gap: .5rem; }
+.detail-external-rating {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .4rem;
+  padding: .38rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: var(--type-body);
+  line-height: 1.2;
+}
+.detail-external-source {
+  font-size: var(--type-label);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.detail-external-rating strong { font-weight: 700; font-variant-numeric: tabular-nums; }
+.detail-external-scale, .detail-external-rating small { color: var(--text-3); font-size: var(--type-caption); }
+.detail-external-skeleton i {
+  display: block; width: 96px; height: 30px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--bg-3), var(--bg-4), var(--bg-3));
+  background-size: 200% 100%; animation: detailExternalShimmer 1.1s linear infinite;
+}
+@keyframes detailExternalShimmer { to { background-position: -200% 0; } }
+
+/* Modifier : section Relecture sous le statut. */
+.edit-repeat-group[hidden] { display: none; }
+.edit-repeat-row { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem .85rem; }
+.edit-repeat-group .quick-repeat-stepper { width: auto; min-width: 190px; }
+.edit-repeat-hint { color: var(--text-3); font-size: var(--type-caption); }
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-external-skeleton i { animation: none; }
+}
