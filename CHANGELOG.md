@@ -2,6 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.10
+
+- **Traduire en français** : le bouton apparaît dès que le synopsis contient du texte, sans dépendre de la détection de langue (qui pouvait le cacher à tort). Le clic est une demande explicite : le texte est traduit même s'il paraît français ; si le résultat est identique, un message indique que le synopsis est déjà en français. Bouton ajusté à son texte au lieu de s'étirer sur toute la largeur.
+- Aucun SQL, aucune modification de fonction Supabase.
+
 ## 4.2.9
 
 - Correctif de la détection du français : un seul caractère accentué suffisait à classer un texte comme français. Un synopsis anglais contenant un nom comme « Arié » n'était donc pas traduit. La détection compare maintenant les petits mots français et anglais ; l'accent ne sert que d'appoint sur les textes courts. Elle est isolée dans `features/text-language.js` et couverte par des tests (anglais accentué, français, français citant un titre anglais, textes courts).

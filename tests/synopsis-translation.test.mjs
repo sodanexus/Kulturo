@@ -31,3 +31,11 @@ test("un synopsis déjà renseigné n'est jamais remplacé par l'enrichissement"
   const src = read("../features/detail-enrichment.js");
   assert.match(src, /details\[field\] != null && !entry\[field\]/);
 });
+
+test("le bouton Traduire ne dépend pas de la détection de langue", () => {
+  const app = read("../app.js");
+  const fn = app.slice(app.indexOf("function setupSynopsisTranslation"), app.indexOf("function syncEditDetailsSummary"));
+  assert.doesNotMatch(fn, /isLikelyFrench/);
+  assert.match(fn, /force: true/);
+  assert.match(read("../api.js"), /options\.force/);
+});

@@ -666,7 +666,8 @@ export { isLikelyFrench };
 // Renvoie { text, translated }. En cas d'échec, le texte d'origine est conservé
 // (translated: false) : l'appelant décide s'il faut le signaler.
 export async function translateText(text, options = {}) {
-  if (!text || !CONFIG?.supabase?.url || isLikelyFrench(text)) return { text, translated: false };
+  // options.force : demande explicite de l'utilisateur, la détection de langue est ignorée.
+  if (!text || !CONFIG?.supabase?.url || (!options.force && isLikelyFrench(text))) return { text, translated: false };
   try {
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
       method: "POST",

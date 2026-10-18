@@ -6,7 +6,7 @@ import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, translateText, isLikelyFrench } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, translateText } from "./api.js";
 import {
   DEFAULT_LIBRARY_SORT,
   DEFAULT_LIBRARY_STATUS,
@@ -2214,7 +2214,9 @@ function setupSynopsisTranslation() {
   let original = null;
   const refresh = () => {
     const text = field.value.trim();
-    button.hidden = original === null && (!text || isLikelyFrench(text));
+    // Visible dès qu'il y a un texte : c'est l'utilisateur qui décide, la
+    // détection de langue ne peut pas le cacher à tort.
+    button.hidden = original === null && !text;
     button.textContent = original === null ? "Traduire en français" : "Rétablir l’original";
   };
   field.addEventListener("input", () => { original = null; refresh(); });
@@ -2230,9 +2232,10 @@ function setupSynopsisTranslation() {
     button.disabled = true;
     button.textContent = "Traduction…";
     try {
-      const result = await translateText(source);
+      const result = await translateText(source, { force: true });
       if (!document.body.contains(field) || field.value.trim() !== source) return;
       if (!result.translated) { toast("Traduction indisponible pour le moment. Le texte est inchangé.", "error"); return; }
+      if (result.text.trim() === source) { toast("Ce synopsis est déjà en français.", "info"); return; }
       field.value = result.text;
       field.dispatchEvent(new Event("input", { bubbles: true }));
       original = source;

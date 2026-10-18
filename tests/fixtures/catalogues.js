@@ -16,4 +16,4 @@ export const searchMedia = async () => [];
 export const apiAvailability = () => ({ movie: true, game: true, book: true });
 export { isLikelyFrench } from "./features/text-language.js";
 import { isLikelyFrench } from "./features/text-language.js";
-export const translateText = async text => isLikelyFrench(text) ? { text, translated: false } : { text: `Traduction : ${text}`, translated: true };
+export const translateText = async (text, options = {}) => !options.force && isLikelyFrench(text) ? { text, translated: false } : { text: `Traduction : ${text}`, translated: true };

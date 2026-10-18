@@ -988,4 +988,4 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 
 /* Synopsis : bouton « Traduire en français » de Modifier → Détails facultatifs. */
-.synopsis-translate { margin-top: .5rem; }
+.synopsis-translate { margin-top: .5rem; align-self: flex-start; width: fit-content; }
