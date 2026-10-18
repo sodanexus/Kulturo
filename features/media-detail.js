@@ -1,4 +1,4 @@
-import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent } from "./motion.js";
+import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
@@ -492,6 +492,7 @@ function openMetadataFromElement(element) {
   if (!definition || !value) return;
 
   const previousMetadataDialog = document.querySelector("#metadata-overlay .metadata-sheet");
+  const previousMetadataRect = previousMetadataDialog?.getBoundingClientRect();
   if (previousMetadataDialog) dialogFocus.deactivate(previousMetadataDialog, { restoreFocus: false });
   document.getElementById("metadata-overlay")?.remove();
   _metadataReturnFocus = element;
@@ -545,6 +546,10 @@ function openMetadataFromElement(element) {
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
   if (detailModal) detailModal.inert = true;
   const overlay = document.getElementById("metadata-overlay");
+  if (previousMetadataRect) {
+    overlay.classList.add("is-modal-replacement");
+    transitionDialogReplacement(previousMetadataRect, overlay.querySelector(".metadata-sheet"));
+  }
   setupMobileSheetSwipe({
     overlay,
     sheet: overlay?.querySelector(".metadata-sheet"),
@@ -820,20 +825,29 @@ function replaceDetailInfo(entry, options = {}) {
   const next = document.createElement("div");
   next.className = "detail-info-content";
   next.innerHTML = renderDetailInfoHTML(entry, options);
-  if (current?.innerHTML === next.innerHTML) return;
+  const stableMarkup = node => {
+    const copy = node.cloneNode(true);
+    copy.classList.remove("detail-block-in");
+    copy.querySelectorAll(".detail-block-in").forEach(block => block.classList.remove("detail-block-in"));
+    // class="" and an absent class attribute must compare equally.
+    copy.querySelectorAll('[class=""]').forEach(block => block.removeAttribute("class"));
+    if (copy.getAttribute("class") === "") copy.removeAttribute("class");
+    return copy.outerHTML;
+  };
+  if (current && stableMarkup(current) === stableMarkup(next)) return;
 
   clearTimeout(slot._detailInfoTimer);
   animateHeightChange(slot, () => {
     slot.style.height = "";
     slot.classList.remove("is-resizing", "is-revealing", "is-transitioning");
-    if (!current) { slot.replaceChildren(next); return; }
+    if (!current) { next.classList.add("detail-block-in"); slot.replaceChildren(next); return; }
     // Par blocs : ce qui n'a pas changé reste en place (rien ne clignote) ;
     // seul ce qui arrive (note externe, casting…) entre en douceur, et la
     // hauteur de la fiche s'ajuste par l'animation de hauteur.
     const previous = new Map([...current.children].map(node => [node.dataset.block, node]));
     const blocks = [...next.children].map(node => {
       const before = previous.get(node.dataset.block);
-      if (before && before.outerHTML === node.outerHTML) return before;
+      if (before && stableMarkup(before) === stableMarkup(node)) return before;
       node.classList.add("detail-block-in");
       return node;
     });

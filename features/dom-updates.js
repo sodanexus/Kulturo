@@ -1,3 +1,5 @@
+import { prefersReducedMotion, motionDuration } from "./motion.js";
+
 // ============================================================
 // Mises à jour DOM locales — évite les reconstructions inutiles
 // ============================================================
@@ -23,8 +25,11 @@ export function reconcileKeyedChildren(container, items, options) {
       node = create(item, index);
       if (!node) return;
       node.dataset.key = itemKey;
-      node.classList.add("is-locally-added");
-      node.addEventListener("animationend", () => node.classList.remove("is-locally-added"), { once: true });
+      if (!prefersReducedMotion() && !globalThis.document?.documentElement?.dataset.viewTransition) {
+        node.classList.add("is-locally-added");
+        // Nettoyage même si un changement de page annule l'animation CSS.
+        setTimeout(() => node.classList.remove("is-locally-added"), motionDuration("--motion-layout", 280) + 50);
+      }
     }
     keep.add(itemKey);
     // Ne déplacer que les nœuds réellement désordonnés. appendChild sur

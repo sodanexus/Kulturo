@@ -17,7 +17,7 @@ export function runViewTransition(update, name = "page") {
     if (documentRef?.documentElement) delete documentRef.documentElement.dataset.viewTransition;
     activeViewTransition = null;
     const result = update();
-    revealSurface(documentRef?.querySelector?.(".page.active"));
+    revealSurface(documentRef?.querySelector?.(".page.active"), { from: 0 });
     return result;
   }
   documentRef.documentElement.dataset.viewTransition = name;
@@ -37,7 +37,9 @@ export function runViewTransition(update, name = "page") {
     return transition;
   } catch {
     if (sequence === viewSequence) delete documentRef.documentElement.dataset.viewTransition;
-    return update();
+    const result = update();
+    revealSurface(documentRef?.querySelector?.(".page.active"), { from: 0 });
+    return result;
   }
 }
 
@@ -50,7 +52,7 @@ export function motionDuration(token = "--motion-dialog", fallback = 280) {
   return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : fallback;
 }
 
-export const MOTION_EASING = 'cubic-bezier(.333333, 0, .666667, 1)';
+export const MOTION_EASING = 'cubic-bezier(.333333, .666667, .666667, 1)';
 
 // Mémoriser l'état réellement visible avant de remplacer l'animation CSS.
 export function prepareDialogClose(overlay) {
@@ -70,6 +72,7 @@ export function animateHeightChange(element, update) {
   if (!element) { update(); return Promise.resolve(true); }
   const from = element.getBoundingClientRect().height;
   heightAnimations.get(element)?.cancel();
+  heightAnimations.delete(element);
   element.setAttribute('data-height-changing', '');
   update();
   const to = element.getBoundingClientRect().height;
@@ -93,11 +96,11 @@ export function animateHeightChange(element, update) {
 }
 
 const surfaceAnimations = new WeakMap();
-export function revealSurface(element) {
+export function revealSurface(element, { from = .35 } = {}) {
   if (!element?.animate || prefersReducedMotion() ||
       globalThis.document?.documentElement?.dataset.viewTransition) return;
   const previous = surfaceAnimations.get(element);
-  const opacity = previous ? getComputedStyle(element).opacity : '.7';
+  const opacity = previous ? getComputedStyle(element).opacity : from;
   previous?.cancel();
   const animation = element.animate([{ opacity }, { opacity: 1 }], {
     duration: motionDuration('--motion-content', 220), easing: MOTION_EASING,
@@ -127,7 +130,7 @@ export function transitionDialogReplacement(previousRect, next) {
     { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, minWidth: '0px', minHeight: '0px', flexShrink: 0, overflow: 'clip' },
   ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
   animation.finished.catch(() => {});
-  for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer')) {
+  for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer, :scope > .metadata-sheet-header, :scope > .metadata-sheet-body, :scope > .metadata-sheet-footer')) {
     revealSurface(part);
   }
 }

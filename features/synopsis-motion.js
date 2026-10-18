@@ -1,7 +1,7 @@
 import { prefersReducedMotion, motionDuration } from './motion.js';
 
 const active = new WeakMap();
-export const synopsisProgress = t => t * t * (3 - 2 * t);
+export const synopsisProgress = t => 1 - (1 - t) ** 2;
 
 // Une seule horloge pilote la hauteur ET le défilement, dans les deux sens.
 export function animateSynopsis(wrap, expanded) {
