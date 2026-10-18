@@ -2,6 +2,14 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.5
+
+- Entrée de fiche par blocs : titre, note personnelle, étiquettes, synopsis et informations en fondus décalés, sans translation ni double fondu sur le parent.
+- Les notes seules redimensionnent leur propre zone : aucun recalcul ou remplacement du synopsis déjà affiché. Son état déplié et la position de lecture sont conservés.
+- Hauteur de bannière réservée avant réception de l’image distante et scroll conservé lors des mesures du bandeau compact.
+- Recherche IGDB élargie de 6 à 24 candidats ; si le titre exact manque, recherche directe insensible à la casse, fusion sans doublons et titre exact placé en tête.
+- Redéployer igdb-proxy pour bénéficier de la nouvelle recherche. Aucun SQL, aucun secret à modifier.
+
 ## 4.2.4
 
 - Synopsis et informations externes : une seule transition de hauteur, puis apparition en fondu des nouveaux blocs ; les informations inchangées restent montées.

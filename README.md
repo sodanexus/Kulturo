@@ -31,7 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.4
+## Version actuelle · 4.2.5
+
+Apparition progressive des blocs de fiche, synopsis stabilisé lors de l’arrivée des notes et recherche IGDB avec repli par titre exact. **Redéployer igdb-proxy avec cette archive**, même si la fonction a déjà été mise à jour pour les notes.
 
 La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
 

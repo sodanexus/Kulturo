@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.4
+## Validation de l’archive 4.2.5
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -156,3 +156,11 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 - 13 parcours jsdom réussis avec IndexedDB et catalogues simulés : navigation, ajout, recherche, synopsis, édition, annulation, redimensionnement aller/retour et arrivée des notes après la transition de hauteur.
 - Le scénario d’enrichissement utilise des identifiants fictifs pour Alan Wake 2 / II et L.A. Noire. Il vérifie le comportement du code, pas les réponses du service IGDB déployé ni les identifiants des fiches de l’utilisateur.
 - Build Vite et contrôle TypeScript de secours validés ; le compilateur natif verrouillé reste indisponible dans cet environnement. Le rendu réel, les gestes mobiles et la perception du fondu doivent être vérifiés sur appareil.
+
+
+### Validation 4.2.5
+
+- 141 tests techniques réussis. Le proxy IGDB est exécuté avec des réponses simulées pour vérifier le repli par titre exact, le classement, la déduplication et le maintien des résultats lorsque le repli échoue.
+- 14 parcours jsdom réussis, dont enrichissement asynchrone et conservation du synopsis déplié, de son nœud et du scroll lorsque seules les notes changent.
+- Séquence de fondus vérifiée par capture des appels d’animation : opacité seule, départs décalés de 75 ms et durée partagée de 420 ms. Réduction des animations système conservée.
+- Build et contrôle TypeScript de secours réussis. Ces simulations ne valident pas le rendu sur appareil réel ni la réponse IGDB de production pour Returnal.

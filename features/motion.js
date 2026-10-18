@@ -166,6 +166,7 @@ export function transitionDialogReplacement(previousRect, next) {
   // l'animation CSS d'entrée du corps après la fin du redimensionnement.
 
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer, :scope > .metadata-sheet-header, :scope > .metadata-sheet-body, :scope > .metadata-sheet-footer')) {
+    if (next.matches?.(".detail-modal") && part.matches(".detail-body, .detail-backdrop")) continue;
     revealSurface(part);
   }
   return animation;
@@ -186,4 +187,13 @@ export function replaceModalContent(root, html) {
     if (!next.isConnected || root.querySelector('#modal-overlay .modal') !== next) return;
     transitionDialogReplacement(previousRect, next);
   });
+}
+
+// Chaque groupe est déjà à sa place : seule son opacité change.
+// Le remplissage backwards masque aussi les blocs pendant leur délai.
+export function revealDetailSequence(modal) {
+  if (!modal) return;
+  const blocks = modal.querySelectorAll('.detail-title, .detail-rating, .detail-badges, .activity-detail-notice, .detail-synopsis-slot > *, .detail-info-content > *');
+  const start = dialogAnimations.has(modal) ? motionDuration('--motion-layout', 360) : 70;
+  blocks.forEach((block, index) => revealSurface(block, { delay: start + Math.min(index * 75, 525) }));
 }

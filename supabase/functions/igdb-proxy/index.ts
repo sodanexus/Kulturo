@@ -288,14 +288,24 @@ Deno.serve(async (req) => {
         } catch { /* Conserver les données de l'édition si le parent est indisponible. */ }
       }
     } else {
-      // ── Recherche par texte ────────────────────────────────
-      const igdbRes = await fetch("https://api.igdb.com/v4/games", {
-        method: "POST",
-        headers,
-        body: `search "${escapeIgdbSearch(query)}"; fields ${IGDB_FIELDS}; limit 6;`,
-      });
-      if (!igdbRes.ok) throw new Error(`IGDB HTTP ${igdbRes.status}`);
-      games = await igdbRes.json();
+      // Ne pas dépendre uniquement du classement de l'index de recherche.
+      const escaped = escapeIgdbSearch(query);
+      games = await igdbRequest("games", `search "${escaped}"; fields ${IGDB_FIELDS}; limit 24;`, headers);
+      const exact = (game: any) => normalizeIgdbLabel(game.name) === normalizeIgdbLabel(query);
+      if (!games.some(exact)) {
+        try {
+          const direct = await igdbRequest("games", `fields ${IGDB_FIELDS}; where name ~ "${escaped}"; limit 12;`, headers);
+          games = [...direct, ...games];
+        } catch (error) {
+          if (!games.length) throw error;
+          console.warn("[IGDB] Recherche directe indisponible", error);
+        }
+      }
+      const unique = new Map<number, any>();
+      for (const game of games) {
+        if (Number.isSafeInteger(Number(game.id)) && !unique.has(Number(game.id))) unique.set(Number(game.id), game);
+      }
+      games = [...unique.values()].sort((a, b) => Number(exact(b)) - Number(exact(a))).slice(0, 12);
     }
 
     if (!Array.isArray(games)) throw new Error("Réponse IGDB invalide");

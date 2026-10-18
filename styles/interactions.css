@@ -284,3 +284,16 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .detail-load-status { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; color: var(--text-3); font-size: var(--type-label); line-height: 1.6; }
 
 .detail-enrichment > * { flex-shrink: 0; }
+
+
+/* Le séquençage est porté par les blocs, sans double fondu sur leur parent. */
+.detail-modal[data-detail-stagger] .detail-body,
+.detail-modal[data-detail-stagger] .detail-backdrop-info { animation: none; }
+.detail-info-slot[data-height-changing] { overflow: clip; }
+/* Réserver la hauteur finale existante avant l'image distante. */
+.detail-modal:not(.is-collapsible) .detail-backdrop,
+.detail-modal:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 214px; }
+@media (min-width: 681px) {
+  .detail-modal:not(.is-collapsible) .detail-backdrop,
+  .detail-modal:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 320px; }
+}

@@ -1,5 +1,5 @@
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
-import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition } from "./motion.js";
+import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
@@ -200,7 +200,7 @@ function renderDetailPanel(e, options = {}) {
   const detailSessionId = detailSessions.begin(e.id);
   replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal" data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+      <div class="modal detail-modal" data-detail-stagger data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -258,6 +258,8 @@ function renderDetailPanel(e, options = {}) {
   syncSystemBar(getCurrentPage(), null);
   bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
   bindDetailScroll(root.querySelector(".detail-modal"));
+  _checkSynopsisOverflow(e.id);
+  revealDetailSequence(root.querySelector(".detail-modal"));
   enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
   if (!options.restoreView) popFavoriteHeart(root.querySelector(`#detail-fav-${CSS.escape(String(e.id))}`), 200);
   hydrateFadeImages(root);
@@ -404,12 +406,14 @@ function bindDetailScroll(modal) {
 
   const measure = () => {
     if (!modal.isConnected) return;
+    const scrollTop = body.scrollTop;
     modal.classList.remove("is-collapsible");
     const full = backdrop.offsetHeight;
     const compact = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64;
     range = Math.max(1, full - compact);
     modal.style.setProperty("--detail-h", `${full}px`);
     modal.classList.add("is-collapsible");
+    body.scrollTop = scrollTop;
     body.style.setProperty("--synopsis-reading-height", `${Math.max(0, body.clientHeight - compact - 8)}px`);
   };
   const update = () => {
@@ -826,22 +830,24 @@ async function refreshDetailEnrichment(entry, options = {}) {
   const scroll = body.scrollTop;
   const arriving = [...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
   for (const node of arriving) { node.setAttribute("data-detail-awaiting", ""); node.style.opacity = "0"; }
-  const heightMotion = animateHeightChange(region, () => {
+  const heightTarget = changeSynopsis ? region : region.querySelector(".detail-info-slot");
+  const heightMotion = animateHeightChange(heightTarget, () => {
     if (changeSynopsis) synopsisSlot.replaceChildren(...(nextSynopsis ? [nextSynopsis] : []));
     info.replaceChildren(...blocks);
     // Le bouton et le nombre de lignes font partie de la hauteur cible.
-    _checkSynopsisOverflow(entry.id);
+    if (changeSynopsis) _checkSynopsisOverflow(entry.id);
   });
   body.scrollTop = scroll;
   await heightMotion;
-  await waitForHeightTransition(region);
+  await waitForHeightTransition(heightTarget);
   if (!detailSessions.isActive(sessionId, entry.id)) return;
+  let arrivalIndex = 0;
   for (const node of arriving) {
     if (!node.isConnected) continue;
     node.removeAttribute("data-detail-awaiting");
     node.style.removeProperty("opacity");
     if (!node.getAttribute("style")) node.removeAttribute("style");
-    revealSurface(node, { delay: changeSynopsis && node !== nextSynopsis ? 90 : 0 });
+    revealSurface(node, { delay: Math.min(arrivalIndex++ * 80, 320) });
   }
 }
 

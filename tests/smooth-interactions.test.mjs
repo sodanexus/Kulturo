@@ -194,3 +194,18 @@ test('a synchronous View Transition failure still animates and completes navigat
     assert.equal(doc.documentElement.dataset.viewTransition, undefined);
   } finally { restore(); }
 });
+
+test('detail groups fade in sequence without translating or resizing their text', async () => {
+ const {revealDetailSequence}=await import('../features/motion.js');
+ const records=[];
+ const blocks=Array.from({length:8},()=>({animate(frames,options){records.push({frames,options});return {finished:Promise.resolve(),cancel(){}};}}));
+ const restore=installGlobals({matchMedia:()=>({matches:false})});
+ try {
+  revealDetailSequence({querySelectorAll:()=>blocks});
+  assert.equal(records.length,8);
+  assert.equal(records[0].options.delay,70);
+  assert.equal(records[1].options.delay,145);
+  assert.ok(records.at(-1).options.delay<=595);
+  for(const record of records){assert.deepEqual(record.frames,[{opacity:0},{opacity:1}]);assert.equal(record.options.fill,'backwards');}
+ } finally {restore();}
+});
