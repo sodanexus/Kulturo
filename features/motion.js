@@ -83,7 +83,7 @@ export function animateHeightChange(element, update) {
   const animation = element.animate([
     { height: `${from}px`, minHeight: `${from}px`, maxHeight: `${from}px`, overflow: 'clip' },
     { height: `${to}px`, minHeight: `${to}px`, maxHeight: `${to}px`, overflow: 'clip' },
-  ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
+  ], { duration: motionDuration('--motion-layout', 360), easing: MOTION_EASING });
   heightAnimations.set(element, animation);
   return animation.finished.then(() => true, () => false).then(completed => {
     completed = completed && heightAnimations.get(element) === animation;
@@ -96,14 +96,14 @@ export function animateHeightChange(element, update) {
 }
 
 const surfaceAnimations = new WeakMap();
-export function revealSurface(element, { from = .35 } = {}) {
+export function revealSurface(element, { from = 0 } = {}) {
   if (!element?.animate || prefersReducedMotion() ||
       globalThis.document?.documentElement?.dataset.viewTransition) return;
   const previous = surfaceAnimations.get(element);
   const opacity = previous ? getComputedStyle(element).opacity : from;
   previous?.cancel();
   const animation = element.animate([{ opacity }, { opacity: 1 }], {
-    duration: motionDuration('--motion-content', 220), easing: MOTION_EASING,
+    duration: motionDuration('--motion-content', 420), easing: 'cubic-bezier(.25, .1, .25, 1)',
   });
   surfaceAnimations.set(element, animation);
   animation.finished.then(cleanup, cleanup);
@@ -123,13 +123,21 @@ export function transitionDialogReplacement(previousRect, next) {
   if (!previousRect || !next?.animate || prefersReducedMotion()) return;
   const rect = next.getBoundingClientRect();
   if (!rect.width || !rect.height || !previousRect.width || !previousRect.height) return;
-  const maxWidth = `${Math.max(previousRect.width, rect.width)}px`;
-  const maxHeight = `${Math.max(previousRect.height, rect.height)}px`;
-  const animation = next.animate([
-    { width: `${previousRect.width}px`, height: `${previousRect.height}px`, maxWidth, maxHeight, minWidth: '0px', minHeight: '0px', flexShrink: 0, overflow: 'clip' },
-    { width: `${rect.width}px`, height: `${rect.height}px`, maxWidth, maxHeight, minWidth: '0px', minHeight: '0px', flexShrink: 0, overflow: 'clip' },
-  ], { duration: motionDuration('--motion-layout', 280), easing: MOTION_EASING });
-  animation.finished.catch(() => {});
+  // Contraindre min ET max à chaque extrémité : la hauteur fixe de la fiche
+  // et les contraintes flex mobiles ne doivent pas écraser le trajet retour.
+  const frame = box => ({ width: `${box.width}px`, height: `${box.height}px`,
+    minWidth: `${box.width}px`, maxWidth: `${box.width}px`,
+    minHeight: `${box.height}px`, maxHeight: `${box.height}px`,
+    flexShrink: 0, overflow: 'clip' });
+  next.setAttribute?.('data-dialog-changing', '');
+  const animation = next.animate([frame(previousRect), frame(rect)], {
+    duration: motionDuration('--motion-layout', 360), easing: MOTION_EASING, fill: 'both',
+  });
+  const finish = () => { animation.cancel?.(); };
+  animation.finished.then(finish, () => {});
+  // Le marqueur reste sur cette instance : retirer ce marqueur relancerait
+  // l'animation CSS d'entrée du corps après la fin du redimensionnement.
+
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer, :scope > .metadata-sheet-header, :scope > .metadata-sheet-body, :scope > .metadata-sheet-footer')) {
     revealSurface(part);
   }

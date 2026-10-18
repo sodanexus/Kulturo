@@ -141,17 +141,18 @@ export async function requestJSON(url, options = {}) {
     cacheTtlMs = cachePolicy ? (API_CACHE_TTL[cachePolicy] || 0) : 0,
     cacheKey = null,
     dedupe = true,
+    fresh = false,
     signal = null,
     ...fetchOptions
   } = options;
   const method = String(fetchOptions.method || "GET").toUpperCase();
   const key = requestKey(url, method, fetchOptions.body, cacheKey);
-  const cached = cacheTtlMs > 0 ? cachedValue(key) : undefined;
+  const cached = !fresh && cacheTtlMs > 0 ? cachedValue(key) : undefined;
   if (cached !== undefined) return cached;
 
   // Une recherche annulable ne partage pas son contrôleur avec une ancienne
   // saisie. Les autres requêtes identiques sont dédupliquées automatiquement.
-  if (dedupe && !signal && pendingRequests.has(key)) return pendingRequests.get(key);
+  if (dedupe && !fresh && !signal && pendingRequests.has(key)) return pendingRequests.get(key);
 
   const promise = performRequest(url, {
     ...fetchOptions,

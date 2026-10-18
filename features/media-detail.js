@@ -143,8 +143,11 @@ function prefetchDetail(id) {
 
 // ── Fiche détaillée ───────────────────────────────────────────
 let _releaseDetailScroll = null;
+let _releaseBackdropShow = null;
 
 function releaseDetailDomResources() {
+  _releaseBackdropShow?.();
+  _releaseBackdropShow = null;
   _releaseDetailScroll?.();
   _releaseDetailScroll = null;
   document.querySelectorAll("#modal-root .detail-info-slot").forEach(slot => {
@@ -785,7 +788,7 @@ function replaceDetailSynopsis(entry, options = {}) {
       if (!slot.isConnected) return;
       slot.replaceChildren();
       slot.classList.remove("is-transitioning");
-    }, motionDuration("--motion-content", 220), sessionId);
+    }, motionDuration("--motion-content", 420), sessionId);
     return;
   }
 
@@ -800,17 +803,17 @@ function replaceDetailSynopsis(entry, options = {}) {
     slot.classList.add("is-transitioning");
     previous.classList.add("detail-synopsis-leaving");
     next.classList.add("detail-synopsis-arriving");
-    slot.append(next);
+    animateHeightChange(slot, () => slot.append(next));
     detailSessions.schedule(() => {
       if (!slot.isConnected) return;
-      previous.remove();
+      animateHeightChange(slot, () => previous.remove());
       next.classList.remove("detail-synopsis-arriving");
       slot.classList.remove("is-transitioning");
-    }, motionDuration("--motion-content", 220), sessionId);
+    }, motionDuration("--motion-content", 420), sessionId);
   } else {
     next.classList.add("detail-synopsis-arriving");
-    slot.replaceChildren(next);
-    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), motionDuration("--motion-content", 220), sessionId);
+    animateHeightChange(slot, () => slot.replaceChildren(next));
+    detailSessions.schedule(() => next.classList.remove("detail-synopsis-arriving"), motionDuration("--motion-content", 420), sessionId);
   }
 }
 
@@ -1025,6 +1028,9 @@ function _injectBackdrop(backdrop, entryId, sessionId = detailSessions.activeId(
         getUrls,
         isActive: () => detailSessions.isActive(sessionId, entryId),
         track: image => detailSessions.trackImage(image, sessionId),
+      }).then(stop => {
+        if (detailSessions.isActive(sessionId, entryId)) _releaseBackdropShow = stop;
+        else stop?.();
       }).catch(() => {});
     }
   };
@@ -1040,7 +1046,7 @@ async function openDetailPanel(id, options = {}) {
   if (!detailOwner) return;
 
   // Affichage immédiat avec ce qu'on a déjà en base
-  const detailsLoading = !e.description && !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
+  const detailsLoading = !e._detailsFetched && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
   const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
   const detailSignal = detailSessions.signal(detailSessionId);
   const ownsDetailSession = () => sameOwner(detailOwner, State.user?.id) &&
@@ -1051,7 +1057,10 @@ async function openDetailPanel(id, options = {}) {
   // l'arrivée des bannières. Elle bénéficie d'une unique vérification fraîche.
   const needsBackdropRepair = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) &&
     !e.backdrop_url && !e._backdropRepairAttempted;
-  if (e._detailsFetched && !needsBackdropRepair) {
+  const needsDetailRefresh = Boolean(e.external_id) &&
+    (!e.backdrop_url || !e.external_ratings?.length) &&
+    (!e._detailsFetchedAt || Date.now() - e._detailsFetchedAt > DETAIL_PREFETCH_TTL);
+  if (e._detailsFetched && !needsBackdropRepair && !needsDetailRefresh) {
     _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
     return;
   }
@@ -1104,7 +1113,7 @@ async function openDetailPanel(id, options = {}) {
     const refreshBackdrop = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) && !e.backdrop_url;
     if (refreshBackdrop) e._backdropRepairAttempted = true;
     const details = await requestPrefetchedDetails(e, {
-      fresh: refreshBackdrop,
+      fresh: refreshBackdrop || needsDetailRefresh,
       signal: detailSignal,
     });
     if (!ownsDetailSession()) return;
@@ -1118,6 +1127,9 @@ async function openDetailPanel(id, options = {}) {
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = collectDetailUpdates(e, details);
     Object.assign(e, toSave);
+    // Afficher les données dès leur réception, sans attendre une écriture réseau.
+    _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
+    refreshDetailEnrichment(e, { detailsLoading: false });
     let persisted = true;
     if (Object.keys(toSave).length) {
       try {
@@ -1135,6 +1147,7 @@ async function openDetailPanel(id, options = {}) {
       }
     }
     e._detailsFetched = persisted;
+    e._detailsFetchedAt = Date.now();
 
     // Injecter le backdrop en fondu
     _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
