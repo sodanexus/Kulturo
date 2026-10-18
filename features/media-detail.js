@@ -444,26 +444,45 @@ function detailRepeatIndicatorHTML(entry) {
 
 let _metadataReturnFocus = null;
 
-function metadataChipHTML(entry, kind, value) {
+function metadataTarget(entry, kind, value) {
   const cleanValue = String(value || "").trim();
-  if (!cleanValue || !metadataDefinition(kind)) return "";
+  if (!cleanValue || !metadataDefinition(kind)) return null;
   let directUrl = "";
   if (kind === "cast" && Array.isArray(entry?.cast_people)) {
     const person = entry.cast_people.find(candidate => normalizeTitle(candidate?.name) === normalizeTitle(cleanValue));
     if (person?.imdb_id) directUrl = `https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/`;
   }
+  return { cleanValue, directUrl };
+}
+
+function metadataDataAttrs(kind, target) {
+  return `data-meta-kind="${esc(kind)}"
+      data-meta-value="${esc(target.cleanValue)}"
+      data-meta-external="${esc(target.directUrl)}"
+      ${uiAction("openMetadataFromElement", [], { control: true })}`;
+}
+
+// Puce du casting : même action qu'avant, sans la flèche (la rangée défile).
+function metadataChipHTML(entry, kind, value) {
+  const target = metadataTarget(entry, kind, value);
+  if (!target) return "";
   return `
     <button type="button" class="detail-chip detail-meta-link"
-      data-meta-kind="${esc(kind)}"
-      data-meta-value="${esc(cleanValue)}"
-      data-meta-external="${esc(directUrl)}"
-      ${uiAction("openMetadataFromElement", [], { control: true })}>
-      <span>${esc(cleanValue)}</span><span aria-hidden="true">›</span>
+      ${metadataDataAttrs(kind, target)}>
+      <span>${esc(target.cleanValue)}</span>
     </button>`;
 }
 
-function metadataChipsHTML(entry, kind, value) {
-  return splitMetadataValues(value).map(item => metadataChipHTML(entry, kind, item)).join("");
+// Lien souligné dans une phrase (crédits, genres) : ouvre la même feuille.
+function metadataLinkHTML(entry, kind, value) {
+  const target = metadataTarget(entry, kind, value);
+  if (!target) return "";
+  return `<button type="button" class="detail-link"
+      ${metadataDataAttrs(kind, target)}>${esc(target.cleanValue)}</button>`;
+}
+
+function metadataLinksHTML(entry, kind, value) {
+  return splitMetadataValues(value).map(item => metadataLinkHTML(entry, kind, item)).filter(Boolean).join(", ");
 }
 
 function openMetadataFromElement(element) {
@@ -615,83 +634,85 @@ function formatDuration(minutes) {
   return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
 }
 
-// Notes d'autres services : toujours nommées, jamais mélangées à la note perso.
+// Notes d'autres services : logo coloré de la source, jamais mélangées à la
+// note perso. Le nom complet, le profil (joueurs, presse) et les votes restent
+// dans l'infobulle et le libellé d'accessibilité.
 function externalRatingsHTML(ratings) {
   return `<div class="detail-external-ratings" role="list">${ratings.map(rating => {
     const kind = rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
     const votes = rating.votes ? ` · ${new Intl.NumberFormat("fr-FR").format(rating.votes)} votes` : "";
     const label = `${rating.label}${rating.kind ? ` ${rating.kind}` : ""} : ${formatRatingValue(rating.value)} sur 10${votes}`;
-    return `<span class="detail-external-rating" data-source="${esc(rating.source)}" role="listitem" title="${esc(label)}" aria-label="${esc(label)}">
-      <span class="detail-external-source">${esc(rating.label)}</span>
-      <strong>${esc(formatRatingValue(rating.value).replace(".", ","))}</strong><span class="detail-external-scale">/10</span>${kind}
+    const source = String(rating.source || "").replace(/[^a-z0-9_-]/gi, "").toLowerCase();
+    return `<span class="detail-external-rating" data-source="${esc(source)}" role="listitem" title="${esc(label)}" aria-label="${esc(label)}">
+      <span class="detail-external-logo is-${esc(source)}" aria-hidden="true">${esc(String(rating.label || "").toUpperCase())}</span>
+      <strong>${esc(formatRatingValue(rating.value).replace(".", ","))}</strong>${kind}
     </span>`;
   }).join("")}</div>`;
 }
 
 function renderDetailInfoHTML(e, options = {}) {
-  const metaRow = (label, value, key = label) => value
-    ? `<div class="detail-meta-row" data-detail-key="${esc(String(key))}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
-    : "";
-  const metadataRow = (label, kind, value) => {
-    const links = metadataChipsHTML(e, kind, value);
-    return links
-      ? `<div class="detail-meta detail-meta-row detail-meta-row-links" data-detail-key="${esc(kind)}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
-      : "";
-  };
   const isSeries = e.media_type === "movie" && e.subtype === "tv";
+  const SEP = `<span class="detail-sep" aria-hidden="true"> · </span>`;
   let html = "";
 
-  // Informations : faits propres à chaque type, genres explorables inclus.
+  // Repères : une seule ligne discrète, propre à chaque type.
   const facts = [
     e.release_date
-      ? metaRow("Sortie", formatReleaseDate(e.release_date, e.release_date_precision || e.date_precision || "day"))
-      : metaRow("Année", e.release_year),
-    e.media_type === "movie" && !isSeries ? metaRow("Durée", formatDuration(e.duration)) : "",
-    isSeries ? metaRow("Saisons", e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null) : "",
-    isSeries ? metaRow("Épisodes", e.episodes_count ? `${e.episodes_count} épisodes` : null) : "",
-    isSeries ? metaRow("Diffusion", e.air_status) : "",
-    e.media_type === "game" ? metaRow("Plateformes", e.platform) : "",
-    e.media_type === "book" ? metaRow("Pages", e.page_count) : "",
-    e.media_type === "book" ? metaRow("ISBN", e.isbn) : "",
-  ].filter(Boolean).join("");
-  const genres = metadataRow("Genre", "genre", e.genre);
-  if (facts || genres) {
-    html += detailSectionHTML("Informations", `<div class="detail-meta">${facts}${genres}</div>`, "detail-info-section");
+      ? formatReleaseDate(e.release_date, e.release_date_precision || e.date_precision || "day")
+      : e.release_year,
+    e.media_type === "movie" && !isSeries ? formatDuration(e.duration) : null,
+    isSeries && e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null,
+    isSeries && e.episodes_count ? `${e.episodes_count} épisodes` : null,
+    isSeries ? e.air_status : null,
+    e.media_type === "game" ? e.platform : null,
+    e.media_type === "book" && e.page_count ? `${e.page_count} pages` : null,
+    e.media_type === "book" && e.isbn ? `ISBN ${e.isbn}` : null,
+  ].map(item => String(item ?? "").trim()).filter(Boolean);
+  if (facts.length) {
+    html += `<p class="detail-facts" data-detail-key="facts">${facts.map(esc).join(SEP)}</p>`;
   }
 
-  // Crédits : les personnes et studios, explorables.
+  // Crédits : personnes, studios et genres, en liens soulignés explorables.
+  const credit = (prefix, kind, value) => {
+    const links = metadataLinksHTML(e, kind, value);
+    return links ? `<span class="detail-credit" data-detail-key="${esc(kind)}">${prefix} ${links}</span>` : "";
+  };
   const credits = [
     e.media_type === "movie"
-      ? metadataRow(isSeries ? "Créateur" : "Réalisateur", "director", e.directors || e.author)
+      ? credit(isSeries ? "Créée par" : "De", "director", e.directors || e.author)
       : "",
-    e.media_type === "game" ? metadataRow("Développeur", "developer", e.developer || e.author) : "",
-    e.media_type === "game" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
-    e.media_type === "book" ? metadataRow("Auteur", "author", e.author) : "",
-    e.media_type === "book" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
-  ].filter(Boolean).join("");
-  if (credits) html += detailSectionHTML("Crédits", `<div class="detail-meta detail-meta-linked">${credits}</div>`, "detail-credits-section");
+    e.media_type === "game" ? credit("Développé par", "developer", e.developer || e.author) : "",
+    e.media_type === "game" ? credit("Édité par", "publisher", e.publisher) : "",
+    e.media_type === "book" ? credit("De", "author", e.author) : "",
+    e.media_type === "book" ? credit("Édité par", "publisher", e.publisher) : "",
+  ].filter(Boolean);
+  const genres = metadataLinksHTML(e, "genre", e.genre);
+  if (genres) credits.push(`<span class="detail-credit" data-detail-key="genre">${genres}</span>`);
+  if (credits.length) {
+    html += `<p class="detail-credits detail-credits-section">${credits.join(SEP)}</p>`;
+  }
 
+  // Casting : rangée qui défile, une puce par personne.
   if (e.media_type === "movie" && e.cast_members) {
     const castNames = Array.isArray(e.cast_people) && e.cast_people.length
       ? e.cast_people.map(person => person.name).filter(Boolean)
       : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
     const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
-    html += detailSectionHTML("Casting", `<div class="detail-chips">${cast}</div>`, "detail-cast-section");
+    if (cast) html += `<div class="detail-cast-section" role="group" aria-label="Casting"><div class="detail-cast-row">${cast}</div></div>`;
   }
 
+  // Notes externes : logo coloré + note, sans titre de section.
   const ratings = Array.isArray(e.external_ratings) ? e.external_ratings : [];
   const awaitsRatings = options.detailsLoading && !ratings.length &&
     ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
   if (ratings.length) {
-    html += detailSectionHTML("Notes externes", externalRatingsHTML(ratings), "detail-external-section");
+    html += `<div class="detail-external-section">${externalRatingsHTML(ratings)}</div>`;
   } else if (awaitsRatings) {
-    html += detailSectionHTML("Notes externes",
-      `<div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div>`,
-      "detail-external-section");
+    html += `<div class="detail-external-section"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
   }
 
   const awaitsMoreInfo = options.detailsLoading && (
-    e.media_type === "book" || ([ "movie", "game" ].includes(e.media_type) && Boolean(e.external_id))
+    e.media_type === "book" || (["movie", "game"].includes(e.media_type) && Boolean(e.external_id))
   );
   if (awaitsMoreInfo) {
     html += `<div class="detail-info-skeleton" role="status" aria-label="Chargement des informations complémentaires">
@@ -700,18 +721,18 @@ function renderDetailInfoHTML(e, options = {}) {
     </div>`;
   }
 
-  // Historique : le suivi personnel clôt la fiche (absent des fiches partagées).
+  // Historique : une ligne discrète qui clôt la fiche (absente des fiches partagées).
   if (!options.readOnly) {
     const info = repeatInfo(e);
     const words = mediaWords(e.media_type);
-    const dateRow = (label, value, key) => value ? metaRow(label, formatReleaseDate(value), key) : "";
+    const dateItem = (label, value) => value ? `${label} le ${formatReleaseDate(value)}` : "";
     const history = [
-      dateRow("Commencé", e.date_started, "started"),
-      dateRow(words.done, e.date_finished, "finished"),
-      info.total > 1 ? metaRow("Répétitions", `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}`, "repeats") : "",
-      metaRow("Ajouté", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null, "added"),
-    ].filter(Boolean).join("");
-    if (history) html += detailSectionHTML("Historique", `<div class="detail-meta detail-meta-history">${history}</div>`, "detail-history-section");
+      e.created_at ? `Ajouté le ${new Date(e.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}` : "",
+      dateItem("Commencé", e.date_started),
+      dateItem(words.done, e.date_finished),
+      info.total > 1 ? `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}` : "",
+    ].filter(Boolean);
+    if (history.length) html += `<p class="detail-history detail-history-section">${history.map(esc).join(SEP)}</p>`;
   }
 
   return html;
