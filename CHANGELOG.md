@@ -2,6 +2,19 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.0
+
+Refonte des fiches : consulter d'un côté, gérer de l'autre. Aucun SQL. **Une fonction Edge à redéployer : `igdb-proxy`** (optionnel : sans elle, les jeux n'ont pas de note externe).
+
+- **En-tête** : jaquette agrandie (144 × 216 sur ordinateur, 96 × 144 sur mobile) qui chevauche la bannière ; titre, note personnelle et badges à côté. La bannière vivante, la barre compacte au défilement et son fondu sont conservés ; le voile se fond dans la surface de la fiche sous la bannière.
+- **Badges informatifs** : type, statut (Envies, En cours, Terminé), coup de cœur ♥ et compteur ↻ s'affichent sur toutes les fiches mais ne sont plus modifiables d'un toucher.
+- **Actions rapides supprimées** de la fiche (statut et relecture). En bas : Supprimer et Modifier.
+- **Contenu réorganisé** sous le synopsis : Informations (année ou sortie, durée, saisons, plateformes, pages, genres), Crédits (réalisation, création, développement, édition, auteur), Casting, Notes externes, Historique (commencé, terminé, reprises, ajouté). Les sections absentes ne s'affichent pas.
+- **Notes externes** : TMDb (films, séries) et IGDB (joueurs, presse) sur 10, avec leur source et le nombre de votes en infobulle. Transitoires comme le casting : jamais enregistrées. Rotten Tomatoes et Letterboxd n'offrent pas d'API publique, Goodreads a fermé la sienne : ils ne sont pas intégrés.
+- **`igdb-proxy`** : la fiche détaillée demande aussi `rating`, `rating_count`, `aggregated_rating` et `aggregated_rating_count`. La recherche et les sorties ne changent pas.
+- **Modifier** : nouvelle section « Relecture » (Revoir, Relire ou Rejouer) sous le statut, visible seulement si l'œuvre a déjà été terminée, avec le même compteur qu'avant. Rien n'est enregistré avant **Enregistrer** ; **Annuler** abandonne statut, note et relecture ensemble. Le pas manuel s'ajoute au résultat du statut (Terminé après une reprise ajoute déjà 1) : une reprise n'est jamais comptée deux fois. Retirer une relecture retire aussi ses événements du Journal.
+- Tests : les vérifications de la mise à jour en direct de la fiche sont retirées (elle ne change plus sans passer par Modifier) ; contrôles ajoutés pour les notes externes, la suppression des actions rapides et le calcul de relecture.
+
 ## 4.1.0
 
 Version de finition visuelle : bannière de fiche animée, survol des affiches uniforme et réactif, aura et couleur de nuance plus justes. Aucun SQL. **Une fonction Edge à redéployer : `igdb-proxy`** (optionnel : sans elle, les jeux gardent simplement leur jaquette floutée).

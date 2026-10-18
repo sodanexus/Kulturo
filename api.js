@@ -522,9 +522,23 @@ export const TMDbDetails = {
 
     const description = d.overview || null;
 
-    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers };
+    const external_ratings = [
+      Number(d.vote_count) > 0 ? externalRating("tmdb", "TMDb", d.vote_average, 10, { votes: Number(d.vote_count) }) : null,
+    ].filter(Boolean);
+
+    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers, external_ratings };
   },
 };
+
+// Notes externes : transitoires (jamais enregistrées), distinctes de la note
+// personnelle. Échelle commune /10, source toujours nommée.
+function externalRating(source, label, value, scale = 10, extra = {}) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return null;
+  const outOf10 = scale === 100 ? number / 10 : number;
+  if (outOf10 > 10) return null;
+  return { source, label, value: Math.round(outOf10 * 10) / 10, scale: 10, ...extra };
+}
 
 // Images de fond supplémentaires (sans texte, les mieux notées d'abord).
 export const TMDbImages = {
@@ -582,7 +596,13 @@ export const IGDBDetails = {
     // La première capture sert de bannière enregistrée (comme TMDb).
     const backdrop_url = igdbScreenshotUrls(g, "t_1080p", 1)[0] || null;
 
-    return { backdrop_url, developer, publisher, platform, description };
+    // IGDB publie deux notes sur 100 : joueurs (rating) et presse (aggregated_rating).
+    const external_ratings = [
+      Number(g.rating_count) > 0 ? externalRating("igdb", "IGDB", g.rating, 100, { kind: "joueurs", votes: Number(g.rating_count) }) : null,
+      Number(g.aggregated_rating_count) > 0 ? externalRating("igdb", "IGDB", g.aggregated_rating, 100, { kind: "presse", votes: Number(g.aggregated_rating_count) }) : null,
+    ].filter(Boolean);
+
+    return { backdrop_url, developer, publisher, platform, description, external_ratings };
   },
 };
 

@@ -28,6 +28,7 @@ import {
   sameMediaIdentity,
   statusLabelFor,
   statusTransitionChanges,
+  mediaWords,
 } from "./domain.js";
 import {
   ADD_PRIMARY_STATUSES,
@@ -89,8 +90,7 @@ let prefetchDetail;
 let openMetadataFromElement;
 let openMetadataMedia;
 let closeMetadataPanel;
-let quickSetStatus;
-let quickAdjustRepeat;
+let revokeStaleRepeatEvents;
 let canEnrichMediaDetails;
 let requestPrefetchedDetails;
 let refreshDetailEnrichment;
@@ -2044,6 +2044,7 @@ function _openModalClassic(entry) {
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>
+            <div class="form-group edit-repeat-group" id="edit-repeat" data-edit-repeat></div>
             <label class="toggle-row favorite-toggle">
               <span class="toggle-label">♥ Coup de cœur</span>
               <span class="toggle-switch">
@@ -2096,6 +2097,9 @@ function _openModalClassic(entry) {
   bindCoverAccent(root.querySelector(".edit-modal"), entryCoverUrl);
   _currentRating = entry.rating || 0;
   buildRatingStars(entry.rating || 0);
+  _editRepeatDelta = 0;
+  renderEditRepeat();
+  document.getElementById("f-status")?.addEventListener("change", renderEditRepeat);
   updateApiAvailLabel(entry.media_type || "movie");
   setupApiSearch();
   syncEditDetailsSummary();
@@ -2117,6 +2121,75 @@ function _openModalClassic(entry) {
     shouldResetBeforeDismiss: () => _modalDirty || _saveInProgress,
   });
   activateDialog(root.querySelector(".edit-modal"), { initialFocus: ".modal-header .btn-icon:last-child" });
+}
+
+// ── Relecture dans Modifier ─────────────────────────────────
+// Rien n'est enregistré ici : _editRepeatDelta s'ajoute au compteur calculé
+// par le changement de statut, et Enregistrer valide le tout en une fois.
+let _editRepeatDelta = 0;
+
+// Compteur de répétitions final pour la fiche en cours de modification.
+// Le passage « En cours → Terminé » d'une reprise ajoute déjà 1 de lui-même :
+// le pas manuel ne s'applique que par-dessus, sans double comptage.
+function editRepeatState(existing, status) {
+  const transition = statusTransitionChanges(existing, status);
+  const base = repeatInfo(existing).repeats;
+  const automatic = Object.prototype.hasOwnProperty.call(transition.changes, "repeat_count")
+    ? transition.changes.repeat_count
+    : base;
+  const repeats = Math.max(0, Math.min(999, automatic + _editRepeatDelta));
+  const preview = { ...existing, ...transition.changes, status, repeat_count: repeats };
+  const info = repeatInfo(preview);
+  return { transition, base, automatic, repeats, preview, info, progress: repeatProgressLabel(preview, info) };
+}
+
+function renderEditRepeat() {
+  const host = document.getElementById("edit-repeat");
+  const existing = State.editingId ? State.entries.find(item => item.id === State.editingId) : null;
+  if (!host || !existing) return;
+  const status = document.getElementById("f-status")?.value || existing.status;
+  const state = editRepeatState(existing, status);
+  const { info, progress, repeats } = state;
+  host.hidden = !info.total;
+  if (!info.total) { host.innerHTML = ""; return; }
+
+  const words = mediaWords(existing.media_type);
+  const [singular, plural] = info.unit;
+  const countLabel = `${info.total} ${info.total > 1 ? plural : singular}`;
+  const fullLabel = progress ? `${progress} · ${info.done} ${info.total} fois` : `${info.done} ${info.total} fois`;
+  const canDown = !progress && repeats > 0;
+  const canUp = !progress && repeats < 999;
+  const pending = repeats !== state.base || state.transition.repeatStarted;
+  const hint = progress
+    ? "Le compteur augmentera quand vous passerez de nouveau sur Terminé."
+    : pending ? "Pris en compte à l’enregistrement." : "";
+  host.innerHTML = `
+    <label id="edit-repeat-label">${words.eyebrow}</label>
+    <div class="edit-repeat-row">
+      <div class="quick-repeat-stepper ${progress ? "is-progress" : ""}" role="group" aria-labelledby="edit-repeat-label" aria-label="${esc(fullLabel)}">
+        <button type="button" class="quick-repeat-adjust" data-repeat-dir="-1" ${uiAction("adjustEditRepeat", [-1])} ${canDown ? "" : "disabled"} aria-label="${esc(info.removeLabel)}">−</button>
+        <span class="quick-repeat-value" title="${esc(fullLabel)}"><span>${esc(countLabel)}</span></span>
+        <button type="button" class="quick-repeat-adjust quick-repeat-add" data-repeat-dir="1" ${uiAction("adjustEditRepeat", [1])} ${canUp ? "" : "disabled"} aria-label="${esc(info.action)} une fois de plus">+</button>
+      </div>
+      ${hint ? `<span class="edit-repeat-hint" aria-live="polite">${hint}</span>` : ""}
+    </div>`;
+}
+
+function adjustEditRepeat(delta) {
+  const direction = Number(delta) > 0 ? 1 : -1;
+  const existing = State.editingId ? State.entries.find(item => item.id === State.editingId) : null;
+  if (!existing) return;
+  const status = document.getElementById("f-status")?.value || existing.status;
+  const state = editRepeatState(existing, status);
+  if (state.progress) return;
+  const next = Math.max(0, Math.min(999, state.repeats + direction));
+  if (next === state.repeats) return;
+  _editRepeatDelta += next - state.repeats;
+  markModalDirty();
+  renderEditRepeat();
+  // Le rendu remplace les boutons : le focus clavier revient sur le même sens.
+  const buttons = [...document.querySelectorAll("#edit-repeat .quick-repeat-adjust")];
+  (buttons.find(b => b.dataset.repeatDir === String(direction) && !b.disabled) || buttons.find(b => !b.disabled))?.focus({ preventScroll: true });
 }
 
 function syncEditDetailsSummary() {
@@ -2528,6 +2601,14 @@ async function saveEntry() {
   if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "repeat_count")) {
     payload.repeat_count = statusTransition.changes.repeat_count;
   }
+  // Pas manuel de la section « Relecture » : il s'ajoute au résultat du statut
+  // (jamais deux fois) et n'est envoyé que si le compteur change réellement.
+  const previousRepeats = existing ? repeatInfo(existing).repeats : 0;
+  if (existing && _editRepeatDelta !== 0) {
+    const finalRepeats = editRepeatState(existing, payload.status).repeats;
+    if (finalRepeats !== previousRepeats) payload.repeat_count = finalRepeats;
+    else delete payload.repeat_count;
+  }
 
   // Une nouvelle identité API ne doit jamais conserver le casting/backdrop
   // de l'ancien média.
@@ -2566,7 +2647,7 @@ async function saveEntry() {
       // Une simple note ou un cœur ne justifie pas un nouvel enrichissement.
       // Les marqueurs internes ne sont jamais envoyés à Supabase.
       if (keepExistingApi) {
-        for (const key of ["_detailsFetched", "_backdropRepairAttempted", "cast_people"]) {
+        for (const key of ["_detailsFetched", "_backdropRepairAttempted", "cast_people", "external_ratings"]) {
           if (existing[key] !== undefined) updated[key] = existing[key];
         }
       }
@@ -2579,6 +2660,9 @@ async function saveEntry() {
     }
     cacheEntriesLocally();
     markJournalDirty();
+    const savedEntry = editingId ? State.entries.find(e => e.id === editingId) : null;
+    if (savedEntry && repeatInfo(savedEntry).repeats < previousRepeats) void revokeStaleRepeatEvents(savedEntry);
+    _editRepeatDelta = 0;
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
     const justFinished = payload.status === "finished" && existing?.status !== "finished";
@@ -2602,7 +2686,12 @@ async function saveEntry() {
     if (!sameOwner(saveOwner, State.user?.id)) return;
     const saveBtn = document.querySelector(".modal-footer .btn-primary");
     setButtonBusy(saveBtn, false);
-    toast("Erreur : " + e.message, "error");
+    toast(
+      /repeat_count|schema cache/i.test(String(e?.message || "")) && Object.prototype.hasOwnProperty.call(payload, "repeat_count")
+        ? "Le compteur de reprises n’est pas disponible dans Supabase."
+        : "Erreur : " + e.message,
+      "error"
+    );
   } finally {
     _saveInProgress = false;
   }
@@ -3732,8 +3821,7 @@ mediaDetailFeature = createMediaDetailFeature({
   openMetadataFromElement,
   openMetadataMedia,
   closeMetadataPanel,
-  quickSetStatus,
-  quickAdjustRepeat,
+  revokeStaleRepeatEvents,
   canEnrichMediaDetails,
   requestPrefetchedDetails,
   refreshDetailEnrichment,
@@ -3832,8 +3920,7 @@ window.UI = {
   closeModalOnBg,
   saveEntry,
   deleteEntry,
-  quickSetStatus,
-  quickAdjustRepeat,
+  adjustEditRepeat,
   fillFromApi,
   setRating,
   previewRating,

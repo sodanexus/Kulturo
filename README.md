@@ -31,9 +31,19 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.1.0
+## Version actuelle · 4.2.0
 
-La 4.1 donne de la vie à l'interface sans la rendre bruyante :
+La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
+
+- **Nouvel en-tête** — jaquette agrandie qui chevauche la bannière, avec le titre et la note personnelle à côté. Les badges (type, statut, coup de cœur, reprises) sont informatifs et ne se modifient plus d'un toucher ; la barre compacte du défilement est conservée.
+- **Fiche allégée** — la barre d'actions rapides disparaît. En bas, seulement Supprimer et Modifier.
+- **Sections claires** — Informations, Crédits, Casting, Notes externes et Historique, adaptées au type d'œuvre et aux données disponibles.
+- **Notes externes** — TMDb pour les films et séries, IGDB (joueurs et presse) pour les jeux. Elles sont toujours nommées, distinctes de la note personnelle, et ne sont pas enregistrées en base.
+- **Relecture dans Modifier** — le statut, la note et le compteur de relectures, revisionnages ou nouvelles parties se règlent au même endroit et ne sont enregistrés que par **Enregistrer** ; **Annuler** abandonne tout. Passer de Terminé à En cours démarre une reprise, sans double comptage.
+
+La 4.2 demande de redéployer `igdb-proxy` (notes des jeux, optionnel : sans cela, les jeux n'ont simplement pas de note externe). Aucun SQL.
+
+La 4.1 donnait de la vie à l'interface sans la rendre bruyante :
 
 - **Bannière vivante** — dans la fiche, l'image de fond dérive très lentement ; pour les films, séries et jeux, plusieurs images de fond (TMDb, captures IGDB) s'enchaînent en fondu. Rien ne bouge avec « réduire les animations », et rien n'est enregistré en base.
 - **Survol des affiches** — même comportement partout (Bibliothèque, À reprendre, Sorties, Profil, Journal) : légère inclinaison et lueur qui suit la souris, avec une réponse immédiate à l'entrée et un relâchement doux à la sortie.
@@ -59,7 +69,7 @@ Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouve
 
 [Historique des versions](CHANGELOG.md) · [Mise à jour et déploiement](DEPLOYMENT.md) · [Vérifications](tests/README.md)
 
-Depuis la **3.4.6**, les versions 4.0 et 4.1 ne demandent aucun nouveau SQL. La 4.1 demande de redéployer `igdb-proxy` pour que les jeux aient leur bannière (optionnel). La migration de la base locale IndexedDB est automatique sur chaque appareil.
+Depuis la **3.4.6**, les versions 4.x ne demandent aucun nouveau SQL. Les 4.1 et 4.2 demandent de redéployer `igdb-proxy` (bannière puis notes des jeux, optionnel). La migration de la base locale IndexedDB est automatique sur chaque appareil.
 
 ---
 
