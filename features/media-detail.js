@@ -166,7 +166,7 @@ function renderDetailPanel(e, options = {}) {
   const ratingDisplay = isPreview ? "" : ratingScoreHTML(e.rating, "detail-rating-score");
   const headerStatusBadge = isPreview
     ? `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`
-    : isReadOnly && e.status
+    : e.status
       ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${statusLabelFor(e.status, e.media_type)}</span>`
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
@@ -433,26 +433,6 @@ function bindDetailScroll(modal) {
 }
 
 // ── Body enrichi de la fiche détail ──────────────────────────
-function quickActionsHTML(entry) {
-  const statusOptions = ["wishlist", "playing", "finished"]
-    .map(value => [value, statusLabelFor(value, entry.media_type)]);
-  const repeatControl = quickRepeatHTML(entry);
-  return `
-    <section class="detail-quick-actions" id="detail-quick-actions-${entry.id}" aria-label="Actions rapides">
-      <div class="quick-actions-header">
-        <span>Actions rapides</span>
-        <span class="quick-actions-feedback" id="quick-feedback-${entry.id}" aria-live="polite"></span>
-      </div>
-      <div class="quick-status-control" role="group" aria-label="Statut">
-        ${statusOptions.map(([value, label]) => `
-          <button type="button" class="quick-status-btn ${entry.status === value ? "active" : ""}" data-status="${value}" ${uiAction("quickSetStatus", [entry.id, value])} aria-pressed="${entry.status === value}">
-            <span aria-hidden="true">${iconStatus(value)}</span>${label}
-          </button>`).join("")}
-      </div>
-      ${repeatControl ? `<div class="quick-repeat-row">${repeatControl}</div>` : ""}
-    </section>`;
-}
-
 function detailRepeatIndicatorHTML(entry) {
   const info = repeatInfo(entry);
   const progress = repeatProgressLabel(entry, info);
@@ -460,28 +440,6 @@ function detailRepeatIndicatorHTML(entry) {
   const active = isReplayEntry(entry);
   const label = progress ? `${progress} · ${historyLabel}` : historyLabel;
   return `<span class="detail-repeat ${active ? "is-active" : ""} ${progress ? "is-progress" : ""}" id="detail-repeat-${entry.id}" title="${esc(label)}" aria-label="${esc(label)}">${iconRepeat()}<strong>${active ? `${info.total}×` : ""}</strong></span>`;
-}
-
-function quickRepeatHTML(entry) {
-  const info = repeatInfo(entry);
-  if (!info.total) return "";
-
-  const progress = repeatProgressLabel(entry, info);
-  const historyLabel = `${info.done} ${info.total} fois`;
-  const [singular, plural] = info.unit;
-  const countLabel = `${info.total} ${info.total > 1 ? plural : singular}`;
-  const fullLabel = progress ? `${progress} · ${historyLabel}` : historyLabel;
-  const canAdjustDown = !progress && info.repeats > 0;
-  const canAdjustUp = !progress;
-  const addTitle = progress
-    ? "Le compteur augmentera au prochain passage sur Terminé"
-    : info.action;
-  return `
-    <div class="quick-repeat-stepper ${progress ? "is-progress" : ""}" role="group" aria-label="${esc(fullLabel)}">
-      <button type="button" class="quick-repeat-adjust" ${uiAction("quickAdjustRepeat", [entry.id, -1])} ${canAdjustDown ? "" : "disabled"} aria-label="${esc(info.removeLabel)}">−</button>
-      <span class="quick-repeat-value" title="${esc(fullLabel)}">${iconRepeat()}<span>${esc(countLabel)}</span></span>
-      <button type="button" class="quick-repeat-adjust quick-repeat-add" ${uiAction("quickAdjustRepeat", [entry.id, 1])} ${canAdjustUp ? "" : "disabled"} aria-label="${info.action} une fois de plus" title="${esc(addTitle)}">+</button>
-    </div>`;
 }
 
 let _metadataReturnFocus = null;
@@ -648,6 +606,28 @@ function renderDetailSynopsisHTML(e, options = {}) {
   );
 }
 
+function formatDuration(minutes) {
+  const total = Number.parseInt(minutes, 10);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  if (!hours) return `${rest} min`;
+  return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
+}
+
+// Notes d'autres services : toujours nommées, jamais mélangées à la note perso.
+function externalRatingsHTML(ratings) {
+  return `<div class="detail-external-ratings" role="list">${ratings.map(rating => {
+    const kind = rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
+    const votes = rating.votes ? ` · ${new Intl.NumberFormat("fr-FR").format(rating.votes)} votes` : "";
+    const label = `${rating.label}${rating.kind ? ` ${rating.kind}` : ""} : ${formatRatingValue(rating.value)} sur 10${votes}`;
+    return `<span class="detail-external-rating" data-source="${esc(rating.source)}" role="listitem" title="${esc(label)}" aria-label="${esc(label)}">
+      <span class="detail-external-source">${esc(rating.label)}</span>
+      <strong>${esc(formatRatingValue(rating.value).replace(".", ","))}</strong><span class="detail-external-scale">/10</span>${kind}
+    </span>`;
+  }).join("")}</div>`;
+}
+
 function renderDetailInfoHTML(e, options = {}) {
   const metaRow = (label, value, key = label) => value
     ? `<div class="detail-meta-row" data-detail-key="${esc(String(key))}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value">${esc(String(value))}</span></div>`
@@ -655,51 +635,63 @@ function renderDetailInfoHTML(e, options = {}) {
   const metadataRow = (label, kind, value) => {
     const links = metadataChipsHTML(e, kind, value);
     return links
-      ? `<div class="detail-meta-row detail-meta-row-links" data-detail-key="${esc(kind)}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
+      ? `<div class="detail-meta detail-meta-row detail-meta-row-links" data-detail-key="${esc(kind)}"><span class="detail-meta-label">${label}</span><span class="detail-meta-value detail-meta-links">${links}</span></div>`
       : "";
   };
+  const isSeries = e.media_type === "movie" && e.subtype === "tv";
   let html = "";
 
-  // Informations factuelles non interactives propres à chaque type.
-  const technicalMeta = [
+  // Informations : faits propres à chaque type, genres explorables inclus.
+  const facts = [
     e.release_date
       ? metaRow("Sortie", formatReleaseDate(e.release_date, e.release_date_precision || e.date_precision || "day"))
       : metaRow("Année", e.release_year),
-    e.media_type === "movie" && e.subtype === "tv"
-      ? metaRow("Saisons", e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null)
-      : "",
-    e.media_type === "movie" && e.subtype === "tv"
-      ? metaRow("Épisodes", e.episodes_count ? `${e.episodes_count} épisodes` : null)
-      : "",
-    e.media_type === "movie" && e.subtype === "tv" ? metaRow("Statut", e.air_status) : "",
+    e.media_type === "movie" && !isSeries ? metaRow("Durée", formatDuration(e.duration)) : "",
+    isSeries ? metaRow("Saisons", e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null) : "",
+    isSeries ? metaRow("Épisodes", e.episodes_count ? `${e.episodes_count} épisodes` : null) : "",
+    isSeries ? metaRow("Diffusion", e.air_status) : "",
+    e.media_type === "game" ? metaRow("Plateformes", e.platform) : "",
     e.media_type === "book" ? metaRow("Pages", e.page_count) : "",
     e.media_type === "book" ? metaRow("ISBN", e.isbn) : "",
   ].filter(Boolean).join("");
-  if (technicalMeta) html += `<div class="detail-meta">${technicalMeta}</div>`;
+  const genres = metadataRow("Genre", "genre", e.genre);
+  if (facts || genres) {
+    html += detailSectionHTML("Informations", `<div class="detail-meta">${facts}${genres}</div>`, "detail-info-section");
+  }
 
-  // Toutes les informations explorables sont regroupées vers le bas.
-  const linkedMeta = [
-    metadataRow("Genre", "genre", e.genre),
+  // Crédits : les personnes et studios, explorables.
+  const credits = [
     e.media_type === "movie"
-      ? metadataRow(e.subtype === "tv" ? "Créateur" : "Réalisateur", "director", e.directors || e.author)
+      ? metadataRow(isSeries ? "Créateur" : "Réalisateur", "director", e.directors || e.author)
       : "",
     e.media_type === "game" ? metadataRow("Développeur", "developer", e.developer || e.author) : "",
     e.media_type === "game" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
     e.media_type === "book" ? metadataRow("Auteur", "author", e.author) : "",
     e.media_type === "book" ? metadataRow("Éditeur", "publisher", e.publisher) : "",
   ].filter(Boolean).join("");
-  if (linkedMeta) html += `<div class="detail-meta detail-meta-linked">${linkedMeta}</div>`;
+  if (credits) html += detailSectionHTML("Crédits", `<div class="detail-meta detail-meta-linked">${credits}</div>`, "detail-credits-section");
 
   if (e.media_type === "movie" && e.cast_members) {
     const castNames = Array.isArray(e.cast_people) && e.cast_people.length
       ? e.cast_people.map(person => person.name).filter(Boolean)
       : e.cast_members.split(",").map(name => name.trim()).filter(Boolean);
     const cast = castNames.map(name => metadataChipHTML(e, "cast", name)).join("");
-    html += detailSectionHTML("Casting", `<div class="detail-chips">${cast}</div>`);
+    html += detailSectionHTML("Casting", `<div class="detail-chips">${cast}</div>`, "detail-cast-section");
+  }
+
+  const ratings = Array.isArray(e.external_ratings) ? e.external_ratings : [];
+  const awaitsRatings = options.detailsLoading && !ratings.length &&
+    ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
+  if (ratings.length) {
+    html += detailSectionHTML("Notes externes", externalRatingsHTML(ratings), "detail-external-section");
+  } else if (awaitsRatings) {
+    html += detailSectionHTML("Notes externes",
+      `<div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div>`,
+      "detail-external-section");
   }
 
   const awaitsMoreInfo = options.detailsLoading && (
-    e.media_type === "book" || (["movie", "game"].includes(e.media_type) && Boolean(e.external_id))
+    e.media_type === "book" || ([ "movie", "game" ].includes(e.media_type) && Boolean(e.external_id))
   );
   if (awaitsMoreInfo) {
     html += `<div class="detail-info-skeleton" role="status" aria-label="Chargement des informations complémentaires">
@@ -708,12 +700,19 @@ function renderDetailInfoHTML(e, options = {}) {
     </div>`;
   }
 
-  // L'historique personnel clôt systématiquement la fiche.
-  const historyMeta = options.readOnly ? "" : [
-    metaRow("Terminé", e.date_finished ? formatReleaseDate(e.date_finished) : null),
-    metaRow("Ajouté", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null),
-  ].filter(Boolean).join("");
-  if (historyMeta) html += `<div class="detail-meta detail-meta-history">${historyMeta}</div>`;
+  // Historique : le suivi personnel clôt la fiche (absent des fiches partagées).
+  if (!options.readOnly) {
+    const info = repeatInfo(e);
+    const words = mediaWords(e.media_type);
+    const dateRow = (label, value, key) => value ? metaRow(label, formatReleaseDate(value), key) : "";
+    const history = [
+      dateRow("Commencé", e.date_started, "started"),
+      dateRow(words.done, e.date_finished, "finished"),
+      info.total > 1 ? metaRow("Répétitions", `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}`, "repeats") : "",
+      metaRow("Ajouté", e.created_at ? new Date(e.created_at).toLocaleDateString("fr-FR") : null, "added"),
+    ].filter(Boolean).join("");
+    if (history) html += detailSectionHTML("Historique", `<div class="detail-meta detail-meta-history">${history}</div>`, "detail-history-section");
+  }
 
   return html;
 }
@@ -727,8 +726,6 @@ function renderDetailBody(e, options = {}) {
       <span><strong>${esc(e.username || "Un membre")}</strong> a partagé cette œuvre. Cette fiche est en lecture seule.</span>
     </div>`;
   }
-
-  if (e.status && !options.readOnly) html += quickActionsHTML(e);
 
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
@@ -824,143 +821,7 @@ function refreshDetailEnrichment(entry, options = {}) {
   }
 }
 
-function syncOpenDetail(entry, feedback = "") {
-  const quickActions = document.getElementById(`detail-quick-actions-${entry.id}`);
-  if (quickActions) {
-    const previousStatus = quickActions.querySelector(".quick-status-btn.active")?.dataset.status;
-    quickActions.outerHTML = quickActionsHTML(entry);
-    const activeButton = document.querySelector(`#detail-quick-actions-${CSS.escape(String(entry.id))} .quick-status-btn.active`);
-    if (activeButton && previousStatus !== activeButton.dataset.status) {
-      activeButton.classList.add("is-pop");
-      activeButton.addEventListener("animationend", () => activeButton.classList.remove("is-pop"), { once: true });
-    }
-  }
-
-  const statusBadge = document.getElementById(`detail-status-${entry.id}`);
-  if (statusBadge) {
-    statusBadge.className = `badge badge-${entry.status}`;
-    statusBadge.innerHTML = `${iconStatus(entry.status)} ${esc(statusLabelFor(entry.status, entry.media_type) || entry.status)}`;
-  }
-
-  const favorite = document.getElementById(`detail-fav-${entry.id}`);
-  if (favorite) {
-    const wasFavorite = favorite.classList.contains("is-active");
-    favorite.classList.toggle("is-active", Boolean(entry.is_favorite));
-    if (!wasFavorite && entry.is_favorite) popFavoriteHeart(favorite);
-  }
-
-  const repeat = document.getElementById(`detail-repeat-${entry.id}`);
-  if (repeat) repeat.outerHTML = detailRepeatIndicatorHTML(entry);
-
-  const ratingDisplay = document.getElementById(`detail-rating-${entry.id}`);
-  if (ratingDisplay) {
-    const previousRating = ratingValueOf(ratingDisplay);
-    ratingDisplay.innerHTML = ratingScoreHTML(entry.rating, "detail-rating-score");
-    enhanceRatingScore(ratingDisplay, previousRating);
-  }
-  const compactRating = document.getElementById(`detail-compact-rating-${entry.id}`);
-  if (compactRating) compactRating.textContent = compactRatingLabel(entry.rating);
-  const compactBadges = document.getElementById(`detail-compact-badges-${entry.id}`);
-  if (compactBadges) compactBadges.innerHTML = compactBadgesHTML(entry);
-
-  if (feedback) {
-    const feedbackEl = document.getElementById(`quick-feedback-${entry.id}`);
-    if (feedbackEl) {
-      feedbackEl.textContent = feedback;
-      feedbackEl.classList.add("is-visible");
-      setTimeout(() => {
-        if (!feedbackEl.isConnected) return;
-        feedbackEl.classList.remove("is-visible");
-        setTimeout(() => { if (feedbackEl.isConnected) feedbackEl.textContent = ""; }, 180);
-      }, 1200);
-    }
-  }
-}
-
-async function persistQuickEntryChange(id, changes, feedback = "Enregistré") {
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry || entry._quickSaving) return null;
-  const owner = State.user?.id;
-  if (!owner) return null;
-  entry._quickSaving = true;
-
-  const panel = document.getElementById(`detail-quick-actions-${id}`);
-  panel?.classList.add("is-saving");
-  panel?.querySelectorAll("button").forEach(button => { button.disabled = true; });
-  const savingLabel = document.getElementById(`quick-feedback-${id}`);
-  if (savingLabel) savingLabel.textContent = "Enregistrement…";
-
-  try {
-    const updated = await Media.update(id, changes);
-    if (!sameOwner(owner, State.user?.id)) return null;
-    Object.assign(entry, updated);
-    cacheEntriesLocally();
-    markJournalDirty();
-    renderCards();
-    if (getCurrentPage() === "upcoming") renderUpcomingCards();
-    updateBadges();
-    syncOpenDetail(entry, Media.getStatus?.().pending > 0 ? "Synchronisation en attente" : feedback);
-    return entry;
-  } catch (error) {
-    if (!sameOwner(owner, State.user?.id)) return null;
-    const migrationMissing = Object.prototype.hasOwnProperty.call(changes, "repeat_count") &&
-      /repeat_count|schema cache/i.test(String(error?.message || ""));
-    toast(
-      migrationMissing
-        ? `Le compteur de ${mediaWords(entry.media_type).replay[0]} n’est pas disponible dans Supabase.`
-        : "Modification impossible : " + error.message,
-      "error"
-    );
-    panel?.classList.remove("is-saving");
-    panel?.querySelectorAll("button").forEach(button => { button.disabled = false; });
-    if (savingLabel) savingLabel.textContent = "";
-    return null;
-  } finally {
-    delete entry._quickSaving;
-  }
-}
-
-async function quickSetStatus(id, status) {
-  if (!["wishlist", "playing", "finished"].includes(status)) return;
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry || entry.status === status) return;
-
-  const previousStatus = entry.status;
-  const transition = statusTransitionChanges(entry, status);
-  const preview = { ...entry, ...transition.changes };
-  const previewInfo = repeatInfo(preview);
-  const feedback = transition.repeatStarted
-    ? repeatProgressLabel(preview, previewInfo)
-    : transition.repeatCompleted
-      ? `${previewInfo.done} ${previewInfo.total} fois`
-      : statusLabelFor(status, entry.media_type);
-
-  const updated = await persistQuickEntryChange(id, transition.changes, feedback);
-  if (updated && status === "finished" && previousStatus !== "finished") launchConfetti();
-}
-
-async function quickAdjustRepeat(id, delta) {
-  const direction = Number(delta);
-  if (![1, -1].includes(direction)) return;
-  const entry = State.entries.find(item => item.id === id);
-  if (!entry) return;
-  const info = repeatInfo(entry);
-  if (direction > 0 && !entry.date_finished && entry.status !== "finished" && info.repeats === 0) {
-    toast("Marquez d’abord cette œuvre comme terminée.", "info");
-    return;
-  }
-  const repeatCount = Math.max(0, Math.min(999, info.repeats + direction));
-  if (repeatCount === info.repeats) return;
-  const nextInfo = repeatInfo({ ...entry, repeat_count: repeatCount });
-  const updated = await persistQuickEntryChange(
-    id,
-    { repeat_count: repeatCount },
-    `${nextInfo.done} ${nextInfo.total} fois`
-  );
-  if (updated && direction < 0) await revokeStaleRepeatEvents(updated);
-}
-
-// Retirer une relecture depuis la fiche doit aussi retirer ses événements du
+// Retirer une relecture (depuis Modifier) doit aussi retirer ses événements du
 // Journal et des statistiques (la base ne les supprime pas d'elle-même).
 async function revokeStaleRepeatEvents(entry) {
   const owner = State.user?.id;
@@ -1206,6 +1067,7 @@ async function openDetailPanel(id, options = {}) {
       return;
     }
     if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
+    if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
     // Ne sauvegarder que les champs nouveaux (ne pas écraser ce que l'utilisateur a saisi)
     const toSave = collectDetailUpdates(e, details);
     Object.assign(e, toSave);
@@ -1265,8 +1127,7 @@ async function openDetailPanel(id, options = {}) {
     openMetadataFromElement,
     openMetadataMedia,
     closeMetadataPanel,
-    quickSetStatus,
-    quickAdjustRepeat,
+    revokeStaleRepeatEvents,
 
   };
 }
