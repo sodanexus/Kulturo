@@ -27,13 +27,13 @@ function fixture() {
 test('synopsis height and scroll share the same progress and clean up after collapse',()=>{
  const f=fixture();try{
   animateSynopsis(f.wrap,true);f.step(140);
-  assert.equal(parseFloat(f.clip.style.height),320);
-  assert.equal(parseFloat(f.section.style.height),360);
-  assert.equal(f.body.scrollTop,114);
+  assert.equal(parseFloat(f.clip.style.height),440);
+  assert.equal(parseFloat(f.section.style.height),480);
+  assert.equal(f.body.scrollTop,171);
   f.step(280);assert.equal(f.body.scrollTop,228);assert.equal(f.attrs.size,0);
   animateSynopsis(f.wrap,false);f.step(420);
-  assert.equal(parseFloat(f.clip.style.height),320);
-  assert.equal(parseFloat(f.section.style.height),360);assert.equal(f.body.scrollTop,114);
+  assert.equal(parseFloat(f.clip.style.height),200);
+  assert.equal(parseFloat(f.section.style.height),240);assert.equal(f.body.scrollTop,57);
   f.step(560);assert.equal(f.clip.style.height,undefined);assert.equal(f.body.scrollTop,0);assert.equal(f.body.style.getPropertyValue('padding-bottom'),'');
  }finally{f.restore()}
 });
@@ -41,8 +41,8 @@ test('reversing a synopsis animation starts at its visible position',()=>{
  const f=fixture();try{
   animateSynopsis(f.wrap,true);f.step(140);
   animateSynopsis(f.wrap,false);
-  assert.equal(parseFloat(f.clip.style.height),320);
-  assert.equal(parseFloat(f.section.style.height),360);assert.equal(f.body.scrollTop,114);
+  assert.equal(parseFloat(f.clip.style.height),440);
+  assert.equal(parseFloat(f.section.style.height),480);assert.equal(f.body.scrollTop,171);
   f.step(420);assert.equal(f.body.scrollTop,0);assert.equal(f.attrs.size,0);
  }finally{f.restore()}
 });

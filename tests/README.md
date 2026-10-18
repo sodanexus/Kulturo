@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.1
+## Validation de l’archive 4.2.2
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -131,3 +131,12 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 ### Sélecteur mobile 4.1.0
 
 109 tests Node réussis, dont fermeture du focus tactile, conservation des options et retour au sommet. Build Vite et contrôle TypeScript JS 5.9.3 validés. Le menu natif mobile reste à vérifier sur téléphone réel.
+
+
+### Vérifications 4.2.2
+
+- Suite native, contrôles de publication, compilation Vite et contrôle TypeScript (compilateur JS 5.9.3 dans l'environnement de validation).
+- 11 parcours DOM simulés : bibliothèque, journal, communauté, profil, sorties, édition/enregistrement, mois flottant, synopsis, retour Annuler/Échap, sélection/retour de recherche catalogue et ajout manuel.
+- Tests de navigation sans View Transitions, échec de l'API native, réduction des mouvements ; dimensions de modale dans les deux sens et interruption du synopsis.
+- Contrastes calculés des trois couleurs de texte sur #222631 : 13,51:1, 8,48:1 et 5,97:1. Les images, badges et états désactivés ne sont pas inclus dans ces mesures.
+- La fluidité visuelle et les bannières doivent encore être appréciées dans un navigateur réel et sur mobile ; les parcours simulés ne valident pas le rendu graphique.

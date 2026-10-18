@@ -158,3 +158,39 @@ test('an obsolete modal replacement does not animate a detached panel', async ()
   replaceModalContent(root,'next');current=null;next.isConnected=false;
   await Promise.resolve();
 });
+
+
+test('navigation without View Transitions reveals the new page exactly once', () => {
+  let updates = 0, frames;
+  const page = { animate: f => { frames = f; return { finished: Promise.resolve() }; } };
+  const restore = installGlobals({ document: { documentElement: { dataset: {} }, querySelector: () => page }, matchMedia: () => ({ matches: false }) });
+  try {
+    runViewTransition(() => { updates++; });
+    assert.equal(updates, 1);
+    assert.equal(frames[0].opacity, 0);
+    assert.equal(frames[1].opacity, 1);
+  } finally { restore(); }
+});
+
+test('navigation fallback respects reduced motion', () => {
+  let updates = 0;
+  const page = { animate() { throw Error('unexpected animation'); } };
+  const restore = installGlobals({ document: { documentElement: { dataset: {} }, querySelector: () => page }, matchMedia: () => ({ matches: true }) });
+  try {
+    runViewTransition(() => { updates++; });
+    assert.equal(updates, 1);
+  } finally { restore(); }
+});
+
+test('a synchronous View Transition failure still animates and completes navigation', () => {
+  let updates = 0, animated = false;
+  const page = { animate() { animated = true; return { finished: Promise.resolve() }; } };
+  const doc = { documentElement: { dataset: {} }, querySelector: () => page, startViewTransition() { throw Error('unsupported state'); } };
+  const restore = installGlobals({ document: doc, matchMedia: () => ({ matches: false }) });
+  try {
+    runViewTransition(() => { updates++; });
+    assert.equal(updates, 1);
+    assert.equal(animated, true);
+    assert.equal(doc.documentElement.dataset.viewTransition, undefined);
+  } finally { restore(); }
+});
