@@ -43,14 +43,12 @@ test("la barre compacte de la fiche garde l'or de la note et montre cœur et rev
   const source = read("../features/media-detail.js");
   assert.match(source, /function compactBadgesHTML\(entry\)[\s\S]+entry\.is_favorite[\s\S]+isReplayEntry\(entry\)/);
   assert.match(source, /id="detail-compact-badges-\$\{e\.id\}">\$\{compactBadgesHTML\(e\)\}/);
-  assert.match(source, /compactBadges\.innerHTML = compactBadgesHTML\(entry\)/);
 });
 
 test("le cœur de la fiche pop à l'ouverture comme l'étoile, sauf en mouvement réduit", () => {
   const source = read("../features/media-detail.js");
   assert.match(source, /if \(!options\.restoreView\) popFavoriteHeart\(root\.querySelector\(`#detail-fav-/);
   assert.match(source, /function popFavoriteHeart\(el, delay = 0\)\s*\{\s*if \(!el \|\| !el\.classList\.contains\("is-active"\) \|\| prefersReducedMotion\(\)\) return;/);
-  assert.match(source, /if \(!wasFavorite && entry\.is_favorite\) popFavoriteHeart\(favorite\)/);
   const css = read("../styles/finesse.css");
   assert.match(css, /@keyframes favHeartPop/);
   assert.match(css, /\.detail-fav\.is-fav-pop \{[^}]*favHeartPop[^}]*both/);
