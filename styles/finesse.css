@@ -819,10 +819,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* Voile : léger sur la bannière, plein sous elle. La couche compacte
    (barre au défilement) reprend un fond sombre au fil de --detail-p. */
 .detail-modal .detail-backdrop-gradient {
-  /* Aucun voile : l'image remplit tout l'entête (jaquette et titre sont posés
-     par-dessus) et reste entièrement visible. Le seul assombrissement est celui
-     de la barre compacte, proportionnel au défilement. */
-  background: rgba(19, 21, 27, calc(var(--detail-p, 0) * .88));
+  background: linear-gradient(180deg, rgba(12,13,17,.18), rgba(12,13,17,.64) 72%, rgba(12,13,17,.86)),
+    linear-gradient(rgba(19,21,27,calc(var(--detail-p, 0) * .7)), rgba(19,21,27,calc(var(--detail-p, 0) * .7)));
 }
 .detail-modal .detail-title { text-shadow: 0 1px 10px rgba(0, 0, 0, .75), 0 0 2px rgba(0, 0, 0, .5); }
 .detail-modal .detail-rating { text-shadow: 0 1px 8px rgba(0, 0, 0, .7); }
@@ -844,11 +842,11 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
    un casting qui défile, les notes externes et l'historique en
    une ligne discrète. Pas de titres de section hors « Synopsis ». */
 .detail-modal {
-  --fiche-text: #e8e8ec;   /* crédits */
-  --fiche-soft: #c9cad2;   /* synopsis */
-  --fiche-chip: #d6d7de;   /* puces du casting */
+  --fiche-text: var(--text);   /* crédits */
+  --fiche-soft: var(--text-2);   /* synopsis */
+  --fiche-chip: var(--text-2);   /* puces du casting */
   --fiche-chip-bg: #1d2028;
-  --fiche-muted: #8b8d98;  /* repères, historique, libellés */
+  --fiche-muted: var(--text-3);  /* repères, historique, libellés */
   --fiche-line: #3a3d49;   /* soulignement des liens */
 }
 .detail-info-content { display: flex; flex-direction: column; gap: 0; }

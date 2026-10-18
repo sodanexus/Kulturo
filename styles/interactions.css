@@ -71,7 +71,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
     --poster-dur: 90ms;
   }
 }
-.media-card:not(.card-enter):not(.card-exit),
+.media-card:not(.card-enter):not(.card-exit):not(.is-locally-added),
 #cards-grid > .media-card:nth-child(-n+24) .card-cover.fade-image.is-loaded,
 .activity-date-group { animation: none; }
 @media (hover: hover) and (pointer: fine) {
@@ -134,7 +134,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
    (ease-in-out) paraît en retard. Entrées et états en décélération franche,
    fondus en courbe standard, longues entrées en « expo ». Aucun rebond. */
 :root {
-  --ease-interface: cubic-bezier(.23, 1, .32, 1);
+  --ease-interface: cubic-bezier(.333333, .666667, .666667, 1);
   --ease-out: var(--ease-interface);
   --ease-smooth: cubic-bezier(.4, 0, .2, 1);
   --ease-expo: cubic-bezier(.16, 1, .3, 1);
@@ -237,3 +237,32 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 .is-revealed .profile-top-card { animation: none; }
 @keyframes stableSurfaceIn { from { opacity: .7; } to { opacity: 1; } }
 .profile-block-enter { animation-name: stableSurfaceIn; }
+
+/* Lecture homogène, y compris sur une bannière très lumineuse. */
+.detail-modal .detail-rating .rating-score,
+.detail-modal .detail-badges > :is(.badge, .detail-fav, .detail-repeat) {
+  background: rgba(12, 13, 17, .88);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  padding: .2rem .5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.16);
+}
+.detail-modal .detail-rating .rating-score { display: inline-flex; align-items: center; }
+.detail-title { font-family: var(--font-body); }
+input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
+
+/* Les apparitions sont locales : les cartes déjà visibles restent immobiles. */
+.media-card.is-locally-added, .media-card.card-enter {
+  animation: gentleItemIn var(--motion-layout) var(--ease-interface) both;
+}
+.api-result-item { animation: gentleItemIn var(--motion-content) var(--ease-interface) both; }
+.detail-block-in { animation-duration: var(--motion-layout); }
+@keyframes gentleItemIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+:root[data-view-transition] .media-card.is-locally-added { animation: none; }
+.metadata-overlay.is-modal-replacement, .metadata-overlay.is-modal-replacement .metadata-sheet { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .media-card.is-locally-added, .media-card.card-enter, .api-result-item, .detail-block-in { animation: none; }
+}
