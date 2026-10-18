@@ -27,9 +27,10 @@ function escapeIgdbSearch(value: string): string {
 }
 
 const IGDB_FIELDS = "name,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,platforms.name";
-// Seule la fiche détaillée demande les captures d'écran (bannière animée) :
+// Seule la fiche détaillée demande les captures d'écran (bannière animée) et
+// les notes (joueurs / presse) :
 // la recherche et les sorties gardent la même réponse, légère.
-const IGDB_DETAIL_FIELDS = `${IGDB_FIELDS},screenshots.image_id`;
+const IGDB_DETAIL_FIELDS = `${IGDB_FIELDS},screenshots.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count`;
 
 async function igdbRequest(endpoint: string, query: string, headers: Record<string, string>): Promise<any[]> {
   const response = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
