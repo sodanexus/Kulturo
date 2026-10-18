@@ -2,6 +2,17 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.1
+
+Bas de fiche plus épuré, dans l'esprit de la maquette. Aucun SQL, aucune fonction Edge à redéployer. L'en-tête (jaquette qui chevauche la bannière), la bannière vivante, la barre compacte, le synopsis « Voir plus » et les chargements progressifs sont inchangés.
+
+- **Repères** : une seule ligne discrète sous le synopsis (année ou sortie, durée ; saisons, épisodes et diffusion ; plateformes ; pages). Plus de lignes « Année / Durée / … » avec libellés.
+- **Crédits en liens soulignés** : « De Denis Villeneuve · Science-fiction, Aventure », « Créée par … », « Développé par … · Édité par … ». Chaque nom souligné ouvre la même feuille qu'avant (œuvres de la bibliothèque + recherche externe).
+- **Casting qui défile** : une rangée horizontale de puces, bords fondus, accroche au défilement tactile ; fine barre visible à la souris. Chaque puce ouvre toujours la fiche de la personne.
+- **Notes externes avec logo coloré** : pastille TMDb (dégradé vert-bleu) ou IGDB (violet) suivie de la note ; le nom complet, le profil (joueurs, presse) et les votes restent dans l'infobulle et le libellé d'accessibilité.
+- **Historique en une ligne** : « Ajouté le … · Commencé le … · Vu le … · 1 revisionnage », sous un filet.
+- Seul « Synopsis » garde un titre de section. Le test de structure de la fiche est adapté.
+
 ## 4.2.0
 
 Refonte des fiches : consulter d'un côté, gérer de l'autre. Aucun SQL. **Une fonction Edge à redéployer : `igdb-proxy`** (optionnel : sans elle, les jeux n'ont pas de note externe).
