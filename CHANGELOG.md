@@ -2,6 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.16
+
+- Profil : note moyenne dorée et total terminé vert, à la même taille que le compteur de replays/relectures.
+- Corrige le sélecteur du libellé qui appliquait aussi sa petite taille au nombre animé.
+
 ## 4.2.15
 
 - Repart de la sauvegarde 4.2.11 fournie : couleurs et logo d’origine conservés.

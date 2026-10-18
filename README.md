@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.15
+## Version actuelle · 4.2.16
 
 Reprise de la sauvegarde 4.2.11, sans changement de palette. Les livres n’affichent plus de notes externes ni de bloc de chargement dédié. Les genres Open Library sont filtrés et francisés, y compris sur les fiches existantes.
 

@@ -3875,12 +3875,12 @@ input, textarea, select { border-radius: 12px; }
   background: linear-gradient(130deg, color-mix(in srgb, var(--accent) 22%, var(--bg-3)), var(--bg-3));
 }
 .profile-year-secondary { border: 1px solid var(--border); background: var(--bg-3); }
-.profile-year-primary strong { color: var(--accent-2); font-size: var(--type-metric-lg); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-.profile-year-primary span { margin-top: .35rem; color: var(--text-1); font-size: var(--type-body); font-weight: 750; }
+.profile-year-primary strong { color: var(--brand-teal); font-size: var(--type-metric-xl); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.profile-year-primary > span { margin-top: .35rem; color: var(--text-1); font-size: var(--type-body); font-weight: 750; }
 .profile-year-primary small,
 .profile-year-secondary small { margin-top: .25rem; color: var(--text-3); font-size: var(--type-caption); }
 .profile-year-secondary > span { color: var(--text-3); font-size: var(--type-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.profile-year-secondary strong { margin-top: .35rem; color: var(--text-1); font-size: var(--type-title-lg); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.profile-year-secondary strong { margin-top: .35rem; color: var(--brand-gold); font-size: var(--type-title-lg); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
 .profile-action-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4166,8 +4166,7 @@ input, textarea, select { border-radius: 12px; }
   .profile-year-summary { grid-template-columns: minmax(0, 1.4fr) minmax(110px, .7fr); }
   .profile-year-primary,
   .profile-year-secondary { min-height: 104px; padding: .8rem; }
-  .profile-year-primary strong { font-size: var(--type-metric-md); }
-  .profile-year-primary span { font-size: var(--type-body); }
+  .profile-year-primary > span { font-size: var(--type-body); }
   .profile-year-secondary strong { font-size: var(--type-title-md); }
   .profile-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .profile-action-card { min-height: 68px; }
