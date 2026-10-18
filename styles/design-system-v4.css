@@ -40,8 +40,8 @@
 
 .network-status[data-state="pending"],
 .network-status[data-state="syncing"] {
-  border-color: color-mix(in srgb, var(--brand-ivory) 42%, var(--border));
-  color: var(--brand-ivory);
+  border-color: color-mix(in srgb, var(--brand-gold) 42%, var(--border));
+  color: var(--brand-gold);
 }
 .network-status[data-state="syncing"] svg { animation: kulturo-sync-pulse 1s ease-in-out infinite alternate; }
 @keyframes kulturo-sync-pulse { to { opacity: .42; transform: scale(.92); } }

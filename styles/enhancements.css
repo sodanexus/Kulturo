@@ -319,10 +319,10 @@ body { background-color: var(--system-bar-color); }
   top: .45rem;
   right: .45rem;
   padding: .26rem .46rem;
-  border: 1px solid color-mix(in srgb, var(--brand-ivory) 36%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-gold) 36%, transparent);
   border-radius: var(--radius-pill);
-  background: rgba(22,23,25,.84);
-  color: var(--brand-ivory);
+  background: rgba(12,13,17,.84);
+  color: var(--brand-gold);
   backdrop-filter: blur(8px);
   font-size: var(--type-micro);
   font-weight: 800;
@@ -406,7 +406,7 @@ body { background-color: var(--system-bar-color); }
   padding: 0;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: var(--control-radius-inner);
-  background: rgba(22,23,25,.78);
+  background: rgba(12,13,17,.78);
   color: var(--text-2);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -419,12 +419,12 @@ body { background-color: var(--system-bar-color); }
 .upcoming-wishlist-mark:hover {
   border-color: color-mix(in srgb, var(--accent) 48%, transparent);
   color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent) 14%, rgba(22,23,25,.88));
+  background: color-mix(in srgb, var(--accent) 14%, rgba(12,13,17,.88));
 }
 .upcoming-wishlist-mark:active { transform: scale(.94); }
 .upcoming-wishlist-mark.is-added {
   border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-  background: color-mix(in srgb, var(--accent) 20%, rgba(22,23,25,.84));
+  background: color-mix(in srgb, var(--accent) 20%, rgba(12,13,17,.84));
   color: var(--accent-2);
 }
 .upcoming-wishlist-mark.is-adding { cursor: wait; }
@@ -492,7 +492,7 @@ body { background-color: var(--system-bar-color); }
 .upcoming-card .upcoming-cover-wrap > :is(.card-cover, .card-cover-placeholder) { box-shadow: none; }
 .media-card.is-playing .card-status-label {
   border-color: color-mix(in srgb, var(--game) 36%, transparent);
-  background: color-mix(in srgb, var(--game) 14%, rgba(22,23,25,.88));
+  background: color-mix(in srgb, var(--game) 14%, rgba(12,13,17,.88));
   color: var(--game);
 }
 

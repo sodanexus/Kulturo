@@ -117,7 +117,7 @@
 .metadata-media-copy { display: flex; min-width: 0; flex-direction: column; }
 .metadata-media-copy strong { overflow: hidden; color: var(--text-1); font-size: var(--type-control); text-overflow: ellipsis; white-space: nowrap; }
 .metadata-media-copy small { margin-top: .12rem; color: var(--text-3); font-size: var(--type-caption); }
-.metadata-media-rating { color: var(--brand-gold); font-size: var(--type-caption); white-space: nowrap; }
+.metadata-media-rating { color: var(--accent-2); font-size: var(--type-caption); white-space: nowrap; }
 .metadata-media-arrow { color: var(--text-3); }
 .metadata-empty { padding: 1.4rem 1rem; color: var(--text-3); font-size: var(--type-label); line-height: 1.55; text-align: center; }
 
