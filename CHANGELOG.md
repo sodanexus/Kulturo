@@ -2,6 +2,17 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.3
+
+- Retrait des fonds ajoutés sous la note et les étiquettes ; voile de bannière conservé.
+- Fondus de contenu partagés de 420 ms, sans déplacement du texte ; notes externes affichées dès leur réception, avant leur sauvegarde distante.
+- Décodage des jaquettes puis deux frames avant leur révélation, y compris depuis le cache ; aucun redémarrage des images déjà visibles.
+- Redimensionnement des fenêtres sur 360 ms, avec contraintes de hauteur/largeur interpolées dans les deux sens et libération des dimensions en fin de transition.
+- Croix de fermeture masquées sur mobile dans les feuilles ; poignées, gestes, Annuler et commandes clavier conservés.
+- Ken Burns renforcé (zoom de 1,04 à 1,22 sur 18 secondes), nettoyage du diaporama à la fermeture.
+- IGDB : rafraîchissement réel des réponses en cache, nouvelles tentatives bornées dans le temps pour les fiches incomplètes, acceptation des notes dont le nombre de votes est absent.
+- Éditions IGDB : médias du jeu de base uniquement lorsqu'un lien version_parent explicite existe, avec libellé des notes adapté. Redéploiement de igdb-proxy nécessaire pour ce repli.
+
 ## 4.2.2
 
 - Typographie Manrope partagée et trois niveaux de texte cohérents ; textes secondaires éclaircis, y compris dans les fiches.

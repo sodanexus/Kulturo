@@ -1,3 +1,4 @@
+import { revealImage } from "./features/image-reveal.js";
 import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 // app.js — Kulturo · Logique principale
@@ -437,7 +438,7 @@ function bindCoverAccent(element, coverUrl, fallbackImageUrl = "") {
 
 function hydrateFadeImages(root = document) {
   root.querySelectorAll?.("img[data-fade-image]").forEach(image => {
-    if (image.complete && image.naturalWidth > 0) image.classList.add("is-loaded");
+    revealImage(image);
   });
 }
 
@@ -3020,7 +3021,7 @@ function bindGlobalEvents() {
   uiActionDispatcher.bind(document);
   document.addEventListener("load", event => {
     if (event.target instanceof HTMLImageElement && event.target.matches("[data-fade-image]")) {
-      event.target.classList.add("is-loaded");
+      revealImage(event.target);
     }
   }, true);
   document.addEventListener("error", event => {

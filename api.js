@@ -1,3 +1,4 @@
+import { igdbMediaData } from "./features/igdb-media.js";
 // ============================================================
 // api.js — Intégrations APIs médias
 // TMDb · IGDB · Open Library · Google Books
@@ -446,7 +447,7 @@ export const TMDbDetails = {
     const ep   = subtype === "tv" ? "tv" : "movie";
     const lang = "language=fr-FR";
     const detailRequest = options.fresh
-      ? { cachePolicy: "detail", cacheTtlMs: 0, signal: options.signal }
+      ? { cachePolicy: "detail", fresh: true, signal: options.signal }
       : { cachePolicy: "detail", signal: options.signal };
 
     const [main, credits, providers] = await Promise.allSettled([
@@ -564,7 +565,7 @@ export const TMDbImages = {
 // Captures d'écran IGDB : t_1080p pour le bureau, t_screenshot_big (889 × 500)
 // pour le mobile.
 function igdbScreenshotUrls(game, size = "t_1080p", limit = 4) {
-  return (game?.screenshots || [])
+  return igdbMediaData(game).screenshots
     .map(shot => shot?.image_id)
     .filter(id => typeof id === "string" && /^[a-z0-9]+$/i.test(id))
     .slice(0, limit)
@@ -572,13 +573,14 @@ function igdbScreenshotUrls(game, size = "t_1080p", limit = 4) {
 }
 
 async function fetchIgdbGame(externalId, options = {}) {
-  if (!CONFIG?.supabase?.url || !CONFIG?.igdb?.clientId) return null;
+  if (!CONFIG?.supabase?.url || !Number.isSafeInteger(Number(externalId)) || Number(externalId) <= 0) return null;
   const proxyUrl = `${CONFIG.supabase.url}/functions/v1/igdb-proxy`;
   const data = await apiFetch(proxyUrl, {
     method: "POST",
     headers: await edgeFunctionHeaders(),
     body: JSON.stringify({ id: Number(externalId) }),
     cachePolicy: "detail",
+    fresh: Boolean(options.fresh),
     timeoutMs: 12_000,
     signal: options.signal,
   });
@@ -599,10 +601,11 @@ export const IGDBDetails = {
     // La première capture sert de bannière enregistrée (comme TMDb).
     const backdrop_url = igdbScreenshotUrls(g, "t_1080p", 1)[0] || null;
 
-    // IGDB publie deux notes sur 100 : joueurs (rating) et presse (aggregated_rating).
+    // Les éditions peuvent ne noter que le jeu de base : le libellé le précise.
+    const media = igdbMediaData(g);
     const external_ratings = [
-      Number(g.rating_count) > 0 ? externalRating("igdb", "IGDB", g.rating, 100, { kind: "joueurs", votes: Number(g.rating_count) }) : null,
-      Number(g.aggregated_rating_count) > 0 ? externalRating("igdb", "IGDB", g.aggregated_rating, 100, { kind: "presse", votes: Number(g.aggregated_rating_count) }) : null,
+      media.players ? externalRating("igdb", "IGDB", media.players.value, 100, { kind: media.players.fromParent ? "joueurs · jeu de base" : "joueurs", votes: Number(media.players.votes) || null }) : null,
+      media.critics ? externalRating("igdb", "IGDB", media.critics.value, 100, { kind: media.critics.fromParent ? "presse · jeu de base" : "presse", votes: Number(media.critics.votes) || null }) : null,
     ].filter(Boolean);
 
     const release_year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null;
