@@ -375,7 +375,11 @@ export const OpenLibrary = {
         external_id: (edition.works?.[0]?.key || edition.key || '').replace(/^\/(works|books)\//, ''),
         title: edition.title, author: authors.filter(Boolean).join(', ') || null,
         cover_url: edition.covers?.find(id => id > 0) ? `${CONFIG.openLibrary.coverBase}/${edition.covers.find(id => id > 0)}-M.jpg` : null,
-        description: plainBookDescription(typeof edition.description === "string" ? edition.description : edition.description?.value),
+        // Un synopsis étranger n'est pas enregistré tel quel : il resterait en
+        // version originale, car les textes déjà renseignés ne sont jamais
+        // remplacés. La fiche le récupère et le traduit à l'ouverture, en un
+        // seul fondu, comme pour les autres livres.
+        description: (text => text && isLikelyFrench(text) ? text : null)(plainBookDescription(typeof edition.description === "string" ? edition.description : edition.description?.value)),
         isbn, page_count: edition.number_of_pages || null, publisher: edition.publishers?.[0] || null,
         release_year: Number(String(edition.publish_date || '').match(/\d{4}/)?.[0]) || null,
         source_api: 'openlibrary', genre: null, platform: null,
@@ -656,14 +660,18 @@ export const IGDBImages = {
   },
 };
 
-async function translateViaProxy(text, options = {}) {
-  if (!text || !CONFIG?.supabase?.url) return text;
-  // Détection légère : suffisamment stricte pour ne pas conserver par erreur
-  // un résumé IGDB anglais, mais évite une requête si le texte est déjà français.
-  const sample = ` ${String(text).toLocaleLowerCase("fr-FR")} `;
+// Détection légère : suffisamment stricte pour ne pas conserver par erreur un
+// résumé étranger, mais évite une requête si le texte est déjà français.
+export function isLikelyFrench(text) {
+  const sample = ` ${String(text || "").toLocaleLowerCase("fr-FR")} `;
   const frenchSignals = sample.match(/\b(le|la|les|un|une|des|du|de|dans|avec|pour|qui|que|est|sont|sur|aux)\b/g) || [];
-  const looksFrench = /[àâçéèêëîïôùûüÿœ]/i.test(sample) || frenchSignals.length >= 3;
-  if (looksFrench) return text;
+  return /[àâçéèêëîïôùûüÿœ]/i.test(sample) || frenchSignals.length >= 3;
+}
+
+// Renvoie { text, translated }. En cas d'échec, le texte d'origine est conservé
+// (translated: false) : l'appelant décide s'il faut le signaler.
+export async function translateText(text, options = {}) {
+  if (!text || !CONFIG?.supabase?.url || isLikelyFrench(text)) return { text, translated: false };
   try {
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
       method: "POST",
@@ -675,12 +683,17 @@ async function translateViaProxy(text, options = {}) {
       timeoutMs: 15_000,
       signal: options.signal,
     });
-    return data.translation?.trim() || text;
+    const translation = data.translation?.trim();
+    return translation ? { text: translation, translated: true } : { text, translated: false };
   } catch (error) {
     if (error?.name === "AbortError") throw error;
     console.warn("[Traduction] groq-proxy indisponible, texte original conservé :", error);
-    return text;
+    return { text, translated: false };
   }
+}
+
+async function translateViaProxy(text, options = {}) {
+  return (await translateText(text, options)).text;
 }
 
 export const OpenLibraryDetails = {

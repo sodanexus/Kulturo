@@ -986,3 +986,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-external-skeleton i { animation: none; }
   .detail-block-in { animation: none; }
 }
+
+/* Synopsis : bouton « Traduire en français » de Modifier → Détails facultatifs. */
+.synopsis-translate { margin-top: .5rem; }

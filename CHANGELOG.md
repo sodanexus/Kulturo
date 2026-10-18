@@ -2,6 +2,13 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.8
+
+- Synopsis des livres ajoutés par ISBN : un texte étranger n'est plus enregistré tel quel (il serait resté en version originale, puisque les textes déjà renseignés ne sont jamais remplacés). Seul un synopsis déjà en français est conservé ; sinon la fiche le récupère et le traduit à l'ouverture, via la même route Groq que les autres livres et les jeux, avec l'attente habituelle puis une seule apparition en fondu. Traduction indisponible : le texte d'origine est affiché.
+- **Traduire en français** dans Modifier → Détails facultatifs, sous le synopsis : visible seulement si le texte n'est pas français. La traduction est proposée dans le champ, sans rien enregistrer ; **Rétablir l'original** annule. Pour corriger un synopsis déjà enregistré en anglais, c'est l'utilisateur qui valide en enregistrant.
+- Les synopsis déjà enregistrés et ceux saisis à la main restent inchangés.
+- Aucun SQL, aucune modification de fonction Supabase.
+
 ## 4.2.7
 
 - Recherche ISBN-10/13 dans le champ existant, espaces/tirets acceptés et clé vérifiée. La recherche universelle interroge uniquement les livres pour un ISBN valide.

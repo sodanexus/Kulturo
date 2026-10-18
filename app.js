@@ -6,7 +6,7 @@ import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, translateText, isLikelyFrench } from "./api.js";
 import {
   DEFAULT_LIBRARY_SORT,
   DEFAULT_LIBRARY_STATUS,
@@ -2083,6 +2083,7 @@ function _openModalClassic(entry) {
               <div class="form-group">
                 <label for="f-description">Synopsis</label>
                 <textarea id="f-description" rows="5" placeholder="Ajouter un synopsis si le catalogue n’en propose pas…">${esc(entry.description || "")}</textarea>
+                <button type="button" class="btn btn-ghost btn-sm synopsis-translate" id="f-description-translate" hidden>Traduire en français</button>
               </div>
               <div class="form-group">
                 <label>Image de couverture (URL)</label>
@@ -2117,6 +2118,7 @@ function _openModalClassic(entry) {
   ["f-genre", "f-author", "f-platform", "f-cover", "f-description"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
   });
+  setupSynopsisTranslation();
   document.getElementById("f-cover")?.addEventListener("change", event => {
     bindCoverAccent(root.querySelector(".edit-modal"), event.target.value);
   });
@@ -2201,6 +2203,45 @@ function adjustEditRepeat(delta) {
   // Le rendu remplace les boutons : le focus clavier revient sur le même sens.
   const buttons = [...document.querySelectorAll("#edit-repeat .quick-repeat-adjust")];
   (buttons.find(b => b.dataset.repeatDir === String(direction) && !b.disabled) || buttons.find(b => !b.disabled))?.focus({ preventScroll: true });
+}
+
+// « Traduire en français » : propose la traduction dans le champ, sans rien
+// enregistrer. L'utilisateur relit, puis enregistre ou rétablit l'original.
+function setupSynopsisTranslation() {
+  const field = document.getElementById("f-description");
+  const button = document.getElementById("f-description-translate");
+  if (!field || !button) return;
+  let original = null;
+  const refresh = () => {
+    const text = field.value.trim();
+    button.hidden = original === null && (!text || isLikelyFrench(text));
+    button.textContent = original === null ? "Traduire en français" : "Rétablir l’original";
+  };
+  field.addEventListener("input", () => { original = null; refresh(); });
+  button.addEventListener("click", async () => {
+    if (original !== null) {
+      field.value = original;
+      original = null;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+    const source = field.value.trim();
+    if (!source) return;
+    button.disabled = true;
+    button.textContent = "Traduction…";
+    try {
+      const result = await translateText(source);
+      if (!document.body.contains(field) || field.value.trim() !== source) return;
+      if (!result.translated) { toast("Traduction indisponible pour le moment. Le texte est inchangé.", "error"); return; }
+      field.value = result.text;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      original = source;
+    } finally {
+      button.disabled = false;
+      refresh();
+    }
+  });
+  refresh();
 }
 
 function syncEditDetailsSummary() {
