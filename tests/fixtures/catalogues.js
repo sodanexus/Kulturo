@@ -14,5 +14,6 @@ export const IGDBDetails = { fetch: (id, options) => request(`details/${id}`, op
 export const OpenLibraryDetails = { fetch: (id, _fallback, options) => request(`details/${id}`, options) };
 export const searchMedia = async () => [];
 export const apiAvailability = () => ({ movie: true, game: true, book: true });
-export const isLikelyFrench = text => /[àâçéèêëîïôùûüÿœ]|\b(le|la|les|une|des|dans|avec)\b/i.test(String(text || ""));
+export { isLikelyFrench } from "./features/text-language.js";
+import { isLikelyFrench } from "./features/text-language.js";
 export const translateText = async text => isLikelyFrench(text) ? { text, translated: false } : { text: `Traduction : ${text}`, translated: true };

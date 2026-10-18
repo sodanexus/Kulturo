@@ -2,6 +2,11 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.9
+
+- Correctif de la détection du français : un seul caractère accentué suffisait à classer un texte comme français. Un synopsis anglais contenant un nom comme « Arié » n'était donc pas traduit. La détection compare maintenant les petits mots français et anglais ; l'accent ne sert que d'appoint sur les textes courts. Elle est isolée dans `features/text-language.js` et couverte par des tests (anglais accentué, français, français citant un titre anglais, textes courts).
+- Aucun SQL, aucune modification de fonction Supabase.
+
 ## 4.2.8
 
 - Synopsis des livres ajoutés par ISBN : un texte étranger n'est plus enregistré tel quel (il serait resté en version originale, puisque les textes déjà renseignés ne sont jamais remplacés). Seul un synopsis déjà en français est conservé ; sinon la fiche le récupère et le traduit à l'ouverture, via la même route Groq que les autres livres et les jeux, avec l'attente habituelle puis une seule apparition en fondu. Traduction indisponible : le texte d'origine est affiché.

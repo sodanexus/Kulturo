@@ -1,4 +1,5 @@
 import { normalizeISBN, isLatinTitle, preferredBookTitle } from "./features/book-search.js";
+import { isLikelyFrench } from "./features/text-language.js";
 import { igdbMediaData } from "./features/igdb-media.js";
 // ============================================================
 // api.js — Intégrations APIs médias
@@ -660,13 +661,7 @@ export const IGDBImages = {
   },
 };
 
-// Détection légère : suffisamment stricte pour ne pas conserver par erreur un
-// résumé étranger, mais évite une requête si le texte est déjà français.
-export function isLikelyFrench(text) {
-  const sample = ` ${String(text || "").toLocaleLowerCase("fr-FR")} `;
-  const frenchSignals = sample.match(/\b(le|la|les|un|une|des|du|de|dans|avec|pour|qui|que|est|sont|sur|aux)\b/g) || [];
-  return /[àâçéèêëîïôùûüÿœ]/i.test(sample) || frenchSignals.length >= 3;
-}
+export { isLikelyFrench };
 
 // Renvoie { text, translated }. En cas d'échec, le texte d'origine est conservé
 // (translated: false) : l'appelant décide s'il faut le signaler.

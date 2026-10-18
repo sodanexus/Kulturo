@@ -2,9 +2,9 @@
 
 [Revenir à la présentation](README.md)
 
-## Installer l’archive 4.2.8
+## Installer l’archive 4.2.9
 
-1. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.2.8**, en conservant les valeurs propres au projet dans `config.js`.
+1. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.2.9**, en conservant les valeurs propres au projet dans `config.js`.
 2. Conserver les dossiers `features/`, `styles/`, `src/`, `scripts/` et `.github/` ainsi que `package.json` et `package-lock.json` : ils font partie de l’application et de sa fabrication.
 3. Publier le dépôt, puis accepter le bandeau **Nouvelle version disponible** dans Kulturo. La base IndexedDB locale est créée automatiquement ; aucune donnée Supabase n’est déplacée.
 
@@ -14,7 +14,7 @@ La source reste directement publiable depuis une branche GitHub Pages. Le mode r
 
 ## IGDB — recherche introduite en 4.2.5
 
-La 4.2.8 ne modifie aucune fonction Supabase (la traduction utilise `groq-proxy`, déjà en place). Si igdb-proxy a déjà été déployée depuis la 4.2.5, aucune nouvelle action côté Supabase. Sinon, la recherche introduite en 4.2.5 exige cette mise à jour : la version antérieure pour les notes ne suffit pas. Tester ensuite « Returnal » dans la recherche du catalogue.
+La 4.2.9 ne modifie aucune fonction Supabase (la traduction utilise `groq-proxy`, déjà en place). Si igdb-proxy a déjà été déployée depuis la 4.2.5, aucune nouvelle action côté Supabase. Sinon, la recherche introduite en 4.2.5 exige cette mise à jour : la version antérieure pour les notes ne suffit pas. Tester ensuite « Returnal » dans la recherche du catalogue.
 
 GitHub Pages ne met pas à jour les fonctions Supabase. Redéployer **igdb-proxy** avec le fichier `supabase/functions/igdb-proxy/index.ts` de cette archive (Supabase → Edge Functions → igdb-proxy → mise à jour du code → Deploy). Conserver les secrets et réglages d'authentification existants. Aucune migration SQL supplémentaire pour cette version.
 
@@ -53,7 +53,7 @@ La version de ces fonctions reste indépendante de celle de l’interface. Les s
 
 ## Contrôle après publication
 
-- la version affichée dans **Profil → Compte et sauvegarde** est **4.2.8** ;
+- la version affichée dans **Profil → Compte et sauvegarde** est **4.2.9** ;
 - une actualisation retrouve la page, ses filtres, sa période et une éventuelle fiche ouverte ;
 - couper le réseau affiche la bibliothèque locale et l’indicateur **Hors connexion** ;
 - modifier un média hors ligne affiche un changement en attente, ensuite synchronisé au retour du réseau ;

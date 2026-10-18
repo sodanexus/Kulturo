@@ -6,7 +6,8 @@ const read = path => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("la détection du français est partagée et exportée", () => {
   const api = read("../api.js");
-  assert.match(api, /export function isLikelyFrench/);
+  assert.match(api, /export \{ isLikelyFrench \}/);
+  assert.match(read("../features/text-language.js"), /export function isLikelyFrench/);
   assert.match(api, /export async function translateText/);
   // Une seule route de traduction : groq-proxy, avec consigne fixe côté serveur.
   assert.equal((api.match(/functions\/v1\/groq-proxy/g) || []).length, 1);
