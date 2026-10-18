@@ -566,7 +566,7 @@ let _systemMediaType = null;
 function syncSystemBar(page = _systemPage, mediaType = _systemMediaType, customColor = null) {
   _systemPage = page || "library";
   _systemMediaType = mediaType || null;
-  const pageColors = { library: "#161719", upcoming: "#161719", journal: "#161719", dashboard: "#161719" };
+  const pageColors = { library: "#0c0d11", upcoming: "#0e1017", journal: "#0c1011", dashboard: "#11100d" };
   const mediaColors = { movie: "#171014", game: "#0e131d", book: "#0d1713" };
   const color = customColor || (mediaType ? (mediaColors[mediaType] || pageColors[page]) : (pageColors[page] || pageColors.library));
   applySystemBarColor(color);
@@ -2343,8 +2343,8 @@ function buildRatingStars(current) {
     const half = full - 1;
     const filledFull = current >= full;
     const filledHalf = current >= half && current < full;
-    const starColor = filledFull ? "var(--brand-gold)" : "var(--star-empty)";
-    const halfColor = (filledFull || filledHalf) ? "var(--brand-gold)" : "none";
+    const starColor = filledFull ? "var(--accent)" : "var(--star-empty)";
+    const halfColor = (filledFull || filledHalf) ? "var(--accent)" : "none";
     return `<span class="star-wrap">
         <svg viewBox="0 0 20 20" width="28" height="28" class="star-svg">
           <defs>
@@ -2431,8 +2431,8 @@ function previewRating(n) {
     const filledHalf = n >= half && n < full;
     const bg   = wrap.querySelector(".star-bg");
     const hf   = wrap.querySelector(".star-half-fill");
-    if (bg) bg.setAttribute("fill", filledFull ? "var(--brand-gold)" : "var(--star-empty)");
-    if (hf) hf.setAttribute("fill", (filledFull || filledHalf) ? "var(--brand-gold)" : "none");
+    if (bg) bg.setAttribute("fill", filledFull ? "var(--accent)" : "var(--star-empty)");
+    if (hf) hf.setAttribute("fill", (filledFull || filledHalf) ? "var(--accent)" : "none");
   });
   showRatingLabel(n);
 }
