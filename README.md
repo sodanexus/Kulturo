@@ -31,9 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.5
+## Version actuelle · 4.2.6
 
-Apparition progressive des blocs de fiche, synopsis stabilisé lors de l’arrivée des notes et recherche IGDB avec repli par titre exact. **Redéployer igdb-proxy avec cette archive**, même si la fonction a déjà été mise à jour pour les notes.
+Le synopsis déjà affiché reste stable pendant la lecture, même si une nouvelle traduction arrive avec les détails. Cette traduction est sauvegardée pour la prochaine ouverture. Aucun changement de fonction Supabase depuis 4.2.5.
 
 La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
 

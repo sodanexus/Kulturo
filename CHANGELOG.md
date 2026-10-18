@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.6
+
+- Un synopsis non vide affiché reste monté pendant toute la consultation. Une traduction tardive IGDB/Open Library est sauvegardée pour la prochaine ouverture au lieu de remplacer le texte en cours de lecture.
+- Les fiches sans synopsis continuent à afficher leur premier texte chargé en fondu ; les notes et informations continuent à se mettre à jour dans leur zone.
+- Aucun nettoyage de fichiers appliqué et aucune modification de fonction Supabase depuis 4.2.5.
+
 ## 4.2.5
 
 - Entrée de fiche par blocs : titre, note personnelle, étiquettes, synopsis et informations en fondus décalés, sans translation ni double fondu sur le parent.

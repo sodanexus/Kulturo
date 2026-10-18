@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.5
+## Validation de l’archive 4.2.6
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -164,3 +164,8 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 - 14 parcours jsdom réussis, dont enrichissement asynchrone et conservation du synopsis déplié, de son nœud et du scroll lorsque seules les notes changent.
 - Séquence de fondus vérifiée par capture des appels d’animation : opacité seule, départs décalés de 75 ms et durée partagée de 420 ms. Réduction des animations système conservée.
 - Build et contrôle TypeScript de secours réussis. Ces simulations ne valident pas le rendu sur appareil réel ni la réponse IGDB de production pour Returnal.
+
+
+### Validation 4.2.6
+
+141 tests techniques et 14 parcours jsdom réussis. Le cas de traduction tardive remplace les données de description par un texte différent en même temps que les notes : le nœud du synopsis visible, son HTML, son état déplié et le scroll restent identiques. Le premier chargement d’un synopsis absent conserve son fondu. Build et contrôle TypeScript de secours validés ; validation visuelle sur appareil réel restant nécessaire.

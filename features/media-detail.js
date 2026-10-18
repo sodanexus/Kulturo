@@ -816,7 +816,11 @@ async function refreshDetailEnrichment(entry, options = {}) {
   const nextSynopsis = synopsis.content.firstElementChild;
   const nextInfo = document.createElement("div");
   nextInfo.innerHTML = renderDetailInfoHTML(entry, options);
-  const sameSynopsis = entry.description && synopsisSlot.querySelector(".detail-synopsis-text")?.textContent === String(entry.description);
+  // Une traduction peut différer du résumé sauvegardé, même en français.
+  // Ne jamais remplacer le texte sous les yeux du lecteur : les données
+  // enrichies sont sauvegardées et seront utilisées à la prochaine ouverture.
+  // Un emplacement vide/squelette, lui, reçoit bien le premier synopsis.
+  const sameSynopsis = Boolean(synopsisSlot.querySelector(".detail-synopsis-text")?.textContent?.trim());
   const changeSynopsis = !sameSynopsis && stableDetailMarkup(synopsisSlot.firstElementChild) !== stableDetailMarkup(nextSynopsis);
   const previous = new Map([...info.children].map(node => [node.dataset.block, node]));
   const changed = [];
