@@ -1,3 +1,4 @@
+import { cleanBookGenres } from "./book-search.js";
 const DEFINITIONS = Object.freeze({
   cast: Object.freeze({ label: "Acteur ou actrice", fields: ["cast_members"], mediaTypes: ["movie"], external: "imdb" }),
   director: Object.freeze({ label: "Réalisation", fields: ["directors", "author"], mediaTypes: ["movie"], external: "imdb" }),
@@ -41,7 +42,8 @@ export function entriesForMetadata(entries, kind, value) {
   if (!definition || !expected) return [];
   return (entries || [])
     .filter(entry => (!definition.mediaTypes || definition.mediaTypes.includes(entry?.media_type)) && definition.fields.some(field =>
-      splitMetadataValues(entry?.[field]).some(item => normalizeMetadataValue(item) === expected)
+      (kind === "genre" && entry?.media_type === "book" && entry?.source_api === "openlibrary"
+        ? cleanBookGenres(entry[field]) : splitMetadataValues(entry?.[field])).some(item => normalizeMetadataValue(item) === expected)
     ))
     .sort((a, b) =>
       Number(b?.rating || 0) - Number(a?.rating || 0) ||

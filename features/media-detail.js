@@ -1,3 +1,4 @@
+import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
@@ -707,7 +708,8 @@ function renderDetailInfoHTML(e, options = {}) {
     e.media_type === "book" ? credit("De", "author", e.author) : "",
     e.media_type === "book" ? credit("Édité par", "publisher", e.publisher) : "",
   ].filter(Boolean);
-  const genres = metadataLinksHTML(e, "genre", e.genre);
+  const genreValues = e.media_type === "book" && e.source_api === "openlibrary" ? cleanBookGenres(e.genre) : e.genre;
+  const genres = metadataLinksHTML(e, "genre", genreValues);
   if (genres) credits.push(`<span class="detail-credit" data-detail-key="genre">${genres}</span>`);
   if (credits.length) {
     html += `<p class="detail-credits detail-credits-section" data-block="credits">${credits.join(SEP)}</p>`;
@@ -723,7 +725,7 @@ function renderDetailInfoHTML(e, options = {}) {
   }
 
   // Notes externes : logo coloré + note, sans titre de section.
-  const ratings = Array.isArray(e.external_ratings) ? e.external_ratings : [];
+  const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
   const awaitsRatings = options.detailsLoading && !ratings.length &&
     ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
   if (ratings.length) {
@@ -732,10 +734,10 @@ function renderDetailInfoHTML(e, options = {}) {
     html += `<div class="detail-external-section" data-block="external"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
   }
 
-  // Un seul emplacement d'attente : celui de la note quand il y en a un ;
-  // les barres génériques ne servent qu'aux fiches sans note externe (livres).
+  // Aucun bloc de chargement externe pour les livres : le synopsis
+  // et les métadonnées gardent leur propre enrichissement progressif.
   const awaitsMoreInfo = options.detailsLoading && !awaitsRatings && (
-    e.media_type === "book" || (["movie", "game"].includes(e.media_type) && Boolean(e.external_id))
+    ["movie", "game"].includes(e.media_type) && Boolean(e.external_id)
   );
   if (awaitsMoreInfo) {
     html += `<div class="detail-info-skeleton" data-block="loading" role="status" aria-label="Chargement des informations complémentaires">
@@ -1047,7 +1049,7 @@ async function openDetailPanel(id, options = {}) {
   // l'arrivée des bannières. Elle bénéficie d'une unique vérification fraîche.
   const needsBackdropRepair = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) &&
     !e.backdrop_url && !e._backdropRepairAttempted;
-  const needsDetailRefresh = Boolean(e.external_id) &&
+  const needsDetailRefresh = ["movie", "game"].includes(e.media_type) && Boolean(e.external_id) &&
     (!e.backdrop_url || !e.external_ratings?.length) &&
     (!e._detailsFetchedAt || Date.now() - e._detailsFetchedAt > DETAIL_PREFETCH_TTL);
   if (e._detailsFetched && !needsBackdropRepair && !needsDetailRefresh && !canResolveMediaIdentity(e)) {
