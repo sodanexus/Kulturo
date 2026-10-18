@@ -2,6 +2,13 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.15
+
+- Repart de la sauvegarde 4.2.11 fournie : couleurs et logo d’origine conservés.
+- Livres : aucune note externe affichée, aucun bloc de chargement externe ; le synopsis et les métadonnées restent enrichis.
+- L’absence de note ou de bannière ne force plus le rafraîchissement des livres déjà enrichis.
+- Genres Open Library reconnus, francisés et dédoublonnés ; titres et sujets inconnus masqués, anciennes fiches et filtres inclus. Les données existantes ne sont pas réécrites.
+
 ## 4.2.11
 
 - **Modifier réorganisé**, sans changement de fonctionnement : le type (Film, Série, Jeu, Livre) devient un sélecteur compact à côté du titre, à la place des quatre onglets ; un bloc **Mon avis** regroupe statut et note, puis revoir et coup de cœur sur une même ligne ; **Supprimer** devient un lien discret à gauche du pied, séparé d'Annuler et d'Enregistrer ; les détails facultatifs sont regroupés (Informations, Synopsis et couverture). Le nom de l'œuvre est atténué dans l'en-tête.

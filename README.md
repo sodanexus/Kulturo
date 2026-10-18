@@ -31,7 +31,9 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.11
+## Version actuelle · 4.2.15
+
+Reprise de la sauvegarde 4.2.11, sans changement de palette. Les livres n’affichent plus de notes externes ni de bloc de chargement dédié. Les genres Open Library sont filtrés et francisés, y compris sur les fiches existantes.
 
 Les synopsis étrangers des livres sont traduits en français par Groq, y compris pour les ajouts par ISBN, avec une seule apparition en fondu. Un bouton **Traduire en français** (Modifier → Détails facultatifs) permet de traduire un synopsis déjà enregistré : la traduction est proposée, puis enregistrée seulement si tu la valides. Les textes saisis à la main ne sont jamais modifiés automatiquement.
 

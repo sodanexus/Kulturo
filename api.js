@@ -1,4 +1,4 @@
-import { normalizeISBN, isLatinTitle, preferredBookTitle } from "./features/book-search.js";
+import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
 import { isLikelyFrench } from "./features/text-language.js";
 import { igdbMediaData } from "./features/igdb-media.js";
 // ============================================================
@@ -401,7 +401,7 @@ export const OpenLibrary = {
       cover_url: b.cover_i ? `${CONFIG.openLibrary.coverBase}/${b.cover_i}-M.jpg` : null,
       description: null,
       release_year: b.first_publish_year || null,
-      genre: b.subject?.slice(0, 3).join(", ") || null,
+      genre: cleanBookGenres(b.subject).join(", ") || null,
       author: b.author_name?.[0] || null,
       platform: null, source_api: "openlibrary",
     }));
