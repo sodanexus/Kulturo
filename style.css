@@ -1,10 +1,10 @@
 /* ============================================================
    style.css — Kulturo Design System
-   Police : Manrope (interface) + Archivo (titres et logo)
+   Police : Manrope (interface, titres et marque)
    Thème : sombre
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Archivo:wght@600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 
 /* ── Variables ────────────────────────────────────────────── */
 :root {
@@ -17,8 +17,8 @@
   --border:      #292d38;
   --border-2:    #383e4c;
   --text:        #f4f2ed;
-  --text-2:      #a8abb5;
-  --text-3:      #7f8492;
+  --text-2:      #bec2cc;
+  --text-3:      #9ca3b2;
   --brand-gold:  #d8b46a;
   --brand-coral: #e8553a;
   --brand-teal:  #1fa88c;
@@ -54,7 +54,7 @@
   --motion-slow: 320ms;
   --transition:  var(--motion-base) cubic-bezier(.2,.8,.2,1);
   --font-body:   'Manrope', system-ui, sans-serif;
-  --font-display:'Archivo', 'Manrope', system-ui, sans-serif;
+  --font-display:var(--font-body);
   /* Échelle typographique unique : 9 / 10 / 11 / 12 / 13 / 14 / 16 / 18 / 22 / 24 px. */
   --type-brandline:    .5625rem;
   --type-micro:        .625rem;
@@ -72,7 +72,7 @@
   --type-metric-md:    2rem;
   --type-metric-lg:    2.25rem;
   --type-metric-xl:    2.5rem;
-  --text-1:      #fbfaf7;
+  --text-1:      var(--text);
   --content-px:  0px;
   --topbar-height: 63px;
   --fallback-img: none;

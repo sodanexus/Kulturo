@@ -2431,7 +2431,7 @@ function setupWizardUniversalSearch() {
             </span>
           </button>`;
       }).join("");
-      results.innerHTML = `
+      animateHeightChange(results, () => { results.innerHTML = `
         ${resultItems || `<div class="wz-search-empty">Aucun résultat précis pour « ${esc(query)} ».</div>`}
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
@@ -2442,6 +2442,7 @@ function setupWizardUniversalSearch() {
             <button type="button" ${uiAction("wzUseManualType", ["book"])}>${iconMedia("book")} Livres</button>
           </div>
         </div>`;
+      });
     }, immediate ? 0 : 320);
   };
 
@@ -2497,7 +2498,7 @@ function setupApiSearch() {
           document.getElementById("f-subtype")?.value !== requestedSubtype) return;
       if (!items.length) { results.style.display = "none"; return; }
       results.style.display = "block";
-      results.innerHTML = items.map((it, idx) => `
+      animateHeightChange(results, () => { results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" ${uiAction("fillFromApi", [idx])}>
           ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
@@ -2505,6 +2506,7 @@ function setupApiSearch() {
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
           </div>
         </button>`).join("");
+      });
       // Stocker temporairement
       window._apiResults = items;
     }, immediate ? 0 : 350);
@@ -2665,6 +2667,7 @@ async function saveEntry() {
     _editRepeatDelta = 0;
     const wasAdding = !State.editingId;
     const savedTitle = payload.title;
+    const savedId = editingId || State.entries[0]?.id;
     const justFinished = payload.status === "finished" && existing?.status !== "finished";
     _modalDirty = false;
     _saveInProgress = false;
@@ -2680,7 +2683,7 @@ async function saveEntry() {
         : (wasAdding ? `"${savedTitle}" ajouté ✓` : "Mis à jour ✓"),
       awaitsSync ? "info" : "success"
     );
-    if (wasAdding) flashNewCard(savedTitle);
+    if (wasAdding) flashNewCard(savedId);
     if (justFinished) launchConfetti();
   } catch (e) {
     if (!sameOwner(saveOwner, State.user?.id)) return;
@@ -3412,18 +3415,16 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
 
 
 // ── Animation nouvelle carte ──────────────────────────────────
-function flashNewCard(title) {
+function flashNewCard(id) {
   requestAnimationFrame(() => {
-    const cards = document.querySelectorAll(".media-card");
-    for (const card of cards) {
-      const t = card.querySelector(".card-title");
-      if (t && t.textContent.trim().toLowerCase().includes(title.toLowerCase())) {
-        card.classList.add("card-enter");
-        card.addEventListener("animationend", () => card.classList.remove("card-enter"), { once: true });
-        card.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        break;
-      }
-    }
+    const card = document.querySelector(`.media-card[data-id="${CSS.escape(String(id))}"]`);
+    if (!card) return;
+    card.classList.remove("is-locally-added");
+    card.classList.add("card-enter");
+    const clear = () => card.classList.remove("card-enter");
+    card.addEventListener("animationend", clear, { once: true });
+    setTimeout(clear, motionDuration("--motion-layout", 280) + 50);
+    card.scrollIntoView({ behavior: motionDuration() ? "smooth" : "auto", block: "nearest" });
   });
 }
 

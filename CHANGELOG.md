@@ -2,6 +2,17 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.2.2
+
+- Typographie Manrope partagée et trois niveaux de texte cohérents ; textes secondaires éclaircis, y compris dans les fiches.
+- Dégradé de protection sur les bannières et fonds sombres discrets sous les notes et les étiquettes.
+- Apparition des nouvelles cartes rétablie, résultats de recherche animés et variation de hauteur progressive.
+- Courbe de décélération commune au CSS, aux redimensionnements et au synopsis ; fondu de secours de navigation restauré.
+- Vérification des remplacements de fenêtre dans les deux sens ; extension aux panneaux de métadonnées.
+- Les informations inchangées des fiches restent en place pendant l'enrichissement ; correction de la comparaison des classes d'animation.
+- L'animation d'ajout cible l'identifiant de l'œuvre, plutôt qu'une correspondance partielle de titre.
+- Préférence système de réduction des animations conservée.
+
 ## 4.2.1
 
 Bas de fiche plus épuré, dans l'esprit de la maquette, et bannière complétée. Aucun SQL, aucune fonction Edge à redéployer. L'en-tête (jaquette qui chevauche la bannière), la bannière vivante, la barre compacte, le synopsis « Voir plus » et les chargements progressifs sont conservés.
