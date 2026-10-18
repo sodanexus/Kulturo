@@ -819,29 +819,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* Voile : léger sur la bannière, plein sous elle. La couche compacte
    (barre au défilement) reprend un fond sombre au fil de --detail-p. */
 .detail-modal .detail-backdrop-gradient {
-  /* Aucun voile sur la bannière : l'image est entièrement visible, sans fondu
-     ni assombrissement. Seul le dessous (là où la jaquette déborde) reprend la
-     couleur de la fiche, net, au bord de la bannière. Le seul assombrissement
-     restant est celui de la barre compacte, proportionnel au défilement. */
-  background:
-    linear-gradient(rgba(19, 21, 27, calc(var(--detail-p, 0) * .88)), rgba(19, 21, 27, calc(var(--detail-p, 0) * .88))),
-    linear-gradient(to bottom,
-      transparent 0,
-      transparent var(--detail-banner-h),
-      var(--bg-2) var(--detail-banner-h),
-      var(--bg-2) 100%);
+  /* Aucun voile : l'image remplit tout l'entête (jaquette et titre sont posés
+     par-dessus) et reste entièrement visible. Le seul assombrissement est celui
+     de la barre compacte, proportionnel au défilement. */
+  background: rgba(19, 21, 27, calc(var(--detail-p, 0) * .88));
 }
-/* L'image occupe exactement la bannière (et non toute la hauteur de l'entête,
-   jaquette comprise) : elle est donc complète, de haut en bas. */
-.detail-modal .detail-backdrop-layer {
-  inset: 0 0 auto 0;
-  height: min(var(--detail-banner-h), 100%);
-}
-.detail-modal .detail-backdrop.has-fallback::before {
-  inset: -24px -12% auto -12%;
-  height: calc(var(--detail-banner-h) + 48px);
-}
-.detail-modal .detail-title { text-shadow: none; }
+.detail-modal .detail-title { text-shadow: 0 1px 10px rgba(0, 0, 0, .75), 0 0 2px rgba(0, 0, 0, .5); }
+.detail-modal .detail-rating { text-shadow: 0 1px 8px rgba(0, 0, 0, .7); }
 .detail-modal .detail-backdrop-info { padding-bottom: .15rem; }
 .detail-modal .detail-badges { margin-top: .5rem; }
 /* Badge de statut : purement informatif sur la fiche. */
