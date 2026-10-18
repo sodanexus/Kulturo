@@ -783,7 +783,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 @keyframes backdropDrift {
   from { transform: scale(1.04) translate(0, 0); }
-  to   { transform: scale(1.12) translate(var(--bd-dx, -2%), var(--bd-dy, -1%)); }
+  to   { transform: scale(1.22) translate(var(--bd-dx, -2%), var(--bd-dy, -1%)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .detail-backdrop-layer.is-current,

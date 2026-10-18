@@ -181,7 +181,7 @@ body { background-color: var(--system-bar-color); }
 /* Images récupérées : le reste du composant ne bouge pas. */
 .fade-image {
   opacity: 0;
-  transition: opacity var(--motion-content) var(--ease-interface) !important;
+  transition: opacity var(--motion-content) var(--ease-fade) !important;
 }
 .fade-image.is-loaded { opacity: 1; }
 

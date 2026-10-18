@@ -7,8 +7,9 @@
   --motion-fast: var(--motion-press);
   --motion-feedback: var(--motion-state);
   --motion-base: var(--motion-state);
-  --motion-content: 220ms;
-  --motion-layout: var(--motion-dialog);
+  --motion-content: 420ms;
+  --ease-fade: cubic-bezier(.25, .1, .25, 1);
+  --motion-layout: 360ms;
   --motion-slow: var(--motion-dialog);
 }
 
@@ -53,7 +54,7 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 .upcoming-card .upcoming-cover-wrap, .continue-card .continue-cover,
 .profile-top-card .profile-top-cover {
   box-shadow: var(--cover-status-ring, 0 0 0 0 transparent), var(--media-cover-shadow);
-  transition: opacity var(--motion-state),
+  transition: opacity var(--motion-content) var(--ease-fade),
     transform var(--poster-dur) var(--poster-ease),
     box-shadow calc(var(--poster-dur) * 1.6) var(--poster-ease),
     filter var(--motion-state) !important;
@@ -238,16 +239,6 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 @keyframes stableSurfaceIn { from { opacity: .7; } to { opacity: 1; } }
 .profile-block-enter { animation-name: stableSurfaceIn; }
 
-/* Lecture homogène, y compris sur une bannière très lumineuse. */
-.detail-modal .detail-rating .rating-score,
-.detail-modal .detail-badges > :is(.badge, .detail-fav, .detail-repeat) {
-  background: rgba(12, 13, 17, .88);
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 999px;
-  padding: .2rem .5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,.16);
-}
-.detail-modal .detail-rating .rating-score { display: inline-flex; align-items: center; }
 .detail-title { font-family: var(--font-body); }
 input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
@@ -258,11 +249,29 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .api-result-item { animation: gentleItemIn var(--motion-content) var(--ease-interface) both; }
 .detail-block-in { animation-duration: var(--motion-layout); }
 @keyframes gentleItemIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 :root[data-view-transition] .media-card.is-locally-added { animation: none; }
 .metadata-overlay.is-modal-replacement, .metadata-overlay.is-modal-replacement .metadata-sheet { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .media-card.is-locally-added, .media-card.card-enter, .api-result-item, .detail-block-in { animation: none; }
+}
+
+/* Un fondu pur pour les informations, jamais de glissement de texte. */
+.detail-backdrop-info, .detail-block-in, .detail-synopsis-arriving, .detail-info-arriving,
+.detail-modal:not([data-dialog-changing]) .detail-body {
+  animation: softContentIn var(--motion-content) var(--ease-fade) both;
+}
+.detail-synopsis-leaving { animation: softContentOut var(--motion-content) var(--ease-fade) both; }
+@keyframes softContentIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes softContentOut { from { opacity: 1; } to { opacity: 0; } }
+/* Les poignées, le balayage et les boutons Annuler restent disponibles. */
+@media (max-width: 680px) {
+  :is(.modal-header, .wz-header, .metadata-sheet-header) .btn-icon[aria-label="Fermer"],
+  .detail-close-btn, #confirm-close { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-backdrop-info, .detail-block-in, .detail-synopsis-arriving, .detail-info-arriving,
+  .detail-modal .detail-body, .detail-synopsis-leaving { animation: none; }
 }
