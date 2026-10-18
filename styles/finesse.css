@@ -13,11 +13,11 @@
 }
 
 /* ── Atmosphère ───────────────────────────────────────────── */
-/* Deux lueurs très douces (jade / graphite) derrière le contenu : de la profondeur
+/* Deux lueurs très douces (ivoire / graphite) derrière le contenu : de la profondeur
    sans aucun élément de plus à lire. Elles restent fixes quand on défile. */
 #main {
   background:
-    radial-gradient(52rem 30rem at 6% -8%, color-mix(in srgb, var(--brand-jade) 5%, transparent), transparent 70%),
+    radial-gradient(52rem 30rem at 6% -8%, color-mix(in srgb, var(--brand-ivory) 5%, transparent), transparent 70%),
     radial-gradient(44rem 26rem at 104% 108%, color-mix(in srgb, var(--bg-4) 28%, transparent), transparent 70%);
 }
 /* Grain de pellicule : casse l'aplat du noir, donne un rendu « papier / film ». */
@@ -131,7 +131,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .035);
 }
 .modal-overlay {
-  background: radial-gradient(120% 90% at 50% 0%, rgba(18, 22, 23, .62), rgba(6, 7, 9, .84));
+  background: radial-gradient(120% 90% at 50% 0%, rgba(22, 23, 25, .62), rgba(6, 7, 9, .84));
   -webkit-backdrop-filter: blur(10px) saturate(1.2);
   backdrop-filter: blur(10px) saturate(1.2);
 }
@@ -184,9 +184,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* ── Fiche œuvre en ambiance ──────────────────────────────── */
 /* Les couleurs d'accent deviennent animables : à l'ouverture, toute la fiche
    glisse de sa base neutre vers la couleur de l'affiche au lieu de « sauter ». */
-@property --accent      { syntax: "<color>"; inherits: true; initial-value: #79c7ae; }
-@property --accent-2    { syntax: "<color>"; inherits: true; initial-value: #a2d9c5; }
-@property --accent-glow { syntax: "<color>"; inherits: true; initial-value: rgba(121, 199, 174, .15); }
+@property --accent      { syntax: "<color>"; inherits: true; initial-value: #e6e2d8; }
+@property --accent-2    { syntax: "<color>"; inherits: true; initial-value: #f4f1ea; }
+@property --accent-glow { syntax: "<color>"; inherits: true; initial-value: rgba(230, 226, 216, .15); }
 
 .detail-modal {
   transition: --accent .9s var(--ease-expo), --accent-2 .9s var(--ease-expo), --accent-glow .9s var(--ease-expo),
@@ -272,7 +272,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   /* Flous moins coûteux et grain plus discret sur GPU mobiles. */
   .modal-overlay { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   #main { background:
-    radial-gradient(34rem 20rem at 0% -6%, color-mix(in srgb, var(--brand-jade) 4%, transparent), transparent 70%); }
+    radial-gradient(34rem 20rem at 0% -6%, color-mix(in srgb, var(--brand-ivory) 4%, transparent), transparent 70%); }
 
   .bottom-nav-add:active { transform: scale(.92); }
 }
@@ -819,8 +819,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 /* Voile : léger sur la bannière, plein sous elle. La couche compacte
    (barre au défilement) reprend un fond sombre au fil de --detail-p. */
 .detail-modal .detail-backdrop-gradient {
-  background: linear-gradient(180deg, rgba(18,22,23,.18), rgba(18,22,23,.64) 72%, rgba(18,22,23,.86)),
-    linear-gradient(rgba(26,32,34,calc(var(--detail-p, 0) * .7)), rgba(26,32,34,calc(var(--detail-p, 0) * .7)));
+  background: linear-gradient(180deg, rgba(22,23,25,.18), rgba(22,23,25,.64) 72%, rgba(22,23,25,.86)),
+    linear-gradient(rgba(30,32,35,calc(var(--detail-p, 0) * .7)), rgba(30,32,35,calc(var(--detail-p, 0) * .7)));
 }
 .detail-modal .detail-title { text-shadow: 0 1px 10px rgba(0, 0, 0, .75), 0 0 2px rgba(0, 0, 0, .5); }
 .detail-modal .detail-rating { text-shadow: 0 1px 8px rgba(0, 0, 0, .7); }
