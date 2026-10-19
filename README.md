@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.3.1
+## Version actuelle · 4.3.2
 
 **Avant de publier :** exécuter `migrations/4.3.0-reading-progress.sql` dans Supabase → SQL Editor. Cette migration ajoute la progression de lecture et adapte la restauration des sauvegardes. Aucun redéploiement d’Edge Function n’est nécessaire depuis la 4.2.16.
 

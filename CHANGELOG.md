@@ -2,6 +2,13 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.3.2
+
+- Redimensionnements : taille précédente fixée avant la première peinture, animation démarrée après une frame stable, contraintes libérées à la fin.
+- Les interruptions rapides réutilisent la taille visible et nettoient les contraintes avant de mesurer la nouvelle cible.
+- L’apparition du contenu de fiche est planifiée après l’installation du redimensionnement, dans les deux sens.
+- Deux tests supplémentaires sur le gel initial et les interruptions ; parcours navigateur mesurant la largeur intermédiaire fourni, non exécuté dans cet environnement.
+
 ## 4.3.1
 
 - Progression de lecture déplacée dans Modifier, dans une ligne compacte sous Mon avis.
