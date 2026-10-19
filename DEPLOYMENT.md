@@ -2,10 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
-## Installer l’archive 4.3.0
+## Installer l’archive 4.3.1
+
+Si la migration de la 4.3.0 a déjà été exécutée, aucune nouvelle action SQL n’est nécessaire.
 
 1. **Avant de déployer**, exécuter le fichier `migrations/4.3.0-reading-progress.sql` dans **Supabase → SQL Editor → Run**. Il ajoute `current_page` et met à jour la restauration atomique des sauvegardes, sans supprimer les données. Il est transactionnel et rejouable.
-2. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.3.0**, en conservant les valeurs propres au projet dans `config.js`.
+2. Remplacer les fichiers du dépôt par le contenu complet de l’archive **4.3.1**, en conservant les valeurs propres au projet dans `config.js`.
 3. Conserver les dossiers `features/`, `styles/`, `src/`, `scripts/` et `.github/` ainsi que `package.json` et `package-lock.json` : ils font partie de l’application et de sa fabrication.
 4. Publier le dépôt, puis accepter le bandeau **Nouvelle version disponible** dans Kulturo. La base IndexedDB locale est créée automatiquement ; aucune donnée Supabase n’est déplacée.
 
@@ -15,9 +17,9 @@ La source reste directement publiable depuis une branche GitHub Pages. Le mode r
 
 ## IGDB — recherche introduite en 4.2.5
 
-La 4.3.0 ne modifie aucune Edge Function (la traduction utilise `groq-proxy`, déjà en place). La fonction SQL de restauration est mise à jour par la migration de lecture ci-dessus. Si igdb-proxy a déjà été déployée depuis la 4.2.5, seule la migration SQL 4.3.0 ci-dessus est nécessaire côté Supabase. Sinon, la recherche introduite en 4.2.5 exige cette mise à jour : la version antérieure pour les notes ne suffit pas. Tester ensuite « Returnal » dans la recherche du catalogue.
+La 4.3.1 ne modifie aucune Edge Function (la traduction utilise `groq-proxy`, déjà en place). La fonction SQL de restauration est mise à jour par la migration de lecture ci-dessus. Si igdb-proxy a déjà été déployée depuis la 4.2.5, seule la migration SQL 4.3.1 ci-dessus est nécessaire côté Supabase. Sinon, la recherche introduite en 4.2.5 exige cette mise à jour : la version antérieure pour les notes ne suffit pas. Tester ensuite « Returnal » dans la recherche du catalogue.
 
-GitHub Pages ne met pas à jour les fonctions Supabase. Redéployer **igdb-proxy** avec le fichier `supabase/functions/igdb-proxy/index.ts` de cette archive (Supabase → Edge Functions → igdb-proxy → mise à jour du code → Deploy). Conserver les secrets et réglages d'authentification existants. Cette mise à jour IGDB est distincte de la migration SQL 4.3.0 ci-dessus.
+GitHub Pages ne met pas à jour les fonctions Supabase. Redéployer **igdb-proxy** avec le fichier `supabase/functions/igdb-proxy/index.ts` de cette archive (Supabase → Edge Functions → igdb-proxy → mise à jour du code → Deploy). Conserver les secrets et réglages d'authentification existants. Cette mise à jour IGDB est distincte de la migration SQL 4.3.1 ci-dessus.
 
 Le repli des captures et notes d'une édition utilise seulement le lien explicite `version_parent` fourni par IGDB. La note du jeu de base est signalée dans le libellé. Un DLC ou remake n'emprunte pas automatiquement la note d'un autre jeu. Documentation : https://api-docs.igdb.com/#game
 
@@ -54,7 +56,7 @@ La version de ces fonctions reste indépendante de celle de l’interface. Les s
 
 ## Contrôle après publication
 
-- la version affichée dans **Profil → Compte et sauvegarde** est **4.3.0** ;
+- la version affichée dans **Profil → Compte et sauvegarde** est **4.3.1** ;
 - une actualisation retrouve la page, ses filtres, sa période et une éventuelle fiche ouverte ;
 - couper le réseau affiche la bibliothèque locale et l’indicateur **Hors connexion** ;
 - modifier un média hors ligne affiche un changement en attente, ensuite synchronisé au retour du réseau ;

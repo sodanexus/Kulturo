@@ -2,6 +2,12 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.3.1
+
+- Progression de lecture déplacée dans Modifier, dans une ligne compacte sous Mon avis.
+- Fiche : jauge fine et pages lues sous les badges ; aucune saisie ni bloc encadré. L’indicateur est absent tant qu’aucune page n’a été renseignée.
+- La progression suit Enregistrer / Annuler et la transition habituelle vers la fiche. Migration SQL 4.3.0 inchangée.
+
 ## 4.3.0
 
 - Progression de lecture directement sur les livres En cours : page actuelle, total facultatif, pourcentage, validation et enregistrement local/cloud. La relecture repart à zéro ; atteindre la dernière page ne change pas automatiquement le statut.

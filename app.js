@@ -1,3 +1,4 @@
+import { parseReadingProgress } from "./features/reading-progress.js";
 import { recentSearches, rememberSearch, clearRecentSearches } from "./features/recent-searches.js";
 import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
@@ -1826,15 +1827,6 @@ async function openEditFromDetail(id) {
   const entry = State.entries.find(item => item.id === id);
   const detail = document.querySelector("#modal-overlay .detail-modal");
   if (!entry || !detail || _detailEditContext) return;
-  if (detail.querySelector('.reading-progress button[aria-busy="true"]')) {
-    toast("Enregistrement de la progression en cours…", "info");
-    return;
-  }
-  if (_modalDirty && detail.querySelector(".reading-progress")) {
-    const discard = await confirmDialog("Continuer sans enregistrer la progression ?", "Les pages saisies ne seront pas conservées.", "Continuer", "danger");
-    if (!discard || !detail.isConnected || _detailEditContext) return;
-    _modalDirty = false;
-  }
   _detailEditContext = {
     id,
     scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
@@ -1865,7 +1857,7 @@ function returnToDetail() {
 }
 
 function markModalDirty() {
-  if (document.getElementById("modal-overlay") && (_wizardState || State.editingId || document.querySelector(".reading-progress"))) _modalDirty = true;
+  if (document.getElementById("modal-overlay") && (_wizardState || State.editingId)) _modalDirty = true;
 }
 
 function _captureWizardOpinion() {
@@ -2081,6 +2073,13 @@ function _openModalClassic(entry) {
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>
+            <div class="edit-reading" id="edit-reading" hidden>
+              <span>Ma lecture</span>
+              <input id="f-current-page" type="number" min="0" step="1" inputmode="numeric" value="${entry.current_page ?? ""}" placeholder="Page" aria-label="Page actuelle" />
+              <span aria-hidden="true">/</span>
+              <input id="f-page-count" type="number" min="1" step="1" inputmode="numeric" value="${entry.page_count || ""}" placeholder="Total" aria-label="Nombre total de pages, facultatif" />
+              <span>pages</span>
+            </div>
             <div class="edit-avis-grid">
             <div class="form-group edit-repeat-group" id="edit-repeat" data-edit-repeat></div>
             <label class="toggle-row favorite-toggle">
@@ -2145,7 +2144,8 @@ function _openModalClassic(entry) {
   buildRatingStars(entry.rating || 0);
   _editRepeatDelta = 0;
   renderEditRepeat();
-  document.getElementById("f-status")?.addEventListener("change", () => animateDialogUpdate(root.querySelector(".edit-modal"), renderEditRepeat));
+  syncEditReading();
+  document.getElementById("f-status")?.addEventListener("change", () => animateDialogUpdate(root.querySelector(".edit-modal"), () => { renderEditRepeat(); syncEditReading(); }));
   updateApiAvailLabel(entry.media_type || "movie");
   setupApiSearch();
   const detailsPanel = root.querySelector(".advanced-details");
@@ -2307,6 +2307,17 @@ function setupSynopsisTranslation() {
     }
   });
   refresh();
+}
+
+function syncEditReading() {
+  const row = document.getElementById("edit-reading");
+  if (!row) return;
+  const status = document.getElementById("f-status")?.value;
+  row.hidden = document.getElementById("f-type")?.value !== "book" || status !== "playing";
+  const entry = State.entries.find(item => item.id === State.editingId);
+  const input = document.getElementById("f-current-page");
+  if (!row.hidden && row.dataset.status !== "playing" && statusTransitionChanges(entry, status).repeatStarted) input.value = "0";
+  row.dataset.status = status;
 }
 
 function syncEditDetailsSummary() {
@@ -2689,6 +2700,12 @@ function fillFromApi(idx) {
   set("f-platform", it.platform);
   const synopsisInput = document.getElementById("f-description");
   if (synopsisInput && !synopsisInput.value.trim()) synopsisInput.value = it.description || "";
+  const previous = window._apiSelected || State.entries.find(item => item.id === State.editingId);
+  if (previous && (previous.source_api !== it.source_api || String(previous.external_id || "") !== String(it.external_id || ""))) {
+    const page = document.getElementById("f-current-page"), total = document.getElementById("f-page-count");
+    if (page) page.value = "";
+    if (total) total.value = it.page_count || "";
+  }
   window._apiSelected = it;
   document.getElementById("api-results").style.display = "none";
   syncEditDetailsSummary();
@@ -2781,6 +2798,18 @@ async function saveEntry() {
     payload.release_date_precision = "day";
     if (existing.current_page != null && (selectedIdentityChanged || mediaType !== "book")) payload.current_page = null;
     if (!selected && existing.media_type === "book" && mediaType === "book") payload.page_count = existing.page_count ?? null;
+  }
+
+  const readingInput = document.getElementById("f-current-page");
+  if (readingInput && mediaType === "book" && payload.status === "playing") {
+    try {
+      Object.assign(payload, parseReadingProgress(readingInput.value, document.getElementById("f-page-count").value));
+    } catch (error) {
+      setButtonBusy(saveBtn, false);
+      toast(error.message, "error");
+      readingInput.focus({ preventScroll: true });
+      return;
+    }
   }
 
   const duplicate = findMatchingEntry(payload, State.editingId);
@@ -2905,7 +2934,7 @@ async function deleteEntry(id) {
 
 // ── Modal helpers ─────────────────────────────────────────────
 async function closeModal(force = false, options = {}) {
-  if (_saveInProgress || document.querySelector('.reading-progress button[aria-busy="true"]')) {
+  if (_saveInProgress) {
     toast("Enregistrement en cours…", "info");
     return false;
   }
@@ -4086,7 +4115,6 @@ window.UI = {
     document.getElementById("f-api-search")?.focus({ preventScroll: true });
   },
   retryDetailInfo: id => mediaDetailFeature.retryDetailInfo(id),
-  saveReadingProgress: id => mediaDetailFeature.saveReadingProgress(id),
   setEditDetailsView,
   closeModal,
   openEditFromDetail,
@@ -4328,6 +4356,7 @@ window.UI = {
     document.querySelectorAll("select#f-status option").forEach(option => {
       option.textContent = statusLabelFor(option.value, type === "tv" ? "movie" : type);
     });
+    animateDialogUpdate(document.querySelector(".edit-modal"), syncEditReading);
     updateApiAvailLabel(type === "tv" ? "movie" : type);
     const q = document.getElementById("f-api-search")?.value?.trim();
     const input = document.getElementById("f-api-search");
