@@ -50,7 +50,7 @@ test('interrupted height change resumes from visible height and releases layout'
       return animation;
     },
   };
-  const restore = installGlobals({ matchMedia: () => ({ matches: false }) });
+  const restore = installGlobals({ matchMedia: () => ({ matches: false }), requestAnimationFrame: callback => { callback(); return 1; } });
   try {
     const first = animateHeightChange(el, () => { height = 400; });
     height = 220; // Position visible à mi-parcours.
@@ -110,9 +110,9 @@ test('repeated busy state preserves the original label and disabled state', () =
 
 test('detail/edit transition changes the shell dimensions without scaling text', async () => {
   let frames, options;
-  const restore = installGlobals({ matchMedia: () => ({ matches: false }) });
+  const restore = installGlobals({ matchMedia: () => ({ matches: false }), requestAnimationFrame: callback => { callback(); return 1; } });
   try {
-    const next = { getBoundingClientRect: () => ({ width: 560, height: 640 }),
+    const next = { style: {}, isConnected: true, getBoundingClientRect: () => ({ width: 560, height: 640 }),
       querySelectorAll: () => [], animate: (f, o) => { frames=f; options=o; return { finished: Promise.resolve() }; } };
     transitionDialogReplacement({ width: 860, height: 800 }, next);
     assert.equal(frames[0].width, '860px');
@@ -133,12 +133,12 @@ test('detail/edit transition honors reduced motion', () => {
 
 
 test('modal replacement animates expansion and contraction after content setup', async () => {
-  const restore = installGlobals({ matchMedia: () => ({ matches: false }) });
+  const restore = installGlobals({ matchMedia: () => ({ matches: false }), requestAnimationFrame: callback => { callback(); return 1; } });
   try {
     for (const [from, to] of [[560,860],[860,560]]) {
       let current = { getBoundingClientRect: () => ({ width: from, height: 640 }) };
       let frames;
-      const next = { isConnected: true, closest: () => ({ classList: { add() {} } }),
+      const next = { style: {}, isConnected: true, closest: () => ({ classList: { add() {} } }),
         getBoundingClientRect: () => ({ width: to, height: 800 }), querySelectorAll: () => [],
         animate: f => { frames=f; return { finished: Promise.resolve() }; } };
       const root = { querySelector: () => current, set innerHTML(value) { current=next; } };
@@ -201,11 +201,50 @@ test('detail groups fade in sequence without translating or resizing their text'
  const blocks=Array.from({length:8},()=>({animate(frames,options){records.push({frames,options});return {finished:Promise.resolve(),cancel(){}};}}));
  const restore=installGlobals({matchMedia:()=>({matches:false})});
  try {
-  revealDetailSequence({querySelectorAll:()=>blocks});
+  revealDetailSequence({isConnected:true,querySelectorAll:()=>blocks});
+  await Promise.resolve();
   assert.equal(records.length,8);
   assert.equal(records[0].options.delay,70);
   assert.equal(records[1].options.delay,145);
   assert.ok(records.at(-1).options.delay<=595);
   for(const record of records){assert.deepEqual(record.frames,[{opacity:0},{opacity:1}]);assert.equal(record.options.fill,'backwards');}
  } finally {restore();}
+});
+
+test('modal shell stays at the previous size until its first painted frame, then releases constraints', async () => {
+  const queue = [], done = deferred();
+  let paused = false, played = false;
+  const restore = installGlobals({matchMedia:()=>({matches:false}),requestAnimationFrame:callback=>queue.push(callback)});
+  const next={isConnected:true,style:{width:'',height:'',minWidth:'',maxWidth:'',minHeight:'',maxHeight:'',flexShrink:'',overflow:''},
+    getBoundingClientRect:()=>({width:860,height:800}),querySelectorAll:()=>[],setAttribute(){},
+    animate(){return {finished:done.promise,pause(){paused=true;},play(){played=true;},cancel(){}};}};
+  try {
+    transitionDialogReplacement({width:560,height:640},next);
+    assert.equal(next.style.width,'560px');
+    assert.equal(next.style.maxHeight,'640px');
+    assert.equal(paused,true);assert.equal(played,false);
+    queue.shift()(); assert.equal(played,false);
+    queue.shift()(); assert.equal(played,true);
+    done.resolve();await Promise.resolve();
+    assert.equal(next.style.width,'');assert.equal(next.style.maxHeight,'');
+  } finally {restore();}
+});
+
+test('reversing a dialog transition restores natural constraints before measuring the new target', async () => {
+  const {animateDialogUpdate}=await import('../features/motion.js');
+  const queue=[],records=[],resolvers=[];let natural={width:860,height:800};
+  const restore=installGlobals({matchMedia:()=>({matches:false}),requestAnimationFrame:callback=>queue.push(callback)});
+  const next={isConnected:true,style:{width:'',height:'',minWidth:'',maxWidth:'',minHeight:'',maxHeight:'',flexShrink:'',overflow:''},
+    getBoundingClientRect(){return this.style.width?{width:parseFloat(this.style.width),height:parseFloat(this.style.height)}:natural;},
+    querySelectorAll:()=>[],setAttribute(){},animate(frames){records.push(frames);const done=deferred();resolvers.push(done);return {finished:done.promise,pause(){},play(){},cancel(){done.reject(Error('cancelled'));}};}};
+  try {
+    transitionDialogReplacement({width:560,height:640},next);
+    animateDialogUpdate(next,()=>{natural={width:700,height:720};});
+    assert.equal(records[1][0].width,'560px');
+    assert.equal(records[1][1].width,'700px');
+    await Promise.resolve();
+    assert.equal(next.style.width,'560px');
+    resolvers[1].resolve();await Promise.resolve();
+    assert.equal(next.style.width,'');
+  } finally {restore();}
 });
