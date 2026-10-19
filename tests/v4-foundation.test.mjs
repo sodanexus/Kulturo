@@ -349,3 +349,20 @@ test("la chaîne 4.0 verrouille ses outils et son déploiement portable", () => 
   assert.match(workflow, /npm run verify/);
   assert.match(workflow, /path: dist/);
 });
+
+test('la progression de lecture hors ligne rejoint le cloud sans perdre le total', async () => {
+  let online = false;
+  const original = {id:'reading',title:'Livre',media_type:'book',status:'playing',current_page:10,page_count:320};
+  let cloud = {...original};
+  const database = fakeDatabase([original]);
+  const repository = createMediaRepository({database,getOwnerId:()=> 'owner-reading',isOnline:()=>online,remote:{
+    getAll:async()=>[cloud], update:async(_id,changes)=>(cloud={...cloud,...changes}),
+  }});
+  await repository.update('reading',{current_page:186,page_count:320});
+  assert.equal((await database.getEntry('owner-reading','reading')).current_page,186);
+  assert.equal(cloud.current_page,10);
+  online = true;
+  await repository.flush();
+  assert.equal(cloud.current_page,186);
+  assert.equal(cloud.page_count,320);
+});

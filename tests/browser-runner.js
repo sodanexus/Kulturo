@@ -325,6 +325,32 @@ start.addEventListener("click", async () => {
     await waitFor(() => doc.querySelector(".upcoming-card"), "Sorties non récupérées");
   });
 
+  for (const width of [390, 1120]) {
+    await test(`v4.3 : progression de lecture, sauvegarde et retour (${width}px)`, async () => {
+      await mount(width); await ready();
+      const id = "11111111-1111-4111-8111-000000000018";
+      action("openEditModal", [id]).click();
+      const input = await waitFor(() => doc.querySelector("#reading-current"), "Progression absente");
+      input.value = "186";
+      doc.querySelector("#reading-total").value = "320";
+      input.dispatchEvent(new win.Event("input", {bubbles:true}));
+      action("saveReadingProgress", [id]).click();
+      await waitFor(() => doc.querySelector("[data-reading-summary]")?.textContent === "58 %", "Progression non enregistrée");
+      assert(doc.querySelector("#reading-current") === input, "La saisie a été reconstruite");
+      assert(!doc.querySelector(".detail-external-section"), "Note externe sur un livre");
+      const fields = doc.querySelector(".reading-progress-fields");
+      assert(fields.scrollWidth <= fields.clientWidth + 1, "La progression déborde horizontalement");
+      await edit();
+      [...doc.querySelectorAll(".edit-modal button")].find(button => button.textContent.trim() === "Annuler").click();
+      await waitFor(() => doc.querySelector("#reading-current"), "Retour fiche absent");
+      assert(doc.querySelector("#reading-current").value === "186", "Progression perdue au retour");
+      await closeDetail();
+      action("openEditModal", [id]).click();
+      await waitFor(() => doc.querySelector("#reading-current"), "Réouverture impossible");
+      assert(doc.querySelector("#reading-current").value === "186", "Progression perdue à la réouverture");
+    });
+  }
+
   status.textContent = `${passed} parcours réussis · ${failed} échec${failed === 1 ? "" : "s"}`;
   status.dataset.complete = "true"; status.dataset.failed = String(failed);
   start.disabled = false;

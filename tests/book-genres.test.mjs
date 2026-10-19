@@ -23,3 +23,9 @@ test('Un genre normalisé retrouve les anciens livres sans changer les autres m�
   assert.deepEqual(entriesForMetadata([book,manual,movie], 'genre', 'Mon genre personnel'), [manual]);
   assert.deepEqual(entriesForMetadata([book,manual,movie], 'genre', 'Fantasy fiction'), [movie]);
 });
+
+test('Métadonnées : doublons de casse et espaces nettoyés sans réécrire les fiches', async () => {
+  const {splitMetadataValues} = await import('../features/media-metadata.js');
+  assert.deepEqual(splitMetadataValues(['Action, action', ' Science   fiction ', 'science fiction', '']), ['Action','Science fiction']);
+  assert.deepEqual(splitMetadataValues('["Aventure", "aventure", "Drame"]'), ['Aventure','Drame']);
+});

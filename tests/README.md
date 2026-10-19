@@ -38,7 +38,7 @@ Pour la 4.0, compléter manuellement par une modification en mode hors connexion
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.2.16
+## Validation de l’archive 4.3.0
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
 
@@ -171,13 +171,21 @@ Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’ap
 141 tests techniques et 14 parcours jsdom réussis. Le cas de traduction tardive remplace les données de description par un texte différent en même temps que les notes : le nœud du synopsis visible, son HTML, son état déplié et le scroll restent identiques. Le premier chargement d’un synopsis absent conserve son fondu. Build et contrôle TypeScript de secours validés ; validation visuelle sur appareil réel restant nécessaire.
 
 
-### Validation 4.2.16
+### Validation 4.3.0
 
 - 144 tests techniques : clés ISBN-10/13 (dont X), séparateurs, titres français/latins et protection des synopsis personnels.
 - Module API réel testé avec réponses Open Library simulées : ISBN de Nijigahara Holograph, titre français, auteur, identifiant d’œuvre, pages et ISBN conservés.
 - 15 parcours jsdom, dont saisie d’un synopsis contenant des caractères HTML, sauvegarde et réouverture dans Modifier.
 - Build et contrôle TypeScript de secours validés. Les réponses des services réels, le rendu et les gestes sur appareil ne sont pas couverts par ces simulations.
 
-### Validation du nettoyage livres 4.2.16
+### Validation du nettoyage livres 4.3.0
 
 160 tests Node et 12 parcours simulés jsdom validés. Contrôle TypeScript avec le compilateur JS disponible dans l’environnement, puis build Vite validé. Les parcours simulés ne remplacent pas un contrôle visuel sur appareil réel.
+
+## Validation v4.3.0
+
+- 168 tests Node : progression, limites de saisie, relecture, réponse catalogue tardive, sauvegardes, synchronisation hors ligne, historique de recherche et métadonnées.
+- 15 parcours jsdom simulés avec API/Supabase factices : bibliothèque, journal, profil, sorties, recherche, ajout, Modifier/Annuler, synopsis, progression et erreurs de recherche.
+- Contrôle TypeScript avec le compilateur JavaScript disponible dans l’environnement ; build Vite et archive validés.
+- Les deux parcours lecture 390/1120px ajoutés à `tests/browser-runner.js` sont fournis pour validation dans un navigateur réel ; ils n’ont pas été exécutés ici. Le lancement du navigateur automatisé est bloqué dans l’environnement. Safari/iOS, gestes et rendu réel restent à contrôler.
+- Migration SQL relue mais non exécutée sur une instance PostgreSQL/Supabase ici. Aucun accès aux données réelles.
