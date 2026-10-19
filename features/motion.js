@@ -128,22 +128,26 @@ export function shouldDismissSheet(distance, velocity) {
 // Conserver une enveloppe continue entre consultation et édition, sans
 // agrandir le texte : seules les dimensions du panneau sont interpolées.
 const dialogAnimations = new WeakMap();
+const dialogCleanups = new WeakMap();
+function cancelDialogTransition(element) {
+  const animation = dialogAnimations.get(element);
+  dialogCleanups.get(element)?.();
+  animation?.cancel();
+}
 export function waitForDialogTransition(element) {
   return dialogAnimations.get(element)?.finished.catch(() => {}) || Promise.resolve();
 }
 export function animateDialogUpdate(element, update) {
   if (!element) { update(); return; }
   const previous = element.getBoundingClientRect();
-  dialogAnimations.get(element)?.cancel();
-  dialogAnimations.delete(element);
+  cancelDialogTransition(element);
   update();
   return transitionDialogReplacement(previous, element);
 }
 
 export function transitionDialogReplacement(previousRect, next) {
   if (!previousRect || !next?.animate || prefersReducedMotion()) return;
-  dialogAnimations.get(next)?.cancel();
-  dialogAnimations.delete(next);
+  cancelDialogTransition(next);
   const rect = next.getBoundingClientRect();
   if (!rect.width || !rect.height || !previousRect.width || !previousRect.height) return;
   // Contraindre min ET max à chaque extrémité : la hauteur fixe de la fiche
@@ -153,17 +157,40 @@ export function transitionDialogReplacement(previousRect, next) {
     minHeight: `${box.height}px`, maxHeight: `${box.height}px`,
     flexShrink: 0, overflow: 'clip' });
   next.setAttribute?.('data-dialog-changing', '');
-  const animation = next.animate([frame(previousRect), frame(rect)], {
-    duration: motionDuration('--motion-layout', 360), easing: MOTION_EASING, fill: 'both',
-  });
+  // La taille de départ existe aussi dans le style réel, avant la peinture.
+  // Safari ne doit pas montrer une frame à la taille finale entre deux panneaux.
+  const initial = frame(previousRect);
+  const properties = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'flexShrink', 'overflow'];
+  const saved = properties.map(property => [property, next.style[property]]);
+  Object.assign(next.style, initial);
+  let animation;
+  try {
+    animation = next.animate([initial, frame(rect)], {
+      duration: motionDuration('--motion-layout', 360), easing: MOTION_EASING, fill: 'both',
+    });
+  } catch {
+    for (const [property, value] of saved) next.style[property] = value;
+    return;
+  }
+  animation.pause?.();
+  animation.currentTime = 0;
   dialogAnimations.set(next, animation);
-  const finish = () => {
-    if (dialogAnimations.get(next) === animation) dialogAnimations.delete(next);
-    animation.cancel?.();
+  const cleanup = () => {
+    if (dialogAnimations.get(next) !== animation) return;
+    dialogAnimations.delete(next);
+    dialogCleanups.delete(next);
+    for (const [property, value] of saved) next.style[property] = value;
   };
-  animation.finished.then(finish, () => { if (dialogAnimations.get(next) === animation) dialogAnimations.delete(next); });
-  // Le marqueur reste sur cette instance : retirer ce marqueur relancerait
-  // l'animation CSS d'entrée du corps après la fin du redimensionnement.
+  dialogCleanups.set(next, cleanup);
+  animation.finished.then(() => { cleanup(); animation.cancel?.(); }, cleanup);
+  // Une première peinture à l’ancienne taille, puis le même trajet aller/retour.
+  // Les callbacks d’un panneau remplacé rapidement ne doivent pas le relancer.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (dialogAnimations.get(next) !== animation) return;
+    if (!next.isConnected) { cleanup(); animation.cancel?.(); return; }
+    animation.play?.();
+  }));
+  // Le marqueur reste sur cette instance pour ne pas relancer l’entrée CSS.
 
   for (const part of next.querySelectorAll(':scope > .modal-header, :scope > .modal-body, :scope > .detail-body, :scope > .detail-backdrop, :scope > .modal-footer, :scope > .metadata-sheet-header, :scope > .metadata-sheet-body, :scope > .metadata-sheet-footer')) {
     if (next.matches?.(".detail-modal") && part.matches(".detail-body, .detail-backdrop")) continue;
@@ -177,6 +204,7 @@ export function transitionDialogReplacement(previousRect, next) {
 export function replaceModalContent(root, html) {
   const previous = root.querySelector('#modal-overlay .modal');
   const previousRect = previous?.getBoundingClientRect();
+  if (previous) cancelDialogTransition(previous);
   root.innerHTML = html;
   const next = root.querySelector('#modal-overlay .modal');
   if (!previousRect || !next) return;
@@ -193,7 +221,10 @@ export function replaceModalContent(root, html) {
 // Le remplissage backwards masque aussi les blocs pendant leur délai.
 export function revealDetailSequence(modal) {
   if (!modal) return;
-  const blocks = modal.querySelectorAll('.detail-title, .detail-rating, .detail-badges, .activity-detail-notice, .reading-progress, .detail-synopsis-slot > *, .detail-info-content > *');
-  const start = dialogAnimations.has(modal) ? motionDuration('--motion-layout', 360) : 70;
-  blocks.forEach((block, index) => revealSurface(block, { delay: start + Math.min(index * 75, 525) }));
+  queueMicrotask(() => {
+    if (!modal.isConnected) return;
+    const blocks = modal.querySelectorAll('.detail-title, .detail-rating, .detail-badges, .activity-detail-notice, .reading-progress, .detail-synopsis-slot > *, .detail-info-content > *');
+    const start = dialogAnimations.has(modal) ? motionDuration('--motion-layout', 360) : 70;
+    blocks.forEach((block, index) => revealSurface(block, { delay: start + Math.min(index * 75, 525) }));
+  });
 }
