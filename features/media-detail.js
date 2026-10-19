@@ -1,4 +1,4 @@
-import { parseReadingProgress, readingProgress } from "./reading-progress.js";
+import { readingProgress } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
@@ -226,6 +226,7 @@ function renderDetailPanel(e, options = {}) {
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
               </div>
+              ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
             </div>
           </div>
         </div>
@@ -771,64 +772,12 @@ function renderDetailInfoHTML(e, options = {}) {
 function readingProgressHTML(entry) {
   if (entry.media_type !== "book" || entry.status !== "playing") return "";
   const { current, total, percent } = readingProgress(entry);
-  return `<section class="reading-progress" aria-label="Progression de lecture">
-    <div class="reading-progress-heading"><strong>Ma lecture</strong><span data-reading-summary>${percent == null ? "À votre rythme" : `${percent} %`}</span></div>
-    <progress class="reading-progress-bar" max="100" value="${percent || 0}" ${percent == null ? "hidden" : ""} aria-label="Progression de lecture"></progress>
-    <div class="reading-progress-fields">
-      <label>Page actuelle<input id="reading-current" type="number" inputmode="numeric" min="0" step="1" value="${current ?? ""}" placeholder="0" /></label>
-      <label>Sur<input id="reading-total" type="number" inputmode="numeric" min="1" step="1" value="${total ?? ""}" placeholder="Pages (facultatif)" /></label>
-      <button type="button" class="btn btn-secondary btn-sm" ${uiAction("saveReadingProgress", [entry.id])}>Enregistrer</button>
-    </div>
-    <p class="reading-progress-feedback" role="status" aria-live="polite"></p>
-  </section>`;
-}
-
-const readingSaves = new Set();
-async function saveReadingProgress(id) {
-  const entry = State.entries.find(item => item.id === id);
-  const section = document.getElementById(`detail-body-${id}`)?.querySelector(".reading-progress");
-  const owner = State.user?.id;
-  if (!owner || !section || entry?.media_type !== "book" || entry.status !== "playing" || readingSaves.has(id)) return;
-  const feedback = section.querySelector(".reading-progress-feedback");
-  let patch;
-  try {
-    patch = parseReadingProgress(section.querySelector("#reading-current").value, section.querySelector("#reading-total").value);
-  } catch (error) {
-    feedback.textContent = error.message;
-    return;
-  }
-  const button = section.querySelector("button");
-  readingSaves.add(id);
-  button.disabled = true;
-  section.querySelectorAll("input").forEach(input => { input.readOnly = true; });
-  button.setAttribute("aria-busy", "true");
-  feedback.textContent = "Enregistrement…";
-  try {
-    const updated = await Media.update(id, patch);
-    if (!sameOwner(owner, State.user?.id)) return;
-    const current = State.entries.find(item => item.id === id);
-    if (!current) return;
-    Object.assign(current, patch);
-    if (updated?._syncState) current._syncState = updated._syncState;
-    cacheEntriesLocally();
-    if (!section.isConnected) return;
-    markModalPristine();
-    const progress = readingProgress(current);
-    section.querySelector("[data-reading-summary]").textContent = progress.percent == null ? "À votre rythme" : `${progress.percent} %`;
-    const bar = section.querySelector("progress");
-    bar.hidden = progress.percent == null;
-    bar.value = progress.percent || 0;
-    feedback.textContent = Media.getStatus?.().pending > 0 ? "Enregistré sur cet appareil · synchronisation en attente" : "Progression enregistrée";
-    // La zone de saisie reste montée, y compris pendant l’enrichissement API.
-    void refreshDetailEnrichment(current, { detailsLoading: Boolean(current._detailsFetching) });
-  } catch (error) {
-    if (section.isConnected && sameOwner(owner, State.user?.id)) feedback.textContent = "Enregistrement impossible. Vos valeurs sont conservées ; réessayez.";
-  } finally {
-    readingSaves.delete(id);
-    button.disabled = false;
-    section.querySelectorAll("input").forEach(input => { input.readOnly = false; });
-    button.removeAttribute("aria-busy");
-  }
+  if (current == null) return "";
+  const label = total ? `${current} / ${total} pages · ${percent} %` : `Page ${current}`;
+  return `<div class="reading-progress" aria-label="Progression de lecture : ${esc(label)}">
+    ${percent == null ? "" : `<span class="reading-progress-track" aria-hidden="true"><span style="width:${percent}%"></span></span>`}
+    <span>${esc(label)}</span>
+  </div>`;
 }
 
 function renderDetailBody(e, options = {}) {
@@ -840,8 +789,6 @@ function renderDetailBody(e, options = {}) {
       <span><strong>${esc(e.username || "Un membre")}</strong> a partagé cette œuvre. Cette fiche est en lecture seule.</span>
     </div>`;
   }
-
-  if (!options.readOnly) html += readingProgressHTML(e);
 
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
@@ -1250,7 +1197,6 @@ function retryDetailInfo(id) {
   return {
     detailSessions,
     retryDetailInfo,
-    saveReadingProgress,
     canEnrichMediaDetails,
     requestPrefetchedDetails,
     prefetchDetail,
