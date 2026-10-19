@@ -897,26 +897,15 @@ body.app-shell-active #main,
 body.app-shell-active .page { min-width: 0; max-width: 100%; }
 body.app-shell-active #main { overflow-x: clip; }
 
-/* v4.3 — un suivi discret, sans reconstruire les champs pendant le chargement. */
-.reading-progress { margin: 0 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); }
-.reading-progress-heading { display: flex; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; font-size: var(--type-label); }
-.reading-progress-heading strong { color: var(--text); }
-.reading-progress-heading > span { color: var(--brand-teal); font-variant-numeric: tabular-nums; }
-.reading-progress-bar { display: block; width: 100%; height: 4px; margin-bottom: .9rem; border: 0; border-radius: 99px; overflow: hidden; background: var(--bg-4); color: var(--brand-teal); accent-color: var(--brand-teal); }
-.reading-progress-bar[hidden] { display: none; }
-.reading-progress-bar::-webkit-progress-bar { background: var(--bg-4); }
-.reading-progress-bar::-webkit-progress-value { background: var(--brand-teal); }
-.reading-progress-bar::-moz-progress-bar { background: var(--brand-teal); }
-.reading-progress-fields { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: .6rem; }
-.reading-progress-fields label { display: grid; gap: .35rem; min-width: 0; color: var(--text-2); font-size: var(--type-label); }
-.reading-progress-fields input { width: 100%; min-width: 0; min-height: 44px; padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text); font: inherit; font-size: 16px; }
-.reading-progress-fields input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.reading-progress-fields .btn { min-height: 44px; }
-.reading-progress-feedback { min-height: 1.4em; margin: .5rem 0 0; color: var(--text-3); font-size: var(--type-caption); }
-@media (max-width: 420px) {
-  .reading-progress-fields { grid-template-columns: 1fr 1fr; }
-  .reading-progress-fields .btn { grid-column: 1 / -1; }
-}
+/* Progression en lecture seule dans la fiche, saisie dans Modifier. */
+.reading-progress { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .65rem; color: var(--text-2); font-size: var(--type-label); font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0,0,0,.65); }
+.reading-progress-track { flex: 0 0 44px; height: 3px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.18); }
+.reading-progress-track > span { display: block; height: 100%; background: var(--brand-teal); }
+.edit-reading { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .75rem 0; margin-bottom: .75rem; border-top: 1px solid var(--border); color: var(--text-2); font-size: var(--type-label); }
+.edit-reading[hidden] { display: none; }
+.edit-reading > span:first-child { flex: 1; min-width: 75px; }
+.edit-reading input { width: 76px; min-height: 44px; padding: .5rem; text-align: center; font-size: 16px; }
+@media (max-width: 360px) { .edit-reading > span:first-child { flex-basis: 100%; } }
 .recent-searches { padding: .5rem 0; }
 .recent-searches-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--text-3); font-size: var(--type-label); }
 .recent-searches-items { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
