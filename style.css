@@ -3308,6 +3308,10 @@ input, textarea, select { border-radius: 12px; }
 }
 .continue-track::-webkit-scrollbar { display: none; }
 .continue-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   flex: 0 0 128px;
   min-width: 0;
   border: 0;
@@ -3317,6 +3321,7 @@ input, textarea, select { border-radius: 12px; }
   scroll-snap-align: start;
 }
 .continue-cover {
+  flex-shrink: 0;
   position: relative;
   display: block;
   width: 100%;
@@ -3355,6 +3360,8 @@ input, textarea, select { border-radius: 12px; }
 }
 .continue-card-copy { display: block; padding: .55rem .1rem 0; }
 .continue-card-copy strong {
+  /* Deux lignes réservées, même pour un titre court. */
+  height: 2.6em;
   display: -webkit-box;
   overflow: hidden;
   color: var(--text-1);

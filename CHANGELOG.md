@@ -2,6 +2,10 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.3.3
+
+- À reprendre : cartes alignées par le haut et espace de deux lignes réservé aux titres. Les pochettes et les types d’œuvre restent alignés quelle que soit la longueur du titre, sur mobile et desktop.
+
 ## 4.3.2
 
 - Redimensionnements : taille précédente fixée avant la première peinture, animation démarrée après une frame stable, contraintes libérées à la fin.
