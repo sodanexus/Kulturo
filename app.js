@@ -1,3 +1,4 @@
+import { recentSearches, rememberSearch, clearRecentSearches } from "./features/recent-searches.js";
 import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
 import { animateSynopsis } from "./features/synopsis-motion.js";
@@ -1821,10 +1822,19 @@ let _modalClosePromptOpen = false;
 let _detailEditContext = null;
 let _saveInProgress = false;
 
-function openEditFromDetail(id) {
+async function openEditFromDetail(id) {
   const entry = State.entries.find(item => item.id === id);
   const detail = document.querySelector("#modal-overlay .detail-modal");
   if (!entry || !detail || _detailEditContext) return;
+  if (detail.querySelector('.reading-progress button[aria-busy="true"]')) {
+    toast("Enregistrement de la progression en cours…", "info");
+    return;
+  }
+  if (_modalDirty && detail.querySelector(".reading-progress")) {
+    const discard = await confirmDialog("Continuer sans enregistrer la progression ?", "Les pages saisies ne seront pas conservées.", "Continuer", "danger");
+    if (!discard || !detail.isConnected || _detailEditContext) return;
+    _modalDirty = false;
+  }
   _detailEditContext = {
     id,
     scrollTop: detail.querySelector(".detail-body")?.scrollTop || 0,
@@ -1855,7 +1865,7 @@ function returnToDetail() {
 }
 
 function markModalDirty() {
-  if (document.getElementById("modal-overlay") && (_wizardState || State.editingId)) _modalDirty = true;
+  if (document.getElementById("modal-overlay") && (_wizardState || State.editingId || document.querySelector(".reading-progress"))) _modalDirty = true;
 }
 
 function _captureWizardOpinion() {
@@ -1863,6 +1873,21 @@ function _captureWizardOpinion() {
   _wizardState.rating = _currentRating;
   _wizardState.favorite = document.getElementById("f-favorite")?.checked || false;
   _wizardState._status = document.getElementById("f-status")?.value || _wizardState._status || "finished";
+}
+
+function searchHistoryStorage() {
+  try { return window.localStorage; } catch { return null; }
+}
+function recentSearchesHTML() {
+  const items = recentSearches(searchHistoryStorage(), State.user?.id);
+  if (!items.length) return "";
+  return `<section class="recent-searches" aria-label="Recherches récentes">
+    <div class="recent-searches-heading"><span>Recherches récentes</span><button type="button" class="btn btn-ghost btn-sm" ${uiAction("clearSearchHistory")}>Effacer</button></div>
+    <div class="recent-searches-items">${items.map(query => `<button type="button" class="btn btn-secondary btn-sm" ${uiAction("useRecentSearch", [query])}>${esc(query)}</button>`).join("")}</div>
+  </section>`;
+}
+function rememberCurrentSearch() {
+  rememberSearch(searchHistoryStorage(), State.user?.id, document.getElementById("f-api-search")?.value);
 }
 
 function _renderWizard() {
@@ -1891,7 +1916,8 @@ function _renderWizard() {
         <span aria-hidden="true">⌕</span>
         <strong>Une seule recherche pour toute votre culture</strong>
         <small>Films, séries, jeux et livres</small>
-      </div>`;
+      </div>
+      <div id="recent-searches-slot" ${s.title ? "hidden" : ""}>${recentSearchesHTML()}</div>`;
   }
 
   else if (s.step === 2) {
@@ -2343,8 +2369,8 @@ function buildRatingStars(current) {
     const half = full - 1;
     const filledFull = current >= full;
     const filledHalf = current >= half && current < full;
-    const starColor = filledFull ? "var(--accent)" : "var(--star-empty)";
-    const halfColor = (filledFull || filledHalf) ? "var(--accent)" : "none";
+    const starColor = filledFull ? "var(--brand-gold)" : "var(--star-empty)";
+    const halfColor = (filledFull || filledHalf) ? "var(--brand-gold)" : "none";
     return `<span class="star-wrap">
         <svg viewBox="0 0 20 20" width="28" height="28" class="star-svg">
           <defs>
@@ -2431,8 +2457,8 @@ function previewRating(n) {
     const filledHalf = n >= half && n < full;
     const bg   = wrap.querySelector(".star-bg");
     const hf   = wrap.querySelector(".star-half-fill");
-    if (bg) bg.setAttribute("fill", filledFull ? "var(--accent)" : "var(--star-empty)");
-    if (hf) hf.setAttribute("fill", (filledFull || filledHalf) ? "var(--accent)" : "none");
+    if (bg) bg.setAttribute("fill", filledFull ? "var(--brand-gold)" : "var(--star-empty)");
+    if (hf) hf.setAttribute("fill", (filledFull || filledHalf) ? "var(--brand-gold)" : "none");
   });
   showRatingLabel(n);
 }
@@ -2476,6 +2502,8 @@ function setupWizardUniversalSearch() {
     clearTimeout(timer);
     const query = input.value.trim();
     const start = document.getElementById("wz-search-start");
+    const recent = document.getElementById("recent-searches-slot");
+    if (recent) recent.hidden = query.length > 0;
     if (_wizardState) _wizardState.title = query;
     if (query.length < 2) {
       activeController?.abort();
@@ -2500,24 +2528,30 @@ function setupWizardUniversalSearch() {
             <div class="wz-skeleton-result"><i></i><span><b></b><small></small></span></div>`).join("")}
         </div>`;
 
+      const failures = [];
       const requests = (normalizeISBN(query) ? ["book"] : ["movie", "game", "book"]).map(async type => {
         try {
-          const items = await searchMedia(query, type, { signal });
+          if (!apiAvailability()[type]) { failures.push(type); return []; }
+          const items = await searchMedia(query, type, { signal, throwOnError: true });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
         } catch {
+          if (!signal.aborted) failures.push(type);
           return [];
         }
       });
       const grouped = await Promise.all(requests);
       if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== query) return;
 
-      const items = grouped.flat().filter(item => !findMatchingEntry(item));
+      const allItems = grouped.flat();
+      const items = allItems.filter(item => !findMatchingEntry(item));
+      const unavailable = failures.map(type => ({movie: "films et séries", game: "jeux", book: "livres"})[type]).join(", ");
+      const emptyMessage = allItems.length ? "Les œuvres trouvées sont déjà dans votre bibliothèque." : failures.length ? "La recherche est incomplète. Réessayez dans quelques instants ou ajoutez votre œuvre manuellement." : `Aucun résultat pour « ${esc(query)} ». Essayez un titre plus court ou, pour un livre, son ISBN.`;
       window._apiResults = items;
       const resultItems = items.map((item, index) => {
         const coverUrl = safeMediaUrl(item.cover_url);
         return `
           <button type="button" class="api-result-item wz-universal-result" ${uiAction("fillFromApi", [index])}>
-            ${coverUrl ? `<img class="api-result-thumb" src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
+            ${coverUrl ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
             <span class="api-result-info">
               <strong class="api-result-title">${esc(item.title)}</strong>
               <small class="api-result-sub">${esc(getTypeLabel(item))}${item.release_year ? ` · ${esc(item.release_year)}` : ""}${item.author ? ` · ${esc(item.author)}` : ""}</small>
@@ -2525,7 +2559,8 @@ function setupWizardUniversalSearch() {
           </button>`;
       }).join("");
       animateHeightChange(results, () => { results.innerHTML = `
-        ${resultItems || `<div class="wz-search-empty">Aucun résultat précis pour « ${esc(query)} ».</div>`}
+        ${failures.length ? `<p class="wz-search-empty" role="status">Catalogue indisponible : ${esc(unavailable)}.</p>` : ""}
+        ${resultItems || `<div class="wz-search-empty" role="status">${emptyMessage}</div>`}
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
@@ -2535,10 +2570,17 @@ function setupWizardUniversalSearch() {
             <button type="button" ${uiAction("wzUseManualType", ["book"])}>${iconMedia("book")} Livres</button>
           </div>
         </div>`;
+        hydrateFadeImages(results);
       });
     }, immediate ? 0 : 320);
   };
 
+  input.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    rememberCurrentSearch();
+    scheduleSearch(true);
+  });
   input.addEventListener("input", () => scheduleSearch(false));
   input._kulturoSearch = () => scheduleSearch(true);
   if (input.value.trim().length >= 2 && !_wizardState?.apiSelected) scheduleSearch(true);
@@ -2577,7 +2619,7 @@ function setupApiSearch() {
       const { signal } = activeController;
       let items;
       try {
-        items = await searchMedia(q, type, { signal });
+        items = await searchMedia(q, type, { signal, throwOnError: true });
         if (type === "movie") items = items.filter(item => normalizedSubtype(item) === requestedSubtype);
       } catch (error) {
         if (signal.aborted || !input.isConnected || seq !== requestSeq) return;
@@ -2589,22 +2631,34 @@ function setupApiSearch() {
       if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== q ||
           (document.getElementById("f-type")?.value || "game") !== type ||
           document.getElementById("f-subtype")?.value !== requestedSubtype) return;
-      if (!items.length) { results.style.display = "none"; return; }
+      if (!items.length) {
+        window._apiResults = [];
+        results.style.display = "block";
+        results.innerHTML = `<div class="wz-search-empty" role="status">Aucun résultat. Essayez un autre titre${type === "book" ? " ou un ISBN" : ""}. Vous pouvez aussi conserver votre saisie.</div>`;
+        return;
+      }
       results.style.display = "block";
       animateHeightChange(results, () => { results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" ${uiAction("fillFromApi", [idx])}>
-          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb" src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
+          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>
           </div>
         </button>`).join("");
+        hydrateFadeImages(results);
       });
       // Stocker temporairement
       window._apiResults = items;
     }, immediate ? 0 : 350);
   };
 
+  input.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    rememberCurrentSearch();
+    scheduleSearch(true);
+  });
   input.addEventListener("input", () => scheduleSearch(false));
   input._kulturoSearch = () => scheduleSearch(true);
 }
@@ -2612,6 +2666,7 @@ function setupApiSearch() {
 function fillFromApi(idx) {
   const it = window._apiResults?.[idx];
   if (!it) return;
+  rememberCurrentSearch();
   markModalDirty();
 
   // Dans l'ajout compact, toucher un résultat ouvre directement la finalisation.
@@ -2696,6 +2751,7 @@ async function saveEntry() {
   // dans les actions rapides afin qu'un revisionnage soit compté une seule fois.
   const today = localISODate();
   const statusTransition = statusTransitionChanges(existing, payload.status, today);
+  if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "current_page")) payload.current_page = statusTransition.changes.current_page;
   if (statusTransition.changes.date_started) payload.date_started = statusTransition.changes.date_started;
   if (statusTransition.changes.date_finished) payload.date_finished = statusTransition.changes.date_finished;
   if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "repeat_count")) {
@@ -2723,6 +2779,8 @@ async function saveEntry() {
      "episodes_count", "air_status", "watch_providers", "developer", "publisher",
      "page_count", "isbn", "release_date"].forEach(field => { payload[field] = null; });
     payload.release_date_precision = "day";
+    if (existing.current_page != null && (selectedIdentityChanged || mediaType !== "book")) payload.current_page = null;
+    if (!selected && existing.media_type === "book" && mediaType === "book") payload.page_count = existing.page_count ?? null;
   }
 
   const duplicate = findMatchingEntry(payload, State.editingId);
@@ -2847,7 +2905,7 @@ async function deleteEntry(id) {
 
 // ── Modal helpers ─────────────────────────────────────────────
 async function closeModal(force = false, options = {}) {
-  if (_saveInProgress) {
+  if (_saveInProgress || document.querySelector('.reading-progress button[aria-busy="true"]')) {
     toast("Enregistrement en cours…", "info");
     return false;
   }
@@ -3683,7 +3741,7 @@ const RESTORE_FIELD_LABELS = Object.freeze({
   platform: "plateforme", description: "synopsis", directors: "réalisation",
   cast_members: "casting", duration: "durée", seasons_count: "saisons",
   episodes_count: "épisodes", watch_providers: "diffusion", developer: "studio",
-  publisher: "éditeur", page_count: "pages", isbn: "ISBN",
+  publisher: "éditeur", page_count: "pages", current_page: "page actuelle", isbn: "ISBN",
 });
 
 function restorePreviewDetails(plan) {
@@ -3911,6 +3969,7 @@ mediaDetailFeature = createMediaDetailFeature({
   launchConfetti,
   sameOwner,
   markModalPristine: () => { _modalDirty = false; },
+  isModalDirty: () => _modalDirty,
 });
 ({
   detailSessions,
@@ -4013,7 +4072,21 @@ window.UI = {
   openMetadataFromElement,
   openMetadataMedia,
   closeMetadataPanel,
+  useRecentSearch: query => {
+    const input = document.getElementById("f-api-search");
+    if (!input) return;
+    input.value = query;
+    input.focus({ preventScroll: true });
+    input._kulturoSearch?.();
+  },
+  clearSearchHistory: () => {
+    clearRecentSearches(searchHistoryStorage(), State.user?.id);
+    const slot = document.getElementById("recent-searches-slot");
+    if (slot) slot.innerHTML = "";
+    document.getElementById("f-api-search")?.focus({ preventScroll: true });
+  },
   retryDetailInfo: id => mediaDetailFeature.retryDetailInfo(id),
+  saveReadingProgress: id => mediaDetailFeature.saveReadingProgress(id),
   setEditDetailsView,
   closeModal,
   openEditFromDetail,
@@ -4279,6 +4352,7 @@ window.UI = {
 
   wzUseManualType: (type) => {
     if (!_wizardState) return;
+    rememberCurrentSearch();
     const typed = document.getElementById("f-api-search")?.value?.trim() || _wizardState.title;
     const next = selectManualAdd(_wizardState, typed, type);
     if (next === _wizardState) {

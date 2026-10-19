@@ -578,7 +578,7 @@ h3 { font-size: var(--type-title-sm); font-weight: 700; }
 .rating-score {
   display: inline-flex;
   align-items: center;
-  color: var(--accent);
+  color: var(--brand-gold);
   font-size: var(--type-control);
   font-weight: 800;
   font-variant-numeric: tabular-nums;

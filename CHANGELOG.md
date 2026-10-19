@@ -2,6 +2,16 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.3.0
+
+- Progression de lecture directement sur les livres En cours : page actuelle, total facultatif, pourcentage, validation et enregistrement local/cloud. La relecture repart à zéro ; atteindre la dernière page ne change pas automatiquement le statut.
+- Nouvelle colonne `current_page`, incluse dans la sauvegarde/restauration. Exécuter `migrations/4.3.0-reading-progress.sql` avant le déploiement.
+- Recherches récentes de l’ajout : six recherches choisies ou validées avec Entrée, stockées sur l’appareil, séparées par compte et effaçables.
+- Recherche : catalogue indisponible, zéro résultat et résultats déjà présents dans la bibliothèque distingués ; fondu commun pour les jaquettes.
+- Métadonnées : doublons de casse et d’espaces retirés à l’affichage. Notes personnelles dorées, y compris dans Modifier et les listes liées aux fiches.
+- Protection contre les réponses de catalogue tardives qui écrasaient la progression. Les champs de lecture restent montés pendant l’enrichissement.
+- Palette et logo de la sauvegarde conservés ; aucune modification générale des durées d’animation.
+
 ## 4.2.16
 
 - Profil : note moyenne dorée et total terminé vert, à la même taille que le compteur de replays/relectures.

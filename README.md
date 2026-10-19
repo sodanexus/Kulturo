@@ -31,7 +31,14 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.2.16
+## Version actuelle · 4.3.0
+
+**Avant de publier :** exécuter `migrations/4.3.0-reading-progress.sql` dans Supabase → SQL Editor. Cette migration ajoute la progression de lecture et adapte la restauration des sauvegardes. Aucun redéploiement d’Edge Function n’est nécessaire depuis la 4.2.16.
+
+Sur les livres **En cours**, saisir la page actuelle et, si connu, le total dans **Ma lecture**, puis **Enregistrer**. La progression fonctionne avec la synchronisation locale/cloud existante. Une relecture repart à zéro ; terminer un livre reste un choix explicite dans Modifier.
+
+L’ajout propose jusqu’à six recherches récentes, conservées uniquement sur cet appareil et séparées par compte. Elles sont mémorisées lorsqu’on choisit un résultat, un ajout manuel ou valide avec Entrée ; **Effacer** vide l’historique. Les messages de recherche distinguent les indisponibilités du catalogue des résultats absents.
+
 
 Reprise de la sauvegarde 4.2.11, sans changement de palette. Les livres n’affichent plus de notes externes ni de bloc de chargement dédié. Les genres Open Library sont filtrés et francisés, y compris sur les fiches existantes.
 

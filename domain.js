@@ -327,6 +327,7 @@ export function statusTransitionChanges(entry, nextStatus, today = localISODate(
   if (nextStatus === "playing" && !entry?.date_started && previousStatus !== "playing") {
     changes.date_started = today;
   }
+  if (repeatStarted && entry?.media_type === "book" && entry.current_page != null) changes.current_page = 0;
   if (repeatStarted && !entry?.date_finished) changes.date_finished = today;
 
   if (nextStatus === "finished") {

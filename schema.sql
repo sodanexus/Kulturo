@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
   developer       TEXT,
   publisher       TEXT,
   page_count      INTEGER,
+  current_page    INTEGER CHECK (current_page >= 0),
   isbn            TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -60,6 +61,7 @@ ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS watch_providers TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS developer TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS publisher TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS page_count INTEGER;
+ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS current_page INTEGER CHECK (current_page >= 0);
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS isbn TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS repeat_count SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS release_date DATE;
@@ -375,7 +377,7 @@ BEGIN
       subtype, genre, author, release_year, release_date, release_date_precision,
       platform, description, backdrop_url, directors, cast_members, duration,
       seasons_count, episodes_count, air_status, watch_providers, developer,
-      publisher, page_count, isbn, created_at
+      publisher, page_count, current_page, isbn, created_at
     ) VALUES (
       v_target_id, v_user, v_candidate.title, v_candidate.media_type,
       COALESCE(v_candidate.status, 'wishlist'), v_candidate.rating,
@@ -388,7 +390,7 @@ BEGIN
       v_candidate.description, v_candidate.backdrop_url, v_candidate.directors,
       v_candidate.cast_members, v_candidate.duration, v_candidate.seasons_count,
       v_candidate.episodes_count, v_candidate.air_status, v_candidate.watch_providers,
-      v_candidate.developer, v_candidate.publisher, v_candidate.page_count,
+      v_candidate.developer, v_candidate.publisher, v_candidate.page_count, v_candidate.current_page,
       v_candidate.isbn, COALESCE(v_candidate.created_at, NOW())
     ) RETURNING * INTO v_current;
 
@@ -448,6 +450,7 @@ BEGIN
       developer = v_candidate.developer,
       publisher = v_candidate.publisher,
       page_count = v_candidate.page_count,
+      current_page = v_candidate.current_page,
       isbn = v_candidate.isbn
     WHERE id = v_target_id AND user_id = v_user
     RETURNING * INTO v_current;

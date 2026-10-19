@@ -104,6 +104,7 @@ export const TMDb = {
       subtype:      "tv",
     });
 
+    if (options.throwOnError && movies.status === "rejected" && shows.status === "rejected") throw movies.reason;
     const movieResults = movies.status === "fulfilled" ? (movies.value.results || []).slice(0, 4).map(normalizeMovie) : [];
     const showResults  = shows.status  === "fulfilled" ? (shows.value.results  || []).slice(0, 4).map(normalizeShow)  : [];
 
@@ -806,6 +807,7 @@ export async function searchMedia(query, mediaType, options = {}) {
       default:      return [];
     }
   } catch (err) {
+    if (options.throwOnError) throw err;
     // On ignore les erreurs serveur (5xx) qui sont hors de notre contrôle
     if (err?.name === "AbortError") return [];
     if (!err.message?.includes("HTTP 5")) {
