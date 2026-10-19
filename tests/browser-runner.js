@@ -326,28 +326,27 @@ start.addEventListener("click", async () => {
   });
 
   for (const width of [390, 1120]) {
-    await test(`v4.3 : progression de lecture, sauvegarde et retour (${width}px)`, async () => {
+    await test(`Lecture discrète : Modifier et retour fiche (${width}px)`, async () => {
       await mount(width); await ready();
       const id = "11111111-1111-4111-8111-000000000018";
       action("openEditModal", [id]).click();
-      const input = await waitFor(() => doc.querySelector("#reading-current"), "Progression absente");
-      input.value = "186";
-      doc.querySelector("#reading-total").value = "320";
-      input.dispatchEvent(new win.Event("input", {bubbles:true}));
-      action("saveReadingProgress", [id]).click();
-      await waitFor(() => doc.querySelector("[data-reading-summary]")?.textContent === "58 %", "Progression non enregistrée");
-      assert(doc.querySelector("#reading-current") === input, "La saisie a été reconstruite");
-      assert(!doc.querySelector(".detail-external-section"), "Note externe sur un livre");
-      const fields = doc.querySelector(".reading-progress-fields");
-      assert(fields.scrollWidth <= fields.clientWidth + 1, "La progression déborde horizontalement");
+      await waitFor(() => doc.querySelector(".detail-modal"), "Fiche absente");
+      assert(!doc.querySelector(".reading-progress input"), "Saisie présente dans la fiche");
       await edit();
+      const input = doc.querySelector("#f-current-page");
+      input.value = "186";
+      doc.querySelector("#f-page-count").value = "320";
+      input.dispatchEvent(new win.Event("input", {bubbles:true}));
+      const row = doc.querySelector(".edit-reading");
+      assert(row.scrollWidth <= row.clientWidth + 1, "La saisie déborde");
+      action("saveEntry").click();
+      await waitFor(() => doc.querySelector(".detail-modal .reading-progress")?.textContent.includes("58 %"), "Progression absente");
+      assert(!doc.querySelector(".detail-modal input"), "Saisie dans la fiche");
+      await edit();
+      assert(doc.querySelector("#f-current-page").value === "186", "Progression perdue");
       [...doc.querySelectorAll(".edit-modal button")].find(button => button.textContent.trim() === "Annuler").click();
-      await waitFor(() => doc.querySelector("#reading-current"), "Retour fiche absent");
-      assert(doc.querySelector("#reading-current").value === "186", "Progression perdue au retour");
-      await closeDetail();
-      action("openEditModal", [id]).click();
-      await waitFor(() => doc.querySelector("#reading-current"), "Réouverture impossible");
-      assert(doc.querySelector("#reading-current").value === "186", "Progression perdue à la réouverture");
+      await waitFor(() => doc.querySelector(".detail-modal"), "Retour absent");
+      assert(doc.querySelector(".reading-progress").textContent.includes("186 / 320"), "Progression perdue au retour");
     });
   }
 
