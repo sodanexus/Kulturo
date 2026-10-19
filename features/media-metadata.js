@@ -14,7 +14,7 @@ export function metadataDefinition(kind) {
 
 export function splitMetadataValues(value) {
   if (Array.isArray(value)) {
-    return [...new Set(value.flatMap(splitMetadataValues).filter(Boolean))];
+    return uniqueMetadataValues(value.flatMap(splitMetadataValues));
   }
   if (value == null) return [];
   const raw = String(value).trim();
@@ -25,7 +25,17 @@ export function splitMetadataValues(value) {
       if (Array.isArray(parsed)) return splitMetadataValues(parsed);
     } catch {}
   }
-  return [...new Set(raw.split(/\s*(?:,|;|\|)\s*/).map(item => item.trim()).filter(Boolean))];
+  return uniqueMetadataValues(raw.split(/\s*(?:,|;|\|)\s*/));
+}
+
+function uniqueMetadataValues(values) {
+  const seen = new Set();
+  return values.map(value => String(value).trim().replace(/\s+/g, " ")).filter(value => {
+    const key = normalizeMetadataValue(value);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function normalizeMetadataValue(value) {

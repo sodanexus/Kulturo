@@ -34,6 +34,7 @@ const INTEGER_LIMITS = Object.freeze({
   seasons_count: [0, 2_147_483_647],
   episodes_count: [0, 2_147_483_647],
   page_count: [0, 2_147_483_647],
+  current_page: [0, 2_147_483_647],
 });
 const ALLOWED_FIELDS = new Set([
   "id", "title", "media_type", "status", "rating", "is_favorite", "repeat_count",
@@ -41,7 +42,7 @@ const ALLOWED_FIELDS = new Set([
   "subtype", "genre", "author", "release_year", "release_date", "release_date_precision",
   "platform", "description", "backdrop_url", "directors", "cast_members", "duration",
   "seasons_count", "episodes_count", "air_status", "watch_providers", "developer",
-  "publisher", "page_count", "isbn", "created_at",
+  "publisher", "page_count", "current_page", "isbn", "created_at",
 ]);
 
 function isUuid(value) {

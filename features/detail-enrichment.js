@@ -40,6 +40,9 @@ export function mergeDetailResponse(entry, updated, details = entry) {
     .filter(key => Array.isArray(details?.[key])).map(key => [key, details[key]]));
   const fields = Object.fromEntries(Object.entries(updated || {}).filter(([key]) =>
     !key.startsWith('_') && !['external_ratings', 'cast_people'].includes(key)));
-  Object.assign(entry, fields, transient);
+  // Une réponse catalogue partie avant une saisie ne rembobine pas la lecture.
+  const reading = Object.fromEntries(["current_page", "page_count"]
+    .filter(key => Object.prototype.hasOwnProperty.call(entry, key)).map(key => [key, entry[key]]));
+  Object.assign(entry, fields, transient, reading);
   return entry;
 }
