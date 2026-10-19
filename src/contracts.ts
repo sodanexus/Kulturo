@@ -11,6 +11,8 @@ export interface MediaEntry {
   subtype?: MediaSubtype;
   status: MediaStatus;
   rating?: number | null;
+  current_page?: number | null;
+  page_count?: number | null;
   is_favorite?: boolean;
   repeat_count?: number;
   cover_url?: string | null;
