@@ -531,7 +531,10 @@ export const TMDbDetails = {
     }));
 
     // Durée / saisons / épisodes
-    const duration       = ep === "movie" ? (d.runtime || null) : null;
+    // Films : durée du film. Séries : durée d'un épisode (le Profil la multiplie par episodes_count).
+    const duration       = ep === "movie"
+      ? (d.runtime || null)
+      : (d.episode_run_time?.find(Boolean) || d.last_episode_to_air?.runtime || d.next_episode_to_air?.runtime || null);
     const seasons_count  = ep === "tv" ? (d.number_of_seasons || null) : null;
     const episodes_count = ep === "tv" ? (d.number_of_episodes || null) : null;
 

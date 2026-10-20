@@ -68,3 +68,51 @@ export function repeatCountForPeriod(events, entries, year, month = "all", predi
   if (datedRepeats.length || (events || []).length) return datedRepeats.length;
   return [...byId.values()].reduce((sum, entry) => sum + Math.max(0, Number.parseInt(entry.repeat_count, 10) || 0), 0);
 }
+
+// ============================================================
+// Temps passé — films et jeux : durée connue ; séries : épisodes × durée d'un
+// épisode (45 min par défaut) ; livres : ≈ 40 pages/heure.
+// ============================================================
+const FALLBACK_FILM_MIN = 110;
+const FALLBACK_EPISODE_MIN = 45;
+const MINUTES_PER_PAGE = 1.5;
+
+export function watchTimeKey(entry) {
+  if (entry?.media_type === "movie") return entry.subtype === "tv" ? "tv" : "film";
+  return entry?.media_type === "game" || entry?.media_type === "book" ? entry.media_type : null;
+}
+
+export function entryWatchTime(entry) {
+  const key = watchTimeKey(entry);
+  const duration = Number(entry?.duration) > 0 ? Number(entry.duration) : 0;
+  if (key === "film") return { key, minutes: duration || FALLBACK_FILM_MIN, estimated: !duration };
+  if (key === "tv") {
+    const episodes = Number(entry.episodes_count) > 0 ? Number(entry.episodes_count) : 0;
+    return episodes ? { key, minutes: episodes * (duration || FALLBACK_EPISODE_MIN), estimated: true } : null;
+  }
+  if (key === "book") {
+    const pages = Number(entry.page_count) > 0 ? Number(entry.page_count) : 0;
+    return pages ? { key, minutes: Math.round(pages * MINUTES_PER_PAGE), estimated: true } : null;
+  }
+  if (key === "game") return duration ? { key, minutes: duration, estimated: true } : null;
+  return null;
+}
+
+// Les œuvres sans durée exploitable sont exclues du total et comptées dans `missing`.
+export function watchTimeByMedia(entries) {
+  const result = { film: 0, tv: 0, game: 0, book: 0, total: 0, missing: 0 };
+  for (const entry of entries || []) {
+    const time = entryWatchTime(entry);
+    if (!time) { result.missing++; continue; }
+    result[time.key] += time.minutes;
+    result.total += time.minutes;
+  }
+  return result;
+}
+
+export function formatWatchTime(minutes) {
+  const value = Math.round(Number(minutes) || 0);
+  if (value < 60) return `${value} min`;
+  const hours = value / 60;
+  return hours < 10 ? `${hours.toFixed(1).replace(".", ",")} h` : `${Math.round(hours)} h`;
+}

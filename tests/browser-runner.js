@@ -280,7 +280,8 @@ start.addEventListener("click", async () => {
     await waitFor(() => doc.querySelector(".community-event-row"), "Communauté non récupérée");
     action("navTo", ["dashboard"]).click();
     await waitFor(() => doc.querySelector(".profile-ratings-card"), "Profil absent après extraction");
-    assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-ratings-card"), "Histogramme mal placé");
+    assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-time-card"), "Répartition du temps mal placée");
+    assert(doc.querySelector(".profile-ratings-details .profile-ratings-card"), "Histogramme absent du bloc replié");
     action("setProfilePeriod", ["year"]).click();
     await waitFor(() => doc.querySelector(".profile-year-overview h2")?.textContent.includes("Votre année"), "Sélecteur annuel inactif");
   });

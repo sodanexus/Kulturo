@@ -1,9 +1,9 @@
 // Profil : périodes, statistiques, préférés et compte.
 import {
   entryActivityMonth, entryActivityYear, eventsForPeriod, isCompletionEvent,
-  isProfileTopEvent, latestEventMonth, replayProfileCopy, uniqueEntriesForEvents, yearMonthOf,
+  isProfileTopEvent, latestEventMonth, uniqueEntriesForEvents, yearMonthOf,
 } from "../domain.js";
-import { exploredGenres, repeatCountForPeriod } from "./insights.js";
+import { exploredGenres, formatWatchTime, repeatCountForPeriod, watchTimeByMedia } from "./insights.js";
 import { patchKeyedSurface } from "./dom-updates.js";
 import { errorState, loadingState, profileSkeleton, setButtonBusy } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
@@ -347,9 +347,10 @@ export function createProfileFeature({
     const dateScopedEntries = profileEntriesForPeriod(all, _profileYear, periodMonth);
     const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
     const periodEvents = State.journalAvailable ? eventsForPeriod(State.events, _profileYear, periodMonth) : [];
-    const scopedFinished = State.journalAvailable
-      ? uniqueEntriesForEvents(scopedEntries, periodEvents.filter(isCompletionEvent))
-      : scopedEntries.filter(entry => entry.status === "finished" && entry.date_finished);
+    const finishedOf = list => State.journalAvailable
+      ? uniqueEntriesForEvents(list, periodEvents.filter(isCompletionEvent))
+      : list.filter(entry => entry.status === "finished" && entry.date_finished);
+    const scopedFinished = finishedOf(scopedEntries);
     const scopedPlaying = scopedEntries.filter(entry => entry.status === "playing");
     const scopedWishlist = scopedEntries.filter(entry => entry.status === "wishlist");
     const scopedFavs = scopedEntries.filter(entry => entry.is_favorite);
@@ -378,37 +379,26 @@ export function createProfileFeature({
         }).join("")
       : `<div class="profile-inline-empty">Aucune œuvre terminée et notée en ${esc(periodLabel)}.</div>`;
 
-    const categories = [
-      { key: "film", label: "Films", icon: iconMedia("movie"), color: "var(--brand-coral)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "film")).length },
-      { key: "tv", label: "Séries", icon: iconMedia("movie", "tv"), color: "var(--brand-blue)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "tv")).length },
-      { key: "game", label: "Jeux", icon: iconMedia("game"), color: "var(--brand-teal)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "game")).length },
-      { key: "book", label: "Livres", icon: iconMedia("book"), color: "var(--brand-gold)", count: dateScopedEntries.filter(e => profileMediaMatches(e, "book")).length },
-    ];
-    const categoryMax = Math.max(...categories.map(category => category.count), 1);
-    const categoryHTML = categories.map(category => `
-      <button type="button" class="profile-category-row" ${uiAction("openProfileCollection", [category.key, _profileYear, periodMonth, category.key])}>
-        <span class="profile-category-icon" style="color:${category.color}" aria-hidden="true">${category.icon}</span>
-        <span class="profile-category-copy">
-          <span><strong>${category.label}</strong><em>${category.count}</em></span>
-          <span class="profile-category-track"><i style="width:${Math.round(category.count / categoryMax * 100)}%;background:${category.color}"></i></span>
-        </span>
-        <span class="profile-category-arrow" aria-hidden="true">→</span>
-      </button>`).join("");
-
     const scopedRepeatCount = repeatCountForPeriod(
       State.journalAvailable ? State.events : [],
       scopedEntries,
       _profileYear,
       periodMonth,
     );
-    const replayCopy = replayProfileCopy(_profileMedia, scopedRepeatCount);
+    const timeAll = watchTimeByMedia(finishedOf(dateScopedEntries));
+    const timeScoped = watchTimeByMedia(scopedFinished);
+    const timeHours = timeScoped.total / 60;
+    const TIME_MEDIA = [
+      ["film", "Films", "var(--brand-coral)"], ["tv", "Séries", "var(--brand-blue)"],
+      ["game", "Jeux", "var(--brand-teal)"], ["book", "Livres", "var(--brand-gold)"],
+    ];
+    const timeParts = TIME_MEDIA.filter(([key]) => timeAll[key] > 0);
+    const timeStackHTML = timeParts.map(([key, , color]) => `<i style="flex:${timeAll[key]};background:${color};opacity:${_profileMedia === "all" || _profileMedia === key ? 1 : .25}"></i>`).join("");
+    const timeLegendHTML = timeParts.map(([key, label, color]) => `
+      <button type="button" style="--c:${color}" ${uiAction("openProfileCollection", ["finished", _profileYear, periodMonth, key])}>${label} · ${formatWatchTime(timeAll[key])}</button>`).join("");
+    const timeNote = `Films : durée TMDb · séries : épisodes × durée d’épisode · livres : ≈ 40 pages/h${timeAll.missing ? ` · ${timeAll.missing} œuvre${timeAll.missing > 1 ? "s" : ""} sans durée connue exclue${timeAll.missing > 1 ? "s" : ""}` : ""}.`;
     const genreInsights = exploredGenres(scopedEntries, 6);
-    const maxGenreCount = Math.max(...genreInsights.map(item => item.count), 1);
-    const genresHTML = genreInsights.length ? genreInsights.map(item => `
-      <div class="profile-genre-row">
-        <span><strong>${esc(item.label)}</strong><em>${item.count}</em></span>
-        <span class="profile-genre-track"><i style="width:${Math.round(item.count / maxGenreCount * 100)}%"></i></span>
-      </div>`).join("") : `<p class="profile-inline-empty">Pas encore assez de genres renseignés sur cette période.</p>`;
+    const genresHTML = genreInsights.map(item => `<span class="profile-chip">${esc(item.label)}<b>${item.count}</b></span>`).join("");
 
     // Histogramme des notes (toutes années)
     const ratedAll      = all.filter(e => e.rating);
@@ -433,20 +423,16 @@ export function createProfileFeature({
     }).join("");
 
     const ratingsHTML = totalRated > 0 ? `
-      <section class="profile-dashboard-card profile-ratings-card" data-ui-key="profile-ratings">
-        <div class="rating-hist-header">
-          <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
-          <div class="rating-hist-meta">
-            <span class="rating-hist-total">${totalRated} notée${totalRated > 1 ? "s" : ""}</span>
-            ${avgRating ? `<span class="rating-hist-avg">moy. ${ratingScoreHTML(avgRating, "rating-average")}</span>` : ""}
-          </div>
+      <details class="profile-account-details profile-ratings-details" data-ui-key="profile-ratings">
+        <summary>
+          <span><strong>Notes · toutes années</strong><small>${totalRated} notée${totalRated > 1 ? "s" : ""}${avgRating ? ` · moy. ${avgRating}` : ""}</small></span>
+          <span aria-hidden="true">⌄</span>
+        </summary>
+        <div class="profile-account-body profile-ratings-card">
+          <div class="rating-hist">${ratingBars}</div>
+          <div class="rating-hist-legend"><span>★ 1/10</span><span>★ 10/10</span></div>
         </div>
-        <div class="rating-hist">${ratingBars}</div>
-        <div class="rating-hist-legend">
-          <span>★ 1/10</span>
-          <span>★ 10/10</span>
-        </div>
-      </section>` : "";
+      </details>` : "";
 
     const dashboardHTML = `
       <section class="profile-year-overview" data-ui-key="profile-overview">
@@ -469,69 +455,57 @@ export function createProfileFeature({
             ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" ${uiAction("setProfileMedia", [value])} aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
           </div>
         </div>
-        <div class="profile-year-summary">
-          <div class="profile-year-primary">
+        <div class="profile-kpis">
+          <button type="button" class="profile-kpi" ${uiAction("openProfileCollection", ["finished", _profileYear, periodMonth, _profileMedia])}>
+            <span>Terminés</span>
             <strong>${profileNumberHTML("finished", scopedFinished.length)}</strong>
-            <span>œuvre${scopedFinished.length > 1 ? "s" : ""} terminée${scopedFinished.length > 1 ? "s" : ""}</span>
-            <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""} au total sur cette période</small>
-          </div>
-          <div class="profile-year-secondary">
+            <small>${scopedEntries.length} suivi${scopedEntries.length > 1 ? "s" : ""}</small>
+          </button>
+          <div class="profile-kpi">
             <span>Note moyenne</span>
-            <strong>${scopedAverage === "—" ? "—" : profileNumberHTML("average", scopedAverage, { decimals: 1, prefix: "★ ", suffix: "/10" })}</strong>
-            <small>${scopedRated.length} œuvre${scopedRated.length > 1 ? "s" : ""} notée${scopedRated.length > 1 ? "s" : ""}</small>
+            <strong>${scopedAverage === "—" ? "—" : profileNumberHTML("average", scopedAverage, { decimals: 1, prefix: "★ " })}</strong>
+            <small>${scopedRated.length} notée${scopedRated.length > 1 ? "s" : ""}</small>
+          </div>
+          <div class="profile-kpi is-time">
+            <span>Temps passé</span>
+            <strong>${timeScoped.total ? profileNumberHTML("time", timeHours, { decimals: timeHours < 10 ? 1 : 0, suffix: " h" }) : "—"}</strong>
+            <small>${timeScoped.total ? (timeHours >= 24 ? `≈ ${(timeHours / 24).toFixed(1).replace(".", ",")} jours` : "temps cumulé") : "aucune durée connue"}</small>
+          </div>
+          <div class="profile-kpi">
+            <span>Relectures</span>
+            <strong>${profileNumberHTML("repeats", scopedRepeatCount)}</strong>
+            <small>revue${scopedRepeatCount > 1 ? "s" : ""}</small>
           </div>
         </div>
-        <div class="profile-action-grid">
+        <div class="profile-chip-row">
           ${[
-            ["finished", scopedFinished.length, "Terminés"],
             ["playing", scopedPlaying.length, "En cours"],
             ["favorite", scopedFavs.length, "Coups de cœur"],
             ["wishlist", scopedWishlist.length, "Envies"],
-          ].map(([key, value, label]) => `
-            <button type="button" class="profile-action-card" ${uiAction("openProfileCollection", [key, _profileYear, periodMonth, _profileMedia])}>
-              <span class="profile-action-icon" aria-hidden="true">${iconStatus(key)}</span>
-              <strong>${profileNumberHTML(`action-${key}`, value)}</strong>
-              <span>${label}</span>
-              <i aria-hidden="true">→</i>
-            </button>`).join("")}
+          ].map(([key, value, label]) => `<button type="button" class="profile-chip" ${uiAction("openProfileCollection", [key, _profileYear, periodMonth, _profileMedia])}>${label}<b>${profileNumberHTML(`action-${key}`, value)}</b></button>`).join("")}
         </div>
       </section>
 
+      <section class="profile-dashboard-card profile-time-card" data-ui-key="profile-time">
+        <div class="profile-card-heading">
+          <div><span class="section-eyebrow">Répartition du temps</span><h3>Où est passé votre temps</h3></div>
+          <span class="section-count">${timeAll.total ? formatWatchTime(timeAll.total) : ""}</span>
+        </div>
+        ${timeParts.length
+          ? `<div class="profile-time-stack">${timeStackHTML}</div><div class="profile-time-legend">${timeLegendHTML}</div><p class="profile-time-note">${esc(timeNote)}</p>`
+          : `<div class="profile-inline-empty">Terminez des œuvres avec une durée connue pour voir où va votre temps.</div>`}
+      </section>
+
+      <section class="profile-dashboard-card profile-top-section" data-ui-key="profile-top">
+        <div class="profile-card-heading">
+          <div><span class="section-eyebrow">Palmarès</span><h3>Top · ${esc(periodLabel)}</h3></div>
+          <span class="section-count">${topScoped.length} œuvre${topScoped.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div class="profile-top-track">${topHTML}</div>
+        ${genresHTML ? `<div class="profile-chip-row">${genresHTML}</div>` : ""}
+      </section>
+
       ${ratingsHTML}
-
-      <div class="profile-insights-grid" data-ui-key="profile-insights">
-        <section class="profile-dashboard-card profile-top-section">
-          <div class="profile-card-heading">
-            <div><span class="section-eyebrow">Vos préférés</span><h3>Top · ${esc(periodLabel)}</h3></div>
-            <span class="section-count">${topScoped.length} œuvre${topScoped.length !== 1 ? "s" : ""}</span>
-          </div>
-          <div class="profile-top-track">${topHTML}</div>
-        </section>
-
-        <section class="profile-dashboard-card profile-categories-section">
-          <div class="profile-card-heading">
-            <div><span class="section-eyebrow">Répartition</span><h3>Par catégorie</h3></div>
-            <span class="section-count">${dateScopedEntries.length} au total</span>
-          </div>
-          <div class="profile-category-list">${categoryHTML}</div>
-        </section>
-      </div>
-
-      <div class="profile-habits-grid" data-ui-key="profile-habits">
-        <section class="profile-dashboard-card profile-genres-section">
-          <div class="profile-card-heading">
-            <div><span class="section-eyebrow">Vos terrains</span><h3>Genres les plus explorés</h3></div>
-            <span class="section-count">${genreInsights.length} genre${genreInsights.length > 1 ? "s" : ""}</span>
-          </div>
-          <div class="profile-genre-list">${genresHTML}</div>
-        </section>
-        <section class="profile-dashboard-card profile-repeat-section">
-          <span class="section-eyebrow">${replayCopy.eyebrow}</span>
-          <div class="profile-repeat-value">${profileNumberHTML("repeats", scopedRepeatCount)}</div>
-          <h3>${replayCopy.noun}</h3>
-          <p>${replayCopy.description}</p>
-        </section>
-      </div>
 
       <details class="profile-account-details" data-ui-key="profile-account">
         <summary>
