@@ -1037,3 +1037,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   font-weight: 600;
 }
 .edit-modal .modal-footer .edit-delete-link:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Sans compteur « Revoir », le coup de cœur occupe toute la ligne. */
+.edit-avis-grid .edit-repeat-group[hidden] + .favorite-toggle { grid-column: 1 / -1; }

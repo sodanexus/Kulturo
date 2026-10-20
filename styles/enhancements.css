@@ -901,12 +901,51 @@ body.app-shell-active #main { overflow-x: clip; }
 .reading-progress { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .65rem; color: var(--text-2); font-size: var(--type-label); font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0,0,0,.65); }
 .reading-progress-track { flex: 0 0 44px; height: 3px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.18); }
 .reading-progress-track > span { display: block; height: 100%; background: var(--brand-teal); }
-.edit-reading { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .75rem 0; margin-bottom: .75rem; border-top: 1px solid var(--border); color: var(--text-2); font-size: var(--type-label); }
+/* Ma lecture : même gabarit que « Revoir » (libellé au-dessus, une tuile) et
+   pleine largeur de la grille Mon avis. */
 .edit-reading[hidden] { display: none; }
-.edit-reading > span:first-child { flex: 1; min-width: 75px; }
-.edit-reading input { width: 76px; min-height: 44px; padding: .5rem; text-align: center; font-size: 16px; }
-@media (max-width: 360px) { .edit-reading > span:first-child { flex-basis: 100%; } }
+.edit-avis-grid .edit-reading { grid-column: 1 / -1; }
+.edit-reading-tile {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 40px;
+  padding: 0 .85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--type-label);
+  font-variant-numeric: tabular-nums;
+}
+.edit-reading-tile:focus-within { border-color: var(--accent, var(--brand-coral)); }
+.edit-reading-tile input {
+  width: 4.2ch;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+.edit-reading-tile input:focus { outline: 0; box-shadow: none; }
+.edit-reading-tile input::placeholder { color: var(--text-3); font-weight: 400; }
+.edit-reading-unit { flex: 1; }
+.edit-reading-percent { color: var(--brand-teal); font-weight: 600; }
+.edit-reading-tile input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.edit-reading-tile input::-webkit-outer-spin-button, .edit-reading-tile input::-webkit-inner-spin-button { appearance: none; margin: 0; }
 .recent-searches { padding: .5rem 0; }
 .recent-searches-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--text-3); font-size: var(--type-label); }
 .recent-searches-items { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
 .recent-searches-items .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; min-height: 44px; }
+
+/* Séries : « Saison [2] / 4 · Épisode [5] » dans la même tuile que les pages. */
+.edit-series .edit-reading-unit { flex: 0 0 auto; }
+.edit-series .edit-reading-sep { margin: 0 .15rem; }
+.edit-series-total { flex: 0 0 auto; color: var(--text-3); }
+.edit-series-total:empty { display: none; }
+.edit-series .edit-reading-tile input { width: 3.2ch; }

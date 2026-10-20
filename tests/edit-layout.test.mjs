@@ -30,3 +30,11 @@ test("Modifier : Supprimer garde son action mais devient un lien à gauche du pi
 test("Modifier : sur mobile le focus initial ne tombe pas sur le sélecteur", () => {
   assert.match(app, /compactEdit \? "\.edit-modal \.modal-footer \.btn-secondary"/);
 });
+
+test("Ma lecture suit le gabarit de la grille Mon avis", () => {
+  const view = app.slice(app.indexOf('<div class="edit-primary-view">'), app.indexOf('class="edit-details-trigger"'));
+  assert.ok(view.indexOf('class="edit-avis-grid"') < view.indexOf('id="edit-reading"'));
+  assert.match(view, /<label for="f-current-page">Ma lecture<\/label>/);
+  assert.match(view, /class="edit-reading-tile"/);
+  assert.match(read("../styles/enhancements.css"), /\.edit-avis-grid \.edit-reading \{ grid-column: 1 \/ -1; \}/);
+});

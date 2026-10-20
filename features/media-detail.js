@@ -1,4 +1,4 @@
-import { readingProgress } from "./reading-progress.js";
+import { readingProgress, seriesProgress, isSeries } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
@@ -770,6 +770,7 @@ function renderDetailInfoHTML(e, options = {}) {
 }
 
 function readingProgressHTML(entry) {
+  if (isSeries(entry) && entry.status === "playing") return seriesProgressHTML(entry);
   if (entry.media_type !== "book" || entry.status !== "playing") return "";
   const { current, total, percent } = readingProgress(entry);
   if (current == null) return "";
@@ -777,6 +778,16 @@ function readingProgressHTML(entry) {
   return `<div class="reading-progress" aria-label="Progression de lecture : ${esc(label)}">
     ${percent == null ? "" : `<span class="reading-progress-track" aria-hidden="true"><span style="width:${percent}%"></span></span>`}
     <span>${esc(label)}</span>
+  </div>`;
+}
+
+function seriesProgressHTML(entry) {
+  const { season, episode, seasons, percent } = seriesProgress(entry);
+  if (season == null) return "";
+  const where = `Saison ${season}${seasons ? ` / ${seasons}` : ""}${episode != null ? ` · Épisode ${episode}` : ""}`;
+  return `<div class="reading-progress" aria-label="Progression : ${esc(where)}">
+    ${percent == null ? "" : `<span class="reading-progress-track" aria-hidden="true"><span style="width:${percent}%"></span></span>`}
+    <span>${esc(where)}</span>
   </div>`;
 }
 

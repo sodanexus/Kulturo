@@ -12,6 +12,8 @@ export interface MediaEntry {
   status: MediaStatus;
   rating?: number | null;
   current_page?: number | null;
+  current_season?: number | null;
+  current_episode?: number | null;
   page_count?: number | null;
   is_favorite?: boolean;
   repeat_count?: number;
