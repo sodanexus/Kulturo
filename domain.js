@@ -328,6 +328,12 @@ export function statusTransitionChanges(entry, nextStatus, today = localISODate(
     changes.date_started = today;
   }
   if (repeatStarted && entry?.media_type === "book" && entry.current_page != null) changes.current_page = 0;
+  // Une série revue repart sans progression (aucune saison ni épisode).
+  if (repeatStarted && entry?.media_type === "movie" && entry.subtype === "tv" &&
+      (entry.current_season != null || entry.current_episode != null)) {
+    changes.current_season = null;
+    changes.current_episode = null;
+  }
   if (repeatStarted && !entry?.date_finished) changes.date_finished = today;
 
   if (nextStatus === "finished") {

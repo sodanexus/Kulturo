@@ -1,4 +1,4 @@
-import { parseReadingProgress } from "./features/reading-progress.js";
+import { parseReadingProgress, parseSeriesProgress } from "./features/reading-progress.js";
 import { recentSearches, rememberSearch, clearRecentSearches } from "./features/recent-searches.js";
 import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
@@ -2073,14 +2073,28 @@ function _openModalClassic(entry) {
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>
-            <div class="edit-reading" id="edit-reading" hidden>
-              <span>Ma lecture</span>
-              <input id="f-current-page" type="number" min="0" step="1" inputmode="numeric" value="${entry.current_page ?? ""}" placeholder="Page" aria-label="Page actuelle" />
-              <span aria-hidden="true">/</span>
-              <input id="f-page-count" type="number" min="1" step="1" inputmode="numeric" value="${entry.page_count || ""}" placeholder="Total" aria-label="Nombre total de pages, facultatif" />
-              <span>pages</span>
-            </div>
             <div class="edit-avis-grid">
+            <div class="form-group edit-reading" id="edit-reading" hidden>
+              <label for="f-current-page">Ma lecture</label>
+              <div class="edit-reading-tile">
+                <input id="f-current-page" type="number" min="0" step="1" inputmode="numeric" value="${entry.current_page ?? ""}" placeholder="Page" aria-label="Page actuelle" />
+                <span class="edit-reading-sep" aria-hidden="true">/</span>
+                <input id="f-page-count" type="number" min="1" step="1" inputmode="numeric" value="${entry.page_count || ""}" placeholder="Total" aria-label="Nombre total de pages, facultatif" />
+                <span class="edit-reading-unit">pages</span>
+                <span class="edit-reading-percent" id="edit-reading-percent" aria-live="polite"></span>
+              </div>
+            </div>
+            <div class="form-group edit-reading edit-series" id="edit-series" hidden>
+              <label for="f-current-season">Ma progression</label>
+              <div class="edit-reading-tile">
+                <span class="edit-reading-unit">Saison</span>
+                <input id="f-current-season" type="number" min="1" step="1" inputmode="numeric" value="${entry.current_season ?? ""}" placeholder="–" aria-label="Saison en cours" />
+                <span class="edit-series-total" id="edit-series-total">${entry.seasons_count ? `/ ${entry.seasons_count}` : ""}</span>
+                <span class="edit-reading-sep" aria-hidden="true">·</span>
+                <span class="edit-reading-unit">Épisode</span>
+                <input id="f-current-episode" type="number" min="1" step="1" inputmode="numeric" value="${entry.current_episode ?? ""}" placeholder="–" aria-label="Épisode en cours" />
+              </div>
+            </div>
             <div class="form-group edit-repeat-group" id="edit-repeat" data-edit-repeat></div>
             <label class="toggle-row favorite-toggle">
               <span class="toggle-label">♥ Coup de cœur</span>
@@ -2145,6 +2159,7 @@ function _openModalClassic(entry) {
   _editRepeatDelta = 0;
   renderEditRepeat();
   syncEditReading();
+  ["f-current-page", "f-page-count"].forEach(id => document.getElementById(id)?.addEventListener("input", updateReadingPercent));
   document.getElementById("f-status")?.addEventListener("change", () => animateDialogUpdate(root.querySelector(".edit-modal"), () => { renderEditRepeat(); syncEditReading(); }));
   updateApiAvailLabel(entry.media_type || "movie");
   setupApiSearch();
@@ -2309,15 +2324,38 @@ function setupSynopsisTranslation() {
   refresh();
 }
 
+// Pourcentage affiché dans la tuile « Ma lecture », recalculé à la frappe.
+function updateReadingPercent() {
+  const target = document.getElementById("edit-reading-percent");
+  if (!target) return;
+  const current = Number.parseInt(document.getElementById("f-current-page")?.value, 10);
+  const total = Number.parseInt(document.getElementById("f-page-count")?.value, 10);
+  target.textContent = Number.isInteger(current) && current >= 0 && total > 0 && current <= total
+    ? `${Math.min(100, Math.round(current / total * 100))} %` : "";
+}
+
 function syncEditReading() {
   const row = document.getElementById("edit-reading");
   if (!row) return;
   const status = document.getElementById("f-status")?.value;
   row.hidden = document.getElementById("f-type")?.value !== "book" || status !== "playing";
+  const seriesRow = document.getElementById("edit-series");
+  if (seriesRow) {
+    const wasHidden = seriesRow.hidden;
+    seriesRow.hidden = !(document.getElementById("f-type")?.value === "movie" && document.getElementById("f-subtype")?.value === "tv" && status === "playing");
+    const entryNow = State.entries.find(item => item.id === State.editingId);
+    // Une série qui repasse En cours après un visionnage terminé repart de zéro.
+    if (!seriesRow.hidden && seriesRow.dataset.status !== "playing" && entryNow && statusTransitionChanges(entryNow, status).repeatStarted) {
+      document.getElementById("f-current-season").value = "";
+      document.getElementById("f-current-episode").value = "";
+    }
+    seriesRow.dataset.status = status;
+  }
   const entry = State.entries.find(item => item.id === State.editingId);
   const input = document.getElementById("f-current-page");
   if (!row.hidden && row.dataset.status !== "playing" && statusTransitionChanges(entry, status).repeatStarted) input.value = "0";
   row.dataset.status = status;
+  updateReadingPercent();
 }
 
 function syncEditDetailsSummary() {
@@ -2705,6 +2743,11 @@ function fillFromApi(idx) {
     const page = document.getElementById("f-current-page"), total = document.getElementById("f-page-count");
     if (page) page.value = "";
     if (total) total.value = it.page_count || "";
+    const seasonInput = document.getElementById("f-current-season"), episodeInput = document.getElementById("f-current-episode");
+    if (seasonInput) seasonInput.value = "";
+    if (episodeInput) episodeInput.value = "";
+    const seasonTotal = document.getElementById("edit-series-total");
+    if (seasonTotal) seasonTotal.textContent = it.seasons_count ? `/ ${it.seasons_count}` : "";
   }
   window._apiSelected = it;
   document.getElementById("api-results").style.display = "none";
@@ -2769,6 +2812,9 @@ async function saveEntry() {
   const today = localISODate();
   const statusTransition = statusTransitionChanges(existing, payload.status, today);
   if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "current_page")) payload.current_page = statusTransition.changes.current_page;
+  for (const field of ["current_season", "current_episode"]) {
+    if (Object.prototype.hasOwnProperty.call(statusTransition.changes, field)) payload[field] = statusTransition.changes[field];
+  }
   if (statusTransition.changes.date_started) payload.date_started = statusTransition.changes.date_started;
   if (statusTransition.changes.date_finished) payload.date_finished = statusTransition.changes.date_finished;
   if (Object.prototype.hasOwnProperty.call(statusTransition.changes, "repeat_count")) {
@@ -2797,6 +2843,11 @@ async function saveEntry() {
      "page_count", "isbn", "release_date"].forEach(field => { payload[field] = null; });
     payload.release_date_precision = "day";
     if (existing.current_page != null && (selectedIdentityChanged || mediaType !== "book")) payload.current_page = null;
+    if ((existing.current_season != null || existing.current_episode != null) &&
+        (selectedIdentityChanged || mediaType !== "movie" || mediaSubtype !== "tv")) {
+      payload.current_season = null;
+      payload.current_episode = null;
+    }
     if (!selected && existing.media_type === "book" && mediaType === "book") payload.page_count = existing.page_count ?? null;
   }
 
@@ -2808,6 +2859,18 @@ async function saveEntry() {
       setButtonBusy(saveBtn, false);
       toast(error.message, "error");
       readingInput.focus({ preventScroll: true });
+      return;
+    }
+  }
+
+  const seasonInput = document.getElementById("f-current-season");
+  if (seasonInput && mediaType === "movie" && mediaSubtype === "tv" && payload.status === "playing") {
+    try {
+      Object.assign(payload, parseSeriesProgress(seasonInput.value, document.getElementById("f-current-episode").value));
+    } catch (error) {
+      setButtonBusy(saveBtn, false);
+      toast(error.message, "error");
+      seasonInput.focus({ preventScroll: true });
       return;
     }
   }
@@ -3770,7 +3833,7 @@ const RESTORE_FIELD_LABELS = Object.freeze({
   platform: "plateforme", description: "synopsis", directors: "réalisation",
   cast_members: "casting", duration: "durée", seasons_count: "saisons",
   episodes_count: "épisodes", watch_providers: "diffusion", developer: "studio",
-  publisher: "éditeur", page_count: "pages", current_page: "page actuelle", isbn: "ISBN",
+  publisher: "éditeur", page_count: "pages", current_page: "page actuelle", current_season: "saison en cours", current_episode: "épisode en cours", isbn: "ISBN",
 });
 
 function restorePreviewDetails(plan) {

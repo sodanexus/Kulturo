@@ -31,9 +31,11 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.3.3
+## Version actuelle · 4.4.0
 
-**Avant de publier :** exécuter `migrations/4.3.0-reading-progress.sql` dans Supabase → SQL Editor. Cette migration ajoute la progression de lecture et adapte la restauration des sauvegardes. Aucun redéploiement d’Edge Function n’est nécessaire depuis la 4.2.16.
+Les séries En cours ont maintenant une **progression** comme les livres : saison et épisode, saisis dans Modifier (tuile « Ma progression », total des saisons affiché quand TMDb le connaît) et rappelés dans la fiche par « Saison 2 / 4 · Épisode 5 » avec une jauge de saison. Une série qui repasse En cours après un visionnage terminé repart sans progression.
+
+**Avant de publier :** exécuter `migrations/4.4.0-series-progress.sql` dans Supabase → SQL Editor. Cette migration ajoute la progression des séries (saison et épisode en cours) et adapte la restauration des sauvegardes. Aucun redéploiement d’Edge Function n’est nécessaire depuis la 4.2.16.
 
 Sur les livres **En cours**, ouvrir **Modifier**, saisir la page actuelle et, si connu, le total dans la ligne **Ma lecture**, puis **Enregistrer**. La fiche affiche seulement une fine jauge et les pages lues, sans bloc de saisie. La progression fonctionne avec la synchronisation locale/cloud existante. Une relecture repart à zéro ; terminer un livre reste un choix explicite dans Modifier.
 

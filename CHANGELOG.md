@@ -2,6 +2,19 @@
 
 [Revenir à la présentation](README.md)
 
+## 4.4.0
+
+- **Progression des séries** : saison et épisode en cours, saisis dans Modifier (tuile « Ma progression », même gabarit que « Ma lecture ») pour les séries En cours. La fiche affiche « Saison 2 / 4 · Épisode 5 » sous les badges, avec une jauge fine de la saison atteinte (TMDb ne fournit pas le nombre d'épisodes par saison : la jauge ne prétend pas mesurer l'avancement dans une saison).
+- Un épisode n'a de sens qu'avec sa saison ; saison de 1 à 999, épisode de 1 à 99 999 ; les deux champs restent facultatifs.
+- Une série qui repasse En cours après un visionnage terminé repart sans progression ; changer d'œuvre ou de type l'efface ; un catalogue tardif ne la remplace jamais. Incluse dans la sauvegarde / restauration.
+- Nouvelles colonnes `current_season` et `current_episode`. **Exécuter `migrations/4.4.0-series-progress.sql` dans Supabase → SQL Editor avant de déployer** (rejouable ; recrée aussi la restauration atomique pour qu'elle conserve la progression). Aucune Edge Function à redéployer.
+
+## 4.3.4
+
+- **Ma lecture** : même gabarit que « Revoir » et « Coup de cœur » — libellé au-dessus, une seule tuile arrondie pleine largeur dans la grille Mon avis (page / total / « pages »), champs sans cadre interne, pourcentage mis à jour à la frappe. Fini la ligne séparée par un trait avec de gros champs à droite.
+- Sans compteur « Revoir » (livre en cours sans relecture), le coup de cœur occupe toute la ligne.
+- Aucun SQL, aucune modification de fonction Supabase.
+
 ## 4.3.3
 
 - À reprendre : cartes alignées par le haut et espace de deux lignes réservé aux titres. Les pochettes et les types d’œuvre restent alignés quelle que soit la longueur du titre, sur mobile et desktop.
