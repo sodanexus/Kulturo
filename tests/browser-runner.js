@@ -281,7 +281,7 @@ start.addEventListener("click", async () => {
     action("navTo", ["dashboard"]).click();
     await waitFor(() => doc.querySelector(".profile-ratings-card"), "Profil absent après extraction");
     assert(doc.querySelector(".profile-year-overview").nextElementSibling.classList.contains("profile-time-card"), "Répartition du temps mal placée");
-    assert(doc.querySelector(".profile-ratings-details .profile-ratings-card"), "Histogramme absent du bloc replié");
+    assert(doc.querySelector(".profile-ratings-card .rating-hist"), "Histogramme absent du Profil");
     action("setProfilePeriod", ["year"]).click();
     await waitFor(() => doc.querySelector(".profile-year-overview h2")?.textContent.includes("Votre année"), "Sélecteur annuel inactif");
   });

@@ -423,16 +423,20 @@ export function createProfileFeature({
     }).join("");
 
     const ratingsHTML = totalRated > 0 ? `
-      <details class="profile-account-details profile-ratings-details" data-ui-key="profile-ratings">
-        <summary>
-          <span><strong>Notes · toutes années</strong><small>${totalRated} notée${totalRated > 1 ? "s" : ""}${avgRating ? ` · moy. ${avgRating}` : ""}</small></span>
-          <span aria-hidden="true">⌄</span>
-        </summary>
-        <div class="profile-account-body profile-ratings-card">
-          <div class="rating-hist">${ratingBars}</div>
-          <div class="rating-hist-legend"><span>★ 1/10</span><span>★ 10/10</span></div>
+      <section class="profile-dashboard-card profile-ratings-card" data-ui-key="profile-ratings">
+        <div class="rating-hist-header">
+          <h3 class="profile-section-title" style="margin:0">Notes · toutes années</h3>
+          <div class="rating-hist-meta">
+            <span class="rating-hist-total">${totalRated} notée${totalRated > 1 ? "s" : ""}</span>
+            ${avgRating ? `<span class="rating-hist-avg">moy. ${ratingScoreHTML(avgRating, "rating-average")}</span>` : ""}
+          </div>
         </div>
-      </details>` : "";
+        <div class="rating-hist">${ratingBars}</div>
+        <div class="rating-hist-legend">
+          <span>★ 1/10</span>
+          <span>★ 10/10</span>
+        </div>
+      </section>` : "";
 
     const dashboardHTML = `
       <section class="profile-year-overview" data-ui-key="profile-overview">
