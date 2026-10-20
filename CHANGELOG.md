@@ -294,7 +294,7 @@ Version de finition visuelle : bannière de fiche animée, survol des affiches u
 - Sorties : champ de recherche visible synchronisé lors des réinitialisations ; commandes et mois dans le flux, sans fond flottant.
 - Design : tailles et typographie communes des contrôles, cibles tactiles de 44 px pour ces contrôles, départ de page unifié, même icône Profil.
 - Accessibilité : boutons de fermeture conservés sur mobile, éléments summary inclus dans le cycle de focus des dialogues, retour en haut respectant le mouvement réduit.
-- Sept tests de régression ajoutés. Bilan et limites de l’audit dans AUDIT.md.
+- Sept tests de régression ajoutés. Bilan et limites de l’audit dans [docs/AUDIT-4.0.7.md](docs/AUDIT-4.0.7.md).
 
 ## 4.0.6
 
