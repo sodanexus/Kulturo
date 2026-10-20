@@ -1,14 +1,14 @@
 import { readingProgress, seriesProgress, isSeries } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
-import { motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
+import { prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
-  repeatProgressLabel, staleRepeatEvents, statusLabelFor, statusTransitionChanges,
+  repeatProgressLabel, staleRepeatEvents, statusLabelFor,
 } from "../domain.js";
 import {
   entriesForMetadata, metadataDefinition, metadataExternalLink, splitMetadataValues,
@@ -303,9 +303,7 @@ function renderDetailPanel(e, options = {}) {
   return detailSessionId;
 }
 
-
 // ── Mouvement de la fiche : défilement, note ─────────────────
-const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
 function formatRatingValue(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");

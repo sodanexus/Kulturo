@@ -30,8 +30,6 @@
     transform: none;
     filter: brightness(1.08);
   }
-  .profile-action-card:hover { border-color: var(--border-2); box-shadow: none; }
-  .profile-action-card:hover i { transform: none; }
   .btn-primary:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 1px 2px rgba(0,0,0,.3); }
 }
 :is(.btn, .btn-icon, .filter-chip, .category-tab, .upcoming-type-btn,
@@ -177,7 +175,6 @@ select { transition: background-color var(--motion-state), border-color var(--mo
 
 .journal-event-group-inner { transition: padding var(--motion-layout) var(--ease-interface); }
 
-
 /* L'affiche est déjà à sa place ; seule la fiche porte le mouvement. */
 @property --cover-ambient { syntax: "<color>"; inherits: true; initial-value: #333333; }
 @property --cover-ambient-soft { syntax: "<color>"; inherits: true; initial-value: #555555; }
@@ -226,14 +223,10 @@ select { transition: background-color var(--motion-state), border-color var(--mo
   animation-timing-function: var(--ease-interface);
 }
 .journal-event-group-chevron { transition-duration: var(--motion-layout); }
-.detail-synopsis-arriving, .detail-synopsis-leaving,
-.detail-info-arriving, .detail-info-leaving { animation-duration: var(--motion-content); }
 
 /* Une seule transition de navigation : aucun second départ de page après
    la disparition de data-view-transition, et aucun déplacement des affiches. */
 .page.active { animation: none; }
-@keyframes kulturo-page-out { to { opacity: 0; } }
-@keyframes kulturo-page-in { from { opacity: 0; } }
 .is-reveal-pending .profile-top-card { opacity: 1; transform: none; }
 .is-revealed .profile-top-card { animation: none; }
 @keyframes stableSurfaceIn { from { opacity: .7; } to { opacity: 1; } }
@@ -263,9 +256,7 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .detail-modal:not([data-dialog-changing]) .detail-body {
   animation: softContentIn var(--motion-content) var(--ease-fade) both;
 }
-.detail-synopsis-leaving { animation: softContentOut var(--motion-content) var(--ease-fade) both; }
 @keyframes softContentIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes softContentOut { from { opacity: 1; } to { opacity: 0; } }
 /* Les poignées, le balayage et les boutons Annuler restent disponibles. */
 @media (max-width: 680px) {
   :is(.modal-header, .wz-header, .metadata-sheet-header) .btn-icon[aria-label="Fermer"],
@@ -284,7 +275,6 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .detail-load-status { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; color: var(--text-3); font-size: var(--type-label); line-height: 1.6; }
 
 .detail-enrichment > * { flex-shrink: 0; }
-
 
 /* Le séquençage est porté par les blocs, sans double fondu sur leur parent. */
 .detail-modal[data-detail-stagger] .detail-body,

@@ -178,8 +178,3 @@ export function clearApiCache(predicate = null) {
     if (predicate(key)) responseCache.delete(key);
   }
 }
-
-export function apiCacheStats() {
-  pruneResponseCache();
-  return { cached: responseCache.size, pending: pendingRequests.size, limit: MAX_RESPONSE_CACHE_ENTRIES };
-}

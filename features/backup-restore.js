@@ -249,10 +249,6 @@ export function resolveBackupMatch(candidate, currentEntries = []) {
     : { match: null, conflict: true, candidates };
 }
 
-export function findBackupMatch(candidate, currentEntries = []) {
-  return resolveBackupMatch(candidate, currentEntries).match || null;
-}
-
 export function buildRestorePlan(backupEntries, currentEntries = []) {
   const plan = { added: [], updated: [], unchanged: [], conflicts: [], invalid: [] };
   const virtualEntries = currentEntries.map(entry => ({ ...entry }));

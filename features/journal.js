@@ -4,7 +4,7 @@ import { isClosedMonth, journalEventPresentation, normalizeSearchText, statusLab
 import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
 import { createJournalNavigation } from "./journal-navigation.js";
-import { emptyState, errorState, journalSkeleton, loadingState } from "./ui-states.js";
+import { emptyState, errorState, journalSkeleton } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 
 export function createJournalFeature({

@@ -1,0 +1,153 @@
+# Historique des validations
+
+[Revenir aux vérifications](../tests/README.md)
+
+Journaux de validation conservés tels qu’ils figuraient dans `tests/README.md`, du plus ancien au plus récent. Les nombres de tests cités sont ceux de l’époque ; `npm test` fait foi pour la version courante.
+
+## Contrôles de la modification UX initiale (4.0.2)
+
+- `npm test` : 66 tests réussis, dont cinq nouvelles régressions UX (recherche + filtres, ajout Série, URL, liens des livres et jeux).
+- `npm run check` : contrôle de syntaxe, cohérence des versions et tests techniques.
+- `npm run build` : build Vite et préparation du cache PWA réussis.
+- Interactions dans un DOM simulé (jsdom, IndexedDB simulé, doubles réseau fournis par le projet) : recherche combinée aux catégories/statuts ; ajout manuel d’une Série depuis une recherche vide avec conservation du titre ; enregistrement puis modification sans perdre le sous-type ; recherche Sorties indépendante, URL et réinitialisation. Aucune erreur JavaScript détectée sur ces parcours.
+- Vérification des déclarations TypeScript avec TypeScript 5.9.3 : réussie en contrôle complémentaire. Le compilateur natif 7.0.2 verrouillé par le projet ne peut pas démarrer dans cet environnement (`/proc/self/exe` indisponible). Cette vérification complémentaire ne remplace pas `npm run typecheck` avec la version officielle du projet.
+
+Les parcours du navigateur ont été enrichis dans `browser-runner.js`, mais n’ont pas pu être exécutés ici : aucun Chromium local disponible, téléchargement du navigateur inutilisable, et navigateur distant sans accès au serveur local. Le DOM simulé ne valide ni la mise en page, ni les gestes, ni le focus réel. Avant déploiement, exécuter `npm run verify` dans l’environnement habituel puis les parcours de `tests/browser.html` et vérifier Safari/iPhone/iPad. Les destinations externes sont vérifiées comme URLs produites par le code, pas comme pages consultées en direct.
+
+## Ajustements 4.0.3
+
+Le test des liens de livre vérifie maintenant qu’un seul lien « Chercher le livre » est proposé, même si des URLs d’extrait ou d’éditeur existent. Contrôles relancés : tests techniques, cohérence de version et build. L’alignement des en-têtes est corrigé dans la règle CSS commune ; validation visuelle sur navigateur réel toujours à effectuer, avec la Bibliothèque comme référence (mêmes limites d’environnement que ci-dessus).
+
+## Audit 4.0.7
+
+- 77 tests techniques et contrôles de syntaxe/version : réussis.
+- Sept tests de régression Journal/recherche ajoutés ; exécutés aussi avec `TZ=America/Los_Angeles` pour les dates sans heure.
+- Six parcours avec données fictives dans un DOM simulé : bibliothèque et recherche, Journal filtré, Communauté et clavier, Profil vers bibliothèque, Sorties et réinitialisation, fiche et sauvegarde du favori. Réussis, aucune erreur JavaScript remontée.
+- Build de production : réussi.
+- Contrôle TypeScript complémentaire 5.9.3 : réussi. La version native 7.0.2 reste celle du projet ; son exécution ici dépend de l’accès à `/proc/self/exe`, indisponible dans cet environnement.
+
+Ces contrôles ne sont pas une validation du rendu visuel ni des interactions sur un navigateur réel. Les parcours `browser-runner.js` ont été adaptés au champ de recherche partagé, mais n’ont pas été exécutés dans Safari/Chromium. Vérifier les pages à 390, 768 et 1120 px, les feuilles mobiles, le focus réel et le défilement. Connexion et services externes n’ont pas été testés en production. Détails : [AUDIT-4.0.7.md](AUDIT-4.0.7.md).
+
+## Ajustement 4.0.8
+
+Croix des fiches masquée sur mobile avec geste de fermeture ; sur desktop, icône discrète et espace réservé indépendant des notes dans la barre compacte. Seul `styles/finesse.css` change le rendu. Tests techniques et compilation vérifiés ; validation visuelle Safari/iPad et desktop à effectuer.
+
+Correctif de l’archive 4.0.8 : installation `npm ci --ignore-scripts` vérifiée avec un cache vierge après restauration des dépendances originales dans `package-lock.json`.
+
+## Journal 4.0.9
+
+81 tests techniques, compilation et contrôle de cohérence de version. Quatre tests supplémentaires couvrent le filtre par mois, la conservation des choix, l’indépendance des modes, le contrôle flottant et son focus. Sept parcours en DOM simulé passent, dont le changement de mois depuis le véritable sélecteur flottant (géométrie simulée). Le rendu et l’ouverture du sélecteur natif sur Safari/iOS restent à confirmer sur appareil réel.
+
+## Survol desktop 4.0.10
+
+Suppression des deux effets de projecteur, remplacés par une élévation et un contour sur la seule affiche ciblée. Changement visuel dans `styles/finesse.css`. 81 tests et compilation vérifiés ; aspect final à confirmer dans un navigateur réel.
+
+## Journal 4.0.11
+
+Suppression des pseudo-éléments de la frise et de l’animation `journalThread` dans `styles/finesse.css`. Tests techniques, cohérence de version et build de production vérifiés. Validation visuelle sur appareil réel non effectuée.
+
+## Interactions 4.0.12
+
+82 tests Node réussis, build Vite réussi, contrôle TypeScript via le moteur JS 5.9.3 (le binaire natif 7.0.2 ne fonctionne pas dans cet environnement). Sept parcours fonctionnels validés dans un DOM simulé : bibliothèque, journal, communauté/clavier, profil, sorties, édition, mois flottant. Aucune validation visuelle dans un navigateur réel pour cette livraison. Les dépendances du package-lock sont inchangées.
+
+## Synopsis 4.0.13
+
+Build Vite et contrôle TypeScript JS réussis. La réserve de lecture ne s’applique qu’au synopsis déplié et est recalculée au redimensionnement. Alignement visuel desktop/mobile à confirmer en navigateur réel.
+
+## Fluidité 4.0.14
+
+88 tests Node validés, dont navigation concurrente, inversion de hauteur, fermeture depuis l’état visible, geste intentionnel et restauration des boutons. Huit parcours fonctionnels vérifiés dans un DOM simulé, dont le synopsis déplié/replié. Build Vite et TypeScript JS 5.9.3 validés ; le compilateur natif 7.0.2 reste indisponible dans cet environnement. Les animations, leurs performances et les gestes doivent encore être examinés sur de vrais navigateurs et téléphones. Les dépendances sont inchangées.
+
+## Retour de synopsis 4.0.15
+
+88 tests Node et huit parcours simulés validés. Le scénario synopsis vérifie désormais le retour du scroll à zéro après Voir moins. Build Vite et contrôle TypeScript JS 5.9.3 validés. Fluidité visuelle à confirmer sur appareil réel.
+
+## Couleurs et ouverture 4.0.16
+
+94 tests Node et huit parcours DOM simulés validés. Tests de couleur sur échantillons synthétiques : monochrome, transparence, détail saturé, fond nuancé. Build Vite et contrôle TypeScript JS 5.9.3 validés. Aucune vérification visuelle sur navigateur ou téléphone réel ; rendu sur des pochettes réelles et fluidité à confirmer. Dépendances inchangées.
+
+## Synopsis synchronisé 4.0.17
+
+104 tests Node réussis, dont progression commune hauteur/défilement et inversion à mi-parcours. Huit parcours DOM simulés réussis. Build Vite et contrôle TypeScript via JS 5.9.3 validés. Vérification visuelle sur navigateur réel non effectuée ; fluidité et survol à confirmer sur appareil. Dépendances inchangées.
+
+## Texte progressif 4.0.18
+
+104 tests Node réussis, avec vérification de la hauteur du texte à mi-parcours et lors de l’inversion. Huit parcours DOM simulés réussis. Build Vite et TypeScript JS 5.9.3 validés. Rendu visuel à confirmer sur appareil réel.
+
+## Rythme uniforme 4.0.19
+
+106 tests Node réussis, huit parcours DOM simulés validés, build Vite et contrôle TypeScript JS 5.9.3 réussis. Fluidité, mise en page pendant le changement fiche/édition et gestes tactiles à confirmer dans de vrais navigateurs. Dépendances inchangées.
+
+## Survol et arrivée de page 4.0.20
+
+106 tests Node, huit parcours DOM simulés et build Vite réussis. Contrôle TypeScript JS 5.9.3 validé. Causes CSS identifiées et corrigées ; le sursaut visuel signalé n’a pas été reproduit dans un navigateur réel. Validation visuelle à confirmer sur appareil.
+
+## Durées 4.0.21
+
+106 tests Node et build Vite validés, contrôle TypeScript JS 5.9.3 réussi. Les tests du synopsis vérifient le milieu et la fin de la nouvelle durée de 280 ms, y compris en cas d’inversion. Vérification visuelle sur appareil réel non effectuée.
+
+## Retours de fenêtres 4.0.22
+
+108 tests Node réussis, dont remplacement dans les deux sens et abandon des panneaux obsolètes. Neuf parcours DOM simulés validés, dont Annuler, Echap et sauvegarde. Build Vite et contrôle TypeScript JS 5.9.3 réussis. Animation et géométrie réelles à confirmer sur appareil.
+
+## Sélecteur mobile 4.1.0
+
+109 tests Node réussis, dont fermeture du focus tactile, conservation des options et retour au sommet. Build Vite et contrôle TypeScript JS 5.9.3 validés. Le menu natif mobile reste à vérifier sur téléphone réel.
+
+
+## Vérifications 4.2.2
+
+- Suite native, contrôles de publication, compilation Vite et contrôle TypeScript (compilateur JS 5.9.3 dans l'environnement de validation).
+- 11 parcours DOM simulés : bibliothèque, journal, communauté, profil, sorties, édition/enregistrement, mois flottant, synopsis, retour Annuler/Échap, sélection/retour de recherche catalogue et ajout manuel.
+- Tests de navigation sans View Transitions, échec de l'API native, réduction des mouvements ; dimensions de modale dans les deux sens et interruption du synopsis.
+- Contrastes calculés des trois couleurs de texte sur #222631 : 13,51:1, 8,48:1 et 5,97:1. Les images, badges et états désactivés ne sont pas inclus dans ces mesures.
+- La fluidité visuelle et les bannières doivent encore être appréciées dans un navigateur réel et sur mobile ; les parcours simulés ne valident pas le rendu graphique.
+
+
+## Vérifications 4.2.4
+
+- Tests natifs : jaquettes en cache, décodage, changement de source et images détachées ; cache réseau rafraîchi ; notes et captures IGDB des éditions, valeurs invalides et réduction des mouvements.
+- 11 parcours DOM simulés en mouvement réduit et 12 en mouvement actif. Le parcours supplémentaire vérifie les appels d'animation de Modifier → Annuler → fiche avec des rectangles simulés distincts (640 × 760 et 560 × 620).
+- Compilation Vite et TypeScript JS 5.9.3 ; dépendances du projet conservées. Syntaxe de la fonction Supabase contrôlée par transpilation TypeScript, pas d'exécution Deno distante.
+- Limites : aucune validation visuelle dans un navigateur réel, aucun appel au service IGDB de production. Le rendu des fondus et le retour sur mobile doivent être confirmés sur appareil réel.
+
+
+## Validation 4.2.4
+
+- 139 tests techniques réussis, dont rapprochement strict des jeux et protection des notes contre une réponse de sauvegarde obsolète.
+- 13 parcours jsdom réussis avec IndexedDB et catalogues simulés : navigation, ajout, recherche, synopsis, édition, annulation, redimensionnement aller/retour et arrivée des notes après la transition de hauteur.
+- Le scénario d’enrichissement utilise des identifiants fictifs pour Alan Wake 2 / II et L.A. Noire. Il vérifie le comportement du code, pas les réponses du service IGDB déployé ni les identifiants des fiches de l’utilisateur.
+- Build Vite et contrôle TypeScript de secours validés ; le compilateur natif verrouillé reste indisponible dans cet environnement. Le rendu réel, les gestes mobiles et la perception du fondu doivent être vérifiés sur appareil.
+
+
+## Validation 4.2.5
+
+- 141 tests techniques réussis. Le proxy IGDB est exécuté avec des réponses simulées pour vérifier le repli par titre exact, le classement, la déduplication et le maintien des résultats lorsque le repli échoue.
+- 14 parcours jsdom réussis, dont enrichissement asynchrone et conservation du synopsis déplié, de son nœud et du scroll lorsque seules les notes changent.
+- Séquence de fondus vérifiée par capture des appels d’animation : opacité seule, départs décalés de 75 ms et durée partagée de 420 ms. Réduction des animations système conservée.
+- Build et contrôle TypeScript de secours réussis. Ces simulations ne valident pas le rendu sur appareil réel ni la réponse IGDB de production pour Returnal.
+
+
+## Validation 4.2.6
+
+141 tests techniques et 14 parcours jsdom réussis. Le cas de traduction tardive remplace les données de description par un texte différent en même temps que les notes : le nœud du synopsis visible, son HTML, son état déplié et le scroll restent identiques. Le premier chargement d’un synopsis absent conserve son fondu. Build et contrôle TypeScript de secours validés ; validation visuelle sur appareil réel restant nécessaire.
+
+
+## Validation 4.4.0
+
+- 144 tests techniques : clés ISBN-10/13 (dont X), séparateurs, titres français/latins et protection des synopsis personnels.
+- Module API réel testé avec réponses Open Library simulées : ISBN de Nijigahara Holograph, titre français, auteur, identifiant d’œuvre, pages et ISBN conservés.
+- 15 parcours jsdom, dont saisie d’un synopsis contenant des caractères HTML, sauvegarde et réouverture dans Modifier.
+- Build et contrôle TypeScript de secours validés. Les réponses des services réels, le rendu et les gestes sur appareil ne sont pas couverts par ces simulations.
+
+## Validation du nettoyage livres 4.4.0
+
+160 tests Node et 12 parcours simulés jsdom validés. Contrôle TypeScript avec le compilateur JS disponible dans l’environnement, puis build Vite validé. Les parcours simulés ne remplacent pas un contrôle visuel sur appareil réel.
+
+## Validation v4.4.0
+
+- 168 tests Node : progression, limites de saisie, relecture, réponse catalogue tardive, sauvegardes, synchronisation hors ligne, historique de recherche et métadonnées.
+- 15 parcours jsdom simulés avec API/Supabase factices : bibliothèque, journal, profil, sorties, recherche, ajout, Modifier/Annuler, synopsis, progression et erreurs de recherche.
+- Contrôle TypeScript avec le compilateur JavaScript disponible dans l’environnement ; build Vite et archive validés.
+- Les deux parcours lecture 390/1120px ajoutés à `tests/browser-runner.js` sont fournis pour validation dans un navigateur réel ; ils n’ont pas été exécutés ici. Le lancement du navigateur automatisé est bloqué dans l’environnement. Safari/iOS, gestes et rendu réel restent à contrôler.
+- Migration SQL relue mais non exécutée sur une instance PostgreSQL/Supabase ici. Aucun accès aux données réelles.

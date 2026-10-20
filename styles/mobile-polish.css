@@ -2,9 +2,6 @@
    Finitions mobiles, transitions de fiches et métadonnées
    ============================================================ */
 
-.detail-meta-row-links { align-items: flex-start; }
-.detail-meta-links { display: flex; flex-wrap: wrap; gap: .3rem; }
-
 .detail-meta-link {
   display: inline-flex;
   align-items: center;
@@ -167,8 +164,6 @@
     pointer-events: none;
     transform: translateX(-50%);
   }
-  .detail-meta-row-links { flex-direction: column; gap: .28rem; }
-  .detail-meta-row-links .detail-meta-label { min-width: 0; }
   .detail-meta-link { min-height: 34px; }
 
   .metadata-overlay { align-items: flex-end; padding: 0 var(--safe-right) 0 var(--safe-left); }

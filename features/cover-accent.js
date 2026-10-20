@@ -52,16 +52,6 @@ function rememberAccent(key, accent) {
   persistAccentCache();
 }
 
-export function resetCoverAccentCache() {
-  accentCache.clear();
-  storageHydrated = true;
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.removeItem(ACCENT_CACHE_STORAGE_KEY);
-    localStorage.setItem(ACCENT_CACHE_VERSION_KEY, ACCENT_CACHE_VERSION);
-  } catch {}
-}
-
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }

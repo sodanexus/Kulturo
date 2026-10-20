@@ -5,8 +5,9 @@ import {
 } from "../domain.js";
 import { exploredGenres, formatWatchTime, repeatCountForPeriod, watchTimeByMedia } from "./insights.js";
 import { morphKeyedSurface, syncSegmentedPills } from "./dom-morph.js";
-import { errorState, loadingState, profileSkeleton, setButtonBusy } from "./ui-states.js";
+import { errorState, profileSkeleton, setButtonBusy } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
+import { prefersReducedMotion } from "./motion.js";
 export const LAST_BACKUP_KEY = "kulturo-last-backup";
 
 export function formatLastBackup() {
@@ -51,7 +52,6 @@ export function createProfileFeature({
     return `<span class="profile-animated-number" data-profile-number="${esc(key)}" data-profile-value="${numeric}" data-profile-decimals="${decimals}" data-profile-prefix="${esc(options.prefix || "")}" data-profile-suffix="${esc(options.suffix || "")}">${esc(options.prefix || "")}${display}${esc(options.suffix || "")}</span>`;
   }
 
-  const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
   const REVEAL_SELECTOR = ".profile-year-overview, .profile-dashboard-card";
   // Départ des compteurs en attente de leur entrée à l'écran (WeakMap : aucun
   // attribut ajouté au DOM, donc rien qui perturbe la comparaison des blocs).

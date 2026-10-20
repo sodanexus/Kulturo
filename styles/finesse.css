@@ -139,12 +139,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
 }
 .continue-section:hover { border-color: var(--border-2); }
-.profile-action-card { transition: transform .4s var(--ease-expo), border-color .25s, background-color .25s, box-shadow .4s var(--ease-expo); }
-@media (hover: hover) and (pointer: fine) {
-  .profile-action-card:hover { transform: translateY(-3px); box-shadow: 0 18px 36px -18px rgba(0, 0, 0, .7); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
-  .profile-action-card:hover i { transform: translateX(3px); }
-}
-.profile-action-card i { transition: transform .35s var(--ease-expo); }
 
 /* ── Chargement initial : le logo respire ─────────────────── */
 .boot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; min-height: 100vh; min-height: 100dvh; }
@@ -161,7 +155,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .boot-mark, .boot-line::after, .boot-text { animation: none; }
   .media-card.is-tilting .card-cover, .continue-card.is-tilting .continue-cover { transform: none; }
 }
-
 
 /* ============================================================
    Passe 2 — transitions, révélation des images, fiche en ambiance
@@ -281,7 +274,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   /* Appui franc sur une affiche ou une carte « En cours ». */
   .continue-card:active .continue-cover { transform: scale(var(--media-press-scale)); transition: transform .12s var(--ease-smooth); }
   .continue-cover { transition: transform .45s var(--ease-expo); }
-  .profile-action-card:active { transform: scale(.98); }
 }
 
 /* Écrans tactiles : le plus économe en mémoire.
@@ -502,20 +494,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .detail-modal.has-more-below .modal-footer::before { opacity: 1; }
 
-/* Statut : rebond du bouton qui devient actif. */
-@keyframes quickStatusPop {
-  0%   { transform: scale(.92); }
-  45%  { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-@keyframes quickStatusIcon {
-  0%   { transform: scale(.6) rotate(-14deg); }
-  60%  { transform: scale(1.25) rotate(4deg); }
-  100% { transform: scale(1) rotate(0); }
-}
-.quick-status-btn.is-pop { animation: quickStatusPop .42s var(--ease-spring) both; }
-.quick-status-btn.is-pop > span[aria-hidden="true"] { display: inline-flex; animation: quickStatusIcon .5s var(--ease-spring) both; }
-
 /* Note : l'étoile pop, un 10/10 s'illumine. */
 .detail-rating .rating-star { display: inline-block; margin-right: .22em; transform-origin: 50% 55%; }
 .detail-rating .rating-num { font-variant-numeric: tabular-nums; }
@@ -573,9 +551,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .rating-hist-col:nth-child(8), .profile-top-card:nth-child(8) { --ri: 7; }
 .rating-hist-col:nth-child(9), .profile-top-card:nth-child(9) { --ri: 8; }
 .rating-hist-col:nth-child(10), .profile-top-card:nth-child(10) { --ri: 9; }
-
-.is-reveal-pending .profile-category-track i,
-.is-reveal-pending .profile-genre-track i { transform: scaleX(0); animation: none; }
 .is-reveal-pending .rating-hist-bar { transform: scaleY(0); animation: none; }
 .is-reveal-pending :is(.profile-top-card, .profile-action-card, .profile-category-row, .profile-genre-row) {
   opacity: 0;
@@ -585,11 +560,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 @keyframes statRise {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-.is-revealed .profile-category-track i,
-.is-revealed .profile-genre-track i {
-  transform-origin: left center;
-  animation: barGrowX .8s var(--ease-out) calc(var(--ri, 0) * 70ms + 120ms) both;
 }
 .is-revealed .rating-hist-bar {
   transform-origin: center bottom;
@@ -703,7 +673,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   }
 }
 
-
 /* ============================================================
    Lumière au curseur : sur toutes les affiches
    « À reprendre » avait la lueur dans la jaquette même. Ailleurs elle était
@@ -763,7 +732,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .media-card:not(.upcoming-card)::after { transition: background .35s var(--ease-expo); }
 }
-
 
 /* ============================================================
    Bannière vivante : dérive lente de l'image et fondu enchaîné
