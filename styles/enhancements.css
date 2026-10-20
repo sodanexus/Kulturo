@@ -966,9 +966,29 @@ button.profile-kpi:hover { border-color: color-mix(in srgb, var(--brand-teal) 42
 button.profile-chip { cursor: pointer; transition: border-color var(--motion-fast) ease; }
 button.profile-chip:hover { border-color: var(--text-3); }
 .profile-time-stack { display: flex; gap: 2px; height: 10px; margin: .2rem 0 .85rem; overflow: hidden; border-radius: 999px; }
-.profile-time-stack i { display: block; min-width: 4px; transition: opacity var(--motion-fast) ease; }
+.profile-time-stack i { display: block; min-width: 0; transition: flex-grow .7s var(--ease-smooth), margin .7s var(--ease-smooth), opacity .35s ease; }
+.profile-time-stack i.is-empty { margin-left: -2px; }
+.profile-time-legend button { transition: opacity .35s ease; }
+.profile-time-legend button.is-empty { opacity: .4; }
 .profile-time-legend { display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
 .profile-time-legend button { display: inline-flex; align-items: center; gap: .4rem; padding: 0; border: 0; background: none; color: var(--text-3); font: inherit; font-size: var(--type-caption); cursor: pointer; }
 .profile-time-legend button::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 .profile-time-note { margin: .75rem 0 0; color: var(--text-3); font-size: var(--type-caption); }
 @media (max-width: 560px) { .profile-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Profil : transitions en douceur (période, mois, média) */
+.profile-month-inline { max-width: 12rem; overflow: hidden; transition: max-width .42s var(--ease-smooth), min-width .42s var(--ease-smooth), margin .42s var(--ease-smooth), padding .42s var(--ease-smooth), opacity .3s ease, border-color .3s ease; }
+.profile-month-inline.is-collapsed { max-width: 0; min-width: 0; margin-left: -.4rem; padding-right: 0; padding-left: 0; border-color: transparent; opacity: 0; pointer-events: none; }
+.profile-period-switch, .profile-media-switch { position: relative; isolation: isolate; }
+.profile-period-switch.has-pill::before, .profile-media-switch.has-pill::before {
+  content: ""; position: absolute; top: 0; left: 0; z-index: -1; width: var(--pill-w); height: var(--pill-h);
+  transform: translate(var(--pill-x), var(--pill-y));
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  border-radius: var(--control-radius-inner, var(--radius-pill)); background: var(--accent-glow);
+  box-shadow: 0 2px 10px rgba(0,0,0,.14);
+}
+.profile-period-switch.is-pill-ready::before, .profile-media-switch.is-pill-ready::before { transition: transform .46s var(--ease-smooth), width .46s var(--ease-smooth), height .46s var(--ease-smooth); }
+.profile-period-switch.has-pill > button.active, .profile-media-switch.has-pill > button.active { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .profile-month-inline, .profile-time-stack i, .profile-period-switch::before, .profile-media-switch::before { transition: none !important; }
+}

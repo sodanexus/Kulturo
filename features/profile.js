@@ -4,7 +4,7 @@ import {
   isProfileTopEvent, latestEventMonth, uniqueEntriesForEvents, yearMonthOf,
 } from "../domain.js";
 import { exploredGenres, formatWatchTime, repeatCountForPeriod, watchTimeByMedia } from "./insights.js";
-import { patchKeyedSurface } from "./dom-updates.js";
+import { morphKeyedSurface, syncSegmentedPills } from "./dom-morph.js";
 import { errorState, loadingState, profileSkeleton, setButtonBusy } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 export const LAST_BACKUP_KEY = "kulturo-last-backup";
@@ -393,9 +393,9 @@ export function createProfileFeature({
       ["game", "Jeux", "var(--brand-teal)"], ["book", "Livres", "var(--brand-gold)"],
     ];
     const timeParts = TIME_MEDIA.filter(([key]) => timeAll[key] > 0);
-    const timeStackHTML = timeParts.map(([key, , color]) => `<i style="flex:${timeAll[key]};background:${color};opacity:${_profileMedia === "all" || _profileMedia === key ? 1 : .25}"></i>`).join("");
-    const timeLegendHTML = timeParts.map(([key, label, color]) => `
-      <button type="button" style="--c:${color}" ${uiAction("openProfileCollection", ["finished", _profileYear, periodMonth, key])}>${label} · ${formatWatchTime(timeAll[key])}</button>`).join("");
+    const timeStackHTML = TIME_MEDIA.map(([key, , color]) => `<i class="${timeAll[key] > 0 ? "" : "is-empty"}" style="flex:${timeAll[key]} 1 0%;background:${color};opacity:${_profileMedia === "all" || _profileMedia === key ? 1 : .25}"></i>`).join("");
+    const timeLegendHTML = TIME_MEDIA.map(([key, label, color]) => `
+      <button type="button" class="${timeAll[key] > 0 ? "" : "is-empty"}" style="--c:${color}" ${uiAction("openProfileCollection", ["finished", _profileYear, periodMonth, key])}>${label} · ${timeAll[key] > 0 ? formatWatchTime(timeAll[key]) : "—"}</button>`).join("");
     const timeNote = `Films : durée TMDb · séries : épisodes × durée d’épisode · livres : ≈ 40 pages/h${timeAll.missing ? ` · ${timeAll.missing} œuvre${timeAll.missing > 1 ? "s" : ""} sans durée connue exclue${timeAll.missing > 1 ? "s" : ""}` : ""}.`;
     const genreInsights = exploredGenres(scopedEntries, 6);
     const genresHTML = genreInsights.map(item => `<span class="profile-chip">${esc(item.label)}<b>${item.count}</b></span>`).join("");
@@ -447,7 +447,7 @@ export function createProfileFeature({
           </div>
           <div class="profile-date-controls">
             <select class="filter-select profile-year-inline" aria-label="Année" ${uiAction("setProfileYear", [], { value: true })}>${yearOptions}</select>
-            ${_profilePeriod === "month" ? `<select class="filter-select profile-month-inline" aria-label="Mois" ${uiAction("setProfileMonth", [], { value: true })}>${monthOptions}</select>` : ""}
+            <select class="filter-select profile-month-inline${_profilePeriod === "month" ? "" : " is-collapsed"}" aria-label="Mois" ${_profilePeriod === "month" ? "" : 'aria-hidden="true" tabindex="-1"'} ${uiAction("setProfileMonth", [], { value: true })}>${monthOptions}</select>
           </div>
         </div>
         <div class="profile-scope-toolbar">
@@ -545,7 +545,7 @@ export function createProfileFeature({
     // L'état d'attente n'appartient pas à la surface statistique indexée :
     // le retirer explicitement avant de réconcilier les blocs du Profil.
     container.querySelector(":scope > .ui-state-loading")?.remove();
-    const changedBlocks = patchKeyedSurface(container, dashboardHTML);
+    const changedBlocks = morphKeyedSurface(container, dashboardHTML);
     changedBlocks.forEach(block => {
       replayMotion(block, "profile-block-enter");
       block.addEventListener("animationend", () => block.classList.remove("profile-block-enter"), { once: true });
@@ -554,6 +554,7 @@ export function createProfileFeature({
     animateProfileNumbers(container);
     observeProfileReveal();
     hydrateFadeImages(container);
+    syncSegmentedPills(container);
     renderGate.finish(task);
     onViewReady?.("dashboard");
   }

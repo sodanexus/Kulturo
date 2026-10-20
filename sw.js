@@ -41,6 +41,7 @@ const STATIC_ASSET_PATHS = [
   "features/dialog-focus.js",
   "features/finesse.js",
   "features/dom-updates.js",
+  "features/dom-morph.js",
   "features/insights.js",
   "features/journal.js",
   "features/journal-groups.js",
