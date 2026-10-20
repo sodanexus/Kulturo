@@ -277,6 +277,17 @@ Deno.serve(async (req) => {
       if (!igdbRes.ok) throw new Error(`IGDB HTTP ${igdbRes.status}`);
       games = await igdbRes.json();
       const game = games[0];
+      if (game) {
+        // Temps de jeu IGDB (en secondes) : alimente « Temps passé » du Profil.
+        // Une édition sans données retombe sur le jeu de base.
+        for (const gameId of [id, Number(game.version_parent)]) {
+          if (!Number.isSafeInteger(gameId) || gameId <= 0) continue;
+          try {
+            const [ttb] = await igdbRequest("game_time_to_beats", `fields hastily,normally,completely,count; where game_id = ${gameId}; limit 1;`, headers);
+            if (ttb) { game.time_to_beat = ttb; break; }
+          } catch { /* Facultatif : ne jamais casser la fiche. */ }
+        }
+      }
       const parentId = Number(game?.version_parent);
       if (Number.isSafeInteger(parentId) && parentId > 0 && parentId !== id &&
           (!game?.screenshots?.length || !game.rating || !game.aggregated_rating)) {

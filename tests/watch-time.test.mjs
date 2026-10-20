@@ -21,3 +21,10 @@ test("temps passé : total par média et œuvres sans durée", () => {
   assert.equal(r.book, 60); assert.equal(r.total, 60); assert.equal(r.missing, 1);
   assert.equal(formatWatchTime(45), "45 min"); assert.equal(formatWatchTime(90), "1,5 h"); assert.equal(formatWatchTime(1380), "23 h");
 });
+
+import { igdbPlayMinutes } from "../features/igdb-media.js";
+test("IGDB : durée de jeu en minutes, parcours normal d'abord", () => {
+  assert.equal(igdbPlayMinutes({ time_to_beat: { hastily: 36000, normally: 54000 } }), 900);
+  assert.equal(igdbPlayMinutes({ time_to_beat: { hastily: 36000 } }), 600);
+  assert.equal(igdbPlayMinutes({}), null);
+});

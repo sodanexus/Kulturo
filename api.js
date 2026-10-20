@@ -1,6 +1,6 @@
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
 import { isLikelyFrench } from "./features/text-language.js";
-import { igdbMediaData } from "./features/igdb-media.js";
+import { igdbMediaData, igdbPlayMinutes } from "./features/igdb-media.js";
 // ============================================================
 // api.js — Intégrations APIs médias
 // TMDb · IGDB · Open Library · Google Books
@@ -652,7 +652,10 @@ export const IGDBDetails = {
 
     const release_year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null;
 
-    return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year };
+    // Temps de jeu (minutes) stocké dans `duration`, comme la durée d'un film.
+    const duration = igdbPlayMinutes(g);
+
+    return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year, duration };
   },
 };
 

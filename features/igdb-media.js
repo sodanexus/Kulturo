@@ -12,3 +12,10 @@ export function igdbMediaData(game) {
     critics: critics ? { value: critics.aggregated_rating, votes: critics.aggregated_rating_count, fromParent: critics === parent } : null,
   };
 }
+
+// Durée de jeu en minutes : parcours « normal », sinon rapide, sinon complet.
+export function igdbPlayMinutes(game) {
+  const seconds = [game?.time_to_beat?.normally, game?.time_to_beat?.hastily, game?.time_to_beat?.completely]
+    .map(Number).find(value => value > 0);
+  return seconds ? Math.max(1, Math.round(seconds / 60)) : null;
+}
