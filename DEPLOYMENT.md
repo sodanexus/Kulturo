@@ -1,6 +1,8 @@
-# Installer l’archive **4.5.2**
+# Installer l’archive **4.5.3**
 
-Depuis la 4.5.1, aucune nouvelle migration SQL.
+Depuis la 4.5.2 : mise à jour du site uniquement, aucune modification Supabase ni migration SQL.
+
+Pour une installation provenant de la 4.5.1, suivre les étapes ci-dessous.
 
 1. Mettre à jour hardcover-proxy dans Supabase : copier les DEUX fichiers de supabase/functions/hardcover-proxy/ dans l’éditeur (index.ts et hardcover.js). L’import ./hardcover.js est déjà correct. Garder HARDCOVER_TOKEN dans Secrets.
 2. Créer book-releases-proxy via Editor avec supabase/functions/book-releases-proxy/index.ts. Cette fonction utilise uniquement la BnF, sans secret Google.

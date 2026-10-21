@@ -1,5 +1,4 @@
 import { parseReadingProgress, parseSeriesProgress } from "./features/reading-progress.js";
-import { recentSearches, rememberSearch, clearRecentSearches } from "./features/recent-searches.js";
 import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
 import { animateSynopsis } from "./features/synopsis-motion.js";
@@ -1867,21 +1866,6 @@ function _captureWizardOpinion() {
   _wizardState._status = document.getElementById("f-status")?.value || _wizardState._status || "finished";
 }
 
-function searchHistoryStorage() {
-  try { return window.localStorage; } catch { return null; }
-}
-function recentSearchesHTML() {
-  const items = recentSearches(searchHistoryStorage(), State.user?.id);
-  if (!items.length) return "";
-  return `<section class="recent-searches" aria-label="Recherches récentes">
-    <div class="recent-searches-heading"><span>Recherches récentes</span><button type="button" class="btn btn-ghost btn-sm" ${uiAction("clearSearchHistory")}>Effacer</button></div>
-    <div class="recent-searches-items">${items.map(query => `<button type="button" class="btn btn-secondary btn-sm" ${uiAction("useRecentSearch", [query])}>${esc(query)}</button>`).join("")}</div>
-  </section>`;
-}
-function rememberCurrentSearch() {
-  rememberSearch(searchHistoryStorage(), State.user?.id, document.getElementById("f-api-search")?.value);
-}
-
 function _renderWizard() {
   const s = _wizardState;
   const root = document.getElementById("modal-root");
@@ -1911,8 +1895,7 @@ function _renderWizard() {
         <span aria-hidden="true">⌕</span>
         <strong>Une seule recherche pour toute votre culture</strong>
         <small>Films, séries, jeux et livres</small>
-      </div>
-      <div id="recent-searches-slot" ${s.title ? "hidden" : ""}>${recentSearchesHTML()}</div>`;
+      </div>`;
   }
 
   else if (s.step === 2) {
@@ -2562,8 +2545,6 @@ function setupWizardUniversalSearch() {
     requestSeq++;
     const query = input.value.trim();
     const start = document.getElementById("wz-search-start");
-    const recent = document.getElementById("recent-searches-slot");
-    if (recent) recent.hidden = query.length > 0;
     if (_wizardState) _wizardState.title = query;
     if (query.length < 2) {
       activeController?.abort();
@@ -2664,7 +2645,6 @@ function setupWizardUniversalSearch() {
   input.addEventListener("keydown", event => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
-    rememberCurrentSearch();
     scheduleSearch(true);
   });
   input.addEventListener("input", () => scheduleSearch(false));
@@ -2754,7 +2734,6 @@ function setupApiSearch() {
   input.addEventListener("keydown", event => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
-    rememberCurrentSearch();
     scheduleSearch(true);
   });
   input.addEventListener("input", () => scheduleSearch(false));
@@ -2765,7 +2744,6 @@ async function fillFromApi(idx) {
   let it = window._apiResults?.[idx];
   if (!it) return;
   document.getElementById("f-api-search")?._bookSelectionController?.abort();
-  rememberCurrentSearch();
   if (it.source_api === "hardcover") {
     const input = document.getElementById("f-api-search"), results = document.getElementById("api-results");
     if (!input || !results) return;
@@ -4237,19 +4215,6 @@ window.UI = {
   openMetadataFromElement,
   openMetadataMedia,
   closeMetadataPanel,
-  useRecentSearch: query => {
-    const input = document.getElementById("f-api-search");
-    if (!input) return;
-    input.value = query;
-    input.focus({ preventScroll: true });
-    input._kulturoSearch?.();
-  },
-  clearSearchHistory: () => {
-    clearRecentSearches(searchHistoryStorage(), State.user?.id);
-    const slot = document.getElementById("recent-searches-slot");
-    if (slot) slot.innerHTML = "";
-    document.getElementById("f-api-search")?.focus({ preventScroll: true });
-  },
   retryDetailInfo: id => mediaDetailFeature.retryDetailInfo(id),
   setEditDetailsView,
   closeModal,
@@ -4517,7 +4482,6 @@ window.UI = {
 
   wzUseManualType: (type) => {
     if (!_wizardState) return;
-    rememberCurrentSearch();
     const typed = document.getElementById("f-api-search")?.value?.trim() || _wizardState.title;
     const next = selectManualAdd(_wizardState, typed, type);
     if (next === _wizardState) {

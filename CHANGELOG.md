@@ -1,3 +1,8 @@
+## 4.5.3
+
+- Retrait des recherches récentes : interface, mémorisation, actions, styles et module dédié supprimés.
+- Cache hors ligne, documentation et tests nettoyés. Aucun changement Supabase.
+
 ## 4.5.2
 
 - Recherche Hardcover légère et éditions chargées à la sélection.

@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.5.2
+## Version actuelle · 4.5.3
 
 Les séries En cours ont maintenant une **progression** comme les livres : saison et épisode, saisis dans Modifier (tuile « Ma progression », total des saisons affiché quand TMDb le connaît) et rappelés dans la fiche par « Saison 2 / 4 · Épisode 5 » avec une jauge de saison. Une série qui repasse En cours après un visionnage terminé repart sans progression.
 
@@ -39,7 +39,7 @@ Les séries En cours ont maintenant une **progression** comme les livres : saiso
 
 Sur les livres **En cours**, ouvrir **Modifier**, saisir la page actuelle et, si connu, le total dans la ligne **Ma lecture**, puis **Enregistrer**. La fiche affiche seulement une fine jauge et les pages lues, sans bloc de saisie. La progression fonctionne avec la synchronisation locale/cloud existante. Une relecture repart à zéro ; terminer un livre reste un choix explicite dans Modifier.
 
-L’ajout propose jusqu’à six recherches récentes, conservées uniquement sur cet appareil et séparées par compte. Elles sont mémorisées lorsqu’on choisit un résultat, un ajout manuel ou valide avec Entrée ; **Effacer** vide l’historique. Les messages de recherche distinguent les indisponibilités du catalogue des résultats absents.
+Les messages de recherche distinguent les indisponibilités du catalogue des résultats absents.
 
 
 Reprise de la sauvegarde 4.2.11, sans changement de palette. Les livres n’affichent plus de notes externes ni de bloc de chargement dédié. Les genres Open Library sont filtrés et francisés, y compris sur les fiches existantes.
