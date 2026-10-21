@@ -6,7 +6,7 @@ import { normalizeTitle, normalizedSubtype } from "../domain.js";
 
 const MEDIA_TYPES = new Set(["movie", "game", "book"]);
 const STATUSES = new Set(["wishlist", "playing", "finished", "dropped"]);
-const SOURCE_APIS = new Set(["tmdb", "igdb", "rawg", "openlibrary", "manual"]);
+const SOURCE_APIS = new Set(["tmdb", "igdb", "rawg", "openlibrary", "hardcover", "manual"]);
 const SUBTYPES = new Set(["movie", "tv"]);
 const EVENT_TYPES = new Set([
   "added", "started", "repeat_started", "finished",

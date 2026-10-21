@@ -4,7 +4,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, OpenLibraryDetails } from "../api.js";
+import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
@@ -106,7 +106,7 @@ async function fetchMediaDetails(entry, options = {}) {
     return TMDbDetails.fetch(entry.external_id, entry.subtype || "movie", options);
   }
   if (entry.media_type === "game" && entry.external_id) return IGDBDetails.fetch(entry.external_id, options);
-  if (entry.media_type === "book") return OpenLibraryDetails.fetch(entry.external_id, entry, options);
+  if (entry.media_type === "book") return Books.fetch(entry, options);
   return null;
 }
 

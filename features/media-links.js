@@ -16,6 +16,10 @@ export function mediaLinks(entry) {
   };
   const direct = webUrl(entry.external_url);
   if (entry.media_type === "book") {
+    if (entry.source_api === "hardcover" && title) {
+      add(`https://hardcover.app/search?q=${query}`, "Chercher sur Hardcover");
+      return links;
+    }
     if (title) {
       const bookQuery = entry.isbn ? `isbn:${entry.isbn}` : `${title} ${entry.author || ""}`.trim();
       add(`https://openlibrary.org/search?q=${encodeURIComponent(bookQuery)}`, "Chercher le livre");
