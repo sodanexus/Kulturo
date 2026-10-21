@@ -1,3 +1,10 @@
+## 4.5.1
+
+- Sélecteur de recherche Tout / Films & séries / Jeux vidéo / Livres.
+- Action Open Library discrète et réversible, uniquement pour les livres.
+- Annulation immédiate des recherches devenues obsolètes.
+- Corrections Hardcover confirmées en production reportées dans le proxy.
+
 ## 4.5.0
 
 Livres Hardcover

@@ -31,7 +31,7 @@ Une collection à parcourir par ses jaquettes, avec seulement les repères utile
 | **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
 | **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
 
-## Version actuelle · 4.5.0
+## Version actuelle · 4.5.1
 
 Les séries En cours ont maintenant une **progression** comme les livres : saison et épisode, saisis dans Modifier (tuile « Ma progression », total des saisons affiché quand TMDb le connaît) et rappelés dans la fiche par « Saison 2 / 4 · Épisode 5 » avec une jauge de saison. Une série qui repasse En cours après un visionnage terminé repart sans progression.
 
