@@ -64,3 +64,9 @@ export function setAddDraftStatus(draft, status) {
 export function isSecondaryAddStatus(status) {
   return ADD_SECONDARY_STATUSES.some(option => option.value === status);
 }
+
+// ISBN reste prioritaire quel que soit le filtre visuel.
+export function addSearchTypes(query, filter = 'all', isISBN = false) {
+  if (isISBN) return ['book'];
+  return ['movie', 'game', 'book'].includes(filter) ? [filter] : ['movie', 'game', 'book'];
+}

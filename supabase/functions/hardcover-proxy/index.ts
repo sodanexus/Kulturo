@@ -9,13 +9,13 @@ const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body)
   status, headers: { ...CORS, 'Content-Type': 'application/json' },
 });
 const BOOK = 'id title description release_year image { url } contributions { author { name } }';
-const EDITION = 'id book_id title description pages isbn_13 isbn_10 release_year reading_format_id image { url } publisher { name } language { language }';
+const EDITION = 'id book_id title pages isbn_13 isbn_10 release_year reading_format_id image { url } publisher { name } language { language }';
 const cache = new Map<string, { until: number; items: unknown[] }>();
 async function graphql(query: string, variables: Record<string, unknown>) {
   const token = Deno.env.get('HARDCOVER_TOKEN');
   if (!token) throw new Error('Hardcover non configuré');
   const response = await fetch('https://api.hardcover.app/v1/graphql', {
-    method: 'POST', signal: AbortSignal.timeout(8000),
+    method: 'POST', signal: AbortSignal.timeout(12000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.replace(/^Bearer\s+/i, '')}`, 'User-Agent': 'Kulturo/4.5.0' },
     body: JSON.stringify({ query, variables }),
   });
@@ -64,7 +64,7 @@ Deno.serve(async req => {
       } else {
         const found = await graphql('query($q:String!){search(query:$q,query_type:"Book",per_page:6,page:1){ids results}}', { q: query });
         const ids = (found.search?.ids || []).map(Number).filter((n: number) => Number.isSafeInteger(n) && n > 0).slice(0, 6);
-        const data = ids.length ? await graphql(`query($ids:[Int!]!){books(where:{id:{_in:$ids}}){${BOOK} editions(limit:30,order_by:{users_count:desc}){${EDITION}}}}`, { ids }) : { books: [] };
+        const data = ids.length ? await graphql(`query($ids:[Int!]!){books(where:{id:{_in:$ids}}){${BOOK} editions(limit:5,order_by:{users_count:desc}){${EDITION}}}}`, { ids }) : { books: [] };
         const result = typeof found.search?.results === 'string' ? JSON.parse(found.search.results) : found.search?.results;
         items = ids.flatMap((id: number) => {
           const book = data.books.find((b: any) => b.id === id);

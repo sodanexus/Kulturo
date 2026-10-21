@@ -10,7 +10,7 @@ Le domaine CORS par défaut est https://sodanexus.github.io. Si le domaine chang
 
 ## Fonctionnement
 
-Hardcover est prioritaire ; Open Library prend automatiquement le relais si le service échoue ou ne retourne rien. Le bouton « Chercher aussi dans Open Library » force cette source pour la requête courante, dans l’ajout comme dans Modifier. Un résultat Hardcover conserve source_api=hardcover et external_id=œuvre:édition. Une édition française non audio est préférée parmi les 30 éditions populaires reçues ; ce n’est pas une garantie de couverture française exhaustive. Une recherche ISBN cible exactement l’édition.
+Hardcover est prioritaire ; Open Library prend automatiquement le relais si le service échoue ou ne retourne rien. Le bouton « Chercher aussi dans Open Library » force cette source pour la requête courante, dans l’ajout comme dans Modifier. Un résultat Hardcover conserve source_api=hardcover et external_id=œuvre:édition. Une édition française non audio est préférée parmi les 5 éditions populaires reçues ; ce n’est pas une garantie de couverture française exhaustive. Une recherche ISBN cible exactement l’édition.
 
 Les anciennes fiches restent liées à Open Library. Leur synopsis manquant peut être enrichi par Hardcover après une correspondance ISBN, ou titre ET auteur exacts. Aucune migration massive des données ni remplacement des saisies personnelles. Les notes externes des livres restent masquées.
 
