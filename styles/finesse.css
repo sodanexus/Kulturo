@@ -1023,12 +1023,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   #dashboard-content > * { grid-column: 1 / -1; }
   #dashboard-content > .profile-time-card:has(+ .profile-ratings-card) { grid-column: 1; }
   #dashboard-content > .profile-ratings-card { grid-column: 2; }
-  .profile-top-track { grid-template-columns: repeat(6, minmax(0, 150px)); justify-content: space-between; }
+  .profile-top-track { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .9rem; } /* écart de la bibliothèque, ligne pleine largeur */
   .profile-ratings-card .rating-hist { height: 96px; }
   .profile-ratings-card .rating-hist-col { max-width: 54px; flex: 1 1 0; margin-inline: auto; }
-}
-@media (min-width: 1100px) and (max-width: 1280px) {
-  .profile-top-track { grid-template-columns: repeat(6, minmax(0, 138px)); }
 }
 
 /* Profil mobile — la ligne année/mois ne change plus de hauteur : le mois

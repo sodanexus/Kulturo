@@ -8,7 +8,7 @@ const profile = fs.readFileSync(new URL("../features/profile.js", import.meta.ur
 test("Profil desktop : largeur bornée, temps et notes côte à côte, couvertures plafonnées", () => {
   assert.match(css, /@media \(min-width: 1100px\)[\s\S]*#dashboard-content[\s\S]*max-width: 1180px/);
   assert.match(css, /profile-time-card:has\(\+ \.profile-ratings-card\)/);
-  assert.match(css, /\.profile-top-track \{ grid-template-columns: repeat\(6, minmax\(0, 150px\)\)/);
+  assert.match(css, /\.profile-top-track \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\); gap: \.9rem/);
   assert.ok(profile.indexOf("${ratingsHTML}") < profile.indexOf('data-ui-key="profile-top"') + 400 &&
     profile.indexOf("${ratingsHTML}") > profile.indexOf('data-ui-key="profile-time"'),
     "les notes suivent directement le bloc temps");
