@@ -413,7 +413,7 @@ export const OpenLibrary = {
 // Hardcover : seuls les résultats publics normalisés passent par le proxy.
 const hardcoverDetailsCache = new Map();
 async function hardcoverRequest(payload, options = {}) {
-  const key = String(payload.id || '');
+  const key = payload.action === 'details' ? String(payload.id || '') : '';
   const cached = key && hardcoverDetailsCache.get(key);
   if (cached && cached.until > Date.now()) return [cached.item];
   const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
@@ -422,7 +422,7 @@ async function hardcoverRequest(payload, options = {}) {
   });
   if (data?.error) throw new Error(data.error);
   const items = Array.isArray(data?.items) ? data.items : [];
-  for (const item of items) {
+  for (const item of payload.action === "search" ? [] : items) {
     if (hardcoverDetailsCache.size >= 100) hardcoverDetailsCache.delete(hardcoverDetailsCache.keys().next().value);
     hardcoverDetailsCache.set(item.external_id, { item, until: Date.now() + 600000 });
   }
@@ -433,6 +433,12 @@ export const Hardcover = {
     const items = await hardcoverRequest({ action: "search", query: normalizeISBN(query) || query }, options);
     // Ne pas sauvegarder un synopsis anglais avant sa traduction.
     return items.map(item => ({ ...item, genre: cleanBookGenres(item.genre).join(", ") || null, description: item.description && isLikelyFrench(item.description) ? plainBookDescription(item.description) : null }));
+  },
+  async select(id, options = {}) {
+    const item = (await hardcoverRequest({action:"select",id},options))[0];
+    if (!item) throw new Error("Livre introuvable");
+    void Hardcover.fetch(item.external_id).catch(() => {});
+    return {...item,description:item.description && isLikelyFrench(item.description) ? plainBookDescription(item.description) : null};
   },
   async fetch(id, options = {}) {
     const item = (await hardcoverRequest({ action: "details", id }, options))[0];
@@ -482,10 +488,9 @@ export const Books = {
 
 // ── Livres — BnF pour les parutions ─
 // La fonction Supabase consulte à la volée les flux Nouveautés Éditeurs de la
-// BnF pour cette installation personnelle. Rien n'est stocké en base. Google
-// Books reste dans le nom historique du proxy des parutions.
-async function googleBooksProxy(payload, timeoutMs = 20000, options = {}) {
-  const functionName = CONFIG?.googleBooks?.proxyFunction || "google-books-proxy";
+// BnF pour cette installation personnelle. Aucun appel Google Books.
+async function bookReleasesProxy(payload, timeoutMs = 20000, options = {}) {
+  const functionName = CONFIG?.bookReleases?.proxyFunction || "book-releases-proxy";
   const proxyUrl = `${CONFIG.supabase.url}/functions/v1/${functionName}`;
   const data = await apiFetch(proxyUrl, {
     method: "POST",
@@ -499,7 +504,7 @@ async function googleBooksProxy(payload, timeoutMs = 20000, options = {}) {
   return Array.isArray(data?.items) ? data.items : [];
 }
 
-export const GoogleBooks = {
+export const BookReleases = {
   available() {
     return Boolean(CONFIG?.supabase?.url);
   },
@@ -516,7 +521,7 @@ export const GoogleBooks = {
     ].join("-");
     const startDate = isoDate(today);
     const endDate = isoDate(end);
-    const items = await googleBooksProxy({ action: "upcoming" }, 20_000, options);
+    const items = await bookReleasesProxy({ action: "upcoming" }, 20_000, options);
     const unique = new Map();
     items.forEach(item => {
       const releaseDate = String(item?.release_date || "");

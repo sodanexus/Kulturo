@@ -8,7 +8,7 @@ import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, Hardcover, translateText } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, BookReleases, Hardcover, translateText } from "./api.js";
 import {
   DEFAULT_LIBRARY_SORT,
   DEFAULT_LIBRARY_STATUS,
@@ -2536,8 +2536,8 @@ function updateApiAvailLabel(type) {
   label.style.color = ok ? "var(--success)" : "var(--text-3)";
 }
 
-function bookSearchSourceHTML(openLibrary = false) {
-  return `<div class="book-search-source"><span>${openLibrary ? "Recherche Open Library" : "Un livre introuvable ?"}</span><button type="button" data-book-fallback>${openLibrary ? "Revenir à Hardcover" : "Essayer Open Library"}<span aria-hidden="true"> →</span></button></div>`;
+function bookSearchSourceHTML(openLibrary = false, source = null) {
+  return `<div class="book-search-source"><span>${source === "openlibrary" ? "Résultats Open Library" : source === "hardcover" ? "Résultats Hardcover" : "Un livre introuvable ?"}</span><button type="button" data-book-fallback>${openLibrary ? "Revenir à Hardcover" : "Essayer Open Library"}<span aria-hidden="true"> →</span></button></div>`;
 }
 
 function setupWizardUniversalSearch() {
@@ -2550,12 +2550,14 @@ function setupWizardUniversalSearch() {
   input.dataset.kulturoSearch = "true";
   input._kulturoAbortSearch = () => {
     clearTimeout(timer);
+    input._bookSelectionController?.abort();
     requestSeq++;
     activeController?.abort();
   };
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
+    input._bookSelectionController?.abort();
     activeController?.abort();
     requestSeq++;
     const query = input.value.trim();
@@ -2587,11 +2589,12 @@ function setupWizardUniversalSearch() {
         </div>`;
 
       const failures = [];
+      let bookSource = null;
       const types = addSearchTypes(query, _wizardState?.searchType, Boolean(normalizeISBN(query)));
       const requests = types.map(async type => {
         try {
           if (!apiAvailability()[type]) { failures.push(type); return []; }
-          const items = await searchMedia(query, type, { signal, throwOnError: true, bookSource: input.dataset.openLibraryQuery === query ? "openlibrary" : undefined });
+          const items = await searchMedia(query, type, { signal, throwOnError: true, onBookSource: source => { bookSource = source; }, bookSource: input.dataset.openLibraryQuery === query ? "openlibrary" : undefined });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
         } catch {
           if (!signal.aborted) failures.push(type);
@@ -2620,7 +2623,7 @@ function setupWizardUniversalSearch() {
       animateHeightChange(results, () => { results.innerHTML = `
         ${failures.length ? `<p class="wz-search-empty" role="status">Catalogue indisponible : ${esc(unavailable)}.</p>` : ""}
         ${resultItems || `<div class="wz-search-empty" role="status">${emptyMessage}</div>`}
-        ${types.includes("book") ? bookSearchSourceHTML(input.dataset.openLibraryQuery === query) : ""}
+        ${types.includes("book") ? bookSearchSourceHTML(input.dataset.openLibraryQuery === query, bookSource) : ""}
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
@@ -2679,12 +2682,16 @@ function setupApiSearch() {
   input.dataset.kulturoSearch = "true";
   input._kulturoAbortSearch = () => {
     clearTimeout(timer);
+    input._bookSelectionController?.abort();
     requestSeq++;
     activeController?.abort();
   };
 
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
+    input._bookSelectionController?.abort();
+    activeController?.abort();
+    requestSeq++;
     const q = input.value.trim();
     if (q.length < 2) {
       activeController?.abort();
@@ -2701,8 +2708,9 @@ function setupApiSearch() {
       activeController = new AbortController();
       const { signal } = activeController;
       let items;
+      let bookSource = null;
       try {
-        items = await searchMedia(q, type, { signal, throwOnError: true, bookSource: input.dataset.openLibraryQuery === q ? "openlibrary" : undefined });
+        items = await searchMedia(q, type, { signal, throwOnError: true, onBookSource: source => { bookSource = source; }, bookSource: input.dataset.openLibraryQuery === q ? "openlibrary" : undefined });
         if (type === "movie") items = items.filter(item => normalizedSubtype(item) === requestedSubtype);
       } catch (error) {
         if (signal.aborted || !input.isConnected || seq !== requestSeq) return;
@@ -2717,7 +2725,7 @@ function setupApiSearch() {
       if (!items.length) {
         window._apiResults = [];
         results.style.display = "block";
-        results.innerHTML = `<div class="wz-search-empty" role="status">Aucun résultat. Essayez un autre titre${type === "book" ? " ou un ISBN" : ""}. Vous pouvez aussi conserver votre saisie.</div>${type === "book" ? bookSearchSourceHTML(input.dataset.openLibraryQuery === q) : ""}`;
+        results.innerHTML = `<div class="wz-search-empty" role="status">Aucun résultat. Essayez un autre titre${type === "book" ? " ou un ISBN" : ""}. Vous pouvez aussi conserver votre saisie.</div>${type === "book" ? bookSearchSourceHTML(input.dataset.openLibraryQuery === q, bookSource) : ""}`;
         return;
       }
       results.style.display = "block";
@@ -2733,7 +2741,7 @@ function setupApiSearch() {
       });
       // Stocker temporairement
       window._apiResults = items;
-      if (type === "book") results.insertAdjacentHTML("beforeend", bookSearchSourceHTML(input.dataset.openLibraryQuery === q));
+      if (type === "book") results.insertAdjacentHTML("beforeend", bookSearchSourceHTML(input.dataset.openLibraryQuery === q, bookSource));
     }, immediate ? 0 : 350);
   };
 
@@ -2753,11 +2761,35 @@ function setupApiSearch() {
   input._kulturoSearch = () => scheduleSearch(true);
 }
 
-function fillFromApi(idx) {
-  const it = window._apiResults?.[idx];
+async function fillFromApi(idx) {
+  let it = window._apiResults?.[idx];
   if (!it) return;
+  document.getElementById("f-api-search")?._bookSelectionController?.abort();
   rememberCurrentSearch();
-  if (it.source_api === "hardcover") void Hardcover.fetch(it.external_id).catch(() => {});
+  if (it.source_api === "hardcover") {
+    const input = document.getElementById("f-api-search"), results = document.getElementById("api-results");
+    if (!input || !results) return;
+    const controller = new AbortController();
+    input._bookSelectionController = controller;
+    const original = it, query = input.value;
+    results.querySelector(".book-selection-status")?.remove();
+    const status = document.createElement("p");
+    status.className = "book-selection-status";
+    status.setAttribute("role","status");
+    status.textContent = "Préparation de l’édition…";
+    results.append(status);
+    try {
+      const selected = await Hardcover.select(it.external_id,{signal:controller.signal});
+      if (controller.signal.aborted || !input.isConnected || input.value !== query || window._apiResults?.[idx] !== original) return;
+      it = {...selected,genre:original.genre || selected.genre};
+    } catch(error) {
+      if (!controller.signal.aborted && input.isConnected) toast("L’édition n’a pas pu être chargée. Réessayez ou choisissez Open Library.","error");
+      return;
+    } finally {
+      status.remove();
+      if (input._bookSelectionController === controller) delete input._bookSelectionController;
+    }
+  }
   markModalDirty();
 
   // Dans l'ajout compact, toucher un résultat ouvre directement la finalisation.
@@ -4152,7 +4184,7 @@ const upcomingFeature = createUpcomingFeature({
   Media,
   TMDb,
   IGDB,
-  GoogleBooks,
+  BookReleases,
   getCurrentPage: () => _currentPage,
   normalizeTitle,
   sameMediaIdentity,

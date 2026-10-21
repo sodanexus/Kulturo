@@ -1,3 +1,11 @@
+## 4.5.2
+
+- Recherche Hardcover légère et éditions chargées à la sélection.
+- Protection contre les réponses de sélection devenues obsolètes.
+- Logs GraphQL/HTTP conservés, import identique dans le repo et Supabase Editor.
+- Google Books supprimé ; parutions BnF via book-releases-proxy.
+- Aucune nouvelle migration SQL.
+
 ## 4.5.1
 
 - Sélecteur de recherche Tout / Films & séries / Jeux vidéo / Livres.

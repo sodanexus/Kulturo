@@ -29,16 +29,16 @@ const CONFIG = {
     coverBase: "https://covers.openlibrary.org/b/id",
   },
 
-  // ── Google Books — la clé reste dans les secrets Supabase.
-  // Le navigateur appelle uniquement la fonction google-books-proxy.
-  googleBooks: {
-    proxyFunction: "google-books-proxy",
+  // ── Parutions BnF — aucune clé Google nécessaire.
+  // Le navigateur appelle uniquement la fonction book-releases-proxy.
+  bookReleases: {
+    proxyFunction: "book-releases-proxy",
   },
 
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "4.5.1",
+    version: "4.5.2",
     itemsPerPage: 24,
   },
 };
