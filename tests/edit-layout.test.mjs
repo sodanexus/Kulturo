@@ -15,9 +15,11 @@ test("Modifier : le type est un sélecteur, les onglets d'origine restent pour l
   assert.match(app, /function setupEditTypeSelect/);
 });
 
-test("Modifier : Mon avis regroupe statut, note, revoir et coup de cœur", () => {
+test("Modifier : Mon avis précède les étoiles, avec le libellé standard", () => {
   const view = app.slice(app.indexOf('<div class="edit-primary-view">'), app.indexOf('class="edit-details-trigger"'));
-  assert.ok(view.indexOf("Mon avis") < view.indexOf('id="f-status"'));
+  assert.ok(view.indexOf("Mon avis") > view.indexOf('id="f-status"'));
+  assert.ok(view.indexOf("Mon avis") < view.indexOf('id="rating-stars"'));
+  assert.match(view, /<label>Mon avis <span id="rating-tooltip"/);
   assert.ok(view.indexOf('class="edit-avis-grid"') < view.indexOf('id="edit-repeat"'));
   assert.ok(view.indexOf('id="edit-repeat"') < view.indexOf('id="f-favorite"'));
 });
