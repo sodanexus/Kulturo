@@ -355,3 +355,5 @@
   .add-search-types button, .book-search-source button { transition:none; }
 }
 .wz-manual-types button[hidden] { display: none; }
+
+.book-selection-status { margin:8px 4px; min-height:20px; color:var(--text-2); font-size:13px; }

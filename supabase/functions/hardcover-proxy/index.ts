@@ -1,4 +1,4 @@
-import { normalizeHardcoverBook, selectHardcoverEdition, hardcoverIdentity } from '../../../features/hardcover.js';
+import { normalizeHardcoverBook, selectHardcoverEdition, hardcoverIdentity } from './hardcover.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') || 'https://sodanexus.github.io',
@@ -12,16 +12,19 @@ const BOOK = 'id title description release_year image { url } contributions { au
 const EDITION = 'id book_id title pages isbn_13 isbn_10 release_year reading_format_id image { url } publisher { name } language { language }';
 const cache = new Map<string, { until: number; items: unknown[] }>();
 async function graphql(query: string, variables: Record<string, unknown>) {
-  const token = Deno.env.get('HARDCOVER_TOKEN');
+  const token = Deno.env.get('HARDCOVER_TOKEN')?.trim();
   if (!token) throw new Error('Hardcover non configuré');
   const response = await fetch('https://api.hardcover.app/v1/graphql', {
     method: 'POST', signal: AbortSignal.timeout(12000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.replace(/^Bearer\s+/i, '')}`, 'User-Agent': 'Kulturo/4.5.0' },
     body: JSON.stringify({ query, variables }),
   });
-  if (!response.ok) throw new Error('Hardcover indisponible');
+  if (!response.ok) throw new Error(`Hardcover HTTP ${response.status}`);
   const data = await response.json();
-  if (data.errors) throw new Error('Requête Hardcover refusée');
+  if (data.errors?.length) {
+    console.error('Hardcover GraphQL:', JSON.stringify(data.errors.map((e: any) => ({message:e.message, code:e.extensions?.code}))));
+    throw new Error('Requête Hardcover refusée');
+  }
   return data.data;
 }
 Deno.serve(async req => {
@@ -30,6 +33,7 @@ Deno.serve(async req => {
   // Vérifier une vraie session : la clé publique seule ne donne pas accès au jeton privé.
   const authorization = req.headers.get('Authorization') || '';
   if (!authorization.startsWith('Bearer ')) return reply({ error: 'Connexion requise' }, 401);
+  let stage = 'session';
   try {
     const auth = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
       headers: { Authorization: authorization, apikey: Deno.env.get('SUPABASE_ANON_KEY') || '' },
@@ -39,18 +43,22 @@ Deno.serve(async req => {
     const raw = await req.text();
     if (raw.length > 2048) return reply({ error: 'Requête trop longue' }, 400);
     const body = JSON.parse(raw);
+    if (!body || typeof body !== 'object') return reply({error:'Requête invalide'},400);
+    stage = String(body.action);
     const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
     const identity = hardcoverIdentity(body.id);
-    if (!['search', 'details'].includes(body.action) || (body.action === 'search' ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
+    if (!['search', 'details', 'select'].includes(body.action) || (body.action === 'search' ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
     const key = JSON.stringify([body.action, query, identity]);
     const saved = cache.get(key);
     if (saved && saved.until > Date.now()) return reply({ items: saved.items });
     let items;
-    if (body.action === 'details') {
+    if (body.action === 'details' || body.action === 'select') {
       const data = await graphql(`query($id:Int!){books(where:{id:{_eq:$id}},limit:1){${BOOK}}}`, { id: identity!.bookId });
       const book = data.books?.[0];
-      const editions = identity!.editionId ? await graphql(`query($id:Int!,$book:Int!){editions(where:{id:{_eq:$id},book_id:{_eq:$book}},limit:1){${EDITION}}}`, { id: identity!.editionId, book: identity!.bookId }) : { editions: [] };
-      items = book ? [normalizeHardcoverBook(book, editions.editions?.[0])] : [];
+      const editions = identity!.editionId ? await graphql(`query($id:Int!,$book:Int!){editions(where:{id:{_eq:$id},book_id:{_eq:$book}},limit:1){${EDITION}}}`, { id: identity!.editionId, book: identity!.bookId }) : body.action === 'select' ? await graphql(`query($book:Int!){editions(where:{book_id:{_eq:$book}},limit:30,order_by:{users_count:desc}){${EDITION}}}`, {book:identity!.bookId}) : {editions:[]};
+      if (identity!.editionId && !editions.editions?.length) throw new Error('Édition introuvable');
+      const edition = identity!.editionId ? editions.editions[0] : selectHardcoverEdition(editions.editions);
+      items = book ? [normalizeHardcoverBook(book, edition)] : [];
     } else {
       const isbn = query.replace(/[-\s]/g, '');
       if (/^(\d{13}|\d{9}[\dXx])$/.test(isbn)) {
@@ -62,21 +70,18 @@ Deno.serve(async req => {
           return book ? [normalizeHardcoverBook(book, edition)] : [];
         });
       } else {
-        const found = await graphql('query($q:String!){search(query:$q,query_type:"Book",per_page:6,page:1){ids results}}', { q: query });
-        const ids = (found.search?.ids || []).map(Number).filter((n: number) => Number.isSafeInteger(n) && n > 0).slice(0, 6);
-        const data = ids.length ? await graphql(`query($ids:[Int!]!){books(where:{id:{_in:$ids}}){${BOOK} editions(limit:5,order_by:{users_count:desc}){${EDITION}}}}`, { ids }) : { books: [] };
+        // L'index fournit les vignettes ; aucune édition demandée pendant la frappe.
+        const found = await graphql('query($q:String!){search(query:$q,query_type:"Book",per_page:6,page:1){results}}', {q:query});
         const result = typeof found.search?.results === 'string' ? JSON.parse(found.search.results) : found.search?.results;
-        items = ids.flatMap((id: number) => {
-          const book = data.books.find((b: any) => b.id === id);
-          const hit = result?.hits?.find((h: any) => Number(h.document?.id) === id)?.document;
-          return book ? [normalizeHardcoverBook({ ...book, genres: hit?.genres }, selectHardcoverEdition(book.editions))] : [];
-        });
+        if (!Array.isArray(result?.hits)) throw new Error('Format de recherche Hardcover inattendu');
+        items = result.hits.map((h:any) => h.document).filter((b:any) => b?.title && Number.isSafeInteger(Number(b.id)) && Number(b.id)>0).slice(0,6).map((b:any) => normalizeHardcoverBook({...b,description:null}));
       }
     }
     if (cache.size >= 200) cache.delete(cache.keys().next().value!);
     cache.set(key, { until: Date.now() + 10 * 60_000, items });
     return reply({ items });
-  } catch {
+  } catch (error) {
+    console.error('hardcover-proxy:',stage,error instanceof Error ? error.message : 'Erreur inconnue');
     return reply({ error: 'Hardcover momentanément indisponible' }, 503);
   }
 });

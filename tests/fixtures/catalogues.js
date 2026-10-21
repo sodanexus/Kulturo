@@ -6,7 +6,7 @@ async function request(name, options = {}) {
 }
 export const TMDb = { available: () => true, upcoming: () => request("upcoming/movie"), search: async () => [] };
 export const IGDB = { available: () => true, upcoming: () => request("upcoming/game") };
-export const GoogleBooks = { available: () => true, upcoming: () => request("upcoming/book") };
+export const BookReleases = { available: () => true, upcoming: () => request("upcoming/book") };
 export const TMDbDetails = { fetch: (id, _subtype, options) => request(`details/${id}`, options) };
 export const TMDbImages = { fetch: async () => [] };
 export const IGDBImages = { fetch: async () => [] };
@@ -17,3 +17,6 @@ export const apiAvailability = () => ({ movie: true, game: true, book: true });
 export { isLikelyFrench } from "./features/text-language.js";
 import { isLikelyFrench } from "./features/text-language.js";
 export const translateText = async (text, options = {}) => !options.force && isLikelyFrench(text) ? { text, translated: false } : { text: `Traduction : ${text}`, translated: true };
+
+export const Books = {fetch:(entry,options)=>request(`details/${entry.external_id}`,options)};
+export const Hardcover = {select:async()=>null,fetch:async()=>null};

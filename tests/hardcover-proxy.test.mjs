@@ -15,6 +15,10 @@ test('proxy Hardcover : authentification, ISBN, variables GraphQL et cache', asy
     assert.equal(options.headers.Authorization, 'Bearer private-test-token');
     const body = JSON.parse(options.body);
     calls.push(body);
+    if (body.query.includes('search(')) {
+      assert.ok(!body.query.includes('editions('));
+      return Response.json({data:{search:{results:{hits:body.variables.q === 'absent' ? [] : [{document:{id:2,title:'Undercurrent',author_names:['Tetsuya Toyoda'],image:{url:'https://test.invalid/cover.jpg'}}}]}}}});
+    }
     const data = body.query.includes('editions(where:')
       ? {editions:[{id:4,book_id:2,title:'Édition',isbn_13:'9781234567897',pages:120,publisher:{name:'Éditeur'}}]}
       : {books:[{id:2,title:'Œuvre',description:'Synopsis',contributions:[{author:{name:'Auteur'}}]}]};
@@ -26,6 +30,17 @@ test('proxy Hardcover : authentification, ISBN, variables GraphQL et cache', asy
     assert.equal((await handler(request({action:'search',query:'test'}, 'invalid'))).status, 401);
     assert.equal(calls.length, 0);
     assert.equal((await handler(request({action:'mutation',query:'test'}))).status, 400);
+    const quick = await (await handler(request({action:'search',query:'Undercurrent'}))).json();
+    assert.equal(calls.length,1);
+    assert.equal(quick.items[0].external_id,'2');
+    assert.equal(quick.items[0].author,'Tetsuya Toyoda');
+    assert.equal(quick.items[0].cover_url,'https://test.invalid/cover.jpg');
+    assert.equal(quick.items[0].isbn,null);
+    assert.deepEqual((await (await handler(request({action:'search',query:'absent'}))).json()).items,[]);
+    const chosen = await (await handler(request({action:'select',id:'2'}))).json();
+    assert.equal(chosen.items[0].external_id,'2:4');
+    assert.deepEqual(calls.at(-1).variables,{book:2});
+    calls = [];
     const body = {action:'search',query:'9781234567897'};
     const result = await (await handler(request(body))).json();
     assert.equal(result.items[0].external_id, '2:4');

@@ -13,9 +13,9 @@ export function normalizeHardcoverBook(book, edition = null) {
     media_type: 'book', source_api: 'hardcover',
     external_id: `${book.id}${edition ? `:${edition.id}` : ''}`,
     title: edition?.title || book.title,
-    author: (book.contributions || []).map(c => c.author?.name).filter(Boolean).join(', ') || null,
+    author: (book.author_names || (book.contributions || []).map(c => c.author?.name)).filter(Boolean).join(', ') || null,
     cover_url: edition?.image?.url || book.image?.url || null,
-    description: edition?.description || book.description || null,
+    description: book.description || null,
     page_count: edition?.pages || null,
     isbn: edition?.isbn_13 || edition?.isbn_10 || null,
     publisher: edition?.publisher?.name || null,
@@ -24,12 +24,13 @@ export function normalizeHardcoverBook(book, edition = null) {
   };
 }
 export async function searchBooksWithFallback(query, options, primary, fallback) {
-  if (options.bookSource === 'openlibrary') return fallback(query, options);
+  if (options.bookSource === 'openlibrary') { options.onBookSource?.('openlibrary'); return fallback(query, options); }
   try {
     const items = await primary(query, options);
-    if (items.length) return items;
+    if (items.length) { options.onBookSource?.('hardcover'); return items; }
   } catch (error) {
     if (error?.name === 'AbortError' || options.signal?.aborted) throw error;
   }
+  options.onBookSource?.('openlibrary');
   return fallback(query, options);
 }

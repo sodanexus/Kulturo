@@ -13,7 +13,7 @@ export function createUpcomingFeature(dependencies) {
     Media,
     TMDb,
     IGDB,
-    GoogleBooks,
+    BookReleases,
     getCurrentPage,
     normalizeTitle,
     sameMediaIdentity,
@@ -454,7 +454,7 @@ async function renderUpcoming(force = false) {
   const sources = [
     { key: "tmdb", types: ["movie", "tv"], enabled: TMDb.available(), load: () => TMDb.upcoming({ signal: task.signal }) },
     { key: "igdb", types: ["game"], enabled: IGDB.available(), load: () => IGDB.upcoming({ signal: task.signal }) },
-    { key: "books", types: ["book"], enabled: GoogleBooks.available(), load: () => GoogleBooks.upcoming({ signal: task.signal }) },
+    { key: "books", types: ["book"], enabled: BookReleases.available(), load: () => BookReleases.upcoming({ signal: task.signal }) },
   ];
   UpcomingState.sourceStatus = Object.fromEntries(sources.flatMap(source =>
     source.types.map(type => [type, source.enabled ? "loading" : "unavailable"])
