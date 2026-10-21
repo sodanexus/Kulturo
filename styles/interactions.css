@@ -287,3 +287,6 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .detail-modal:not(.is-collapsible) .detail-backdrop,
   .detail-modal:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 320px; }
 }
+
+/* Le retour d’édition conserve le redimensionnement, sans rejouer l’entrée du contenu. */
+.detail-modal[data-detail-restored] :is(.detail-backdrop-info,.detail-block-in,.detail-synopsis-arriving,.detail-info-arriving,.detail-body) { animation:none; }

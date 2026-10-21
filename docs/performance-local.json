@@ -1,0 +1,10 @@
+{
+  "environment": "Node + jsdom, sans réseau, décodage ni peinture navigateur",
+  "cardsBefore": 1000,
+  "cardsAfter": 500,
+  "createdDuringFilter": 0,
+  "retainedImageNodes": true,
+  "filterMs": 11.68,
+  "sameRenderMedianMs": 0.83,
+  "sameRenderP95Ms": 1.15
+}

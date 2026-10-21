@@ -1,3 +1,4 @@
+import { startMeasurement } from "./performance.js";
 import { readingProgress, seriesProgress, isSeries } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
@@ -172,6 +173,7 @@ function releaseDetailDomResources() {
 const detailSessions = createDetailSessionManager({ onDispose: releaseDetailDomResources });
 
 function renderDetailPanel(e, options = {}) {
+  const finishRender = startMeasurement("detail:visible");
   rememberModalReturnFocus(options.transitionSource, e.id);
   markModalPristine();
   const isPreview = options.preview === true;
@@ -202,7 +204,7 @@ function renderDetailPanel(e, options = {}) {
   const detailSessionId = detailSessions.begin(e.id);
   replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal" data-detail-stagger data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+      <div class="modal detail-modal" ${options.restoreView ? 'data-detail-restored' : 'data-detail-stagger'} data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -262,7 +264,8 @@ function renderDetailPanel(e, options = {}) {
   bindCoverAccent(root.querySelector(".detail-modal"), coverUrl, backdropUrl);
   bindDetailScroll(root.querySelector(".detail-modal"));
   _checkSynopsisOverflow(e.id);
-  revealDetailSequence(root.querySelector(".detail-modal"));
+  if (!options.restoreView) revealDetailSequence(root.querySelector(".detail-modal"));
+  requestAnimationFrame(() => requestAnimationFrame(finishRender));
   enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
   if (!options.restoreView) popFavoriteHeart(root.querySelector(`#detail-fav-${CSS.escape(String(e.id))}`), 200);
   hydrateFadeImages(root);

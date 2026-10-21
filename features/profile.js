@@ -1,3 +1,6 @@
+export function profileRepeatLabel(media) {
+  return ({film:"Revisionnages", tv:"Revisionnages", game:"Parties rejouées", book:"Relectures"})[media] || "Reprises";
+}
 // Profil : périodes, statistiques, préférés et compte.
 import {
   entryActivityMonth, entryActivityYear, eventsForPeriod, isCompletionEvent,
@@ -476,9 +479,9 @@ export function createProfileFeature({
             <small>${timeScoped.total ? (timeHours >= 24 ? `≈ ${(timeHours / 24).toFixed(1).replace(".", ",")} jours` : "temps cumulé") : "aucune durée connue"}</small>
           </div>
           <div class="profile-kpi">
-            <span>Relectures</span>
+            <span>${profileRepeatLabel(_profileMedia)}</span>
             <strong>${profileNumberHTML("repeats", scopedRepeatCount)}</strong>
-            <small>revue${scopedRepeatCount > 1 ? "s" : ""}</small>
+            <small>reprise${scopedRepeatCount > 1 ? "s" : ""} supplémentaire${scopedRepeatCount > 1 ? "s" : ""}</small>
           </div>
         </div>
         <div class="profile-chip-row">
