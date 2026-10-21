@@ -44,9 +44,19 @@ export function seriesProgress(entry) {
   const season = Number.isInteger(entry?.current_season) && entry.current_season >= 1 ? entry.current_season : null;
   const episode = Number.isInteger(entry?.current_episode) && entry.current_episode >= 1 ? entry.current_episode : null;
   const seasons = Number.isInteger(entry?.seasons_count) && entry.seasons_count > 0 ? entry.seasons_count : null;
-  // La jauge indique la saison atteinte : sans total d'épisodes par saison, on
-  // ne prétend pas mesurer l'avancement à l'intérieur d'une saison.
-  const percent = season != null && seasons ? Math.min(100, Math.round(season / seasons * 100)) : null;
+  // Avancement estimé en épisodes : (saisons terminées × épisodes moyens par
+  // saison + épisode actuel) ÷ total. Sans total d'épisodes, seules les saisons
+  // déjà terminées comptent : une jauge pleine ne doit pas apparaître en saison 1/1.
+  const episodes = Number.isInteger(entry?.episodes_count) && entry.episodes_count > 0 ? entry.episodes_count : null;
+  let percent = null;
+  if (season != null && seasons) {
+    const done = episodes
+      ? (season - 1) * (episodes / seasons) + (episode || 0)
+      : (season - 1) / seasons * 1;
+    percent = Math.max(0, Math.min(100, Math.round((episodes ? done / episodes : done) * 100)));
+    // Avant la dernière saison, la jauge n'affiche jamais « complet » (épisodes par saison inégaux).
+    if (season < seasons) percent = Math.min(percent, 99);
+  }
   return { season, episode, seasons, percent };
 }
 export function isSeries(entry) {

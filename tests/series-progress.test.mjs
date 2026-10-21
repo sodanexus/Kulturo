@@ -20,9 +20,13 @@ test("la saisie saison / épisode est validée", () => {
 });
 
 test("la jauge indique la saison atteinte, jamais plus", () => {
-  assert.deepEqual(seriesProgress({ current_season: 2, current_episode: 5, seasons_count: 4 }), { season: 2, episode: 5, seasons: 4, percent: 50 });
+  assert.deepEqual(seriesProgress({ current_season: 2, current_episode: 5, seasons_count: 4, episodes_count: 40 }), { season: 2, episode: 5, seasons: 4, percent: 38 });
   assert.equal(seriesProgress({ current_season: 2 }).percent, null);
   assert.equal(seriesProgress({ current_season: 9, seasons_count: 4 }).percent, 100);
+  assert.equal(seriesProgress({ current_season: 1, current_episode: 60, seasons_count: 4, episodes_count: 40 }).percent, 99);
+  // Saison 1/1, épisode 3 sur 8 : la jauge ne doit pas être pleine.
+  assert.equal(seriesProgress({ current_season: 1, current_episode: 3, seasons_count: 1, episodes_count: 8 }).percent, 38);
+  assert.equal(seriesProgress({ current_season: 1, current_episode: 3, seasons_count: 1 }).percent, 0);
   assert.equal(seriesProgress({}).season, null);
 });
 
