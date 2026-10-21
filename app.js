@@ -2058,7 +2058,6 @@ function _openModalClassic(entry) {
               <input type="hidden" id="f-type" value="${entry.media_type || "movie"}" />
               <input type="hidden" id="f-title" value="${esc(entry.title||"")}" />
             </div>
-            <div class="edit-section-label">Mon avis</div>
             <div class="form-row">
               <div class="form-group">
                 <label>Statut</label>
@@ -2069,7 +2068,7 @@ function _openModalClassic(entry) {
                 </select>
               </div>
               <div class="form-group">
-                <label>Note <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
+                <label>Mon avis <span id="rating-tooltip" class="rating-tooltip-label"></span></label>
                 <div class="rating-stars" id="rating-stars"></div>
               </div>
             </div>

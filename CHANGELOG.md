@@ -1,3 +1,7 @@
+## 4.5.6
+
+- Modifier : « Mon avis » placé directement au-dessus des étoiles, avec le même style de libellé que « Statut », sur mobile et desktop.
+
 ## 4.5.5
 
 - Profil : libellé des reprises adapté au média.
