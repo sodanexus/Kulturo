@@ -10,7 +10,7 @@ function fixture(){
  const item={source_api:'hardcover',external_id:'2',title:'Work',media_type:'book'};
  const input={value:'Work',isConnected:true,blur(){}};
  const results={querySelector:()=>null,append(){}};
- const context=vm.createContext({AbortController,window:{_apiResults:[item]},document:{getElementById:id=>id==='f-api-search'?input:results,createElement:()=>({setAttribute(){},remove(){}})},Hardcover:{select:()=>new Promise(r=>{resolve=r;})},rememberCurrentSearch(){},markModalDirty(){},toast(){},_wizardState:{step:1},selectAddResult,_renderWizard(){rendered++;}});
+ const context=vm.createContext({AbortController,window:{_apiResults:[item]},document:{getElementById:id=>id==='f-api-search'?input:results,createElement:()=>({setAttribute(){},remove(){}})},Hardcover:{select:()=>new Promise(r=>{resolve=r;})},markModalDirty(){},toast(){},_wizardState:{step:1},selectAddResult,_renderWizard(){rendered++;}});
  vm.runInContext(fn,context);
  return{context,input,run:()=>context.fillFromApi(0),finish:()=>resolve({...item,external_id:'2:4',page_count:120}),renders:()=>rendered};
 }

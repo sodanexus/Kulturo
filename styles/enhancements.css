@@ -899,10 +899,6 @@ body.app-shell-active #main { overflow-x: clip; }
 .edit-reading-percent { color: var(--brand-teal); font-weight: 600; }
 .edit-reading-tile input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .edit-reading-tile input::-webkit-outer-spin-button, .edit-reading-tile input::-webkit-inner-spin-button { appearance: none; margin: 0; }
-.recent-searches { padding: .5rem 0; }
-.recent-searches-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--text-3); font-size: var(--type-label); }
-.recent-searches-items { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-.recent-searches-items .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; min-height: 44px; }
 
 /* Séries : « Saison [2] / 4 · Épisode [5] » dans la même tuile que les pages. */
 .edit-series .edit-reading-unit { flex: 0 0 auto; }
