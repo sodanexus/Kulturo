@@ -1,3 +1,4 @@
+import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
 import { isLikelyFrench } from "./features/text-language.js";
@@ -435,10 +436,13 @@ export const Hardcover = {
     return items.map(item => ({ ...item, genre: cleanBookGenres(item.genre).join(", ") || null, description: item.description && isLikelyFrench(item.description) ? plainBookDescription(item.description) : null }));
   },
   async select(id, options = {}) {
+    const finish = startMeasurement("book:selection");
+    try {
     const item = (await hardcoverRequest({action:"select",id},options))[0];
     if (!item) throw new Error("Livre introuvable");
     void Hardcover.fetch(item.external_id).catch(() => {});
     return {...item,description:item.description && isLikelyFrench(item.description) ? plainBookDescription(item.description) : null};
+    } finally { finish(); }
   },
   async fetch(id, options = {}) {
     const item = (await hardcoverRequest({ action: "details", id }, options))[0];
@@ -822,7 +826,7 @@ function plainBookDescription(value) {
   return element.value.replace(/\s+/g, " ").trim() || null;
 }
 
-export async function searchMedia(query, mediaType, options = {}) {
+async function searchMediaRequest(query, mediaType, options = {}) {
   if (!query || query.length < 2) return [];
   try {
     switch (mediaType) {
@@ -849,4 +853,10 @@ export function apiAvailability() {
     game:  IGDB.available(),
     book:  OpenLibrary.available(),
   };
+}
+
+export async function searchMedia(query, mediaType, options = {}) {
+  const finish = startMeasurement(`search:${mediaType}`);
+  try { return await searchMediaRequest(query, mediaType, options); }
+  finally { finish(); }
 }

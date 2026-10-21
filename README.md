@@ -1,99 +1,105 @@
 <div align="center">
-
-<img src="logo.svg" width="96" alt="Logo Kulturo : trois cercles" />
+<img src="logo.svg" width="96" alt="Logo Kulturo" />
 
 # Kulturo
 
 **Mon journal culturel personnel**
 
 *Regarder. Jouer. Lire. Garder une trace.*
-
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
-![IndexedDB](https://img.shields.io/badge/local--first-1FA88C?style=flat-square)
-![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=111)
-![PWA](https://img.shields.io/badge/PWA-installable-D8B46A?style=flat-square&logo=pwa&logoColor=111)
-
 </div>
 
----
+Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-Kulturo rassemble mes films, séries, jeux vidéo et livres dans un même espace. Ce que je découvre, ce qui m’a marqué, ce que j’aimerais retrouver : une mémoire personnelle qui se construit au fil des œuvres.
+## Version actuelle · 4.5.5
 
-Une collection à parcourir par ses jaquettes, avec seulement les repères utiles — statut, note, coup de cœur et reprise — dans une interface sombre pensée aussi bien pour le téléphone que pour le bureau.
+Le profil adapte les reprises au média : **Revisionnages**, **Parties rejouées**, **Relectures**, ou **Reprises** pour Tout. Le retour de Modifier vers une fiche conserve la transition de taille sans rejouer l’apparition progressive de son contenu. Lors du filtrage, les cartes communes conservent leurs images ; seules les nouvelles cartes apparaissent en fondu.
+
+Cette version ne change ni le schéma SQL ni les fonctions Supabase depuis la 4.5.4.
 
 ## Les espaces
 
-| | |
-| :--- | :--- |
-| **Bibliothèque** | Retrouver ma collection, ce que je suis en train de suivre et mes prochaines envies. |
-| **Sorties** | Découvrir ce qui arrive et relier naturellement ces découvertes à mes envies. |
-| **Journal** | Revoir mon parcours mois après mois et parcourir les ajouts de la Communauté. |
-| **Profil** | Comprendre mes habitudes, retrouver mes préférés et raconter mon année culturelle. |
+| Espace | Usage |
+|---|---|
+| Bibliothèque | Collection, filtres, envies et œuvres à reprendre. |
+| Sorties | Parutions à venir et ajout aux envies. |
+| Journal | Historique personnel par mois et activité de la communauté. |
+| Profil | Bilan mensuel/annuel par média, notes, temps estimé, palmarès et sauvegardes. |
 
-## Version actuelle · 4.5.4
+## Ajouter et suivre une œuvre
 
-Le **Profil** gagne en lisibilité sur grand écran (contenu borné, temps et notes côte à côte, couvertures de taille raisonnable) et la bascule Annuel / Mensuel est fluide sur mobile.
+L’ajout propose **Tout / Films & séries / Jeux vidéo / Livres**. Un ISBN valide recherche seulement les livres. Les recherches récentes ne sont plus enregistrées.
 
-Les séries En cours ont maintenant une **progression** comme les livres : saison et épisode, saisis dans Modifier (tuile « Ma progression », total des saisons affiché quand TMDb le connaît) et rappelés dans la fiche par « Saison 2 / 4 · Épisode 5 » avec une jauge de saison. Une série qui repasse En cours après un visionnage terminé repart sans progression.
+Pour les livres, Hardcover fournit d’abord titre, auteur et couverture de l’œuvre. Les éditions sont chargées à la sélection ; une édition française non audio est privilégiée parmi celles reçues. L’ISBN cible une édition exacte. Pages, ISBN et éditeur proviennent d’une même édition. Open Library reste disponible automatiquement en secours et via l’action sous les résultats. La source des résultats est indiquée.
 
-**Avant de publier :** exécuter `migrations/4.4.0-series-progress.sql` dans Supabase → SQL Editor. Cette migration ajoute la progression des séries (saison et épisode en cours) et adapte la restauration des sauvegardes. Aucun redéploiement d’Edge Function n’est nécessaire depuis la 4.2.16.
+Les corrections manuelles et les anciennes fiches sont conservées. Les notes externes des livres sont masquées. Les synopsis externes peuvent être traduits via Groq ; un synopsis déjà renseigné n’est pas écrasé automatiquement.
 
-Sur les livres **En cours**, ouvrir **Modifier**, saisir la page actuelle et, si connu, le total dans la ligne **Ma lecture**, puis **Enregistrer**. La fiche affiche seulement une fine jauge et les pages lues, sans bloc de saisie. La progression fonctionne avec la synchronisation locale/cloud existante. Une relecture repart à zéro ; terminer un livre reste un choix explicite dans Modifier.
+Dans Modifier, les livres En cours disposent du suivi page actuelle/total et les séries du suivi saison/épisode. Un indicateur discret apparaît sur la fiche. Une reprise après achèvement réinitialise la progression ; terminer reste une action explicite.
 
-Les messages de recherche distinguent les indisponibilités du catalogue des résultats absents.
+## Catalogues et fonctions Supabase
 
+| Fonction / source | Rôle | Secret serveur |
+|---|---|---|
+| TMDb | Films et séries | Configuration publique existante dans config.js |
+| igdb-proxy | Jeux, notes et captures IGDB | Secrets Twitch/IGDB du projet |
+| hardcover-proxy | Recherche et métadonnées des livres | HARDCOVER_TOKEN |
+| Open Library | Livres en secours, anciennes fiches | Aucun |
+| book-releases-proxy | Parutions des flux publics BnF | Aucun secret Google |
+| groq-proxy | Traduction des synopsis | Secret Groq du projet |
 
-Reprise de la sauvegarde 4.2.11, sans changement de palette. Les livres n’affichent plus de notes externes ni de bloc de chargement dédié. Les genres Open Library sont filtrés et francisés, y compris sur les fiches existantes.
+**Google Books n’est plus utilisé.** L’ancienne fonction google-books-proxy ne doit être supprimée qu’après activation de book-releases-proxy et vérification des parutions. Les secrets restent dans Supabase, jamais dans le dépôt.
 
-Les synopsis étrangers des livres sont traduits en français par Groq, y compris pour les ajouts par ISBN, avec une seule apparition en fondu. Un bouton **Traduire en français** (Modifier → Détails facultatifs) permet de traduire un synopsis déjà enregistré : la traduction est proposée, puis enregistrée seulement si tu la valides. Les textes saisis à la main ne sont jamais modifiés automatiquement.
+Pour déployer Hardcover via l’éditeur Supabase, copier **index.ts et hardcover.js**, côte à côte, depuis supabase/functions/hardcover-proxy/. Leur import relatif fonctionne sans modification. Le script `node scripts/sync-hardcover.mjs` synchronise le module partagé si features/hardcover.js change ; un test contrôle l’égalité.
 
-Recherche des livres par titre ou ISBN-10/13 avec contrôle de clé. Titres des éditions françaises privilégiés, puis alternatives en alphabet latin. Le synopsis est modifiable dans Modifier → Détails facultatifs ; un texte déjà renseigné n’est plus écrasé par les catalogues. Aucun SQL et aucune nouvelle fonction Supabase.
+## Données et fonctionnement hors ligne
 
-Le synopsis déjà affiché reste stable pendant la lecture. La traduction reste utilisée pour enrichir les fiches sans synopsis ; les textes déjà renseignés sont conservés. Aucun changement de fonction Supabase depuis 4.2.5.
+La bibliothèque utilise IndexedDB et une file de synchronisation vers Supabase. Les sauvegardes JSON permettent l’export/restauration de la collection et des événements pris en charge. Le service worker met en cache le shell et les images consultées ; une recherche dans les catalogues externes nécessite une connexion. Les images absentes ou les pannes de fournisseur restent dépendantes de ces services.
 
-La 4.2 refond les fiches : la fiche sert à consulter, **Modifier** sert à gérer.
+## Développement et validation
 
-- **Nouvel en-tête** — jaquette agrandie qui chevauche la bannière, avec le titre et la note personnelle à côté. Les badges (type, statut, coup de cœur, reprises) sont informatifs et ne se modifient plus d'un toucher ; la barre compacte du défilement est conservée.
-- **Fiche allégée** — la barre d'actions rapides disparaît. En bas, seulement Supprimer et Modifier.
-- **Sections claires** — Informations, Crédits, Casting, Notes externes et Historique, adaptées au type d'œuvre et aux données disponibles.
-- **Notes externes** — TMDb pour les films et séries, IGDB (joueurs et presse) pour les jeux. Elles sont toujours nommées, distinctes de la note personnelle, et ne sont pas enregistrées en base.
-- **Relecture dans Modifier** — le statut, la note et le compteur de relectures, revisionnages ou nouvelles parties se règlent au même endroit et ne sont enregistrés que par **Enregistrer** ; **Annuler** abandonne tout. Passer de Terminé à En cours démarre une reprise, sans double comptage.
+```bash
+npm ci
+npm run dev
+npm test
+npm run typecheck
+npm run build
+```
 
-La 4.2 demande de redéployer `igdb-proxy` (notes des jeux, optionnel : sans cela, les jeux n'ont simplement pas de note externe). Aucun SQL.
+Le code applicatif est en modules JavaScript, avec un point d’entrée et des contrats TypeScript. Vite produit `dist/`. `npm run verify` contrôle types, cohérence de version, tests et build ; `npm run release` prépare l’archive. Le workflow GitHub Pages publie `dist/`.
 
-La 4.1 donnait de la vie à l'interface sans la rendre bruyante :
+| Dossier / fichier | Responsabilité |
+|---|---|
+| app.js | État de l’interface, navigation, bibliothèque et formulaires |
+| api.js | Adaptateurs des catalogues et traductions |
+| features/ | Fiches, profil, journal, stockage, animations et modules fonctionnels |
+| styles/ et style.css | Styles communs et spécialisés |
+| supabase/functions/ | Code serveur déployé séparément de GitHub Pages |
+| migrations/ | Historique des évolutions SQL ; à conserver dans le repo |
+| tests/ | Tests automatisés et parcours de navigateur avec services simulés |
 
-- **Bannière vivante** — dans la fiche, l'image de fond dérive très lentement ; pour les films, séries et jeux, plusieurs images de fond (TMDb, captures IGDB) s'enchaînent en fondu. Rien ne bouge avec « réduire les animations », et rien n'est enregistré en base.
-- **Survol des affiches** — même comportement partout (Bibliothèque, À reprendre, Sorties, Profil, Journal) : légère inclinaison et lueur qui suit la souris, avec une réponse immédiate à l'entrée et un relâchement doux à la sortie.
-- **Animations plus vives** — des courbes qui démarrent à pleine vitesse, pour un rendu fluide qui semble réactif.
-- **Aura et couleur de nuance** — la couleur de la jaquette est extraite en espace perceptuel (OKLCH) ; l'aura de la fiche est plus présente sur ordinateur.
+Les vignettes de recherche TMDb et IGDB demandent une taille adaptée (w185 / cover_small). Les URLs originales restent conservées pour les fiches et la bibliothèque. Les URLs Hardcover et Open Library ne sont pas transformées arbitrairement.
 
-La 4.0.23 distingue les séries en bleu et réduit le texte des synopsis de 16 à 14 px.
+## Mesurer la fluidité
 
-La 4.0.3 aligne les titres Journal et Profil sur Bibliothèque et simplifie les livres à un seul lien « Chercher le livre ».
+Les mesures sont **désactivées par défaut**, locales et sans télémétrie. Dans la console du navigateur :
 
-La 4.0.2 harmonise **Films · Séries · Jeux · Livres**, les libellés **Envies** et **Bande-annonce**, le vouvoiement et les liens des fiches. La recherche Bibliothèque respecte les filtres ; Sorties dispose de sa propre recherche. Les en-têtes sont allégés.
+```js
+KulturoPerformance.enable();
+// Effectuer une recherche, sélectionner un livre, ouvrir une fiche, filtrer.
+console.table(KulturoPerformance.samples());
+KulturoPerformance.clear();
+KulturoPerformance.enable(false);
+```
 
-La 4.0 rend Kulturo plus immédiat et plus fiable, sans changer ce qui faisait la simplicité de son interface.
+Au maximum 100 mesures sont conservées en mémoire, sans titres ni identifiants :
+- `search:book`, `search:movie`, `search:game` : attente du catalogue, cache/secours inclus ; hors délai de frappe et peinture des résultats.
+- `book:selection` : préparation de l’édition, hors traduction préchargée en arrière-plan.
+- `detail:visible` : construction de la fiche jusqu’à deux frames ; ne garantit pas que les images ou enrichissements distants soient terminés.
+- `library:render` : travail JavaScript synchrone de la grille, hors peinture/décodage.
 
-- **Ouverture instantanée** — la bibliothèque et le Journal apparaissent depuis la base locale, puis Supabase se synchronise discrètement en arrière-plan.
-- **Véritable mode hors connexion** — ajouts, modifications et suppressions restent utilisables ; les changements en attente repartent automatiquement lorsque le réseau revient.
-- **Navigation retrouvée** — page, recherche, filtres, période et fiche ouverte sont inscrits dans une URL portable et restaurés après actualisation.
-- **Gestes plus naturels** — transitions de page cohérentes, mouvement réduit respecté et suppression annulable pendant quelques secondes.
-- **Profil recentré** — les vues mensuelle et annuelle conservent uniquement les statistiques utiles, sans répétition éditoriale.
-- **Fondations durables** — TypeScript et Vite encadrent désormais le build, avec versions verrouillées, contrôles automatisés et déploiement GitHub Pages reproductible.
+Les erreurs et annulations sont également chronométrées. Les mesures dépendent du réseau, du cache et de l’appareil. Le rapport [docs/performance-local.json](docs/performance-local.json) mesure la réconciliation DOM sous Node/jsdom : ce n’est pas un benchmark mobile ou réseau. Aucune accélération des fournisseurs n’est garantie.
 
-Les sauvegardes JSON restent compatibles avec les anciennes versions. Leur nouveau format indique aussi si des changements locaux attendaient encore leur synchronisation au moment de l’export.
+## Installation et mises à jour
 
-[Historique des versions](CHANGELOG.md) · [Mise à jour et déploiement](DEPLOYMENT.md) · [Vérifications](tests/README.md)
+Suivre [DEPLOYMENT.md](DEPLOYMENT.md) et [docs/HARDCOVER.md](docs/HARDCOVER.md). Sur une installation existante, appliquer seulement les migrations requises non encore exécutées ; ne pas rejouer schema.sql pour une simple mise à jour du site. GitHub Pages ne déploie pas les fonctions Supabase.
 
-Depuis la **3.4.6**, les versions 4.x ne demandent aucun nouveau SQL. Les 4.1 et 4.2 demandent de redéployer `igdb-proxy` (bannière puis notes des jeux, optionnel). La migration de la base locale IndexedDB est automatique sur chaque appareil.
-
----
-
-*Un projet personnel, qui évolue au fil de mes usages. Garder l’essentiel, lui donner une place, et prendre plaisir à le retrouver.*
-
-## Livres : Hardcover
-
-Installation et vérification : [docs/HARDCOVER.md](docs/HARDCOVER.md). Migration SQL et fonction Supabase requises avant activation. Open Library reste disponible en secours.
+[Historique](CHANGELOG.md) · [Tests et parcours](tests/README.md)

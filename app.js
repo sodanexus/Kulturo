@@ -1,3 +1,5 @@
+import { startMeasurement, performanceDiagnostics } from "./features/performance.js";
+window.KulturoPerformance = performanceDiagnostics;
 import { parseReadingProgress, parseSeriesProgress } from "./features/reading-progress.js";
 import { normalizeISBN } from "./features/book-search.js";
 import { revealImage } from "./features/image-reveal.js";
@@ -389,6 +391,15 @@ const TYPE_LABELS  = { game:"Jeu", movie:"Film", book:"Livre" };
 function getTypeLabel(e) {
   if (e.media_type === "movie" && e.subtype === "tv") return "Série";
   return TYPE_LABELS[e.media_type] || e.media_type;
+}
+
+function searchCoverUrl(value) {
+  const safe = safeMediaUrl(value);
+  if (!safe) return "";
+  const url = new URL(safe);
+  if (url.hostname === "image.tmdb.org") url.pathname = url.pathname.replace(/\/t\/p\/(?:w500|original)\//, "/t/p/w185/");
+  if (url.hostname === "images.igdb.com") url.pathname = url.pathname.replace("/t_cover_big/", "/t_cover_small/");
+  return url.href;
 }
 
 function safeMediaUrl(value) {
@@ -1544,6 +1555,8 @@ function cancelScheduledLibraryRender() {
 }
 
 function renderCards(options = {}) {
+  const finishRender = startMeasurement("library:render");
+  try {
   cancelScheduledLibraryRender();
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
@@ -1609,7 +1622,8 @@ function renderCards(options = {}) {
     update: (node, entry) => patchMediaCardNode(node, entry),
   });
   hydrateFadeImages(grid);
-  if (options.resetScroll) revealSurface(grid);
+  // Les nouvelles cartes sont animées par reconcileKeyedChildren ; les cartes conservées restent stables.
+  } finally { finishRender(); }
 }
 
 function filterEntries(entries) {
@@ -2591,7 +2605,7 @@ function setupWizardUniversalSearch() {
       const emptyMessage = allItems.length ? "Les œuvres trouvées sont déjà dans votre bibliothèque." : failures.length ? "La recherche est incomplète. Réessayez dans quelques instants ou ajoutez votre œuvre manuellement." : `Aucun résultat pour « ${esc(query)} ». Essayez un titre plus court ou, pour un livre, son ISBN.`;
       window._apiResults = items;
       const resultItems = items.map((item, index) => {
-        const coverUrl = safeMediaUrl(item.cover_url);
+        const coverUrl = searchCoverUrl(item.cover_url);
         return `
           <button type="button" class="api-result-item wz-universal-result" ${uiAction("fillFromApi", [index])}>
             ${coverUrl ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
@@ -2711,7 +2725,7 @@ function setupApiSearch() {
       results.style.display = "block";
       animateHeightChange(results, () => { results.innerHTML = items.map((it, idx) => `
         <button type="button" class="api-result-item" ${uiAction("fillFromApi", [idx])}>
-          ${safeMediaUrl(it.cover_url) ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(safeMediaUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
+          ${searchCoverUrl(it.cover_url) ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(searchCoverUrl(it.cover_url))}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(type, it.subtype)}</div>`}
           <div class="api-result-info">
             <div class="api-result-title">${esc(it.title)}</div>
             <div class="api-result-sub">${esc(it.release_year||"")} ${esc(it.author||"")}</div>

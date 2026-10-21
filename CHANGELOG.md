@@ -1,3 +1,10 @@
+## 4.5.5
+
+- Profil : libellé des reprises adapté au média.
+- Retour Modifier → fiche : pas de nouvelle séquence d’entrée, redimensionnement conservé.
+- Filtrage : pas de fondu global sur les cartes conservées.
+- Mesures de performance locales et facultatives, README actualisé.
+
 ## 4.5.4
 
 - Profil desktop : largeur bornée, « Répartition du temps » et « Notes » côte à côte, couvertures du Top plafonnées (plus d'éléments géants).
