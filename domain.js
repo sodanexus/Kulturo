@@ -153,9 +153,14 @@ export function sameMediaIdentity(candidate, entry) {
   const candidateSource = String(candidate.source_api || "");
   const entrySource = String(entry.source_api || "");
   if (candidateId && entryId && candidateSource && candidateSource === entrySource) {
+    if (candidateType === "book" && candidateSource === "hardcover") return candidateId.split(":")[0] === entryId.split(":")[0];
     return candidateId === entryId;
   }
 
+  if (candidateType === "book") {
+    const isbn = value => String(value || "").replace(/[-\s]/g, "").toUpperCase();
+    if (isbn(candidate.isbn) && isbn(candidate.isbn) === isbn(entry.isbn)) return true;
+  }
   const candidateTitle = normalizeSearchText(candidate.title);
   if (!candidateTitle || candidateTitle !== normalizeSearchText(entry.title)) return false;
 

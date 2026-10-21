@@ -8,7 +8,7 @@ import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, translateText } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, GoogleBooks, Hardcover, translateText } from "./api.js";
 import {
   DEFAULT_LIBRARY_SORT,
   DEFAULT_LIBRARY_STATUS,
@@ -2581,7 +2581,7 @@ function setupWizardUniversalSearch() {
       const requests = (normalizeISBN(query) ? ["book"] : ["movie", "game", "book"]).map(async type => {
         try {
           if (!apiAvailability()[type]) { failures.push(type); return []; }
-          const items = await searchMedia(query, type, { signal, throwOnError: true });
+          const items = await searchMedia(query, type, { signal, throwOnError: true, bookSource: input.dataset.openLibraryQuery === query ? "openlibrary" : undefined });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
         } catch {
           if (!signal.aborted) failures.push(type);
@@ -2610,6 +2610,7 @@ function setupWizardUniversalSearch() {
       animateHeightChange(results, () => { results.innerHTML = `
         ${failures.length ? `<p class="wz-search-empty" role="status">Catalogue indisponible : ${esc(unavailable)}.</p>` : ""}
         ${resultItems || `<div class="wz-search-empty" role="status">${emptyMessage}</div>`}
+        <button type="button" class="btn btn-ghost" data-book-fallback>Chercher aussi dans Open Library</button>
         <div class="wz-manual-result">
           <span>Pas le bon résultat ? Ajouter « ${esc(query)} » comme :</span>
           <div class="wz-manual-types" role="group" aria-label="Type pour un ajout manuel">
@@ -2624,6 +2625,11 @@ function setupWizardUniversalSearch() {
     }, immediate ? 0 : 320);
   };
 
+  results.addEventListener("click", event => {
+    if (!event.target.closest("[data-book-fallback]")) return;
+    input.dataset.openLibraryQuery = input.value.trim();
+    scheduleSearch(true);
+  });
   input.addEventListener("keydown", event => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
@@ -2668,7 +2674,7 @@ function setupApiSearch() {
       const { signal } = activeController;
       let items;
       try {
-        items = await searchMedia(q, type, { signal, throwOnError: true });
+        items = await searchMedia(q, type, { signal, throwOnError: true, bookSource: input.dataset.openLibraryQuery === q ? "openlibrary" : undefined });
         if (type === "movie") items = items.filter(item => normalizedSubtype(item) === requestedSubtype);
       } catch (error) {
         if (signal.aborted || !input.isConnected || seq !== requestSeq) return;
@@ -2683,7 +2689,7 @@ function setupApiSearch() {
       if (!items.length) {
         window._apiResults = [];
         results.style.display = "block";
-        results.innerHTML = `<div class="wz-search-empty" role="status">Aucun résultat. Essayez un autre titre${type === "book" ? " ou un ISBN" : ""}. Vous pouvez aussi conserver votre saisie.</div>`;
+        results.innerHTML = `<div class="wz-search-empty" role="status">Aucun résultat. Essayez un autre titre${type === "book" ? " ou un ISBN" : ""}. Vous pouvez aussi conserver votre saisie.</div>${type === "book" ? '<button type="button" class="btn btn-ghost" data-book-fallback>Chercher aussi dans Open Library</button>' : ""}`;
         return;
       }
       results.style.display = "block";
@@ -2699,9 +2705,15 @@ function setupApiSearch() {
       });
       // Stocker temporairement
       window._apiResults = items;
+      if (type === "book") results.insertAdjacentHTML("beforeend", '<button type="button" class="btn btn-ghost" data-book-fallback>Chercher aussi dans Open Library</button>');
     }, immediate ? 0 : 350);
   };
 
+  results.addEventListener("click", event => {
+    if (!event.target.closest("[data-book-fallback]")) return;
+    input.dataset.openLibraryQuery = input.value.trim();
+    scheduleSearch(true);
+  });
   input.addEventListener("keydown", event => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
@@ -2716,6 +2728,7 @@ function fillFromApi(idx) {
   const it = window._apiResults?.[idx];
   if (!it) return;
   rememberCurrentSearch();
+  if (it.source_api === "hardcover") void Hardcover.fetch(it.external_id).catch(() => {});
   markModalDirty();
 
   // Dans l'ajout compact, toucher un résultat ouvre directement la finalisation.

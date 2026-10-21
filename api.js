@@ -1,3 +1,4 @@
+import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
 import { isLikelyFrench } from "./features/text-language.js";
 import { igdbMediaData, igdbPlayMinutes } from "./features/igdb-media.js";
@@ -409,11 +410,80 @@ export const OpenLibrary = {
   },
 };
 
-// ── Livres — BnF pour les parutions, Google pour les détails ─
+// Hardcover : seuls les résultats publics normalisés passent par le proxy.
+const hardcoverDetailsCache = new Map();
+async function hardcoverRequest(payload, options = {}) {
+  const key = String(payload.id || '');
+  const cached = key && hardcoverDetailsCache.get(key);
+  if (cached && cached.until > Date.now()) return [cached.item];
+  const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
+    method: "POST", headers: await edgeFunctionHeaders(), body: JSON.stringify(payload),
+    timeoutMs: 22000, cachePolicy: payload.action === "search" ? "search" : "detail", signal: options.signal,
+  });
+  if (data?.error) throw new Error(data.error);
+  const items = Array.isArray(data?.items) ? data.items : [];
+  for (const item of items) {
+    if (hardcoverDetailsCache.size >= 100) hardcoverDetailsCache.delete(hardcoverDetailsCache.keys().next().value);
+    hardcoverDetailsCache.set(item.external_id, { item, until: Date.now() + 600000 });
+  }
+  return items;
+}
+export const Hardcover = {
+  async search(query, options = {}) {
+    const items = await hardcoverRequest({ action: "search", query: normalizeISBN(query) || query }, options);
+    // Ne pas sauvegarder un synopsis anglais avant sa traduction.
+    return items.map(item => ({ ...item, genre: cleanBookGenres(item.genre).join(", ") || null, description: item.description && isLikelyFrench(item.description) ? plainBookDescription(item.description) : null }));
+  },
+  async fetch(id, options = {}) {
+    const item = (await hardcoverRequest({ action: "details", id }, options))[0];
+    if (!item) return null;
+    const clean = plainBookDescription(item.description);
+    return { ...item, description: clean ? await translateViaProxy(clean, options) : null };
+  },
+};
+export const Books = {
+  search(query, options = {}) {
+    return searchBooksWithFallback(query, options, Hardcover.search, OpenLibrary.search);
+  },
+  async fetch(entry, options = {}) {
+    if (entry.source_api === "hardcover") {
+      try {
+        const details = await Hardcover.fetch(entry.external_id, options);
+        if (details?.description || !entry.isbn) return details;
+        const fallback = await OpenLibrary.search(entry.isbn, options);
+        const extra = fallback[0] ? await OpenLibraryDetails.fetch(fallback[0].external_id, entry, options) : null;
+        return { ...details, description: extra?.description || null };
+      } catch (error) {
+        if (error?.name === "AbortError" || !entry.isbn) throw error;
+        const items = await OpenLibrary.search(entry.isbn, options);
+        return items[0] ? OpenLibraryDetails.fetch(items[0].external_id, entry, options) : null;
+      }
+    }
+    let details = null;
+    try { details = await OpenLibraryDetails.fetch(entry.external_id, entry, options); }
+    catch (error) { if (error?.name === "AbortError") throw error; }
+    if (details?.description || entry.description) return details;
+    try {
+      const isbn = normalizeISBN(entry.isbn);
+      const matches = await Hardcover.search(isbn || `${entry.title} ${entry.author || ''}`, options);
+      const match = matches.find(item => isbn ? item.isbn === isbn : entry.author &&
+        normalizeBookText(item.title) === normalizeBookText(entry.title) &&
+        normalizeBookText(item.author) === normalizeBookText(entry.author));
+      if (!match) return details;
+      const extra = await Hardcover.fetch(match.external_id, options);
+      // Une correspondance d'œuvre ne permet pas de remplacer les données d'édition.
+      return { ...details, description: extra?.description || details?.description };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return details;
+    }
+  },
+};
+
+// ── Livres — BnF pour les parutions ─
 // La fonction Supabase consulte à la volée les flux Nouveautés Éditeurs de la
 // BnF pour cette installation personnelle. Rien n'est stocké en base. Google
-// Books reste uniquement utilisé pour enrichir une fiche ouverte lorsqu'un
-// résumé est disponible.
+// Books reste dans le nom historique du proxy des parutions.
 async function googleBooksProxy(payload, timeoutMs = 20000, options = {}) {
   const functionName = CONFIG?.googleBooks?.proxyFunction || "google-books-proxy";
   const proxyUrl = `${CONFIG.supabase.url}/functions/v1/${functionName}`;
@@ -714,31 +784,14 @@ export const OpenLibraryDetails = {
     const work = workResult.status === "fulfilled" ? workResult.value : null;
     const editions = editionOnly && work ? [work] : editionsResult.status === "fulfilled" ? (editionsResult.value?.entries || []) : [];
     const descriptionValue = value => typeof value === "string" ? value : value?.value || null;
-    const editionWithDescription = editions.find(edition => descriptionValue(edition.description));
-    const editionWithPages = editions.find(edition => edition.number_of_pages);
-    const editionWithIsbn = editions.find(edition => edition.isbn_13?.[0] || edition.isbn_10?.[0]);
-    const editionWithPublisher = editions.find(edition => edition.publishers?.[0]);
-
-    let rawDescription = descriptionValue(work?.description)
-      || descriptionValue(editionWithDescription?.description)
-      || null;
-    let page_count = editionWithPages?.number_of_pages || null;
-    let isbn = editionWithIsbn?.isbn_13?.[0] || editionWithIsbn?.isbn_10?.[0] || fallback.isbn || null;
-    let publisher = editionWithPublisher?.publishers?.[0] || null;
-
-    // Open Library ne possède pas de résumé pour toutes les œuvres. Google
-    // Books sert uniquement de secours, en privilégiant une édition française.
-    if (!rawDescription) {
-      const google = await fetchGoogleBookDetails({
-        title: fallback.title,
-        author: fallback.author,
-        isbn,
-      }, options);
-      rawDescription = google?.description || null;
-      page_count ||= google?.page_count || null;
-      isbn ||= google?.isbn || null;
-      publisher ||= google?.publisher || null;
-    }
+    const expectedIsbn = normalizeISBN(fallback.isbn);
+    const edition = expectedIsbn
+      ? editions.find(e => [...(e.isbn_13 || []), ...(e.isbn_10 || [])].includes(expectedIsbn))
+      : editions.find(e => e.languages?.some(l => l.key === "/languages/fre")) || editions[0];
+    const rawDescription = descriptionValue(work?.description) || descriptionValue(edition?.description) || null;
+    const page_count = edition?.number_of_pages || null;
+    const isbn = expectedIsbn || edition?.isbn_13?.[0] || edition?.isbn_10?.[0] || null;
+    const publisher = edition?.publishers?.[0] || null;
 
     if (!work && !editions.length && !rawDescription) return null;
     const cleanDescription = plainBookDescription(rawDescription);
@@ -764,52 +817,13 @@ function plainBookDescription(value) {
   return element.value.replace(/\s+/g, " ").trim() || null;
 }
 
-async function fetchGoogleBookDetails({ title, author, isbn }, options = {}) {
-  if (!title && !isbn) return null;
-
-  try {
-    const items = await googleBooksProxy({ action: "details", title, author, isbn }, 20_000, options);
-    const expectedTitle = normalizeBookText(title);
-    const expectedAuthor = normalizeBookText(author);
-    const candidates = items
-      .filter(item => item.volumeInfo?.description)
-      .map(item => {
-        const info = item.volumeInfo;
-        const candidateTitle = normalizeBookText(info.title);
-        const candidateAuthors = normalizeBookText((info.authors || []).join(" "));
-        const score = (expectedTitle && candidateTitle === expectedTitle ? 6 : 0)
-          + (expectedTitle && candidateTitle.includes(expectedTitle) ? 3 : 0)
-          + (expectedAuthor && candidateAuthors.includes(expectedAuthor) ? 3 : 0)
-          + (info.language === "fr" ? 2 : 0);
-        return { info, score };
-      })
-      .sort((a, b) => b.score - a.score);
-    const best = candidates[0];
-    if (!best?.info || (!isbn && best.score < 3)) return null;
-    const info = best.info;
-    const identifiers = info.industryIdentifiers || [];
-    return {
-      description: plainBookDescription(info.description),
-      page_count: info.pageCount || null,
-      publisher: info.publisher || null,
-      isbn: identifiers.find(item => item.type === "ISBN_13")?.identifier
-        || identifiers.find(item => item.type === "ISBN_10")?.identifier
-        || null,
-    };
-  } catch (error) {
-    if (error?.name === "AbortError") throw error;
-    return null;
-  }
-}
-
-// ── Dispatcher selon le type de média ───────────────────────
 export async function searchMedia(query, mediaType, options = {}) {
   if (!query || query.length < 2) return [];
   try {
     switch (mediaType) {
       case "movie": return await TMDb.search(query, options);
       case "game":  return await IGDB.search(query, options);
-      case "book":  return await OpenLibrary.search(query, options);
+      case "book":  return await Books.search(query, options);
       default:      return [];
     }
   } catch (err) {

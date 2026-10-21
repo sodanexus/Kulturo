@@ -1,3 +1,14 @@
+## 4.5.0
+
+Livres Hardcover
+
+- Recherche Hardcover et ISBN, secours Open Library automatique et manuel.
+- Proxy authentifié, jeton uniquement côté serveur, cache borné.
+- Éditions cohérentes, anciennes fiches et saisies préservées.
+- Google Books retiré de l’enrichissement, parutions BnF conservées.
+- Migration source_api, sauvegardes et cache hors ligne compatibles.
+- Activation : docs/HARDCOVER.md.
+
 # Historique de Kulturo
 
 [Revenir à la présentation](README.md)

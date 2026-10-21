@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
   date_started    DATE,
   date_finished   DATE,
   external_id     TEXT,
-  source_api      TEXT CHECK (source_api IN ('tmdb', 'igdb', 'rawg', 'openlibrary', 'manual')),
+  source_api      TEXT CHECK (source_api IN ('tmdb', 'igdb', 'rawg', 'openlibrary', 'hardcover', 'manual')),
   subtype         TEXT CHECK (subtype IS NULL OR subtype IN ('movie', 'tv')),
   genre           TEXT,
   author          TEXT,
@@ -73,7 +73,7 @@ ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS release_date_precision
 
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_source_api_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_source_api_check
-  CHECK (source_api IS NULL OR source_api IN ('tmdb', 'igdb', 'rawg', 'openlibrary', 'manual'));
+  CHECK (source_api IS NULL OR source_api IN ('tmdb', 'igdb', 'rawg', 'openlibrary', 'hardcover', 'manual'));
 ALTER TABLE public.media_entries DROP CONSTRAINT IF EXISTS media_entries_subtype_check;
 ALTER TABLE public.media_entries ADD CONSTRAINT media_entries_subtype_check
   CHECK (subtype IS NULL OR subtype IN ('movie', 'tv'));

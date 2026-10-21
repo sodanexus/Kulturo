@@ -1,3 +1,11 @@
+# Déploiement 4.5.0 — Hardcover
+
+Installer l’archive **4.5.0** après la migration `migrations/4.5.0-hardcover.sql` et le déploiement de `hardcover-proxy`. Suivre [docs/HARDCOVER.md](docs/HARDCOVER.md) pour créer le secret HARDCOVER_TOKEN et vérifier la recherche. Remplacer le contenu du dépôt par cette archive complète : plusieurs modules et le cache ont changé.
+
+Si la 4.4.0 n’avait pas été installée, appliquer également sa migration de suivi séries ci-dessous, avant celle de Hardcover. Les instructions 4.4.0 sont conservées comme historique ; la 4.5.0 ajoute bien une nouvelle fonction Edge.
+
+---
+
 # Mettre Kulturo à jour
 
 [Revenir à la présentation](README.md)
@@ -56,7 +64,7 @@ La version de ces fonctions reste indépendante de celle de l’interface. Les s
 
 ## Contrôle après publication
 
-- la version affichée dans **Profil → Compte et sauvegarde** est **4.4.0** ;
+- la version affichée dans **Profil → Compte et sauvegarde** est **4.5.0** ;
 - une actualisation retrouve la page, ses filtres, sa période et une éventuelle fiche ouverte ;
 - couper le réseau affiche la bibliothèque locale et l’indicateur **Hors connexion** ;
 - modifier un média hors ligne affiche un changement en attente, ensuite synchronisé au retour du réseau ;
