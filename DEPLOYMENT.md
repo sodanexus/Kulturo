@@ -1,4 +1,4 @@
-# Installer l’archive **4.5.3**
+# Installer l’archive **4.5.4**
 
 Depuis la 4.5.2 : mise à jour du site uniquement, aucune modification Supabase ni migration SQL.
 

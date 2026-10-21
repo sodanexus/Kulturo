@@ -1,3 +1,9 @@
+## 4.5.4
+
+- Profil desktop : largeur bornée, « Répartition du temps » et « Notes » côte à côte, couvertures du Top plafonnées (plus d'éléments géants).
+- Profil mobile : le sélecteur de mois se replie en largeur au lieu de passer à la ligne, la bascule Annuel / Mensuel ne fait plus sauter la mise en page.
+- Aucun changement Supabase.
+
 ## 4.5.3
 
 - Retrait des recherches récentes : interface, mémorisation, actions, styles et module dédié supprimés.
