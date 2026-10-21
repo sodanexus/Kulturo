@@ -1,9 +1,14 @@
-## 4.5.7
+## 4.5.8
+
+- Fiche série : la jauge de progression suit désormais les épisodes (saison 1/1, épisode 3 sur 8 → 38 %) au lieu d'être pleine dès la dernière saison.
+- Aucun changement Supabase.
+
+## 4.5.8
 
 - Profil desktop : le Top reprend l'espacement de la bibliothèque (même écart, ligne pleine largeur sans espace vide).
 - Aucun changement Supabase.
 
-## 4.5.7
+## 4.5.8
 
 - Modifier : « Mon avis » placé directement au-dessus des étoiles, avec le même style de libellé que « Statut », sur mobile et desktop.
 

@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.5.7
+## Version actuelle · 4.5.8
 
 Le profil adapte les reprises au média : **Revisionnages**, **Parties rejouées**, **Relectures**, ou **Reprises** pour Tout. Le retour de Modifier vers une fiche conserve la transition de taille sans rejouer l’apparition progressive de son contenu. Lors du filtrage, les cartes communes conservent leurs images ; seules les nouvelles cartes apparaissent en fondu.
 
