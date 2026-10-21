@@ -1008,3 +1008,39 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 
 /* Sans compteur « Revoir », le coup de cœur occupe toute la ligne. */
 .edit-avis-grid .edit-repeat-group[hidden] + .favorite-toggle { grid-column: 1 / -1; }
+
+/* Profil — mise en page desktop : largeur bornée, temps + notes côte à côte,
+   couvertures du Top plafonnées au lieu de s'étirer sur toute la largeur. */
+@media (min-width: 1100px) {
+  #dashboard-content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    max-width: 1180px;
+    margin-inline: auto;
+    gap: 1rem;
+  }
+  #dashboard-content > * { grid-column: 1 / -1; }
+  #dashboard-content > .profile-time-card:has(+ .profile-ratings-card) { grid-column: 1; }
+  #dashboard-content > .profile-ratings-card { grid-column: 2; }
+  .profile-top-track { grid-template-columns: repeat(6, minmax(0, 150px)); justify-content: space-between; }
+  .profile-ratings-card .rating-hist { height: 96px; }
+  .profile-ratings-card .rating-hist-col { max-width: 54px; flex: 1 1 0; margin-inline: auto; }
+}
+@media (min-width: 1100px) and (max-width: 1280px) {
+  .profile-top-track { grid-template-columns: repeat(6, minmax(0, 138px)); }
+}
+
+/* Profil mobile — la ligne année/mois ne change plus de hauteur : le mois
+   se replie en largeur (flex) au lieu de passer à la ligne. */
+@media (max-width: 640px) {
+  .profile-date-controls { flex-wrap: nowrap; width: 100%; justify-content: stretch; gap: .4rem; }
+  .profile-date-controls .profile-year-inline,
+  .profile-date-controls .profile-month-inline { flex: 1 1 0; min-width: 0; width: auto; max-width: none; }
+  .profile-date-controls .profile-month-inline {
+    transition: flex-grow .42s var(--ease-smooth), margin .42s var(--ease-smooth), padding .42s var(--ease-smooth), opacity .3s ease, border-color .3s ease;
+  }
+  .profile-date-controls .profile-month-inline.is-collapsed {
+    flex: 0 0 0; min-width: 0; max-width: 0; margin-left: -.4rem; padding-inline: 0; border-width: 0; opacity: 0;
+  }
+}

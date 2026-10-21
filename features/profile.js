@@ -500,6 +500,8 @@ export function createProfileFeature({
           : `<div class="profile-inline-empty">Terminez des œuvres avec une durée connue pour voir où va votre temps.</div>`}
       </section>
 
+      ${ratingsHTML}
+
       <section class="profile-dashboard-card profile-top-section" data-ui-key="profile-top">
         <div class="profile-card-heading">
           <div><span class="section-eyebrow">Palmarès</span><h3>Top · ${esc(periodLabel)}</h3></div>
@@ -508,8 +510,6 @@ export function createProfileFeature({
         <div class="profile-top-track">${topHTML}</div>
         ${genresHTML ? `<div class="profile-chip-row">${genresHTML}</div>` : ""}
       </section>
-
-      ${ratingsHTML}
 
       <details class="profile-account-details" data-ui-key="profile-account">
         <summary>
