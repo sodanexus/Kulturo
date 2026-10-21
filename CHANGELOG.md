@@ -1,4 +1,9 @@
-## 4.5.6
+## 4.5.7
+
+- Profil desktop : le Top reprend l'espacement de la bibliothèque (même écart, ligne pleine largeur sans espace vide).
+- Aucun changement Supabase.
+
+## 4.5.7
 
 - Modifier : « Mon avis » placé directement au-dessus des étoiles, avec le même style de libellé que « Statut », sur mobile et desktop.
 
