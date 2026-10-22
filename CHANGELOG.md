@@ -1,3 +1,10 @@
+## 4.7.2
+
+- Bandeau stable sur mobile et desktop : logo, titre de page et Ajouter gardent leur place ; les onglets desktop sont conservés.
+- Recherche et filtres déplacés sous le bandeau. Recherches indépendantes par page conservées, aucun champ vide sur le Profil.
+- Sélecteurs du Profil regroupés avant les statistiques ; commandes Sorties avant les œuvres attendues.
+- Fondu discret du titre et de la recherche, respect du réglage de réduction des animations.
+
 ## 4.7.1
 
 - Navigation desktop : le rail latéral laisse place à des onglets dans la barre du haut (Bibliothèque, Sorties, Journal, Profil) avec un trait qui glisse sous l'onglet actif. La recherche, le bouton de filtres et « Ajouter » restent dans la même barre ; le contenu gagne la largeur du rail.

@@ -62,7 +62,7 @@ import { createMediaDetailFeature } from "./features/media-detail.js";
 import { createLocalDatabase } from "./features/local-database.js";
 import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
-import { runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent, animateDialogUpdate } from "./features/motion.js";
+import { prefersReducedMotion, runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent, animateDialogUpdate } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
@@ -745,6 +745,7 @@ function renderApp() {
           <span class="topbar-tagline">Suivez votre culture</span>
         </span>
       </div>
+      <h1 id="topbar-page-title">Bibliothèque</h1>
       <nav id="topnav" aria-label="Navigation principale">
         <i class="topnav-indicator" id="topnav-indicator" aria-hidden="true"></i>
         <button type="button" class="top-tab active" data-nav="library" aria-label="Bibliothèque" title="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
@@ -760,19 +761,12 @@ function renderApp() {
           <span class="top-tab-icon">${iconUser()}</span><span class="top-tab-label">Profil</span>
         </button>
       </nav>
-      <div class="topbar-search-wrap">
-        <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
-      </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
         <span class="network-status" id="network-status" role="status" aria-live="polite" aria-label="Hors connexion" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 2 20 20"/><path d="M8.5 8.5A8.4 8.4 0 0 1 12 7.8c3.4 0 6.5 1.4 8.7 3.7M5.3 11.5c.4-.4.8-.7 1.3-1M8.6 14.8A5.2 5.2 0 0 1 12 13.6c1.4 0 2.7.5 3.6 1.3M12 19h.01"/></svg>
           <span>Hors connexion</span>
         </span>
-        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-        </button>
         <button type="button" class="topbar-add-btn" aria-label="Ajouter une œuvre" title="Ajouter" ${uiAction("openAddModal")}>
           ${iconPlus()}<span>Ajouter</span>
         </button>
@@ -781,6 +775,15 @@ function renderApp() {
 
     <!-- Main -->
     <main id="main">
+      <div class="page-search-toolbar" id="page-search-toolbar" role="search" aria-label="Recherche dans la page">
+      <div class="topbar-search-wrap">
+        <span class="search-icon">${iconSearch()}</span>
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
+      </div>
+        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        </button>
+      </div>
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
@@ -799,7 +802,6 @@ function renderApp() {
 
       <!-- Page Prochaines sorties -->
       <section id="page-upcoming" class="page">
-        <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div class="upcoming-toolbar" aria-label="Filtres des prochaines sorties">
           <div class="upcoming-toolbar-main">
             <div class="upcoming-type-switch" role="group" aria-label="Type de sortie">
@@ -830,6 +832,7 @@ function renderApp() {
             <span id="upcoming-result-count" class="section-count"></span>
           </div>
         </div>
+        <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div id="upcoming-grid" class="upcoming-months"></div>
       </section>
 
@@ -1212,6 +1215,16 @@ function showPage(name) {
   const searchWrap = document.querySelector(".topbar-search-wrap");
   const globalSearch = document.getElementById("global-search");
   if (searchWrap) searchWrap.hidden = !["library", "upcoming", "journal"].includes(name);
+  document.getElementById("page-search-toolbar")?.toggleAttribute("hidden", name === "dashboard");
+  const pageTitle = document.getElementById("topbar-page-title");
+  const title = { library: "Bibliothèque", upcoming: "Sorties", journal: "Journal", dashboard: "Profil" }[name];
+  if (pageTitle && pageTitle.textContent !== title) {
+    pageTitle.textContent = title;
+    if (!prefersReducedMotion()) {
+      pageTitle.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
+      document.getElementById("page-search-toolbar")?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
+    }
+  }
   if (globalSearch) {
     const searchConfig = {
       library: ["Rechercher dans ma bibliothèque", "Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année"],

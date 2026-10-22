@@ -38,7 +38,7 @@ const CONFIG = {
   // ── App settings ────────────────────────────────────────
   app: {
     name: "Kulturo",
-    version: "4.7.1",
+    version: "4.7.2",
     itemsPerPage: 24,
   },
 };
