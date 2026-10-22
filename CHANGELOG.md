@@ -1,3 +1,9 @@
+## 4.7.3
+
+- Desktop : onglets par icônes avec noms accessibles et infobulles, recherche et filtres dans la barre du haut.
+- Mobile : logo, recherche et filtres en haut ; Ajouter uniquement dans la navigation du bas.
+- Titre de page dans le contenu ; recherches indépendantes et sélecteurs du Profil conservés.
+
 ## 4.7.2
 
 - Bandeau stable sur mobile et desktop : logo, titre de page et Ajouter gardent leur place ; les onglets desktop sont conservés.

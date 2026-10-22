@@ -745,7 +745,6 @@ function renderApp() {
           <span class="topbar-tagline">Suivez votre culture</span>
         </span>
       </div>
-      <h1 id="topbar-page-title">Bibliothèque</h1>
       <nav id="topnav" aria-label="Navigation principale">
         <i class="topnav-indicator" id="topnav-indicator" aria-hidden="true"></i>
         <button type="button" class="top-tab active" data-nav="library" aria-label="Bibliothèque" title="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
@@ -761,6 +760,15 @@ function renderApp() {
           <span class="top-tab-icon">${iconUser()}</span><span class="top-tab-label">Profil</span>
         </button>
       </nav>
+      <div class="page-search-toolbar" id="page-search-toolbar" role="search" aria-label="Recherche dans la page">
+      <div class="topbar-search-wrap">
+        <span class="search-icon">${iconSearch()}</span>
+        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
+      </div>
+        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        </button>
+      </div>
       <div id="loading-bar"><div id="loading-bar-fill"></div></div>
       <div class="topbar-right">
         <span class="network-status" id="network-status" role="status" aria-live="polite" aria-label="Hors connexion" hidden>
@@ -775,15 +783,7 @@ function renderApp() {
 
     <!-- Main -->
     <main id="main">
-      <div class="page-search-toolbar" id="page-search-toolbar" role="search" aria-label="Recherche dans la page">
-      <div class="topbar-search-wrap">
-        <span class="search-icon">${iconSearch()}</span>
-        <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
-      </div>
-        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-        </button>
-      </div>
+      <h1 id="topbar-page-title">Bibliothèque</h1>
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
