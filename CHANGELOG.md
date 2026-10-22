@@ -1,3 +1,7 @@
+## 4.7.4
+
+- Suppression des titres de page Bibliothèque, Sorties, Journal et Profil, ainsi que de leur espace et de leur animation dédiée. Navigation et recherche conservées.
+
 ## 4.7.3
 
 - Desktop : onglets par icônes avec noms accessibles et infobulles, recherche et filtres dans la barre du haut.

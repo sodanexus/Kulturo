@@ -783,7 +783,6 @@ function renderApp() {
 
     <!-- Main -->
     <main id="main">
-      <h1 id="topbar-page-title">Bibliothèque</h1>
       <!-- Page Bibliothèque -->
       <section id="page-library" class="page active">
         <div id="active-filter-summary" class="active-filter-summary" aria-label="Filtres actifs" hidden></div>
@@ -1216,14 +1215,8 @@ function showPage(name) {
   const globalSearch = document.getElementById("global-search");
   if (searchWrap) searchWrap.hidden = !["library", "upcoming", "journal"].includes(name);
   document.getElementById("page-search-toolbar")?.toggleAttribute("hidden", name === "dashboard");
-  const pageTitle = document.getElementById("topbar-page-title");
-  const title = { library: "Bibliothèque", upcoming: "Sorties", journal: "Journal", dashboard: "Profil" }[name];
-  if (pageTitle && pageTitle.textContent !== title) {
-    pageTitle.textContent = title;
-    if (!prefersReducedMotion()) {
-      pageTitle.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
-      document.getElementById("page-search-toolbar")?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
-    }
+  if (name !== "dashboard" && !prefersReducedMotion()) {
+    document.getElementById("page-search-toolbar")?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
   }
   if (globalSearch) {
     const searchConfig = {

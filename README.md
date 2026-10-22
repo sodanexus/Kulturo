@@ -10,9 +10,9 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.7.3
+## Version actuelle · 4.7.4
 
-Le bandeau réunit le logo, les onglets par icônes sur desktop, la recherche contextuelle et les filtres. Ajouter reste en haut sur desktop et uniquement en bas sur mobile. Le titre de page apparaît dans le contenu ; les sélecteurs du Profil sont regroupés avant les statistiques.
+Le bandeau réunit le logo, les onglets par icônes sur desktop, la recherche contextuelle et les filtres. Ajouter reste en haut sur desktop et uniquement en bas sur mobile. Les titres de page redondants sont supprimés ; les sélecteurs du Profil sont regroupés avant les statistiques.
 
 **Navigation.** Onglets dans la barre du haut sur desktop, barre du bas sobre sur mobile, avec un trait qui glisse sous l'onglet actif.
 
