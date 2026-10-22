@@ -1,3 +1,8 @@
+## 4.7.6
+
+- Sorties : conservation de la ligne dorée et du texte de chargement ; suppression du spinner et des squelettes comprimés sur mobile.
+- Fondu des résultats conservé (420 ms selon le rythme partagé et le réglage de réduction des animations). Les résultats disponibles restent affichés pendant une actualisation.
+
 ## 4.7.5
 
 - Bibliothèque : 48 cartes au premier affichage, puis lots de 48 préparés 500 px avant le bas de la grille.

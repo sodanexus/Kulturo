@@ -1,4 +1,4 @@
-# Installer l’archive **4.7.5**
+# Installer l’archive **4.7.6**
 
 Depuis la 4.5.4 : remplacer les fichiers du site ; aucune nouvelle migration SQL ni modification des fonctions Supabase.
 
