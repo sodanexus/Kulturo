@@ -22,18 +22,19 @@ test("desktop : onglets dans la barre du haut, plus de rail latéral", () => {
   assert.match(css, /\.topnav-indicator/);
 });
 
-test("la recherche et le bouton de filtres restent dans la barre du haut", () => {
+test("la recherche et les filtres sont sous le bandeau stable", () => {
   const header = app.slice(app.indexOf('<header id="topbar">'), app.indexOf("</header>"));
-  assert.match(header, /id="global-search"/);
-  assert.match(header, /id="btn-filter-toggle"/);
-  assert.ok(header.indexOf('id="topnav"') < header.indexOf('id="global-search"'));
+  assert.doesNotMatch(header, /id="global-search"/);
+  assert.match(header, /id="topbar-page-title"/);
+  assert.doesNotMatch(header, /id="btn-filter-toggle"/);
+  assert.ok(app.indexOf('id="page-search-toolbar"') > app.indexOf('<main id="main">'));
 });
 
 test("mobile : barre du bas conservée, indicateur positionné sur l'onglet actif", () => {
   assert.match(app, /id="bottom-nav-indicator"/);
   assert.match(app, /function positionNavIndicators/);
   assert.match(app, /positionNavIndicators\(\);/);
-  assert.match(css, /@media \(max-width: 680px\)[\s\S]*#topnav, \.topbar-add-btn \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*#topnav \{ display: none; \}/);
 });
 
 test("animations sobres : un seul mouvement, sans ressort, coupé si mouvements réduits", () => {
