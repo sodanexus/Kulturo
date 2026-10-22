@@ -1,3 +1,4 @@
+import { createLibraryWindow } from "./features/library-window.js";
 import { startMeasurement, performanceDiagnostics } from "./features/performance.js";
 window.KulturoPerformance = performanceDiagnostics;
 import { parseReadingProgress, parseSeriesProgress } from "./features/reading-progress.js";
@@ -211,6 +212,10 @@ const libraryLoadGate = createAsyncGate();
 const journalLoadGate = createAsyncGate();
 const authFlowGate = createAsyncGate();
 const _pendingScrollRestores = new Set();
+const libraryWindow = createLibraryWindow();
+let _libraryMoreObserver = null;
+let _libraryMoreGeneration = 0;
+let _libraryRevealObserver = null;
 let _uiSnapshotTimer = 0;
 let _pendingRouteDetailId = null;
 
@@ -240,6 +245,7 @@ function persistUiSnapshot() {
       page,
       scrollPos: State.scrollPos,
       filters: State.filters,
+      libraryWindow: libraryWindow.snapshot(),
       views: currentViewContext(),
     }));
     if (_historyReady && history.state?.kulturo && !_handlingPopState) {
@@ -272,6 +278,7 @@ function restoreUiSnapshot() {
       State.scrollPos = { ...State.scrollPos, ...safeScroll };
       safeScroll && Object.keys(safeScroll).forEach(key => _pendingScrollRestores.add(key));
     }
+    libraryWindow.restore(snapshot.libraryWindow);
     const filters = snapshot.filters;
     if (filters && typeof filters === "object") {
       const allowedTypes = new Set(["all", "movie", "game", "book"]);
@@ -299,6 +306,10 @@ function restoreUiSnapshot() {
 }
 
 function clearUiSnapshot() {
+  libraryWindow.clear();
+  stopLibraryMore();
+  _libraryRevealObserver?.disconnect();
+  _libraryRevealObserver = null;
   try { sessionStorage.removeItem(UI_SNAPSHOT_KEY); } catch {}
   _pendingScrollRestores.clear();
 }
@@ -791,6 +802,9 @@ function renderApp() {
           <span id="library-result-count" class="section-count"></span>
         </div>
         <div id="cards-grid"></div>
+        <div id="library-more" class="library-more" hidden>
+          <button type="button" class="btn btn-ghost" ${uiAction("showMoreLibrary")} aria-controls="cards-grid">Afficher la suite</button>
+        </div>
 
       </section>
 
@@ -1555,6 +1569,9 @@ function renderCards(options = {}) {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
 
+  stopLibraryMore();
+  _libraryRevealObserver?.disconnect();
+  _libraryRevealObserver = null;
   grid.setAttribute("aria-busy", String(State.libraryStatus === "loading"));
   if (!State.entries.length && State.libraryStatus === "loading") {
     grid.innerHTML = cardSkeletons() + '<span class="sr-only" role="status">Chargement de la bibliothèque…</span>';
@@ -1576,6 +1593,7 @@ function renderCards(options = {}) {
   }
 
   let entries = filterEntries(State.entries);
+  libraryWindow.update(entries, JSON.stringify(State.filters), Boolean(options.resetScroll));
   renderActiveFilters();
   renderContinueSection();
   updateLibraryHeading(entries);
@@ -1609,15 +1627,67 @@ function renderCards(options = {}) {
     return;
   }
 
+  renderLibraryWindow();
+  } finally { finishRender(); }
+}
+
+function stopLibraryMore() {
+  _libraryMoreGeneration++;
+  _libraryMoreObserver?.disconnect();
+  _libraryMoreObserver = null;
+  const more = document.getElementById("library-more");
+  if (more) more.hidden = true;
+}
+
+function renderLibraryWindow(append = false) {
+  const grid = document.getElementById("cards-grid");
+  if (!grid) return;
+  stopLibraryMore();
   if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
-  reconcileKeyedChildren(grid, entries, {
+  reconcileKeyedChildren(grid, libraryWindow.visible(), {
     key: entry => entry.id,
-    create: (entry, index) => createMediaCardNode(entry, index),
+    create: (entry, index) => {
+      const card = createMediaCardNode(entry, index);
+      if (append && card && typeof IntersectionObserver === "function" && !prefersReducedMotion()) {
+        card.classList.add("library-card-pending");
+      }
+      return card;
+    },
     update: (node, entry) => patchMediaCardNode(node, entry),
   });
   hydrateFadeImages(grid);
-  // Les nouvelles cartes sont animées par reconcileKeyedChildren ; les cartes conservées restent stables.
-  } finally { finishRender(); }
+  _libraryRevealObserver?.disconnect();
+  _libraryRevealObserver = null;
+  const pendingCards = grid.querySelectorAll(".library-card-pending");
+  if (pendingCards.length && typeof IntersectionObserver === "function" && !prefersReducedMotion()) {
+    _libraryRevealObserver = new IntersectionObserver(records => {
+      for (const record of records) {
+        if (!record.isIntersecting) continue;
+        record.target.classList.remove("library-card-pending");
+        _libraryRevealObserver?.unobserve(record.target);
+      }
+    }, { root: document.getElementById("main"), threshold: 0.01 });
+    pendingCards.forEach(card => _libraryRevealObserver.observe(card));
+  } else pendingCards.forEach(card => card.classList.remove("library-card-pending"));
+  const more = document.getElementById("library-more");
+  const main = document.getElementById("main");
+  if (!more || !main || !libraryWindow.hasMore()) return;
+  more.hidden = false;
+  // Le bouton reste disponible au clavier et sans IntersectionObserver.
+  if (typeof IntersectionObserver !== "function") return;
+  const generation = _libraryMoreGeneration;
+  _libraryMoreObserver = new IntersectionObserver(records => {
+    if (generation !== _libraryMoreGeneration || _currentPage !== "library" ||
+        !records.some(record => record.isIntersecting)) return;
+    showMoreLibrary();
+  }, { root: main, rootMargin: "0px 0px 500px 0px", threshold: 0 });
+  _libraryMoreObserver.observe(more);
+}
+
+function showMoreLibrary() {
+  if (_currentPage !== "library" || !libraryWindow.next()) return;
+  renderLibraryWindow(true);
+  scheduleUiSnapshot();
 }
 
 function filterEntries(entries) {
@@ -3797,6 +3867,7 @@ function setupMobileSheetSwipe({ overlay, sheet, handles = ".modal-header", dism
 
 // ── Animation nouvelle carte ──────────────────────────────────
 function flashNewCard(id) {
+  if (libraryWindow.ensure(id)) renderLibraryWindow();
   requestAnimationFrame(() => {
     const card = document.querySelector(`.media-card[data-id="${CSS.escape(String(id))}"]`);
     if (!card) return;
@@ -4320,6 +4391,7 @@ window.UI = {
   setTypeFilter,
   setStatusChip,
   toggleContinueSection,
+  showMoreLibrary,
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
     // Evite double ouverture

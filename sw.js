@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v4.7.4";
+const STATIC_CACHE = "kulturo-static-v4.7.5";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -48,6 +48,7 @@ const STATIC_ASSET_PATHS = [
   "features/journal-groups.js",
   "features/journal-navigation.js",
   "features/library-cache.js",
+  "features/library-window.js",
   "features/local-database.js",
   "features/media-detail.js",
   "features/media-repository.js",
@@ -72,9 +73,9 @@ const STATIC_ASSET_PATHS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg?v=4.7.4",
-  "icon-192.png?v=4.7.4",
-  "icon-512.png?v=4.7.4",
+  "icon.svg?v=4.7.5",
+  "icon-192.png?v=4.7.5",
+  "icon-512.png?v=4.7.5",
 ];
 const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [

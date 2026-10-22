@@ -1,3 +1,12 @@
+## 4.7.5
+
+- Bibliothèque : 48 cartes au premier affichage, puis lots de 48 préparés 500 px avant le bas de la grille.
+- Les nouvelles cartes apparaissent en fondu à leur entrée dans la zone visible ; les cartes déjà présentes et leurs images sont conservées.
+- Recherche, filtres, tri et compteurs continuent de porter sur toute la collection. Les couvertures gardent leur chargement différé natif.
+- Profondeur affichée conservée après modification et dans la session pour restaurer le défilement ; une nouvelle carte hors du premier lot peut toujours être révélée.
+- Bouton de secours pour le clavier et les navigateurs sans IntersectionObserver ; respect des mouvements réduits.
+- Validation : 224 tests, vérification TypeScript et build ; parcours DOM simulé de 232 œuvres. Pas de mesure de fluidité sur téléphone réel.
+
 ## 4.7.4
 
 - Suppression des titres de page Bibliothèque, Sorties, Journal et Profil, ainsi que de leur espace et de leur animation dédiée. Navigation et recherche conservées.
