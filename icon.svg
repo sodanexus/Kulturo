@@ -1,15 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img">
   <title>Icône Kulturo</title>
-  <desc>Trois cercles superposés en rouge corail, vert sarcelle et or sur fond transparent.</desc>
-  <defs>
-    <clipPath id="icon-red"><circle cx="150" cy="115" r="40"/></clipPath>
-    <clipPath id="icon-teal"><circle cx="190" cy="115" r="40"/></clipPath>
-  </defs>
-  <g transform="translate(-200 -20) scale(2.4)">
-    <circle cx="150" cy="115" r="40" fill="#E8553A"/>
-    <circle cx="190" cy="115" r="40" fill="#1FA88C"/>
-    <circle cx="230" cy="115" r="40" fill="#D8B46A"/>
-    <circle cx="190" cy="115" r="40" fill="#1C3820" clip-path="url(#icon-red)"/>
-    <circle cx="230" cy="115" r="40" fill="#1D6F20" clip-path="url(#icon-teal)"/>
+  <desc>Quatre cercles en ligne légèrement superposés : films corail, séries bleu, jeux sarcelle et livres doré.</desc>
+  <g transform="translate(32 176) scale(1.6)">
+  <circle cx="50" cy="50" r="40" fill="#e8553a"/>
+  <circle cx="110" cy="50" r="40" fill="#7ea6ff"/>
+  <circle cx="170" cy="50" r="40" fill="#1fa88c"/>
+  <circle cx="230" cy="50" r="40" fill="#d8b46a"/>
   </g>
 </svg>

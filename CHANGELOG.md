@@ -1,3 +1,9 @@
+## 4.7.7
+
+- Logo à quatre cercles en ligne, dans les couleurs des étiquettes Film, Série, Jeu et Livre.
+- Déclinaisons harmonisées : bandeau, démarrage, états vides animés, favicon, icônes PWA 192/512 et README.
+- Icônes versionnées pour renouveler le cache ; logo mobile légèrement élargi pour conserver la lisibilité.
+
 ## 4.7.6
 
 - Sorties : conservation de la ligne dorée et du texte de chargement ; suppression du spinner et des squelettes comprimés sur mobile.

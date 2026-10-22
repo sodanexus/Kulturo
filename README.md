@@ -1,5 +1,5 @@
 <div align="center">
-<img src="logo.svg" width="96" alt="Logo Kulturo" />
+<img src="logo.svg" width="96" alt="Kulturo : quatre cercles, films corail, séries bleu, jeux sarcelle et livres doré" />
 
 # Kulturo
 
@@ -8,9 +8,9 @@
 *Regarder. Jouer. Lire. Garder une trace.*
 </div>
 
-Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
+Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.7.6
+## Version actuelle · 4.7.7
 
 La bibliothèque affiche 48 cartes, puis ajoute des lots de 48 à l’approche du bas. Les nouvelles cartes apparaissent en fondu lorsqu’elles entrent dans l’écran. Recherche, tri et compteurs portent toujours sur toute la collection ; la profondeur affichée est conservée dans la session. Les données restent chargées comme auparavant : cette optimisation réduit le rendu initial, pas la requête Supabase.
 
