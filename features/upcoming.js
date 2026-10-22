@@ -4,7 +4,6 @@ import { revealSurface } from "./motion.js";
 // ============================================================
 
 import { librarySearchScore } from "../domain.js";
-import { cardSkeletons } from "./ui-states.js";
 import { createAsyncGate } from "./async-gate.js";
 
 export function createUpcomingFeature(dependencies) {
@@ -26,7 +25,6 @@ export function createUpcomingFeature(dependencies) {
     iconStatus,
     continuePreviewHTML,
     hydrateFadeImages,
-    loadingState,
     emptyState,
     errorState,
     loadingStart,
@@ -536,7 +534,7 @@ function renderUpcomingCards() {
     const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
-      grid.innerHTML = '<div class="upcoming-loading">' + loadingState(`Chargement en cours : ${pendingLabels.join(", ")}…`) + '<div class="upcoming-grid">' + cardSkeletons() + '</div></div>';
+      grid.innerHTML = `<p class="upcoming-loading" role="status">Chargement en cours : ${esc(pendingLabels.join(", "))}…</p>`;
       return;
     }
     const statuses = UpcomingState.type === "all"
@@ -581,7 +579,7 @@ function renderUpcomingCards() {
 
   const pendingLabels = pendingUpcomingSourceLabels(true);
   const progress = pendingLabels.length
-    ? `<div class="upcoming-progress" role="status"><div class="spinner"></div><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
+    ? `<div class="upcoming-progress" role="status"><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
     : "";
   grid.innerHTML = progress + [...groups.values()].map(group => `
     <section class="upcoming-month-section">
@@ -779,7 +777,6 @@ function resetUpcomingFilters() {
   function refreshUpcoming() {
     clearApiCache(key => key.includes("/discover/") || key.includes('"action":"upcoming"'));
     UpcomingState.loaded = false;
-    UpcomingState.results = [];
     return renderUpcoming(true);
   }
 
