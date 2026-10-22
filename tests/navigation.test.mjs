@@ -22,12 +22,12 @@ test("desktop : onglets dans la barre du haut, plus de rail latéral", () => {
   assert.match(css, /\.topnav-indicator/);
 });
 
-test("la recherche et les filtres sont sous le bandeau stable", () => {
+test("la recherche et les filtres sont dans le bandeau, le titre dans le contenu", () => {
   const header = app.slice(app.indexOf('<header id="topbar">'), app.indexOf("</header>"));
-  assert.doesNotMatch(header, /id="global-search"/);
-  assert.match(header, /id="topbar-page-title"/);
-  assert.doesNotMatch(header, /id="btn-filter-toggle"/);
-  assert.ok(app.indexOf('id="page-search-toolbar"') > app.indexOf('<main id="main">'));
+  assert.match(header, /id="global-search"/);
+  assert.doesNotMatch(header, /id="topbar-page-title"/);
+  assert.match(header, /id="btn-filter-toggle"/);
+  assert.ok(app.indexOf('id="page-search-toolbar"') < app.indexOf('<main id="main">'));
 });
 
 test("mobile : barre du bas conservée, indicateur positionné sur l'onglet actif", () => {
