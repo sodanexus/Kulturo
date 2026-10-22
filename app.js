@@ -784,6 +784,7 @@ function renderApp() {
       </div>
       <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter une œuvre" ${uiAction("openAddModal")}>
         ${iconPlus()}
+        <span class="add-label">Ajouter</span>
       </button>
     </nav>
 
@@ -899,6 +900,7 @@ function renderApp() {
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav">
+      <i class="bottom-nav-indicator" id="bottom-nav-indicator" aria-hidden="true"></i>
       <button type="button" class="bottom-nav-item active" data-nav="library" ${uiAction("navTo", ["library"])} aria-label="Bibliothèque" aria-current="page">
         ${iconGrid()}
         <span>Bibliothèque</span>
@@ -1100,6 +1102,7 @@ function navTo(key, options = {}) {
       indicator.style.opacity = "1";
     }
   }
+  positionBottomNavIndicator();
 
   // Sauvegarde la nav active
   try { localStorage.setItem("kulturo-nav", primaryKey); } catch {}
@@ -3607,6 +3610,21 @@ function uiAction(action, args = [], options = {}) {
 // ── Icons (inline SVG minifiés) ───────────────────────────────
 const iconCalendar = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
+
+// Indicateur de la barre mobile : suit l'onglet actif (largeur et position réelles).
+function positionBottomNavIndicator() {
+  const nav = document.getElementById("bottom-nav");
+  const indicator = document.getElementById("bottom-nav-indicator");
+  const active = nav?.querySelector(".bottom-nav-item.active[data-nav]");
+  if (!nav || !indicator || !active) { indicator?.classList.remove("is-ready"); return; }
+  const navBox = nav.getBoundingClientRect();
+  const box = active.getBoundingClientRect();
+  if (!box.width) { indicator.classList.remove("is-ready"); return; }
+  indicator.style.setProperty("--w", `${Math.max(40, box.width - 10)}px`);
+  indicator.style.setProperty("--x", `${box.left - navBox.left + 5}px`);
+  indicator.classList.add("is-ready");
+}
+window.addEventListener("resize", () => positionBottomNavIndicator());
 const iconScan    = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 9v6M11 9v6M14 9v6M17 9v6"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
