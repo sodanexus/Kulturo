@@ -22,10 +22,10 @@ test("desktop : onglets dans la barre du haut, plus de rail latéral", () => {
   assert.match(css, /\.topnav-indicator/);
 });
 
-test("la recherche et les filtres sont dans le bandeau, le titre dans le contenu", () => {
+test("la recherche et les filtres sont dans le bandeau sans titre de page redondant", () => {
   const header = app.slice(app.indexOf('<header id="topbar">'), app.indexOf("</header>"));
   assert.match(header, /id="global-search"/);
-  assert.doesNotMatch(header, /id="topbar-page-title"/);
+  assert.doesNotMatch(app, /id="topbar-page-title"/);
   assert.match(header, /id="btn-filter-toggle"/);
   assert.ok(app.indexOf('id="page-search-toolbar"') < app.indexOf('<main id="main">'));
 });
