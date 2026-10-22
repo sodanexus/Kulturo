@@ -1,139 +1,139 @@
-/* Navigation modernisée (4.7) — chargée en dernier.
-   Desktop : rail qui se déploie au survol, indicateur à ressort.
-   Mobile  : barre flottante en verre, onglet actif qui se soulève. */
-:root {
-  --nav-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --nav-ease: cubic-bezier(.22, 1, .36, 1);
-  --rail-open: 188px;
+/* Navigation (4.7) — chargée en dernier.
+   Desktop : onglets dans la barre du haut, trait qui glisse sous l'onglet actif.
+   Mobile  : barre du bas sobre, trait doré qui glisse au-dessus de l'onglet actif.
+   Un seul mouvement par élément (200–220 ms), sans rebond. */
+:root { --nav-ease: cubic-bezier(.2, .8, .2, 1); --nav-dur: .22s; }
+
+/* ── Desktop & tablette : onglets dans la barre du haut ───── */
+@media (min-width: 681px) {
+  #topbar {
+    display: flex;
+    grid-template-columns: none;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1rem;
+    padding-left: max(2rem, calc(1rem + var(--safe-left)));
+    padding-right: max(2rem, calc(1rem + var(--safe-right)));
+  }
+  #main { padding-left: max(2rem, calc(1rem + var(--safe-left))); }
+  .topbar-logo { flex: none; width: auto; }
+  .topbar-tagline { display: none; }
+
+  #topnav {
+    position: relative;
+    display: flex;
+    align-self: stretch;
+    align-items: stretch;
+    gap: 2px;
+    margin-left: .5rem;
+  }
+  .top-tab {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 .95rem;
+    border: 0;
+    background: none;
+    color: var(--text-3);
+    font: inherit;
+    font-size: var(--type-label);
+    font-weight: 650;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--nav-dur) ease;
+  }
+  .top-tab-icon { display: flex; }
+  .top-tab-icon svg { width: 18px; height: 18px; }
+  .top-tab:hover { color: var(--text); }
+  .top-tab.active { color: var(--text); }
+  .top-tab.active .top-tab-icon { color: var(--accent); }
+  .topnav-indicator {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: var(--w, 0);
+    border-radius: 2px 2px 0 0;
+    background: var(--accent);
+    opacity: 0;
+    transform: translateX(var(--x, 0));
+    transition: transform var(--nav-dur) var(--nav-ease), width var(--nav-dur) var(--nav-ease), opacity .2s ease;
+    pointer-events: none;
+  }
+  .topnav-indicator.is-ready { opacity: 1; }
+
+  .topbar-search-wrap { flex: 1 1 240px; width: auto; max-width: 420px; min-width: 0; margin: 0 0 0 auto; }
+  .topbar-right { flex: none; width: auto; min-width: 0; padding: 0; gap: .5rem; }
+  .topbar-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    height: 40px;
+    padding: 0 .95rem;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #17140e;
+    font: inherit;
+    font-size: var(--type-label);
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform .15s ease, background-color var(--nav-dur) ease;
+  }
+  .topbar-add-btn:hover { background: var(--accent-2); }
+  .topbar-add-btn:active { transform: scale(.96); }
+  .topbar-add-btn svg { width: 18px; height: 18px; }
+}
+@media (min-width: 681px) and (max-width: 1100px) {
+  #topbar { padding-left: max(1.25rem, calc(.75rem + var(--safe-left))); padding-right: max(1.25rem, calc(.75rem + var(--safe-right))); }
+  .top-tab-label { display: none; }
+  .top-tab { padding: 0 .8rem; }
+  .topbar-add-btn { width: 40px; padding: 0; justify-content: center; }
+  .topbar-add-btn span { display: none; }
+  .topbar-mark { width: 44px; height: 28px; }
+}
+@media (max-width: 680px) {
+  #topnav, .topbar-add-btn { display: none; }
 }
 
-/* ── Desktop ───────────────────────────────────────────────── */
-#sidebar { transition: width .45s var(--nav-ease), box-shadow .45s var(--nav-ease), background-color .3s ease; }
-#sidebar:has(:focus-visible) { width: var(--rail-open); box-shadow: 18px 0 44px rgba(0, 0, 0, .35); }
-@media (hover: hover) {
-  #sidebar:hover { width: var(--rail-open); box-shadow: 18px 0 44px rgba(0, 0, 0, .35); }
-}
-#sidebar .nav-item { justify-content: flex-start; gap: .85rem; padding-right: .65rem; overflow: hidden; white-space: nowrap; }
-#sidebar .nav-item::after, #sidebar .sidebar-add-btn::after { display: none; }
-#sidebar .nav-label {
-  display: block;
-  font-size: var(--type-label);
-  font-weight: 650;
-  opacity: 0;
-  transform: translateX(-8px);
-  transition: opacity .25s ease, transform .45s var(--nav-ease);
-}
-#sidebar:has(:focus-visible) .nav-label,
-#sidebar:has(:focus-visible) .add-label { opacity: 1; transform: none; }
-@media (hover: hover) {
-  #sidebar:hover .nav-label, #sidebar:hover .add-label { opacity: 1; transform: none; transition-delay: .06s; }
-}
-#sidebar .nav-item.active { background: transparent; }
-#nav-indicator {
-  height: 40px;
-  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
-  background: var(--accent-glow);
-  transition: top .5s var(--nav-spring), opacity .2s ease;
-}
-#sidebar .nav-icon { transition: transform .45s var(--nav-spring); }
-#sidebar .nav-item:not(.active):hover .nav-icon { transform: scale(1.14) rotate(-4deg); }
-#sidebar .nav-item:active .nav-icon { transform: scale(.9); }
-#sidebar .nav-item.active .nav-icon { animation: navPop .5s var(--nav-spring); }
-@keyframes navPop { 0% { transform: scale(.72); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
-
-#sidebar .sidebar-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: .85rem;
-  width: 40px;
-  padding: 0 10px;
-  overflow: hidden;
-  white-space: nowrap;
-  font: inherit;
-  font-weight: 700;
-  font-size: var(--type-label);
-  transition: width .45s var(--nav-ease), transform .35s var(--nav-spring), box-shadow .35s ease, background-color .25s ease;
-}
-#sidebar .sidebar-add-btn svg { flex: none; transition: transform .5s var(--nav-spring); }
-#sidebar .sidebar-add-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px var(--accent-glow); }
-#sidebar .sidebar-add-btn:hover svg { transform: rotate(90deg); }
-#sidebar .add-label { opacity: 0; transform: translateX(-8px); transition: opacity .25s ease, transform .45s var(--nav-ease); }
-@media (hover: hover) {
-  #sidebar:hover .sidebar-add-btn { width: calc(var(--rail-open) - 1rem); }
-}
-#sidebar:has(:focus-visible) .sidebar-add-btn { width: calc(var(--rail-open) - 1rem); }
-
-/* ── Mobile ────────────────────────────────────────────────── */
+/* ── Mobile : barre du bas sobre ──────────────────────────── */
 .bottom-nav-indicator { display: none; }
 @media (max-width: 680px) {
-  #bottom-nav {
-    left: max(12px, var(--safe-left));
-    right: max(12px, var(--safe-right));
-    bottom: calc(10px + var(--safe-bottom));
-    height: 64px;
-    min-height: 64px;
-    padding: 0 6px;
-    display: grid;
-    grid-template-columns: 1fr 1fr 74px 1fr 1fr;
-    gap: 0;
-    border: 1px solid rgba(255, 255, 255, .09);
-    border-radius: 24px;
-    background: color-mix(in srgb, var(--bg-2) 72%, transparent);
-    -webkit-backdrop-filter: blur(18px) saturate(1.4);
-    backdrop-filter: blur(18px) saturate(1.4);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, .5);
-  }
-  #bottom-nav::after { display: none; }
-  #app { padding-bottom: calc(96px + var(--safe-bottom)); }
-  #toast-container { bottom: calc(108px + var(--safe-bottom)) !important; }
-  .back-to-top { bottom: calc(100px + var(--safe-bottom)); }
-
   .bottom-nav-indicator {
     display: block;
     position: absolute;
-    top: 8px;
-    bottom: 8px;
+    top: 0;
     left: 0;
-    width: var(--w, 50px);
-    border-radius: 18px;
-    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-    background: var(--accent-glow);
+    height: 2px;
+    width: var(--w, 24px);
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
     opacity: 0;
     transform: translateX(var(--x, 0));
-    transition: transform .5s var(--nav-spring), width .5s var(--nav-spring), opacity .2s ease;
+    transition: transform var(--nav-dur) var(--nav-ease), width var(--nav-dur) var(--nav-ease), opacity .2s ease;
     pointer-events: none;
   }
   .bottom-nav-indicator.is-ready { opacity: 1; }
-  #bottom-nav .bottom-nav-item { height: 100%; border-radius: 18px; position: relative; }
-  #bottom-nav .bottom-nav-item > span:not(.sr-only) {
-    position: absolute;
-    bottom: 11px;
-    font-size: var(--type-micro, 10px);
-    line-height: 1;
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity .3s ease, transform .4s var(--nav-ease);
-  }
-  #bottom-nav .bottom-nav-item.active > span:not(.sr-only) { opacity: 1; transform: none; }
-  #bottom-nav .bottom-nav-item svg { transition: transform .5s var(--nav-spring), filter .35s ease; }
-  #bottom-nav .bottom-nav-item.active svg { transform: translateY(-8px) scale(1.08); }
-  #bottom-nav .bottom-nav-item:active svg { transform: scale(.85); }
-  #bottom-nav .bottom-nav-item.active:active svg { transform: translateY(-8px) scale(.95); }
+  #bottom-nav .bottom-nav-item { transition: color var(--nav-dur) ease, transform .15s ease; }
+  #bottom-nav .bottom-nav-item svg,
+  #bottom-nav .bottom-nav-item > span:not(.sr-only) { transition: color var(--nav-dur) ease, transform .15s ease; }
+  #bottom-nav .bottom-nav-item.active svg { transform: none; filter: none; }
+  #bottom-nav .bottom-nav-item:active svg { transform: scale(.92); }
   #bottom-nav .bottom-nav-add {
-    flex: none;
-    width: 56px;
-    height: 56px;
-    margin: -22px auto 0;
-    border-radius: 20px;
-    box-shadow: 0 10px 26px var(--accent-glow);
-    transition: transform .4s var(--nav-spring), box-shadow .3s ease;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px var(--accent-glow);
+    transition: transform .15s ease;
   }
-  #bottom-nav .bottom-nav-add svg { width: 26px; height: 26px; transform: none; transition: transform .5s var(--nav-spring); }
-  #bottom-nav .bottom-nav-add:active { transform: scale(.88); }
-  #bottom-nav .bottom-nav-add:active svg { transform: rotate(90deg); }
+  #bottom-nav .bottom-nav-add:active { transform: scale(.92); }
+  #bottom-nav .bottom-nav-add:active svg { transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #sidebar, #sidebar *, #nav-indicator, .bottom-nav-indicator, #bottom-nav * { transition-duration: .01s !important; animation: none !important; }
+  .topnav-indicator, .bottom-nav-indicator, .top-tab, .topbar-add-btn { transition-duration: .01s !important; }
 }
