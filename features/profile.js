@@ -442,17 +442,11 @@ export function createProfileFeature({
       </section>` : "";
 
     const dashboardHTML = `
-      <section class="profile-year-overview" data-ui-key="profile-overview">
-        <div class="profile-year-header">
-          <div>
-            <span class="section-eyebrow">En un coup d’œil</span>
-            <h2>${_profilePeriod === "month" ? "Votre mois" : "Votre année"} · ${esc(periodLabel)}</h2>
-          </div>
+      <section class="profile-page-toolbar" data-ui-key="profile-toolbar" aria-label="Filtres du profil">
           <div class="profile-date-controls">
             <select class="filter-select profile-year-inline" aria-label="Année" ${uiAction("setProfileYear", [], { value: true })}>${yearOptions}</select>
             <select class="filter-select profile-month-inline${_profilePeriod === "month" ? "" : " is-collapsed"}" aria-label="Mois" ${_profilePeriod === "month" ? "" : 'aria-hidden="true" tabindex="-1"'} ${uiAction("setProfileMonth", [], { value: true })}>${monthOptions}</select>
           </div>
-        </div>
         <div class="profile-scope-toolbar">
           <div class="profile-period-switch" role="group" aria-label="Période des statistiques">
             <button type="button" class="${_profilePeriod === "year" ? "active" : ""}" ${uiAction("setProfilePeriod", ["year"])} aria-pressed="${_profilePeriod === "year"}">Annuel</button>
@@ -460,6 +454,14 @@ export function createProfileFeature({
           </div>
           <div class="profile-media-switch" role="group" aria-label="Type d’œuvre">
             ${PROFILE_MEDIA_OPTIONS.map(([value, label]) => `<button type="button" class="${_profileMedia === value ? "active" : ""}" ${uiAction("setProfileMedia", [value])} aria-pressed="${_profileMedia === value}">${label}</button>`).join("")}
+          </div>
+        </div>
+      </section>
+      <section class="profile-year-overview" data-ui-key="profile-overview">
+        <div class="profile-year-header">
+          <div>
+            <span class="section-eyebrow">En un coup d’œil</span>
+            <h2>${_profilePeriod === "month" ? "Votre mois" : "Votre année"} · ${esc(periodLabel)}</h2>
           </div>
         </div>
         <div class="profile-kpis">
