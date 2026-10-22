@@ -35,7 +35,7 @@ export function createProfileFeature({
   const _profileToday = new Date();
   let _profileYear = _profileToday.getFullYear();
   let _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
-  let _profilePeriod = "month";
+  let _profilePeriod = "year";
   let _profileMedia = "all";
   let _profileMonthAutoResolve = true;
   const _profileNumberValues = new Map();
@@ -611,7 +611,7 @@ export function createProfileFeature({
       _profileNumberValues.clear();
       _profileYear = _profileToday.getFullYear();
       _profileMonth = String(_profileToday.getMonth() + 1).padStart(2, "0");
-      _profilePeriod = "month";
+      _profilePeriod = "year";
       _profileMedia = "all";
       _profileMonthAutoResolve = true;
     },

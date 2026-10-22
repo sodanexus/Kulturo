@@ -129,6 +129,7 @@ export function shouldDismissSheet(distance, velocity) {
 // agrandir le texte : seules les dimensions du panneau sont interpolées.
 const dialogAnimations = new WeakMap();
 const dialogCleanups = new WeakMap();
+export function isDialogTransitioning(element) { return dialogAnimations.has(element); }
 function cancelDialogTransition(element) {
   const animation = dialogAnimations.get(element);
   dialogCleanups.get(element)?.();

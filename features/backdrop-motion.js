@@ -100,7 +100,9 @@ export async function startBackdropShow({ bdEl, firstLayer, getUrls, isActive, t
   const schedule = () => {
     clearTimeout(timer);
     if (!alive()) return stop();
-    if (visible && !document.hidden) timer = setTimeout(next, CYCLE_MS);
+    const paused = !visible || document.hidden;
+    layers.forEach(layer => { layer.style.animationPlayState = paused ? "paused" : "running"; });
+    if (!paused) timer = setTimeout(next, CYCLE_MS);
   };
   const next = () => {
     if (!alive()) return stop();

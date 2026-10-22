@@ -13,7 +13,7 @@ const DURATION = 440;
 const running = new Set();
 
 const keyOf = node => node.nodeType === 1 ? (node.dataset.uiKey || node.dataset.prefetchMedia || node.id || null) : null;
-const sameKind = (a, b) => a.nodeType === b.nodeType && (a.nodeType !== 1 || a.tagName === b.tagName);
+const sameKind = (a, b) => a.nodeType === b.nodeType && (a.nodeType !== 1 || (a.tagName === b.tagName && (a.tagName !== "IMG" || a.getAttribute("src") === b.getAttribute("src"))));
 
 function syncAttributes(live, next) {
   for (const { name, value } of [...next.attributes]) {
@@ -67,7 +67,11 @@ function morphNode(live, next, ctx) {
     }
     return;
   }
+  const failedImage = live.tagName === "IMG" && live.style.display === "none";
+  const visibleFallback = live.classList.contains("card-cover-placeholder") && live.previousElementSibling?.tagName === "IMG" && live.previousElementSibling.style.display === "none";
   syncAttributes(live, next);
+  if (failedImage) live.style.display = "none";
+  if (visibleFallback) live.style.display = "flex";
   // Les compteurs sont animés par leur propre tween ; les champs gardent leur saisie.
   if (live.hasAttribute("data-profile-number") || ["IMG", "INPUT", "TEXTAREA"].includes(live.tagName)) return;
   morphChildren(live, next, ctx);
@@ -88,6 +92,14 @@ const insideAdded = (element, container, added) => {
   }
   return false;
 };
+
+// Réconciliation sans mesure géométrique : utilisée par les sorties asynchrones.
+export function reconcileMarkup(container, html) {
+  if (!container) return;
+  const template = document.createElement("template");
+  template.innerHTML = String(html || "").trim();
+  morphChildren(container, template.content, { added: new Set(), textChanged: new Set() });
+}
 
 // Réconcilie `container` avec `html` sans le reconstruire. Retourne les blocs
 // réellement nouveaux (premier rendu), pour leur animation d'entrée habituelle.

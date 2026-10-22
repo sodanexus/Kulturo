@@ -30,7 +30,7 @@ export function buildAppRoute({ page = "library", layer = null, payload = {}, fi
   setWhen(params, "rating", filters.rating, "all");
 
   const profile = views.profile || {};
-  setWhen(params, "period", profile.period, "month");
+  setWhen(params, "period", profile.period, "year");
   setWhen(params, "py", profile.year);
   setWhen(params, "pm", profile.month);
   setWhen(params, "media", profile.media, "all");
@@ -81,7 +81,7 @@ export function parseAppRoute(hash = "") {
   if (rating === "all" || /^(?:10|[1-9])$/.test(String(rating || ""))) filters.rating = rating;
 
   const views = {
-    profile: {},
+    profile: { period: "year" },
     journal: { mode: "personal", periods: { personal: "all", community: "all" } },
     upcoming: { type: "all", genre: "all", hideAdded: true },
   };

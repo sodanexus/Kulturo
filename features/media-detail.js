@@ -2,7 +2,7 @@ import { startMeasurement } from "./performance.js";
 import { readingProgress, seriesProgress, isSeries } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
 import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
-import { prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
+import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
 import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
@@ -408,40 +408,74 @@ function bindDetailScroll(modal) {
   _releaseDetailScroll?.();
   let range = 1;
   let frame = 0;
+  let active = true;
+  let measureNeeded = true;
+  let waiting = false;
+  let previousWidth = -1;
+  let compact = 64;
+  let previousProgress = "";
+  let previousReadingHeight = "";
+  let backdropKind = backdrop.classList.contains("has-backdrop");
 
   const measure = () => {
-    if (!modal.isConnected) return;
     const scrollTop = body.scrollTop;
     modal.classList.remove("is-collapsible");
     const full = backdrop.offsetHeight;
-    const compact = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64;
+    compact = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-compact-h")) || 64;
     range = Math.max(1, full - compact);
     modal.style.setProperty("--detail-h", `${full}px`);
     modal.classList.add("is-collapsible");
-    body.scrollTop = scrollTop;
-    body.style.setProperty("--synopsis-reading-height", `${Math.max(0, body.clientHeight - compact - 8)}px`);
+    if (body.scrollTop !== scrollTop) body.scrollTop = scrollTop;
+    measureNeeded = false;
   };
   const update = () => {
     frame = 0;
-    if (!modal.isConnected) return;
-    const progress = Math.min(1, Math.max(0, body.scrollTop / range));
-    modal.style.setProperty("--detail-p", progress.toFixed(3));
+    if (!active || !modal.isConnected) return;
+    if (measureNeeded && isDialogTransitioning(modal)) {
+      if (!waiting) {
+        waiting = true;
+        waitForDialogTransition(modal).then(() => { waiting = false; if (active) schedule(); });
+      }
+    } else if (measureNeeded) measure();
+    // Lire la géométrie une seule fois avant les écritures de cette image.
+    const scrollTop = body.scrollTop;
+    const height = body.clientHeight;
+    const remaining = body.scrollHeight - height - scrollTop;
+    const progress = Math.min(1, Math.max(0, scrollTop / range));
+    const progressValue = progress.toFixed(3);
+    const readingHeight = `${Math.max(0, height - compact - 8)}px`;
+    if (progressValue !== previousProgress) {
+      modal.style.setProperty("--detail-p", progressValue);
+      previousProgress = progressValue;
+    }
+    if (readingHeight !== previousReadingHeight) {
+      body.style.setProperty("--synopsis-reading-height", readingHeight);
+      previousReadingHeight = readingHeight;
+    }
     modal.classList.toggle("is-detail-scrolled", progress > .5);
-    modal.classList.toggle("has-more-below", body.scrollHeight - body.clientHeight - body.scrollTop > 6);
+    modal.classList.toggle("has-more-below", remaining > 6);
   };
-  const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
-
+  const schedule = () => { if (active && !frame) frame = requestAnimationFrame(update); };
   body.addEventListener("scroll", schedule, { passive: true });
-  // Le contenu s'enrichit après l'ouverture (synopsis, détails) : on recalcule.
   const bodyObserver = new MutationObserver(schedule);
   bodyObserver.observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-  // Le bandeau change de hauteur quand l'image HD arrive (classe has-backdrop).
-  const backdropObserver = new MutationObserver(() => { measure(); schedule(); });
+  const backdropObserver = new MutationObserver(() => {
+    const kind = backdrop.classList.contains("has-backdrop");
+    if (kind === backdropKind) return;
+    backdropKind = kind;
+    measureNeeded = true;
+    schedule();
+  });
   backdropObserver.observe(backdrop, { attributes: true, attributeFilter: ["class"] });
   const resizeObserver = typeof ResizeObserver === "function"
-    ? new ResizeObserver(() => { measure(); schedule(); }) : null;
+    ? new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width;
+      if (width !== previousWidth) { previousWidth = width; measureNeeded = true; }
+      schedule();
+    }) : null;
   resizeObserver?.observe(modal);
   _releaseDetailScroll = () => {
+    active = false;
     body.removeEventListener("scroll", schedule);
     bodyObserver.disconnect();
     backdropObserver.disconnect();

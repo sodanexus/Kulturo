@@ -1,3 +1,4 @@
+import { reconcileMarkup } from "./dom-morph.js";
 import { revealSurface } from "./motion.js";
 // ============================================================
 // Onglet Sorties : chargement, filtres, wishlist et rendu
@@ -534,7 +535,7 @@ function renderUpcomingCards() {
     const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
-      grid.innerHTML = `<p class="upcoming-loading" role="status">Chargement en cours : ${esc(pendingLabels.join(", "))}…</p>`;
+      reconcileMarkup(grid, `<p class="upcoming-loading" data-ui-key="loading" role="status">Chargement en cours : ${esc(pendingLabels.join(", "))}…</p>`);
       return;
     }
     const statuses = UpcomingState.type === "all"
@@ -579,10 +580,11 @@ function renderUpcomingCards() {
 
   const pendingLabels = pendingUpcomingSourceLabels(true);
   const progress = pendingLabels.length
-    ? `<div class="upcoming-progress" role="status"><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
+    ? `<div class="upcoming-progress" data-ui-key="progress" role="status"><span>Encore en chargement : ${esc(pendingLabels.join(", "))}…</span></div>`
     : "";
-  grid.innerHTML = progress + [...groups.values()].map(group => `
-    <section class="upcoming-month-section">
+  const previousCards = new Set(grid.querySelectorAll(".upcoming-card"));
+  const markup = progress + [...groups.entries()].map(([key, group]) => `
+    <section class="upcoming-month-section" data-ui-key="month-${esc(key)}">
       <div class="upcoming-month-heading">
         <h2>${esc(group.label)}</h2>
         <span>${group.items.length} sortie${group.items.length > 1 ? "s" : ""}</span>
@@ -591,8 +593,11 @@ function renderUpcomingCards() {
         ${group.items.map(upcomingCardHTML).join("")}
       </div>
     </section>`).join("");
+  reconcileMarkup(grid, markup);
   hydrateFadeImages(grid);
-  revealSurface(grid);
+  grid.querySelectorAll(".upcoming-card").forEach(card => {
+    if (!previousCards.has(card)) revealSurface(card);
+  });
 }
 
 function upcomingCardHTML(it) {
@@ -612,7 +617,7 @@ function upcomingCardHTML(it) {
     : `<span class="card-cover-placeholder">${typeMeta.icon}</span>`;
 
   return `
-    <article class="media-card upcoming-card" data-upcoming-key="${esc(upcomingKey)}" data-transition-media="${esc(transitionMediaId)}">
+    <article class="media-card upcoming-card" data-ui-key="card-${esc(upcomingKey)}" data-upcoming-key="${esc(upcomingKey)}" data-transition-media="${esc(transitionMediaId)}">
       <div class="upcoming-cover-wrap">
         <button type="button" class="upcoming-card-open" ${uiAction("openUpcomingDetail", [upcomingKey], { control: true })} aria-label="Ouvrir ${esc(it.title)}">
           ${cover}
