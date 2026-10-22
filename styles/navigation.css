@@ -96,7 +96,7 @@
   .topbar-mark { width: 44px; height: 28px; }
 }
 @media (max-width: 680px) {
-  #topnav, .topbar-add-btn { display: none; }
+  #topnav { display: none; }
 }
 
 /* ── Mobile : barre du bas sobre ──────────────────────────── */
@@ -137,3 +137,47 @@
 @media (prefers-reduced-motion: reduce) {
   .topnav-indicator, .bottom-nav-indicator, .top-tab, .topbar-add-btn { transition-duration: .01s !important; }
 }
+
+/* Bandeau stable : les commandes contextuelles vivent dans le contenu. */
+#topbar { height: calc(var(--topbar-height) + var(--safe-top)); }
+#topbar-page-title {
+  margin: 0; min-width: 0; font: 700 var(--type-title-sm)/1.2 var(--font-body);
+  white-space: nowrap;
+}
+#topbar .topbar-right { margin-left: auto; flex-shrink: 0; }
+.page-search-toolbar {
+  display: flex; align-items: center; gap: .75rem;
+  padding-top: 1rem; margin-bottom: .75rem;
+}
+.page-search-toolbar[hidden], .page-search-toolbar [hidden] { display: none !important; }
+.page-search-toolbar .topbar-search-wrap { flex: 1; width: auto; min-width: 0; max-width: none; margin: 0; }
+.page-search-toolbar .topbar-filter-btn { flex: 0 0 var(--control-height); width: var(--control-height); }
+.page-search-toolbar input, .page-search-toolbar .topbar-filter-btn { height: var(--control-height); min-height: var(--control-height); }
+.profile-page-toolbar { padding-block: 1rem .25rem; display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.profile-page-toolbar .profile-scope-toolbar { flex: 1; margin: 0; }
+.profile-page-toolbar .profile-date-controls { margin: 0; }
+#page-upcoming > .upcoming-toolbar { margin-bottom: 1rem; }
+@media (min-width: 681px) {
+  #topbar .topbar-brand-copy { display: none; }
+  #topbar .topbar-logo { padding: 0; }
+  #topbar #topnav { margin-left: auto; }
+  #topbar .topbar-right { margin-left: 0; }
+}
+@media (max-width: 680px) {
+  #topbar { display: flex; gap: .65rem; padding: var(--safe-top) max(1rem, var(--safe-right)) 0 max(1rem, var(--safe-left)); }
+  #topbar .topbar-logo { width: auto; padding: 0; flex: 0 0 auto; }
+  #topbar .topbar-mark { width: 34px; height: 25px; }
+  #topbar .topbar-brand-copy { display: none; }
+  #topbar .topbar-right { width: auto; min-width: 0; padding: 0; gap: .25rem; }
+  #topbar-page-title { font-size: var(--type-title-sm); }
+  #topbar .topbar-add-btn { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-height: 44px; padding: 0 .7rem; border: 1px solid var(--border); border-radius: 12px; background: var(--accent-glow); color: var(--accent-2); font: 600 var(--type-label)/1 var(--font-body); }
+  #topbar .topbar-add-btn svg { width: 18px; height: 18px; }
+  #topbar .network-status span { display: none; }
+  .profile-page-toolbar { align-items: stretch; flex-direction: column; }
+  .profile-page-toolbar .profile-date-controls { width: 100%; }
+}
+
+/* Une seule marge d'entrée pour les outils, y compris le Profil. */
+#page-library, #page-journal, #page-upcoming, #page-dashboard { padding-top: 0; }
+#topbar-page-title { overflow: hidden; text-overflow: ellipsis; }
+#topbar .topbar-logo { flex-shrink: 0; }
