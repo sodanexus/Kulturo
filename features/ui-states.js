@@ -25,15 +25,15 @@ function stateIcon(kind = "collection") {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (paths[kind] || paths.collection) + '</svg>';
 }
 
-// Les états vides reprennent les trois cercles du logo ; seule l'erreur garde son pictogramme.
-function brandTrio() {
-  return '<svg class="trio" viewBox="0 0 64 36" aria-hidden="true"><circle class="trio-c trio-coral" cx="14" cy="18" r="11"/><circle class="trio-c trio-teal" cx="32" cy="18" r="11"/><circle class="trio-c trio-gold" cx="50" cy="18" r="11"/></svg>';
+// Les états vides reprennent les quatre cercles du logo ; seule l'erreur garde son pictogramme.
+function brandMark() {
+  return '<svg class="brand-mark" viewBox="0 0 280 100" aria-hidden="true"><circle class="brand-circle brand-film" cx="50" cy="50" r="40"/><circle class="brand-circle brand-series" cx="110" cy="50" r="40"/><circle class="brand-circle brand-game" cx="170" cy="50" r="40"/><circle class="brand-circle brand-book" cx="230" cy="50" r="40"/></svg>';
 }
 
 export function emptyState({ icon = "collection", title, message, actionHTML = "", className = "" }) {
   const isError = icon === "error";
   return '<div class="ui-state ui-state-empty empty-state ' + escapeHTML(className) + '" role="status">' +
-    '<div class="empty-icon' + (isError ? '' : ' is-trio') + '" aria-hidden="true">' + (isError ? stateIcon(icon) : brandTrio()) + '</div>' +
+    '<div class="empty-icon' + (isError ? '' : ' is-brand-mark') + '" aria-hidden="true">' + (isError ? stateIcon(icon) : brandMark()) + '</div>' +
     '<h3>' + escapeHTML(title) + '</h3><p>' + message + '</p>' +
     (actionHTML ? '<div class="ui-state-actions">' + actionHTML + '</div>' : '') + '</div>';
 }
