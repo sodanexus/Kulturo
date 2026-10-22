@@ -171,7 +171,6 @@ body { background-color: var(--system-bar-color); }
 .modal-overlay.is-modal-replacement .modal { animation: none; }
 .is-restoring-view .detail-synopsis-clip { transition: none; }
 .upcoming-loading { min-width: 0; }
-.upcoming-loading > .ui-state { min-height: 44px; padding: .35rem 0 .75rem; justify-content: flex-start; font-size: var(--type-control); }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 .ui-state-error .empty-icon {
   background: color-mix(in srgb, var(--danger) 13%, var(--bg-3));
