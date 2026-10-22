@@ -2,6 +2,7 @@
 
 // Vérifie une version Kulturo puis fabrique toujours la même archive ZIP.
 // Aucun paquet npm ni outil zip externe n'est nécessaire.
+import { syncVersion } from "./sync-version.mjs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -13,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const VERSION = readFileSync(join(ROOT, "VERSION"), "utf8").trim();
+const VERSION = syncVersion(ROOT);
 const argumentsList = process.argv.slice(2);
 let requestedVersion = null;
 let requestedOutput = null;
