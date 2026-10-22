@@ -10,7 +10,11 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.7.7
+## Version actuelle · 4.8.0
+
+Les effets et leurs durées sont conservés. Les fiches regroupent leurs mesures de mise en page, les diaporamas suspendent leurs animations hors écran et Sorties conserve les cartes déjà affichées pendant l’arrivée des catalogues. Le Profil s’ouvre par défaut sur la période annuelle.
+
+Pour publier une nouvelle version, modifier uniquement `VERSION` : `npm run verify` synchronise les références dans le runtime, les caches et la documentation avant les contrôles et le build. `npm run sync:version` permet aussi cette synchronisation seule. Ajouter les changements au `CHANGELOG.md` reste nécessaire.
 
 La bibliothèque affiche 48 cartes, puis ajoute des lots de 48 à l’approche du bas. Les nouvelles cartes apparaissent en fondu lorsqu’elles entrent dans l’écran. Recherche, tri et compteurs portent toujours sur toute la collection ; la profondeur affichée est conservée dans la session. Les données restent chargées comme auparavant : cette optimisation réduit le rendu initial, pas la requête Supabase.
 

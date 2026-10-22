@@ -1,3 +1,11 @@
+## 4.8.0
+
+- Animations : mesures du bandeau regroupées et différées pendant le redimensionnement des fiches ; écritures de styles limitées aux valeurs modifiées. Effets et durées conservés.
+- Diaporamas : animation des calques mise en pause hors écran ou lorsque l’onglet est masqué.
+- Sorties : cartes et couvertures conservées entre les réponses des catalogues ; seules les nouvelles cartes apparaissent en fondu.
+- Profil : période annuelle par défaut, liens explicitement mensuels respectés.
+- Publication : VERSION devient la référence unique, synchronisée avant les vérifications et le build. Les contrôles de cohérence restent actifs.
+
 ## 4.7.7
 
 - Logo à quatre cercles en ligne, dans les couleurs des étiquettes Film, Série, Jeu et Livre.

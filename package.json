@@ -1,7 +1,7 @@
 {
   "name": "kulturo",
   "private": true,
-  "version": "4.7.7",
+  "version": "4.8.0",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -12,8 +12,12 @@
     "test": "node --test tests/*.test.mjs",
     "check": "node scripts/release.mjs --check",
     "build": "vite build && node scripts/prepare-dist.mjs",
-    "verify": "npm run typecheck && npm run check && npm run build",
-    "release": "npm run verify && node scripts/release.mjs"
+    "verify": "npm run sync:version && npm run typecheck && npm run check && npm run build",
+    "release": "npm run verify && node scripts/release.mjs",
+    "sync:version": "node scripts/sync-version.mjs",
+    "predev": "npm run sync:version",
+    "prebuild": "npm run sync:version",
+    "pretypecheck": "npm run sync:version"
   },
   "devDependencies": {
     "typescript": "7.0.2",
