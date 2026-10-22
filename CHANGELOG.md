@@ -1,19 +1,25 @@
-## 4.5.9
+## 4.6.0
+
+- Ajout rapide : la barre de recherche de « Nouvel ajout » reconnaît un lien TMDb, IMDb, Steam, Goodreads ou Hardcover. TMDb et IMDb ouvrent la fiche exacte ; Steam, Goodreads et Hardcover donnent le titre, cherché dans le bon catalogue.
+- Scan de code-barres (livres) : icône dans la barre de recherche, lecture de l'ISBN-13 par la caméra (BarcodeDetector natif ou décodeur EAN-13 intégré pour iPhone). Rien n'est envoyé : l'image reste sur l'appareil, la caméra est coupée à la fermeture.
+- Aucun changement Supabase ni dépendance ajoutée.
+
+## 4.6.0
 
 - Jauge des séries : jamais « complète » avant la dernière saison, même si le numéro d'épisode dépasse la moyenne par saison.
 - Aucun changement Supabase.
 
-## 4.5.9
+## 4.6.0
 
 - Fiche série : la jauge de progression suit désormais les épisodes (saison 1/1, épisode 3 sur 8 → 38 %) au lieu d'être pleine dès la dernière saison.
 - Aucun changement Supabase.
 
-## 4.5.9
+## 4.6.0
 
 - Profil desktop : le Top reprend l'espacement de la bibliothèque (même écart, ligne pleine largeur sans espace vide).
 - Aucun changement Supabase.
 
-## 4.5.9
+## 4.6.0
 
 - Modifier : « Mon avis » placé directement au-dessus des étoiles, avec le même style de libellé que « Statut », sur mobile et desktop.
 

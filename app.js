@@ -2,6 +2,8 @@ import { startMeasurement, performanceDiagnostics } from "./features/performance
 window.KulturoPerformance = performanceDiagnostics;
 import { parseReadingProgress, parseSeriesProgress } from "./features/reading-progress.js";
 import { normalizeISBN } from "./features/book-search.js";
+import { parseMediaLink, linkProblemMessage } from "./features/quick-add-links.js";
+import { startBarcodeScan, scannerSupported, scannerErrorMessage } from "./features/barcode-scanner.js";
 import { revealImage } from "./features/image-reveal.js";
 import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
@@ -1831,6 +1833,7 @@ function openModal(entry = null, prefillTitle = null) {
 }
 
 let _wizardState = null;
+let _wizardScanner = null;
 let _modalDirty = false;
 let _modalClosePromptOpen = false;
 let _detailEditContext = null;
@@ -1859,6 +1862,7 @@ function returnToDetail() {
   const edit = document.querySelector("#modal-overlay .edit-modal");
   if (edit) dialogFocus.deactivate(edit, { restoreFocus: false });
   document.querySelectorAll("[data-kulturo-search]").forEach(input => input._kulturoAbortSearch?.());
+  _wizardScanner?.stop(); _wizardScanner = null;
   _wizardState = null;
   State.editingId = null;
   _currentRating = 0;
@@ -1902,8 +1906,17 @@ function _renderWizard() {
       </div>
       <div class="api-search-wrap wz-universal-search">
         <span class="wz-search-icon" aria-hidden="true">${iconSearch()}</span>
-        <input type="text" id="f-api-search" placeholder="Titre d’une œuvre ou ISBN d’un livre…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
+        <input type="text" id="f-api-search" placeholder="Titre, ISBN ou lien…" autocomplete="off" value="${esc(s.apiSelected?.title || s.title)}" />
+        <button type="button" class="wz-scan-btn" id="wz-scan-btn" ${uiAction("wzOpenScanner")} aria-label="Scanner le code-barres d’un livre" hidden>${iconScan()}</button>
         <div class="api-results wz-universal-results" id="api-results" style="display:none"></div>
+      </div>
+      <div class="wz-scanner" id="wz-scanner" hidden>
+        <div class="wz-scanner-view">
+          <video id="wz-scanner-video" playsinline muted></video>
+          <div class="wz-scanner-frame" aria-hidden="true"><i></i></div>
+        </div>
+        <p id="wz-scanner-hint" role="status">Placez le code-barres au dos du livre dans le cadre.</p>
+        <button type="button" class="btn btn-secondary btn-sm" ${uiAction("wzCloseScanner")}>Annuler</button>
       </div>
       <div class="wz-search-start" id="wz-search-start">
         <span aria-hidden="true">⌕</span>
@@ -2551,14 +2564,54 @@ function setupWizardUniversalSearch() {
     activeController?.abort();
   };
 
+  const typeLabels = { all: "Titre, ISBN ou lien…", movie: "Film ou série : titre ou lien…", game: "Jeu vidéo : titre ou lien Steam…", book: "Livre : titre, ISBN ou lien…" };
+  const syncScanButton = () => {
+    const button = document.getElementById("wz-scan-btn");
+    if (!button) return;
+    const type = _wizardState?.searchType || "all";
+    button.hidden = !(scannerSupported() && (type === "all" || type === "book"));
+  };
+  const applySearchType = value => {
+    if (!_wizardState) return;
+    _wizardState.searchType = value;
+    document.querySelectorAll("#add-search-types button").forEach(item => {
+      item.setAttribute("aria-pressed", String(item.dataset.searchType === value));
+    });
+    input.placeholder = typeLabels[value] || typeLabels.all;
+    const start = document.getElementById("wz-search-start");
+    if (start) {
+      start.querySelector("strong").textContent = value === "all" ? "Une seule recherche pour toute votre culture" : "Trouvez votre prochaine œuvre";
+      start.querySelector("small").textContent = value === "all" ? "Films, séries, jeux et livres" : (document.querySelector(`#add-search-types [data-search-type="${value}"]`)?.textContent || "");
+    }
+    syncScanButton();
+  };
+  input._kulturoApplyIsbn = isbn => {
+    delete input.dataset.openLibraryQuery;
+    applySearchType("book");
+    input.value = isbn;
+    scheduleSearch(true);
+  };
+  syncScanButton();
+
   const scheduleSearch = (immediate = false) => {
     clearTimeout(timer);
     input._bookSelectionController?.abort();
     activeController?.abort();
     requestSeq++;
-    const query = input.value.trim();
+    let query = input.value.trim();
+    // Ajout rapide : un lien collé est reconnu. Les liens TMDb/IMDb désignent
+    // une fiche exacte ; les autres donnent un titre qui remplace le lien.
+    const link = parseMediaLink(query);
+    if (link && !link.unsupported && link.query) {
+      query = link.query;
+      input.value = query;
+      delete input.dataset.openLibraryQuery;
+      applySearchType(link.mediaType === "movie" ? "movie" : link.mediaType);
+    } else if (link?.imdbId || link?.externalId) {
+      applySearchType("movie");
+    }
     const start = document.getElementById("wz-search-start");
-    if (_wizardState) _wizardState.title = query;
+    if (_wizardState) _wizardState.title = link?.imdbId || link?.externalId ? "" : query;
     if (query.length < 2) {
       activeController?.abort();
       requestSeq++;
@@ -2584,9 +2637,20 @@ function setupWizardUniversalSearch() {
 
       const failures = [];
       let bookSource = null;
-      const types = addSearchTypes(query, _wizardState?.searchType, Boolean(normalizeISBN(query)));
+      if (link?.unsupported) {
+        animateHeightChange(results, () => { results.innerHTML = `<div class="wz-search-empty" role="status">${esc(linkProblemMessage(link))}</div>`; });
+        return;
+      }
+      const exactLink = link?.imdbId || link?.externalId ? link : null;
+      const types = exactLink ? ["movie"] : addSearchTypes(query, _wizardState?.searchType, Boolean(normalizeISBN(query)));
       const requests = types.map(async type => {
         try {
+          if (exactLink) {
+            const item = exactLink.imdbId
+              ? await TMDb.byImdb(exactLink.imdbId, { signal })
+              : await TMDb.byId(exactLink.externalId, exactLink.subtype, { signal });
+            return item ? [{ ...item, media_type: "movie" }] : [];
+          }
           if (!apiAvailability()[type]) { failures.push(type); return []; }
           const items = await searchMedia(query, type, { signal, throwOnError: true, onBookSource: source => { bookSource = source; }, bookSource: input.dataset.openLibraryQuery === query ? "openlibrary" : undefined });
           return (items || []).slice(0, 5).map(item => ({ ...item, media_type: type }));
@@ -2635,18 +2699,8 @@ function setupWizardUniversalSearch() {
   document.getElementById("add-search-types")?.addEventListener("click", event => {
     const button = event.target.closest("[data-search-type]");
     if (!button || !_wizardState) return;
-    _wizardState.searchType = button.dataset.searchType;
     delete input.dataset.openLibraryQuery;
-    document.querySelectorAll("#add-search-types button").forEach(item => {
-      item.setAttribute("aria-pressed", String(item === button));
-    });
-    const labels = { all: "Titre d’une œuvre ou ISBN d’un livre…", movie: "Titre d’un film ou d’une série…", game: "Titre d’un jeu vidéo…", book: "Titre, auteur ou ISBN…" };
-    input.placeholder = labels[button.dataset.searchType];
-    const start = document.getElementById("wz-search-start");
-    if (start) {
-      start.querySelector("strong").textContent = button.dataset.searchType === "all" ? "Une seule recherche pour toute votre culture" : "Trouvez votre prochaine œuvre";
-      start.querySelector("small").textContent = button.dataset.searchType === "all" ? "Films, séries, jeux et livres" : button.textContent;
-    }
+    applySearchType(button.dataset.searchType);
     scheduleSearch(true);
   });
   results.addEventListener("click", event => {
@@ -3122,6 +3176,7 @@ async function closeModal(force = false, options = {}) {
     _modalReturnMediaId = null;
     _modalReturnControlId = null;
     _currentRating = 0;
+    _wizardScanner?.stop(); _wizardScanner = null;
     _wizardState = null;
     State.editingId = null;
     window._apiSelected = null;
@@ -3552,6 +3607,7 @@ function uiAction(action, args = [], options = {}) {
 // ── Icons (inline SVG minifiés) ───────────────────────────────
 const iconCalendar = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
+const iconScan    = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 9v6M11 9v6M14 9v6M17 9v6"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
 const iconGrid    = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
@@ -4491,6 +4547,38 @@ window.UI = {
     if (el) el.value = status;
     const secondary = document.querySelector(".wz-other-status");
     if (secondary) secondary.open = isSecondaryAddStatus(status);
+  },
+
+  wzOpenScanner: async () => {
+    const panel = document.getElementById("wz-scanner");
+    const video = document.getElementById("wz-scanner-video");
+    const input = document.getElementById("f-api-search");
+    const hint = document.getElementById("wz-scanner-hint");
+    if (!panel || !video || !input || !scannerSupported()) return;
+    _wizardScanner?.stop();
+    panel.hidden = false;
+    hint.textContent = "Démarrage de la caméra…";
+    _wizardScanner = await startBarcodeScan(video, {
+      onIsbn: isbn => {
+        panel.hidden = true;
+        _wizardScanner = null;
+        toast("Code-barres lu ✓", "success");
+        input._kulturoApplyIsbn?.(isbn);
+      },
+      onError: error => {
+        panel.hidden = true;
+        _wizardScanner = null;
+        toast(scannerErrorMessage(error), "error");
+      },
+    });
+    if (!panel.hidden) hint.textContent = "Placez le code-barres au dos du livre dans le cadre.";
+  },
+
+  wzCloseScanner: () => {
+    _wizardScanner?.stop();
+    _wizardScanner = null;
+    const panel = document.getElementById("wz-scanner");
+    if (panel) panel.hidden = true;
   },
 
   wzUseManualType: (type) => {

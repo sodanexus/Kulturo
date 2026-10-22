@@ -64,6 +64,36 @@ async function edgeFunctionHeaders() {
 //   genre, author, platform, source_api }
 
 // ── Films — TMDb ─────────────────────────────────────────────
+function tmdbNormalizeMovie(m) {
+  return {
+    external_id:  String(m.id),
+    title:        m.title,
+    cover_url:    m.poster_path ? `${CONFIG.tmdb.imageBase}${m.poster_path}` : null,
+    description:  m.overview,
+    release_year: m.release_date ? Number.parseInt(m.release_date.slice(0, 4), 10) : null,
+    ...tmdbGenreData(m.genre_ids || (m.genres || []).map(genre => genre.id), "movie"),
+    author:       null,
+    platform:     null,
+    source_api:   "tmdb",
+    subtype:      "movie",
+  };
+}
+
+function tmdbNormalizeShow(s) {
+  return {
+    external_id:  String(s.id),
+    title:        s.name,
+    cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
+    description:  s.overview,
+    release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
+    ...tmdbGenreData(s.genre_ids || (s.genres || []).map(genre => genre.id), "tv"),
+    author:       null,
+    platform:     null,
+    source_api:   "tmdb",
+    subtype:      "tv",
+  };
+}
+
 export const TMDb = {
   available() {
     return CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_");
@@ -80,35 +110,9 @@ export const TMDb = {
       apiFetch(`${base}/search/tv?api_key=${key}&query=${encodeURIComponent(query)}&${lang}`, { cachePolicy: "search", signal: options.signal }),
     ]);
 
-    const normalizeMovie = m => ({
-      external_id:  String(m.id),
-      title:        m.title,
-      cover_url:    m.poster_path ? `${CONFIG.tmdb.imageBase}${m.poster_path}` : null,
-      description:  m.overview,
-      release_year: m.release_date ? Number.parseInt(m.release_date.slice(0, 4), 10) : null,
-      ...tmdbGenreData(m.genre_ids, "movie"),
-      author:       null,
-      platform:     null,
-      source_api:   "tmdb",
-      subtype:      "movie",
-    });
-
-    const normalizeShow = s => ({
-      external_id:  String(s.id),
-      title:        s.name,
-      cover_url:    s.poster_path ? `${CONFIG.tmdb.imageBase}${s.poster_path}` : null,
-      description:  s.overview,
-      release_year: s.first_air_date ? Number.parseInt(s.first_air_date.slice(0, 4), 10) : null,
-      ...tmdbGenreData(s.genre_ids, "tv"),
-      author:       null,
-      platform:     null,
-      source_api:   "tmdb",
-      subtype:      "tv",
-    });
-
     if (options.throwOnError && movies.status === "rejected" && shows.status === "rejected") throw movies.reason;
-    const movieResults = movies.status === "fulfilled" ? (movies.value.results || []).slice(0, 4).map(normalizeMovie) : [];
-    const showResults  = shows.status  === "fulfilled" ? (shows.value.results  || []).slice(0, 4).map(normalizeShow)  : [];
+    const movieResults = movies.status === "fulfilled" ? (movies.value.results || []).slice(0, 4).map(tmdbNormalizeMovie) : [];
+    const showResults  = shows.status  === "fulfilled" ? (shows.value.results  || []).slice(0, 4).map(tmdbNormalizeShow)  : [];
 
     // Entrelace films et séries pour avoir un mix équilibré
     const merged = [];
@@ -118,6 +122,26 @@ export const TMDb = {
       if (showResults[i])  merged.push(showResults[i]);
     }
     return merged.slice(0, 8);
+  },
+
+  // Ajout rapide : fiche exacte à partir d'un lien TMDb ou IMDb.
+  async byId(externalId, subtype = "movie", options = {}) {
+    if (!this.available()) return null;
+    const kind = subtype === "tv" ? "tv" : "movie";
+    const base = CONFIG.tmdb.baseUrl;
+    const data = await apiFetch(`${base}/${kind}/${encodeURIComponent(externalId)}?api_key=${CONFIG.tmdb.apiKey}&language=fr-FR`, { cachePolicy: "search", signal: options.signal });
+    if (!data?.id) return null;
+    return kind === "tv" ? tmdbNormalizeShow(data) : tmdbNormalizeMovie(data);
+  },
+
+  async byImdb(imdbId, options = {}) {
+    if (!this.available()) return null;
+    const base = CONFIG.tmdb.baseUrl;
+    const data = await apiFetch(`${base}/find/${encodeURIComponent(imdbId)}?api_key=${CONFIG.tmdb.apiKey}&external_source=imdb_id&language=fr-FR`, { cachePolicy: "search", signal: options.signal });
+    const movie = data?.movie_results?.[0];
+    if (movie) return tmdbNormalizeMovie(movie);
+    const show = data?.tv_results?.[0];
+    return show ? tmdbNormalizeShow(show) : null;
   },
 
   // Sorties cinéma et nouvelles séries prévues dans les 6 prochains mois.
