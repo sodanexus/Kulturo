@@ -290,3 +290,15 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 /* Le retour d’édition conserve le redimensionnement, sans rejouer l’entrée du contenu. */
 .detail-modal[data-detail-restored] :is(.detail-backdrop-info,.detail-block-in,.detail-synopsis-arriving,.detail-info-arriving,.detail-body) { animation:none; }
+
+/* Défilement progressif ; secours clavier sans pagination de la collection. */
+.library-more { display: flex; justify-content: center; padding: 1rem 0; }
+.library-more[hidden] { display: none; }
+
+/* Le lot est préparé en avance ; le fondu attend l'entrée dans l'écran. */
+#cards-grid .media-card { transition: opacity var(--motion-layout) var(--ease-fade); }
+#cards-grid .media-card.library-card-pending { opacity: 0; animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #cards-grid .media-card { transition: none; }
+  #cards-grid .media-card.library-card-pending { opacity: 1; }
+}
