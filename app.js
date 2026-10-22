@@ -131,7 +131,7 @@ function syncDialogBackground() {
   const blocked = Boolean(document.querySelector(
     "#modal-overlay, #filter-modal-overlay, #metadata-overlay, #confirm-overlay"
   ));
-  document.querySelectorAll("#topbar, #sidebar, #main, #bottom-nav, #update-banner, #back-to-top, #journal-floating-month").forEach(element => {
+  document.querySelectorAll("#topbar, #main, #bottom-nav, #update-banner, #back-to-top, #journal-floating-month").forEach(element => {
     element.inert = blocked;
     if (blocked) element.setAttribute("aria-hidden", "true");
     else element.removeAttribute("aria-hidden");
@@ -745,6 +745,21 @@ function renderApp() {
           <span class="topbar-tagline">Suivez votre culture</span>
         </span>
       </div>
+      <nav id="topnav" aria-label="Navigation principale">
+        <i class="topnav-indicator" id="topnav-indicator" aria-hidden="true"></i>
+        <button type="button" class="top-tab active" data-nav="library" aria-label="Bibliothèque" title="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
+          <span class="top-tab-icon">${iconGrid()}</span><span class="top-tab-label">Bibliothèque</span>
+        </button>
+        <button type="button" class="top-tab" data-nav="upcoming" aria-label="Prochaines sorties" title="Prochaines sorties" ${uiAction("navTo", ["upcoming"])}>
+          <span class="top-tab-icon">${iconCalendar()}</span><span class="top-tab-label">Sorties</span>
+        </button>
+        <button type="button" class="top-tab" data-nav="journal" aria-label="Journal" title="Journal" ${uiAction("navTo", ["journal"])}>
+          <span class="top-tab-icon">${iconJournal()}</span><span class="top-tab-label">Journal</span>
+        </button>
+        <button type="button" class="top-tab" data-nav="dashboard" aria-label="Mon profil" title="Mon profil" ${uiAction("navTo", ["dashboard"])}>
+          <span class="top-tab-icon">${iconUser()}</span><span class="top-tab-label">Profil</span>
+        </button>
+      </nav>
       <div class="topbar-search-wrap">
         <span class="search-icon">${iconSearch()}</span>
         <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
@@ -758,35 +773,11 @@ function renderApp() {
         <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
+        <button type="button" class="topbar-add-btn" aria-label="Ajouter une œuvre" title="Ajouter" ${uiAction("openAddModal")}>
+          ${iconPlus()}<span>Ajouter</span>
+        </button>
       </div>
     </header>
-
-    <!-- Sidebar -->
-    <nav id="sidebar">
-      <div class="nav-indicator" id="nav-indicator" style="opacity:0;top:0"></div>
-      <div class="nav-items-group">
-        <button type="button" class="nav-item active" data-nav="library" data-tooltip="Bibliothèque" aria-label="Bibliothèque" aria-current="page" ${uiAction("navTo", ["library"])}>
-          <span class="nav-icon">${iconGrid()}</span>
-          <span class="nav-label">Bibliothèque</span>
-        </button>
-        <button type="button" class="nav-item" data-nav="upcoming" data-tooltip="Prochaines sorties" aria-label="Prochaines sorties" ${uiAction("navTo", ["upcoming"])}>
-          <span class="nav-icon">${iconCalendar()}</span>
-          <span class="nav-label">Sorties</span>
-        </button>
-        <button type="button" class="nav-item" data-nav="journal" data-tooltip="Journal" aria-label="Journal" ${uiAction("navTo", ["journal"])}>
-          <span class="nav-icon">${iconJournal()}</span>
-          <span class="nav-label">Journal</span>
-        </button>
-        <button type="button" class="nav-item" data-nav="dashboard" data-tooltip="Mon profil" aria-label="Mon profil" ${uiAction("navTo", ["dashboard"])}>
-          <span class="nav-icon">${iconUser()}</span>
-          <span class="nav-label">Profil</span>
-        </button>
-      </div>
-      <button type="button" class="sidebar-add-btn" data-tooltip="Ajouter" aria-label="Ajouter une œuvre" ${uiAction("openAddModal")}>
-        ${iconPlus()}
-        <span class="add-label">Ajouter</span>
-      </button>
-    </nav>
 
     <!-- Main -->
     <main id="main">
@@ -1088,21 +1079,13 @@ function navTo(key, options = {}) {
 
   // Synchronise systématiquement les deux navigations. Cela rend aussi un clic
   // répété utile si une page a été interrompue pendant son chargement.
-  document.querySelectorAll(".nav-item[data-nav], .bottom-nav-item[data-nav]").forEach(b => {
+  document.querySelectorAll(".top-tab[data-nav], .bottom-nav-item[data-nav]").forEach(b => {
     const isActive = b.dataset.nav === primaryKey;
     b.classList.toggle("active", isActive);
     if (isActive) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  const btn = document.querySelector(`.nav-item[data-nav="${primaryKey}"]`);
-  if (btn) {
-    const indicator = document.getElementById("nav-indicator");
-    if (indicator) {
-      indicator.style.top  = btn.offsetTop + "px";
-      indicator.style.opacity = "1";
-    }
-  }
-  positionBottomNavIndicator();
+  positionNavIndicators();
 
   // Sauvegarde la nav active
   try { localStorage.setItem("kulturo-nav", primaryKey); } catch {}
@@ -3611,20 +3594,26 @@ function uiAction(action, args = [], options = {}) {
 const iconCalendar = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>`;
 const iconPlus    = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`;
 
-// Indicateur de la barre mobile : suit l'onglet actif (largeur et position réelles).
-function positionBottomNavIndicator() {
-  const nav = document.getElementById("bottom-nav");
-  const indicator = document.getElementById("bottom-nav-indicator");
-  const active = nav?.querySelector(".bottom-nav-item.active[data-nav]");
+// Indicateurs des deux navigations : trait sous l'onglet actif (desktop) et
+// trait en haut de l'onglet actif (mobile). Seul transform/width est animé.
+function placeIndicator(nav, indicator, active, { inset = 0, scale = 1 } = {}) {
   if (!nav || !indicator || !active) { indicator?.classList.remove("is-ready"); return; }
   const navBox = nav.getBoundingClientRect();
   const box = active.getBoundingClientRect();
   if (!box.width) { indicator.classList.remove("is-ready"); return; }
-  indicator.style.setProperty("--w", `${Math.max(40, box.width - 10)}px`);
-  indicator.style.setProperty("--x", `${box.left - navBox.left + 5}px`);
+  const width = box.width * scale;
+  indicator.style.setProperty("--w", `${Math.max(12, width - inset * 2)}px`);
+  indicator.style.setProperty("--x", `${box.left - navBox.left + (box.width - width) / 2 + inset}px`);
   indicator.classList.add("is-ready");
 }
-window.addEventListener("resize", () => positionBottomNavIndicator());
+function positionNavIndicators() {
+  const top = document.getElementById("topnav");
+  placeIndicator(top, document.getElementById("topnav-indicator"), top?.querySelector(".top-tab.active"), { inset: 14 });
+  const bottom = document.getElementById("bottom-nav");
+  placeIndicator(bottom, document.getElementById("bottom-nav-indicator"), bottom?.querySelector(".bottom-nav-item.active[data-nav]"), { scale: .5 });
+}
+window.addEventListener("resize", () => positionNavIndicators());
+document.fonts?.ready?.then(() => positionNavIndicators());
 const iconScan    = () => `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 9v6M11 9v6M14 9v6M17 9v6"/></svg>`;
 const iconSearch  = () => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
 const iconX       = () => `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>`;

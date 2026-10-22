@@ -10,9 +10,9 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.7.0
+## Version actuelle · 4.7.1
 
-**Navigation modernisée.** Rail desktop qui se déploie au survol et barre flottante sur mobile, avec indicateur animé.
+**Navigation.** Onglets dans la barre du haut sur desktop, barre du bas sobre sur mobile, avec un trait qui glisse sous l'onglet actif.
 
 **Ajout rapide.** Dans « Nouvel ajout », collez un lien TMDb, IMDb, Steam, Goodreads ou Hardcover : l’œuvre est reconnue directement. Sur un livre, l’icône de code-barres à droite de la recherche scanne l’ISBN avec la caméra (autorisation demandée au premier usage ; iPhone compris).
 

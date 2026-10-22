@@ -1,31 +1,33 @@
+## 4.7.1
+
+- Navigation desktop : le rail latéral laisse place à des onglets dans la barre du haut (Bibliothèque, Sorties, Journal, Profil) avec un trait qui glisse sous l'onglet actif. La recherche, le bouton de filtres et « Ajouter » restent dans la même barre ; le contenu gagne la largeur du rail.
+- Entre 681 et 1100 px de large, les onglets passent en icônes seules et « Ajouter » en simple « + ».
+- Navigation mobile : barre du bas sobre avec un trait doré qui glisse au-dessus de l'onglet actif.
+- Animations allégées : un seul mouvement de 220 ms, sans rebond ni rotation. Aucun changement Supabase.
+
 ## 4.7.0
 
-- Navigation desktop : le rail se déploie au survol (libellés, bouton « Ajouter »), l'indicateur glisse avec un léger ressort, les icônes réagissent au survol et à l'activation. Le contenu n'est pas décalé.
-- Navigation mobile : barre flottante en verre, onglet actif qui se soulève avec son libellé, indicateur qui s'étire d'un onglet à l'autre, bouton « + » central agrandi.
-- Mouvements réduits automatiquement si l'appareil le demande. Aucun changement Supabase.
+- Première version de la navigation modernisée (rail déployable, barre flottante), remplacée par la 4.7.1.
 
-## 4.7.0
+## 4.6.0
 
 - Ajout rapide : la barre de recherche de « Nouvel ajout » reconnaît un lien TMDb, IMDb, Steam, Goodreads ou Hardcover. TMDb et IMDb ouvrent la fiche exacte ; Steam, Goodreads et Hardcover donnent le titre, cherché dans le bon catalogue.
 - Scan de code-barres (livres) : icône dans la barre de recherche, lecture de l'ISBN-13 par la caméra (BarcodeDetector natif ou décodeur EAN-13 intégré pour iPhone). Rien n'est envoyé : l'image reste sur l'appareil, la caméra est coupée à la fermeture.
 - Aucun changement Supabase ni dépendance ajoutée.
 
-## 4.7.0
+## 4.5.9
 
 - Jauge des séries : jamais « complète » avant la dernière saison, même si le numéro d'épisode dépasse la moyenne par saison.
-- Aucun changement Supabase.
 
-## 4.7.0
+## 4.5.8
 
 - Fiche série : la jauge de progression suit désormais les épisodes (saison 1/1, épisode 3 sur 8 → 38 %) au lieu d'être pleine dès la dernière saison.
-- Aucun changement Supabase.
 
-## 4.7.0
+## 4.5.7
 
-- Profil desktop : le Top reprend l'espacement de la bibliothèque (même écart, ligne pleine largeur sans espace vide).
-- Aucun changement Supabase.
+- Profil desktop : le Top reprend l'espacement de la bibliothèque, ligne pleine largeur sans espace vide.
 
-## 4.7.0
+## 4.5.6
 
 - Modifier : « Mon avis » placé directement au-dessus des étoiles, avec le même style de libellé que « Statut », sur mobile et desktop.
 
