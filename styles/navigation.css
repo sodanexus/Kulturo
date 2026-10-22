@@ -162,7 +162,7 @@
 @media (max-width: 680px) {
   #topbar { display: flex; gap: .65rem; padding: var(--safe-top) max(1rem, var(--safe-right)) 0 max(1rem, var(--safe-left)); }
   #topbar .topbar-logo { width: auto; flex: 0 0 auto; }
-  #topbar .topbar-mark { width: 34px; height: 25px; }
+  #topbar .topbar-mark { width: 44px; height: 25px; }
   #topbar .topbar-add-btn { display: none; }
   #topbar .topbar-right { width: auto; min-width: 0; padding: 0; margin-left: auto; }
   #topbar .topbar-right:has(.network-status[hidden]) { display: none; }

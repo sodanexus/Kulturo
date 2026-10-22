@@ -238,21 +238,22 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   }
 }
 
-/* ── États vides : les trois cercles du logo ──────────────── */
-.empty-icon.is-trio {
+/* ── États vides : les quatre cercles du logo ──────────────── */
+.empty-icon.is-brand-mark {
   width: auto; height: auto;
   background: none; border: 0; box-shadow: none; border-radius: 0;
   margin-bottom: .35rem;
 }
-.trio { width: 88px; height: auto; overflow: visible; }
-.trio-c { transform-box: fill-box; transform-origin: center; opacity: .92; }
-.trio-coral { fill: var(--brand-coral); animation: trioLeft 1s var(--ease-expo) both, trioFloat 4.2s ease-in-out 1s infinite alternate; }
-.trio-teal  { fill: var(--brand-teal);  animation: trioMid 1s var(--ease-expo) .08s both, trioFloat 4.2s ease-in-out 1.6s infinite alternate-reverse; }
-.trio-gold  { fill: var(--brand-gold);  animation: trioRight 1s var(--ease-expo) .16s both, trioFloat 4.2s ease-in-out 2.2s infinite alternate; }
-@keyframes trioLeft  { from { opacity: 0; transform: translateX(17px) scale(.7); } }
-@keyframes trioMid   { from { opacity: 0; transform: scale(.4); } }
-@keyframes trioRight { from { opacity: 0; transform: translateX(-17px) scale(.7); } }
-@keyframes trioFloat { to { transform: translateY(-3px); } }
+.brand-mark { width: 88px; height: auto; overflow: visible; }
+.brand-circle { transform-box: fill-box; transform-origin: center; opacity: 1; }
+.brand-film { fill: var(--brand-coral); animation: brandLeft 1s var(--ease-expo) both, brandFloat 4.2s ease-in-out 1s infinite alternate; }
+.brand-series { fill: var(--brand-blue); animation: brandMid 1s var(--ease-expo) .08s both, brandFloat 4.2s ease-in-out 1.4s infinite alternate-reverse; }
+.brand-game { fill: var(--brand-teal); animation: brandMid 1s var(--ease-expo) .16s both, brandFloat 4.2s ease-in-out 1.8s infinite alternate; }
+.brand-book { fill: var(--brand-gold); animation: brandRight 1s var(--ease-expo) .24s both, brandFloat 4.2s ease-in-out 2.2s infinite alternate-reverse; }
+@keyframes brandLeft  { from { opacity: 0; transform: translateX(17px) scale(.7); } }
+@keyframes brandMid   { from { opacity: 0; transform: scale(.4); } }
+@keyframes brandRight { from { opacity: 0; transform: translateX(-17px) scale(.7); } }
+@keyframes brandFloat { to { transform: translateY(-3px); } }
 .empty-state { animation: emptyIn .7s var(--ease-expo) both; }
 @keyframes emptyIn { from { opacity: 0; transform: translateY(8px); } }
 
@@ -1041,3 +1042,5 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
     flex: 0 0 0; min-width: 0; max-width: 0; margin-left: -.4rem; padding-inline: 0; border-width: 0; opacity: 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) { .brand-mark .brand-circle { animation: none; } }
