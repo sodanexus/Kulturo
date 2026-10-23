@@ -36,13 +36,22 @@ export function pickGame(title: string, games: any[]): any | null {
   return close || null;
 }
 
+// Langue d'un logo SteamGridDB (« en », « fr », « ar », « en-US »…), vide si non renseignée.
+function logoLanguage(logo: any): string {
+  return String(logo?.language || "").toLowerCase().split(/[-_]/)[0].trim();
+}
+
+// Seuls les logos en anglais sont retenus (les logos arabes, japonais, etc. sont
+// écartés). Une langue non renseignée est acceptée : on ne peut pas la juger.
 export function pickLogos(logos: any[]): any[] {
   const rank = (logo: any) => ({ official: 0, white: 1, custom: 2, black: 3 } as Record<string, number>)[String(logo.style)] ?? 4;
+  const languageRank = (logo: any) => logoLanguage(logo) === "en" ? 0 : 1;
   return (Array.isArray(logos) ? logos : [])
     .filter(logo => logo && !logo.nsfw && !logo.humor && !logo.epilepsy
+      && ["", "en"].includes(logoLanguage(logo))
       && /^https:\/\/[a-z0-9.-]*steamgriddb\.com\//i.test(String(logo.url || ""))
       && /^image\/(png|webp)$/.test(String(logo.mime || "image/png")))
-    .sort((a, b) => rank(a) - rank(b) || Number(b.score || 0) - Number(a.score || 0) || Number(b.width || 0) - Number(a.width || 0))
+    .sort((a, b) => languageRank(a) - languageRank(b) || rank(a) - rank(b) || Number(b.score || 0) - Number(a.score || 0) || Number(b.width || 0) - Number(a.width || 0))
     .slice(0, 4)
     .map(logo => ({ url: String(logo.url), style: String(logo.style || ""), width: Number(logo.width) || 0, height: Number(logo.height) || 0 }));
 }
