@@ -224,6 +224,7 @@ function renderDetailPanel(e, options = {}) {
             <div class="detail-backdrop-info">
               <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
               <p class="detail-facts detail-hero-facts" id="detail-facts-${e.id}">${detailFactsHTML(e)}</p>
+              ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
               <div class="detail-header-meta">
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
@@ -234,7 +235,6 @@ function renderDetailPanel(e, options = {}) {
                 <span class="detail-hero-ratings detail-external-section" id="detail-hero-ratings-${e.id}">${renderDetailRatingsHTML(e, { detailsLoading: options.detailsLoading === true })}</span>
               </div>
               </div>
-              ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
             </div>
           </div>
         </div>
