@@ -1,3 +1,10 @@
+## 4.8.2
+
+- Films, séries et jeux : jaquette retirée des fiches (y compris aperçus Sorties), bandeau rééquilibré autour du logo/titre et des notes. Livres inchangés.
+- IGDB : ne plus confondre transparence non renseignée et image opaque ; variantes noires utilisables en blanc, logos historiques seulement en dernier recours.
+- Recherche de secours parmi les artworks explicitement identifiés comme logos, sans confondre une illustration avec un logo. Logs de diagnostic du proxy et renouvellement du cache de la requête logo.
+- Redéployer igdb-proxy pour la recherche de secours. Aucun SQL ni secret supplémentaire.
+
 ## 4.8.1
 
 - Essai de logos sur les fiches dépliées : TMDb pour les films/séries, IGDB pour les jeux. Jaquette conservée, logo modéré, titre texte dans la barre compacte.

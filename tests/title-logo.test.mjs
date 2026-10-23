@@ -7,10 +7,10 @@ test('Logos TMDb : français prioritaire, puis neutre, chemins sûrs et PNG',()=
  assert.equal(selectTmdbLogo([{...image,file_path:'/neutral.png',iso_639_1:null},{...image,file_path:'/en.png',iso_639_1:'en'}]),'https://image.tmdb.org/t/p/w500/neutral.png');
  assert.equal(selectTmdbLogo([{...image,file_path:'/jp.png',iso_639_1:'ja'},{...image,file_path:'https://evil/a.png'},{...image,file_path:'/x.jpg'}]),null);
 });
-test('Logos IGDB : transparence obligatoire, blanc prioritaire, pas de noir/historique/animation',()=>{
+test('Logos IGDB : transparence obligatoire, blanc prioritaire, animations et images opaques écartées',()=>{
  const logo={alpha_channel:true,image_id:'color',image_type:{name:'Colour Logo'},width:500};
  assert.match(selectIgdbLogo([logo,{...logo,image_id:'white',image_type:{name:'White Logo'},width:200}]),/white.png$/);
- assert.equal(selectIgdbLogo([{...logo,alpha_channel:false},{...logo,animated:true},{...logo,image_id:'../bad'},{...logo,image_type:{name:'Black Logo'}},{...logo,image_type:{name:'Historical Logo'}}]),null);
+ assert.equal(selectIgdbLogo([{...logo,alpha_channel:false},{...logo,animated:true},{...logo,image_id:'../bad'}]),null);
 });
 test('Logos : sources reconnues uniquement, préférence isolée par compte et œuvre',()=>{
  assert.equal(supportsTitleLogo({media_type:'book',source_api:'hardcover',external_id:1}),false);
@@ -38,4 +38,13 @@ test('Logo : apparition après décodage uniquement, pas de mutation après ferm
    behavior='ok';let complete;const closed=title();const pending=mountTitleLogo(closed,()=>new Promise(r=>complete=r));closed.isConnected=false;complete('/late.png');await pending;assert.equal(closed.children.length,0);
    const controller=new AbortController();controller.abort();const cancelled=title();await mountTitleLogo(cancelled,async()=>'/logo.png',{signal:controller.signal});assert.equal(cancelled.children.length,0);
  } finally {Object.assign(globalThis, originals);}
+});
+
+test('IGDB : métadonnée alpha absente acceptée, noir lisible en secours, historique en dernier',async()=>{
+ const {selectIgdbLogoAsset}=await import('../features/title-logo.js');
+ assert.match(selectIgdbLogo([{image_id:'unknown'}]),/unknown.png$/);
+ const black={image_id:'black',image_type:{name:'Black Logo'}};
+ assert.equal(selectIgdbLogoAsset([black]).monochrome,true);
+ assert.match(selectIgdbLogo([black,{image_id:'old',image_type:{name:'Historical White Logo'}}]),/black.png$/);
+ assert.match(selectIgdbLogo([black,{image_id:'white',image_type:{name:'White Logo'}}]),/white.png$/);
 });

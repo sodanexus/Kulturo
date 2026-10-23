@@ -1,4 +1,4 @@
-import { selectTmdbLogo, selectIgdbLogo } from "./features/title-logo.js";
+import { selectTmdbLogo, selectIgdbLogoAsset } from "./features/title-logo.js";
 import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
@@ -897,10 +897,10 @@ export const TitleLogos = {
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
       const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
         method:"POST", headers:await edgeFunctionHeaders(),
-        body:JSON.stringify({action:"logos", id:Number(entry.external_id)}),
+        body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:2}),
         cachePolicy:"detail", signal:options.signal, timeoutMs:8000,
       });
-      return selectIgdbLogo(Array.isArray(data?.logos) ? data.logos : []);
+      return selectIgdbLogoAsset(Array.isArray(data?.logos) ? data.logos : []);
     }
     return null;
   },
