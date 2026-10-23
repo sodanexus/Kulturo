@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ logos: picked });
   } catch (error) {
     console.warn("[SteamGridDB logos]", error);
-    // Secours facultatif : une panne ne doit jamais casser la fiche.
-    return jsonResponse({ logos: [] });
+    // Panne en amont : réponse d'erreur pour que le client ne mémorise pas « aucun logo ».
+    return jsonResponse({ error: "SteamGridDB indisponible" }, 502);
   }
 });

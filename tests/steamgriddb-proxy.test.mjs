@@ -38,8 +38,8 @@ test('proxy : pas de correspondance fiable → aucun logo', () => {
   assert.equal(out.calls.length, 1);
 });
 
-test('proxy : erreur API → logos vides, secret absent → 503, requête invalide → 400', () => {
-  assert.deepEqual(run({action:'logos', title:'Hades'}, [{status:500, body:{}}]).body, {logos:[]});
+test('proxy : erreur API → 502, secret absent → 503, requête invalide → 400', () => {
+  assert.equal(run({action:'logos', title:'Hades'}, [{status:500, body:{}}]).status, 502);
   assert.equal(run({action:'logos', title:'Hades'}, [], '').status, 503);
   assert.equal(run({action:'x', title:'Hades'}, []).status, 400);
 });
@@ -49,8 +49,9 @@ test('client : candidats limités au domaine SteamGridDB', () => {
   assert.deepEqual(c, [{url:'https://cdn2.steamgriddb.com/a.png', monochrome:true}]);
 });
 
-test('client : secours appelé seulement si IGDB est vide', () => {
+test('client : IGDB et secours en parallèle, avec cache local', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
-  assert.match(api, /if \(candidates\.length\) return candidates;\s+return this\.fallback\(entry, options\)/);
+  assert.match(api, /Promise\.allSettled\(\[[\s\S]*this\.fallback\(entry, options\)/);
+  assert.match(api, /readLogoCache\(entry\)/);
   assert.match(api, /steamgriddb-proxy/);
 });

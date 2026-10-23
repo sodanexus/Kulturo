@@ -1,3 +1,9 @@
+## 4.9.1
+
+- Logos de jeux : IGDB et SteamGridDB sont interrogés en parallèle (IGDB reste prioritaire, jusqu'à six candidats essayés).
+- Résultat mémorisé localement (30 jours si trouvé, 3 jours si aucun) : les réouvertures sont instantanées. Les erreurs réseau ne sont jamais mémorisées.
+- `steamgriddb-proxy` répond 502 en cas de panne SteamGridDB. Redéployer la fonction.
+
 ## 4.9.0
 
 - Jeux : logo de secours via SteamGridDB quand IGDB n'en fournit aucun. Nouvelle fonction Supabase `steamgriddb-proxy` (secret `STEAMGRIDDB_API_KEY`, clé jamais exposée au navigateur).

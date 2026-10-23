@@ -886,6 +886,21 @@ export async function searchMedia(query, mediaType, options = {}) {
   finally { finish(); }
 }
 
+// Mémoire locale des logos de jeux : 30 jours si trouvés, 3 jours si aucun.
+const LOGO_CACHE_VERSION = 1;
+const logoCacheKey = entry => `kulturo:title-logos:${LOGO_CACHE_VERSION}:${entry.source_api}:${entry.external_id}`;
+function readLogoCache(entry) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(logoCacheKey(entry)) || "null");
+    if (!saved || !Array.isArray(saved.logos)) return null;
+    const maxAge = saved.logos.length ? 30 * 86400_000 : 3 * 86400_000;
+    return Date.now() - saved.at < maxAge ? saved.logos : null;
+  } catch { return null; }
+}
+function writeLogoCache(entry, logos) {
+  try { localStorage.setItem(logoCacheKey(entry), JSON.stringify({at:Date.now(), logos})); } catch { /* facultatif */ }
+}
+
 // Indépendant des notes/synopsis : un logo ne bloque jamais leur chargement.
 export const TitleLogos = {
   async fetch(entry, options = {}) {
@@ -895,20 +910,29 @@ export const TitleLogos = {
       return tmdbLogoCandidates(data?.logos);
     }
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
-      const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
-        method:"POST", headers:await edgeFunctionHeaders(),
-        body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:3}),
-        cachePolicy:"detail", signal:options.signal, timeoutMs:12000,
-      });
-      const candidates = igdbLogoCandidates(Array.isArray(data?.logos) ? data.logos : []);
-      if (candidates.length) return candidates;
-      return this.fallback(entry, options);
+      const cached = readLogoCache(entry);
+      if (cached) return cached;
+      // IGDB et SteamGridDB en parallèle : IGDB reste prioritaire, SteamGridDB complète.
+      const [igdb, steam] = await Promise.allSettled([
+        apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
+          method:"POST", headers:await edgeFunctionHeaders(),
+          body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:3}),
+          cachePolicy:"detail", signal:options.signal, timeoutMs:12000,
+        }),
+        this.fallback(entry, options),
+      ]);
+      if (igdb.status === "rejected" && igdb.reason?.name === "AbortError") throw igdb.reason;
+      const igdbList = igdb.status === "fulfilled" ? igdbLogoCandidates(Array.isArray(igdb.value?.logos) ? igdb.value.logos : []) : [];
+      const steamList = steam.status === "fulfilled" ? steam.value : null;
+      const merged = [...igdbList, ...(steamList || [])].slice(0, 6);
+      // Un échec réseau n'est jamais mémorisé : seule une réponse fiable l'est.
+      if (igdb.status === "fulfilled" && steamList) writeLogoCache(entry, merged);
+      return merged;
     }
     return null;
   },
 
-  // Secours facultatif pour les jeux : appelé seulement si IGDB n'a aucun logo
-  // exploitable. Une erreur ou une absence ne montre simplement pas de logo.
+  // Secours facultatif pour les jeux. Retourne null en cas d'erreur (non mémorisée).
   async fallback(entry, options = {}) {
     if (entry.media_type !== "game" || !entry.title || !CONFIG?.supabase?.url) return [];
     try {
@@ -919,8 +943,9 @@ export const TitleLogos = {
       });
       return steamGridLogoCandidates(data?.logos);
     } catch (error) {
-      if (error?.name !== "AbortError") console.warn("[Logo secours]", error);
-      return [];
+      if (error?.name === "AbortError") throw error;
+      console.warn("[Logo secours]", error);
+      return null;
     }
   },
 };
