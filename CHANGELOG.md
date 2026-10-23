@@ -1,3 +1,9 @@
+## 4.9.0
+
+- Jeux : logo de secours via SteamGridDB quand IGDB n'en fournit aucun. Nouvelle fonction Supabase `steamgriddb-proxy` (secret `STEAMGRIDDB_API_KEY`, clé jamais exposée au navigateur).
+- Correspondance prudente du titre (exacte ou préfixe), logos officiels puis blancs puis noirs, contenus NSFW/humoristiques exclus. Sans correspondance fiable ou en cas d'erreur, le titre texte reste affiché.
+- Aucune migration SQL.
+
 ## 4.8.5
 
 - Bannières Cinéma légèrement agrandies : 390 px sur desktop (340 auparavant), 340 px sur mobile (300 auparavant).

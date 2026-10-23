@@ -1,4 +1,4 @@
-import { tmdbLogoCandidates, igdbLogoCandidates } from "./features/title-logo.js";
+import { tmdbLogoCandidates, igdbLogoCandidates, steamGridLogoCandidates } from "./features/title-logo.js";
 import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
@@ -900,8 +900,27 @@ export const TitleLogos = {
         body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:3}),
         cachePolicy:"detail", signal:options.signal, timeoutMs:12000,
       });
-      return igdbLogoCandidates(Array.isArray(data?.logos) ? data.logos : []);
+      const candidates = igdbLogoCandidates(Array.isArray(data?.logos) ? data.logos : []);
+      if (candidates.length) return candidates;
+      return this.fallback(entry, options);
     }
     return null;
+  },
+
+  // Secours facultatif pour les jeux : appelé seulement si IGDB n'a aucun logo
+  // exploitable. Une erreur ou une absence ne montre simplement pas de logo.
+  async fallback(entry, options = {}) {
+    if (entry.media_type !== "game" || !entry.title || !CONFIG?.supabase?.url) return [];
+    try {
+      const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/steamgriddb-proxy`, {
+        method:"POST", headers:await edgeFunctionHeaders(),
+        body:JSON.stringify({action:"logos", title:entry.title}),
+        cachePolicy:"detail", signal:options.signal, timeoutMs:12000,
+      });
+      return steamGridLogoCandidates(data?.logos);
+    } catch (error) {
+      if (error?.name !== "AbortError") console.warn("[Logo secours]", error);
+      return [];
+    }
   },
 };

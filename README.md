@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.8.5
+## Version actuelle · 4.9.0
 
 Le bandeau Cinéma, agrandi en 4.8.5 avec des logos plus discrets sur mobile, met l’image en valeur et ancre le logo/titre dans un dégradé sombre, avec la note et les étiquettes dessous. Les livres partagent cette ambiance en conservant leur jaquette. Le contenu à partir du synopsis reste identique.
 
@@ -59,6 +59,7 @@ Dans Modifier, les livres En cours disposent du suivi page actuelle/total et les
 |---|---|---|
 | TMDb | Films et séries | Configuration publique existante dans config.js |
 | igdb-proxy | Jeux, notes et captures IGDB | Secrets Twitch/IGDB du projet |
+| steamgriddb-proxy | Logos de secours des jeux | `STEAMGRIDDB_API_KEY` |
 | hardcover-proxy | Recherche et métadonnées des livres | HARDCOVER_TOKEN |
 | Open Library | Livres en secours, anciennes fiches | Aucun |
 | book-releases-proxy | Parutions des flux publics BnF | Aucun secret Google |

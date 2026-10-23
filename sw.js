@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v4.8.5";
+const STATIC_CACHE = "kulturo-static-v4.9.0";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -74,9 +74,9 @@ const STATIC_ASSET_PATHS = [
   "features/ui-states.js",
   "features/upcoming.js",
   "logo.svg",
-  "icon.svg?v=4.8.5",
-  "icon-192.png?v=4.8.5",
-  "icon-512.png?v=4.8.5",
+  "icon.svg?v=4.9.0",
+  "icon-192.png?v=4.9.0",
+  "icon-512.png?v=4.9.0",
 ];
 const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [
@@ -115,6 +115,7 @@ function looksLikeImage(request, response) {
     contentType.startsWith("image/") ||
     ["image.tmdb.org", "images.igdb.com", "covers.openlibrary.org"].includes(url.hostname) ||
     url.hostname.endsWith("googleusercontent.com") ||
+    url.hostname.endsWith("steamgriddb.com") ||
     /\.(?:avif|gif|jpe?g|png|webp)(?:$|\?)/i.test(url.href);
 }
 

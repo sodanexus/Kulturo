@@ -1,6 +1,6 @@
-# Installer l’archive **4.8.5**
+# Installer l’archive **4.9.0**
 
-Depuis la 4.8.2 : remplacer les fichiers du site uniquement. Aucun nouveau déploiement Supabase.
+Depuis la 4.8.x : remplacer les fichiers du site, puis créer la fonction Supabase **steamgriddb-proxy** avec le contenu de `supabase/functions/steamgriddb-proxy/index.ts` (mêmes réglages d’authentification qu’igdb-proxy) ; le secret `STEAMGRIDDB_API_KEY` doit exister. Aucune migration SQL. Sans cette fonction, les jeux sans logo IGDB gardent leur titre texte.
 
 Depuis la 4.8.0 ou 4.8.1 : remplacer les fichiers du site et redéployer **igdb-proxy** avec le contenu complet de `supabase/functions/igdb-proxy/index.ts` dans l’éditeur Supabase. Conserver les réglages d’authentification de la fonction et les secrets existants. Aucun nouveau secret et aucune migration SQL.
 
