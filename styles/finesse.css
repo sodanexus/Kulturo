@@ -921,7 +921,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 .detail-external-logo.is-tmdb { background: linear-gradient(90deg, #90cea1, #01b4e4); color: #0d253f; }
 .detail-external-logo.is-igdb { background: #9147ff; }
-.detail-external-skeleton { min-height: 30px; }
+.detail-external-pending { display: block; width: 1px; height: 30px; }
 /* Notes multiples d'une même source (IGDB joueurs / presse) :
    mobile = une pastille qui se retourne au tap ; grand écran = côte à côte. */
 .detail-external-flip { display: contents; }
@@ -970,12 +970,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 }
 
 .detail-info-skeleton[data-block] { margin: 0 0 .9rem; }
-.detail-external-skeleton i {
-  display: block; width: 92px; height: 30px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--bg-3), var(--bg-4), var(--bg-3));
-  background-size: 200% 100%; animation: detailExternalShimmer 1.1s linear infinite;
-}
-@keyframes detailExternalShimmer { to { background-position: -200% 0; } }
 
 /* Historique : une ligne discrète sous un filet. */
 .detail-history {
@@ -999,7 +993,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 @keyframes detailBlockIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .detail-external-skeleton i { animation: none; }
   .detail-block-in { animation: none; }
 }
 
