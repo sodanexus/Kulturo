@@ -8,6 +8,7 @@ import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDia
 import { mediaLinks } from "./media-links.js";
 import { TitleLogos, IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
+import { detailBackdropUrl } from "./book-banner.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
   repeatProgressLabel, staleRepeatEvents, statusLabelFor,
@@ -185,7 +186,7 @@ function renderDetailPanel(e, options = {}) {
     : e.status
       ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${statusLabelFor(e.status, e.media_type)}</span>`
       : "";
-  const backdropUrl = safeMediaUrl(e.backdrop_url);
+  const backdropUrl = safeMediaUrl(detailBackdropUrl(e));
   const coverUrl = safeMediaUrl(e.cover_url);
   const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
