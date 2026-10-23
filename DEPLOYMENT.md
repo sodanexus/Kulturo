@@ -1,4 +1,4 @@
-# Installer l’archive **4.9.4**
+# Installer l’archive **4.9.6**
 
 ## Site (GitHub Pages)
 
