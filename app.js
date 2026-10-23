@@ -2224,7 +2224,7 @@ function _openModalClassic(entry) {
               </div>
               <div class="form-group">
                 <label for="f-logo">Logo du titre (URL, facultatif)</label>
-                <input type="url" id="f-logo" value="${esc(entry.logo_url||"")}" placeholder="https://… image PNG/SVG/WebP à fond transparent" />
+                <input type="url" id="f-logo" value="${esc(entry.logo_url||"")}" placeholder="https://… PNG/SVG/WebP ou vidéo WebM animée, à fond transparent" />
                 <small>Remplace le logo automatique des films et des jeux. Laisser vide pour le logo automatique.</small>
               </div>
               ${supportsTitleLogo(entry) ? `<div class="form-group title-logo-setting">
