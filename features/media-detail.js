@@ -705,17 +705,85 @@ function formatDuration(minutes) {
 // Notes d'autres services : logo coloré de la source, jamais mélangées à la
 // note perso. Le nom complet, le profil (joueurs, presse) et les votes restent
 // dans l'infobulle et le libellé d'accessibilité.
-function externalRatingsHTML(ratings) {
-  return `<div class="detail-external-ratings" role="list">${ratings.map(rating => {
-    const kind = rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
-    const votes = rating.votes ? ` · ${new Intl.NumberFormat("fr-FR").format(rating.votes)} votes` : "";
-    const label = `${rating.label}${rating.kind ? ` ${rating.kind}` : ""} : ${formatRatingValue(rating.value)} sur 10${votes}`;
-    const source = String(rating.source || "").replace(/[^a-z0-9_-]/gi, "").toLowerCase();
-    return `<span class="detail-external-rating" data-source="${esc(source)}" role="listitem" title="${esc(label)}" aria-label="${esc(label)}">
+function externalRatingLabel(rating) {
+  const votes = rating.votes ? ` · ${new Intl.NumberFormat("fr-FR").format(rating.votes)} votes` : "";
+  return `${rating.label}${rating.kind ? ` ${rating.kind}` : ""} : ${formatRatingValue(rating.value)} sur 10${votes}`;
+}
+
+function externalRatingSourceClass(rating) {
+  return String(rating.source || "").replace(/[^a-z0-9_-]/gi, "").toLowerCase();
+}
+
+function externalRatingPillHTML(rating, extraAttrs = "") {
+  const kind = rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
+  const label = externalRatingLabel(rating);
+  const source = externalRatingSourceClass(rating);
+  return `<span class="detail-external-rating" data-source="${esc(source)}" title="${esc(label)}" ${extraAttrs}>
       <span class="detail-external-logo is-${esc(source)}" aria-hidden="true">${esc(String(rating.label || "").toUpperCase())}</span>
       <strong>${esc(formatRatingValue(rating.value).replace(".", ","))}</strong>${kind}
     </span>`;
-  }).join("")}</div>`;
+}
+
+// Une source qui donne plusieurs notes (IGDB : joueurs + presse) forme une
+// seule pastille sur mobile : un tap retourne la pastille d'une note à l'autre.
+// Sur grand écran, toutes les notes restent affichées côte à côte.
+function externalRatingsHTML(ratings) {
+  const groups = [];
+  ratings.forEach(rating => {
+    const source = externalRatingSourceClass(rating);
+    const group = groups.find(item => item.source === source);
+    if (group) group.items.push(rating);
+    else groups.push({ source, items: [rating] });
+  });
+  const body = groups.map(group => {
+    if (group.items.length < 2) {
+      const only = group.items[0];
+      return externalRatingPillHTML(only, `role="listitem" aria-label="${esc(externalRatingLabel(only))}"`);
+    }
+    const faces = group.items.map((rating, index) =>
+      externalRatingPillHTML(rating, `data-face="${index}"${index === 0 ? " data-active" : ""}`)).join("");
+    const first = group.items[0], second = group.items[1];
+    const hint = `${externalRatingLabel(first)}. Appuyer pour voir : ${externalRatingLabel(second)}`;
+    const dots = group.items.map((_, index) => `<i${index === 0 ? " data-active" : ""}></i>`).join("");
+    return `<span class="detail-external-flip" data-source="${esc(group.source)}" data-face-count="${group.items.length}" data-face-index="0" role="button" tabindex="0" aria-label="${esc(hint)}">
+      <span class="detail-external-faces">${faces}</span>
+      <span class="detail-external-dots" aria-hidden="true">${dots}</span>
+    </span>`;
+  }).join("");
+  return `<div class="detail-external-ratings" role="group" aria-label="Notes externes">${body}</div>`;
+}
+
+// Mobile : le tap (ou Entrée / Espace) fait passer la pastille à la note suivante.
+function flipExternalRating(flip) {
+  if (!flip || !flip.isConnected) return;
+  if (typeof window !== "undefined" && window.matchMedia?.("(min-width: 720px) and (hover: hover)").matches) return;
+  const faces = [...flip.querySelectorAll(".detail-external-rating[data-face]")];
+  if (faces.length < 2) return;
+  const current = Number(flip.dataset.faceIndex) || 0;
+  const next = (current + 1) % faces.length;
+  faces.forEach((face, index) => face.toggleAttribute("data-active", index === next));
+  flip.querySelectorAll(".detail-external-dots i").forEach((dot, index) => dot.toggleAttribute("data-active", index === next));
+  flip.dataset.faceIndex = String(next);
+  flip.classList.remove("is-flipping");
+  void flip.offsetWidth; // relance l'animation même sur des taps rapprochés
+  flip.classList.add("is-flipping");
+  const after = faces[(next + 1) % faces.length];
+  flip.setAttribute("aria-label", `${faces[next].title}. Appuyer pour voir : ${after.title}`);
+}
+
+if (typeof document !== "undefined" && !globalThis.__kulturoRatingFlipBound) {
+  globalThis.__kulturoRatingFlipBound = true;
+  document.addEventListener("click", event => {
+    const flip = event.target.closest?.(".detail-external-flip");
+    if (flip) flipExternalRating(flip);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const flip = event.target.closest?.(".detail-external-flip");
+    if (!flip || event.target !== flip) return;
+    event.preventDefault();
+    flipExternalRating(flip);
+  });
 }
 
 // Repères sous le titre, dans la bannière.
@@ -769,7 +837,7 @@ function syncHeroRatings(entry, options = {}) {
   const html = renderDetailRatingsHTML(entry, options);
   if (host.innerHTML === html) return;
   host.innerHTML = html;
-  host.querySelectorAll(".detail-external-rating, .detail-external-skeleton").forEach((node, index) => {
+  host.querySelectorAll(".detail-external-flip, .detail-external-ratings > .detail-external-rating, .detail-external-skeleton").forEach((node, index) => {
     revealSurface(node, { delay: Math.min(index * 80, 240) });
   });
 }
