@@ -1307,3 +1307,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 @container(max-width:440px) {
   .detail-modal.detail-cinema .detail-hero-ratings .detail-external-rating small { display:none; }
 }
+
+/* Note personnelle mise en valeur ; les notes externes gardent leur graisse. */
+.detail-modal.detail-cinema .detail-header-meta .detail-rating .rating-score { font-weight:700; }
