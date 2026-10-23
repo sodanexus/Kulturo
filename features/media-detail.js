@@ -187,7 +187,7 @@ function renderDetailPanel(e, options = {}) {
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
-  const useTitleLogo = supportsTitleLogo(e) && !prefersTextTitle(e, State.user?.id);
+  const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
   const externalHTML = mediaLinks(e).map(link =>
     `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
@@ -223,12 +223,14 @@ function renderDetailPanel(e, options = {}) {
             ${e.media_type === "book" ? posterHTML : ""}
             <div class="detail-backdrop-info">
               <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
+              <div class="detail-header-meta">
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type === "movie" && e.subtype === "tv" ? "tv" : e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
                 ${headerStatusBadge}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
+              </div>
               </div>
               ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
             </div>
@@ -271,7 +273,7 @@ function renderDetailPanel(e, options = {}) {
   enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
   if (!options.restoreView) popFavoriteHeart(root.querySelector(`#detail-fav-${CSS.escape(String(e.id))}`), 200);
   hydrateFadeImages(root);
-  if (useTitleLogo) mountTitleLogo(root.querySelector("#detail-sheet-title"),
+  if (useTitleLogo && supportsTitleLogo(e)) mountTitleLogo(root.querySelector("#detail-sheet-title"),
     () => TitleLogos.fetch(e, {signal:detailSessions.signal(detailSessionId)}),
     {signal:detailSessions.signal(detailSessionId), isActive:() => detailSessions.isActive(detailSessionId, e.id)});
 
@@ -1136,6 +1138,10 @@ async function openDetailPanel(id, options = {}) {
         if (error?.name !== "AbortError") console.warn("[Detail] identity repair error:", error);
       }
       if (!ownsDetailSession()) return;
+      const title = document.getElementById('detail-sheet-title');
+      if (supportsTitleLogo(e) && !prefersTextTitle(e, State.user?.id) && !title?.querySelector('.detail-title-logo')) {
+        mountTitleLogo(title, () => TitleLogos.fetch(e, {signal:detailSignal}), {signal:detailSignal, isActive:ownsDetailSession});
+      }
     }
 
     // Si l'enrichissement précédent a été affiché mais pas sauvegardé, on

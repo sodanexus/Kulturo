@@ -12,56 +12,58 @@ export function setTextTitle(entry, owner, enabled) {
     if (enabled) localStorage.setItem(key, '1'); else localStorage.removeItem(key);
   } catch { /* Le titre reste utilisable si le stockage est indisponible. */ }
 }
-export function selectTmdbLogo(logos = []) {
-  const rank = logo => logo.iso_639_1 === 'fr' ? 0 : !logo.iso_639_1 ? 1 : 2;
-  const candidates = logos.filter(x => /^\/[a-z0-9_-]+\.png$/i.test(x?.file_path || '') && ['fr', 'en', null, undefined].includes(x.iso_639_1) && x.width >= 120 && x.height > 0);
-  candidates.sort((a,b) => rank(a)-rank(b) || (b.vote_average || 0)-(a.vote_average || 0) || b.width-a.width);
-  return candidates[0] ? `https://image.tmdb.org/t/p/w500${candidates[0].file_path}` : null;
+export function tmdbLogoCandidates(logos = []) {
+  const rank = x => x.iso_639_1 === 'fr' ? 0 : !x.iso_639_1 ? 1 : x.iso_639_1 === 'en' ? 2 : 3;
+  return (Array.isArray(logos) ? logos : []).filter(x => /^\/[a-z0-9_-]+\.(png|svg|webp)$/i.test(x?.file_path || ''))
+    .sort((a,b) => rank(a)-rank(b) || (b.vote_average || 0)-(a.vote_average || 0))
+    .slice(0,4).map(x => ({url:`https://image.tmdb.org/t/p/original${x.file_path}`}));
 }
-export function selectIgdbLogoAsset(logos = []) {
+export function selectTmdbLogo(logos = []) { return tmdbLogoCandidates(logos)[0]?.url || null; }
+export function igdbLogoCandidates(logos = []) {
   const label = x => String(x.image_type?.name || '').toLowerCase();
   // Champ absent ≠ absence de transparence : certaines images IGDB sont incomplètement renseignées.
   const candidates = (Array.isArray(logos) ? logos : []).filter(x => x && x.alpha_channel !== false && !x.animated && /^[a-z0-9]+$/i.test(x.image_id || ''));
   const rank = x => (/histor/.test(label(x)) ? 10 : 0) + (/white/.test(label(x)) ? 0 : /black/.test(label(x)) ? 2 : 1);
   candidates.sort((a,b) => rank(a)-rank(b) || (b.width || 0)-(a.width || 0));
-  const chosen = candidates[0];
-  return chosen ? {url:`https://images.igdb.com/igdb/image/upload/t_720p/${chosen.image_id}.png`, monochrome:/black/.test(label(chosen))} : null;
+  return candidates.slice(0,4).map(chosen => ({url:`https://images.igdb.com/igdb/image/upload/t_original/${chosen.image_id}.png`, monochrome:/black/.test(label(chosen))}));
 }
+export function selectIgdbLogoAsset(logos = []) { return igdbLogoCandidates(logos)[0] || null; }
 export function selectIgdbLogo(logos = []) { return selectIgdbLogoAsset(logos)?.url || null; }
 export async function mountTitleLogo(title, getUrl, {signal, isActive = () => true} = {}) {
   if (!title) return;
-  let image;
-  let timer;
-  let rejectLoad;
   const alive = () => !signal?.aborted && title.isConnected && isActive();
-  const abort = () => { rejectLoad?.(new Error('Logo cancelled')); if (image) { image.onload = image.onerror = null; image.removeAttribute('src'); } };
   try {
-    const asset = await getUrl();
-    const url = typeof asset === "string" ? asset : asset?.url;
-    if (!url || !alive()) return;
-    image = new Image();
-    image.className = 'detail-title-logo' + (asset?.monochrome ? ' is-monochrome-logo' : '');
-    image.alt = '';
-    image.setAttribute('aria-hidden', 'true');
-    image.decoding = 'async';
-    signal?.addEventListener('abort', abort, {once:true});
-    await Promise.race([
-      new Promise((resolve,reject) => {
-        rejectLoad = reject;
-        image.onload = resolve;
-        image.onerror = reject;
-        image.src = url;
-      }),
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Logo timeout')), 8000); }),
-    ]);
-    if (image.decode) await image.decode();
-    if (!alive() || !image.naturalWidth) return;
-    title.append(image);
-    requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
-  } catch { /* Image absente, lente ou invalide : conserver le titre texte. */ }
-  finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', abort);
-    if (image) { image.onload = image.onerror = null; if (!image.isConnected) image.removeAttribute('src'); }
-  }
+    const result = await getUrl();
+    const assets = Array.isArray(result) ? result : [result];
+    for (const asset of assets.slice(0,4)) {
+      const url = typeof asset === 'string' ? asset : asset?.url;
+      if (!alive()) return;
+      if (!url) continue;
+      const image = new Image();
+      let timer, rejectLoad;
+      const abort = () => { rejectLoad?.(new Error('Logo cancelled')); image.removeAttribute('src'); };
+      image.className = 'detail-title-logo' + (asset?.monochrome ? ' is-monochrome-logo' : '');
+      image.alt = ''; image.setAttribute('aria-hidden','true'); image.decoding = 'async';
+      signal?.addEventListener('abort',abort,{once:true});
+      try {
+        await new Promise((resolve,reject) => {
+          rejectLoad = reject;
+          timer = setTimeout(() => reject(new Error('Logo timeout')), 6000);
+          image.onload = resolve; image.onerror = reject; image.src = url;
+        });
+        // Le décodage peut échouer sur un SVG déjà chargé et pourtant affichable.
+        try { await image.decode?.(); } catch { if (!image.naturalWidth) throw new Error('Invalid image'); }
+        if (!alive() || !image.naturalWidth) return;
+        title.querySelector?.('.detail-title-logo')?.remove();
+        title.append(image);
+        requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
+        return;
+      } catch { /* Essayer le candidat suivant sans masquer le texte. */ }
+      finally {
+        clearTimeout(timer); signal?.removeEventListener('abort',abort);
+        image.onload = image.onerror = null;
+        if (!image.isConnected) image.removeAttribute('src');
+      }
+    }
+  } catch { /* Le texte demeure le secours. */ }
 }

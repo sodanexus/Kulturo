@@ -1099,3 +1099,20 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-cinema.detail-without-poster .detail-backdrop-info { column-gap:.85rem; row-gap:.6rem; }
   .detail-cinema.detail-without-poster .detail-badges { flex-basis:180px; }
 }
+
+/* Continuité réelle : l'aura passe SOUS le voile, sa couleur ne coupe plus le bas. */
+.detail-modal.detail-cinema .detail-backdrop::after { z-index:0; }
+.detail-modal.detail-cinema .detail-backdrop-gradient {
+  z-index:1;
+  background:linear-gradient(180deg,rgba(19,21,27,.04) 0%,rgba(19,21,27,.1) 30%,rgba(19,21,27,.48) 53%,rgba(19,21,27,.88) 76%,var(--bg-2) 97%),
+    linear-gradient(rgba(19,21,27,calc(var(--detail-p,0) * .85)),rgba(19,21,27,calc(var(--detail-p,0) * .85)));
+}
+.detail-modal.detail-cinema[data-cover-accent="dominant"] .detail-body {
+  background-image:linear-gradient(var(--bg-2) 0px,transparent 110px),radial-gradient(85% 340px at 14% 0%,color-mix(in srgb,var(--cover-ambient,var(--accent)) 10%,transparent),transparent 80%);
+}
+.detail-modal.detail-cinema .detail-backdrop-content { padding-bottom:1rem; }
+.detail-cinema .detail-header-meta { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem 1rem; width:100%; margin-top:.5rem; }
+.detail-cinema .detail-header-meta .detail-rating { margin:0; flex:0 0 auto; }
+.detail-cinema .detail-header-meta .detail-badges { margin:0; flex:1 1 170px; }
+.detail-cinema.detail-without-poster .detail-title { margin-bottom:.8rem; }
+.detail-cinema .detail-backdrop-content .badge { border-color:transparent; background:rgba(19,21,27,.32); }
