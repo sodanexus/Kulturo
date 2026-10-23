@@ -49,6 +49,7 @@ const STATIC_ASSET_PATHS = [
   "features/journal-groups.js",
   "features/journal-navigation.js",
   "features/library-cache.js",
+  "features/logo-easter-egg.js",
   "features/library-window.js",
   "features/local-database.js",
   "features/media-detail.js",

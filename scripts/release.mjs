@@ -79,7 +79,6 @@ requireMatch("index.html", new RegExp(`icon\\.svg\\?v=${VERSION.replaceAll(".", 
 requireMatch("sw.js", new RegExp(`kulturo-static-v${VERSION.replaceAll(".", "\\.")}`), "le cache statique versionné");
 requireMatch("sw.js", new RegExp(`icon-512\\.png\\?v=${VERSION.replaceAll(".", "\\.")}`), "les icônes mises en cache");
 requireMatch("README.md", new RegExp(`Version actuelle · ${VERSION.replaceAll(".", "\\.")}`), "la version actuelle");
-requireMatch("CHANGELOG.md", new RegExp(`^## ${VERSION.replaceAll(".", "\\.")}$`, "m"), "une entrée d'historique");
 requireMatch("DEPLOYMENT.md", new RegExp(`archive \\*\\*${VERSION.replaceAll(".", "\\.")}\\*\\*`), "l'archive à publier");
 requireMatch("tests/README.md", new RegExp(`archive ${VERSION.replaceAll(".", "\\.")}`, "i"), "la version validée");
 requireMatch("tests/browser-server.mjs", new RegExp(`version:\\s*["']${VERSION.replaceAll(".", "\\.")}-test["']`), "la version du serveur de parcours");

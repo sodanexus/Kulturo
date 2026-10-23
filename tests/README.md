@@ -34,14 +34,10 @@ Les parcours vérifient :
 - l’actualisation d’une fiche et la restauration de sa page, de son URL et du bon média ;
 - la navigation dans le Profil et les deux Journaux, ainsi que la récupération des Sorties après erreur.
 
-Pour la 4.0, compléter manuellement par une modification en mode hors connexion, un retour réseau, une suppression annulée et l’actualisation d’une URL contenant une fiche ouverte.
+Compléter manuellement par une modification en mode hors connexion, un retour réseau, une suppression annulée et l’actualisation d’une URL contenant une fiche ouverte.
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
 ## Validation de l’archive 4.9.3
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.
-
-L’historique détaillé des validations passées (4.0.2 → 4.4.0) est conservé dans [docs/validation-history.md](../docs/validation-history.md).
-
-La 4.8.0 ajoute des tests de période annuelle par défaut et de synchronisation des versions (réglages et dépendances préservés, références absentes refusées avant écriture). Les contrôles DOM locaux vérifient la conservation des images de Sorties et le regroupement des mesures du bandeau ; ils ne remplacent pas une mesure de fluidité sur téléphone réel.

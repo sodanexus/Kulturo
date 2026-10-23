@@ -1,23 +1,29 @@
 # Installer l’archive **4.9.3**
 
-Couleur d’accent des livres Hardcover : créer la fonction Supabase **cover-proxy** avec le contenu de `supabase/functions/cover-proxy/index.ts` (mêmes réglages d’authentification qu’igdb-proxy, aucun secret, aucune migration SQL). Sans elle, ces fiches gardent l’accent par défaut ; l’affichage des jaquettes n’est pas touché.
+## Site (GitHub Pages)
 
-Depuis la 4.9.0, 4.9.1 ou 4.9.2 : remplacer les fichiers du site et exécuter une fois `migrations/4.9.2-logo-url.sql` dans l’éditeur SQL Supabase (colonne `logo_url` du logo manuel). Aucune fonction à redéployer.
+Le workflow `.github/workflows/deploy.yml` lance `npm run verify` puis publie `dist/` à chaque push sur `main`. Remplacer les fichiers du dépôt par ceux de la version à installer, en conservant votre `config.js` (connexion Supabase, clés publiques TMDb et IGDB).
 
-Depuis la 4.8.x : remplacer les fichiers du site, puis créer la fonction Supabase **steamgriddb-proxy** avec le contenu de `supabase/functions/steamgriddb-proxy/index.ts` (mêmes réglages d’authentification qu’igdb-proxy) ; le secret `STEAMGRIDDB_API_KEY` doit exister. Aucune migration SQL. Sans cette fonction, les jeux sans logo IGDB gardent leur titre texte.
+## Base de données Supabase
 
-Depuis la 4.8.0 ou 4.8.1 : remplacer les fichiers du site et redéployer **igdb-proxy** avec le contenu complet de `supabase/functions/igdb-proxy/index.ts` dans l’éditeur Supabase. Conserver les réglages d’authentification de la fonction et les secrets existants. Aucun nouveau secret et aucune migration SQL.
+- Nouvelle installation : exécuter `schema.sql` une seule fois.
+- Mise à jour : n’exécuter que les migrations de `migrations/` pas encore appliquées (`4.4.0-series-progress.sql`, `4.5.0-hardcover.sql`, `4.9.2-logo-url.sql`). Ne pas rejouer `schema.sql`.
 
-Les logos de films/séries utilisent TMDb, déjà configuré. Sans redéploiement du proxy, les jeux conservent simplement leur titre texte. Les logos ne sont pas garantis pour chaque œuvre.
+## Fonctions Supabase
 
-Pour une installation plus ancienne, suivre docs/HARDCOVER.md : les migrations 4.4.0 et 4.5.0 et les fonctions hardcover-proxy, book-releases-proxy, groq-proxy et igdb-proxy sont nécessaires selon les fonctionnalités utilisées.
+GitHub Pages ne déploie pas les fonctions. Pour chacune, copier le contenu de `supabase/functions/<nom>/index.ts` dans l’éditeur Supabase, avec les mêmes réglages d’authentification qu’`igdb-proxy`. À redéployer lorsque leur code change.
 
-## Versions et publication
+| Fonction | Secret requis |
+|---|---|
+| `igdb-proxy` | Secrets Twitch/IGDB |
+| `steamgriddb-proxy` | `STEAMGRIDDB_API_KEY` |
+| `hardcover-proxy` | `HARDCOVER_TOKEN` (copier aussi `hardcover.js`, voir [docs/HARDCOVER.md](docs/HARDCOVER.md)) |
+| `book-releases-proxy` | Aucun |
+| `cover-proxy` | Aucun |
+| `groq-proxy` | Secret Groq |
 
-Pour cette mise à jour, remplacer les fichiers du dépôt par ceux de l’archive, en conservant vos réglages de connexion. Redéployer igdb-proxy comme indiqué ci-dessus.
+Une fonction absente ne bloque pas l’app : les jeux gardent leur titre texte sans logo, les livres Hardcover l’accent par défaut, etc.
 
-Pour les prochaines versions, modifier `VERSION` puis compléter `CHANGELOG.md`. Exécuter `npm run verify` : la synchronisation recopie la version dans les fichiers concernés avant les vérifications et le build. Le workflow GitHub qui appelle cette commande bénéficie de la même synchronisation. Ne plus modifier manuellement les numéros dispersés dans les fichiers.
+## Publier une nouvelle version
 
-`npm run sync:version` synchronise uniquement les références ; `npm run release` vérifie puis produit l’archive. Les validations restent bloquantes en cas de référence absente ou de code invalide.
-
-La 4.8.2 ajoute une recherche de secours IGDB parmi les artworks de type logo. Redéployer le proxy même si la version 4.8.1 était déjà installée. Si un jeu reste sans logo, relever son ID IGDB et le log `[IGDB logos] jeu=… candidats=…` pour identifier le cas précis.
+Modifier `VERSION`, puis lancer `npm run verify` : la synchronisation recopie le numéro dans les fichiers concernés avant les contrôles et le build. `npm run sync:version` fait uniquement la synchronisation ; `npm run release` vérifie puis produit l’archive. Ne pas modifier à la main les numéros dispersés.

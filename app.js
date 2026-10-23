@@ -66,6 +66,7 @@ import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
 import { prefersReducedMotion, runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent, animateDialogUpdate } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
+import { attachLogoEasterEgg, logoMarkHTML } from "./features/logo-easter-egg.js";
 
 // Jaquettes sans CORS (Hardcover…) : leur couleur d'accent passe par cover-proxy.
 configureCoverAccentProxy({
@@ -757,7 +758,7 @@ function renderApp() {
     <!-- Topbar -->
     <header id="topbar">
       <div class="topbar-logo" role="img" aria-label="Kulturo — Suivez votre culture">
-        <img class="topbar-mark" src="logo.svg" alt="" width="64" height="38" aria-hidden="true">
+        ${logoMarkHTML()}
         <span class="topbar-brand-copy">
           <span class="topbar-wordmark">Kulturo</span>
           <span class="topbar-tagline">Suivez votre culture</span>
@@ -947,6 +948,7 @@ function renderApp() {
   State.filters.sort = LIBRARY_SORTS.includes(savedSort) ? savedSort : DEFAULT_LIBRARY_SORT;
   const globalSearch = document.getElementById("global-search");
   if (globalSearch) globalSearch.value = State.filters.search || "";
+  attachLogoEasterEgg(document.querySelector("#topbar .topbar-logo"));
   bindJournalInteractions();
   buildFilterBar();
   renderCards();
