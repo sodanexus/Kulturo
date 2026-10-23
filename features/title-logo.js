@@ -40,7 +40,7 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
   try {
     const result = await getUrl();
     const assets = Array.isArray(result) ? result : [result];
-    for (const asset of assets.slice(0,4)) {
+    for (const asset of assets.slice(0,6)) {
       const url = typeof asset === 'string' ? asset : asset?.url;
       if (!alive()) return;
       if (!url) continue;
