@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {selectTmdbLogo, selectIgdbLogo, supportsTitleLogo, prefersTextTitle, setTextTitle} from '../features/title-logo.js';
 test('Logos TMDb : français prioritaire, puis neutre, chemins sûrs et PNG',()=>{
  const image={width:500,height:160,vote_average:8};
- assert.equal(selectTmdbLogo([{...image,file_path:'/en.png',iso_639_1:'en'},{...image,file_path:'/fr.png',iso_639_1:'fr',vote_average:1}]),'https://image.tmdb.org/t/p/w500/fr.png');
- assert.equal(selectTmdbLogo([{...image,file_path:'/neutral.png',iso_639_1:null},{...image,file_path:'/en.png',iso_639_1:'en'}]),'https://image.tmdb.org/t/p/w500/neutral.png');
- assert.equal(selectTmdbLogo([{...image,file_path:'/jp.png',iso_639_1:'ja'},{...image,file_path:'https://evil/a.png'},{...image,file_path:'/x.jpg'}]),null);
+ assert.equal(selectTmdbLogo([{...image,file_path:'/en.png',iso_639_1:'en'},{...image,file_path:'/fr.png',iso_639_1:'fr',vote_average:1}]),'https://image.tmdb.org/t/p/original/fr.png');
+ assert.equal(selectTmdbLogo([{...image,file_path:'/neutral.png',iso_639_1:null},{...image,file_path:'/en.png',iso_639_1:'en'}]),'https://image.tmdb.org/t/p/original/neutral.png');
+ assert.equal(selectTmdbLogo([{...image,file_path:'https://evil/a.png'},{...image,file_path:'/x.jpg'}]),null);
 });
 test('Logos IGDB : transparence obligatoire, blanc prioritaire, animations et images opaques écartées',()=>{
  const logo={alpha_channel:true,image_id:'color',image_type:{name:'Colour Logo'},width:500};
@@ -47,4 +47,18 @@ test('IGDB : métadonnée alpha absente acceptée, noir lisible en secours, hist
  assert.equal(selectIgdbLogoAsset([black]).monochrome,true);
  assert.match(selectIgdbLogo([black,{image_id:'old',image_type:{name:'Historical White Logo'}}]),/black.png$/);
  assert.match(selectIgdbLogo([black,{image_id:'white',image_type:{name:'White Logo'}}]),/white.png$/);
+});
+
+test('TMDb : SVG, dimensions absentes et langue originale restent utilisables',async()=>{
+ const {tmdbLogoCandidates}=await import('../features/title-logo.js');
+ const list=tmdbLogoCandidates([{file_path:'/original.svg',iso_639_1:'ja'},{file_path:'/fr.png',iso_639_1:'fr'}]);
+ assert.match(list[0].url,/fr.png$/);assert.match(list[1].url,/original.svg$/);
+});
+test('Logo : une image cassée ne bloque pas le candidat suivant',async()=>{
+ const {mountTitleLogo}=await import('../features/title-logo.js');
+ const originals={Image:globalThis.Image,requestAnimationFrame:globalThis.requestAnimationFrame};let attempts=[];
+ globalThis.requestAnimationFrame=cb=>cb();
+ globalThis.Image=class {naturalWidth=500;isConnected=false;setAttribute(){}removeAttribute(){}async decode(){} set src(value){attempts.push(value);queueMicrotask(()=>value==='bad'?this.onerror?.(new Error()):this.onload?.());}};
+ const title={isConnected:true,children:[],classList:{add(){}},append(img){img.isConnected=true;this.children.push(img);}};
+ try{await mountTitleLogo(title,async()=>[{url:'bad'},{url:'good'}]);assert.deepEqual(attempts,['bad','good']);assert.equal(title.children.length,1);}finally{Object.assign(globalThis,originals);}
 });

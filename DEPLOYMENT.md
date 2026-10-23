@@ -1,4 +1,4 @@
-# Installer l’archive **4.8.3**
+# Installer l’archive **4.8.4**
 
 Depuis la 4.8.2 : remplacer les fichiers du site uniquement. Aucun nouveau déploiement Supabase.
 

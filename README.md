@@ -10,11 +10,11 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.8.3
+## Version actuelle · 4.8.4
 
 Le bandeau Cinéma met l’image en valeur et ancre le logo/titre dans un dégradé sombre, avec la note et les étiquettes dessous. Les livres partagent cette ambiance en conservant leur jaquette. Le contenu à partir du synopsis reste identique.
 
-Les fiches peuvent afficher le logo du film, de la série ou du jeu à la place du titre dans le bandeau déplié. Les jaquettes sont retirées des fiches films, séries et jeux ; les livres conservent leur couverture. Le mode compact conserve le titre texte. Le logo apparaît après décodage dans un espace stable ; si le catalogue ne fournit pas de logo adapté, le texte reste visible. Dans Modifier, « Afficher le titre en texte » désactive ce rendu pour cette œuvre sur cet appareil.
+Les fiches peuvent afficher le logo du film, de la série ou du jeu à la place du titre dans le bandeau déplié. Les jaquettes sont retirées des fiches films, séries et jeux ; les livres conservent leur couverture. Le mode compact conserve le titre texte. Le logo apparaît après décodage dans un espace stable ; si le catalogue ne fournit pas de logo adapté, le texte reste visible. Plusieurs candidats sont essayés en cas d’image défaillante ; les logos TMDb en langue originale et SVG sont également pris en charge. Dans Modifier, « Afficher le titre en texte » désactive ce rendu pour cette œuvre sur cet appareil.
 
 Pour les jeux, redéployer `supabase/functions/igdb-proxy/index.ts` : l’action `logos` utilise l’endpoint dédié d’IGDB. Aucun nouveau secret ni SQL. Les logos sont facultatifs et ne bloquent pas les notes ou synopsis.
 

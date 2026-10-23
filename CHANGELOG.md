@@ -1,3 +1,11 @@
+## 4.8.4
+
+- Bandeau : aura sous le voile, raccord du dégradé avec le fond du synopsis et regroupement note/étiquettes dans la zone basse. Contenu du synopsis inchangé.
+- TMDb : logos dans toutes les langues, français prioritaire, formats PNG/SVG/WebP, dimensions manquantes acceptées.
+- Logos : jusqu’à quatre candidats en cas d’image défaillante, images originales pour préserver les formats, tolérance aux erreurs de décodage d’une image déjà chargée.
+- Logo relancé après récupération tardive de l’identité API d’une ancienne fiche. Cache des requêtes IGDB renouvelé.
+- Aucun nouveau déploiement Supabase depuis la 4.8.2 ; les jeux manquants restent à vérifier individuellement avec leur titre/identifiant.
+
 ## 4.8.3
 
 - Bandeau Cinéma sur les fiches : image plus présente en haut, voile progressif vers le corps, logo/titre ancré en bas à gauche et repères regroupés.

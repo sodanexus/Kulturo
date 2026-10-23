@@ -1,4 +1,4 @@
-import { selectTmdbLogo, selectIgdbLogoAsset } from "./features/title-logo.js";
+import { tmdbLogoCandidates, igdbLogoCandidates } from "./features/title-logo.js";
 import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
@@ -692,7 +692,7 @@ export const TMDbImages = {
     const ep = subtype === "tv" ? "tv" : "movie";
     const size = options.size || "w1280";
     const data = await apiFetch(
-      `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`,
+      `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}`,
       { cachePolicy: "detail", signal: options.signal }
     );
     return (data?.backdrops || [])
@@ -891,16 +891,16 @@ export const TitleLogos = {
   async fetch(entry, options = {}) {
     if (entry.source_api === "tmdb" && CONFIG?.tmdb?.apiKey) {
       const ep = entry.subtype === "tv" ? "tv" : "movie";
-      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`, {cachePolicy:"detail", signal:options.signal});
-      return selectTmdbLogo(data?.logos);
+      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}`, {cachePolicy:"detail", signal:options.signal});
+      return tmdbLogoCandidates(data?.logos);
     }
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
       const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
         method:"POST", headers:await edgeFunctionHeaders(),
-        body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:2}),
-        cachePolicy:"detail", signal:options.signal, timeoutMs:8000,
+        body:JSON.stringify({action:"logos", id:Number(entry.external_id), logoRevision:3}),
+        cachePolicy:"detail", signal:options.signal, timeoutMs:12000,
       });
-      return selectIgdbLogoAsset(Array.isArray(data?.logos) ? data.logos : []);
+      return igdbLogoCandidates(Array.isArray(data?.logos) ? data.logos : []);
     }
     return null;
   },
