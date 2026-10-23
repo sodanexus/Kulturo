@@ -65,8 +65,6 @@ body[data-scrolled="true"] #topbar {
 }
 body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 
-.topbar-mark { transition: transform .6s var(--ease-expo), filter .6s var(--ease-expo); }
-.topbar-logo:hover .topbar-mark { transform: rotate(-6deg) scale(1.06); filter: drop-shadow(0 4px 14px var(--accent-glow)); }
 
 .topbar-search-wrap input { background: color-mix(in srgb, var(--bg-3) 78%, transparent); border-color: var(--hairline); }
 .topbar-search-wrap input:hover { border-color: var(--hairline-strong); }
