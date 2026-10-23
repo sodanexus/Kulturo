@@ -1293,3 +1293,17 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-modal.detail-cinema { --hero-meta-size:.875rem; --hero-meta-height:30px; }
   .detail-modal.detail-cinema .detail-backdrop-info > .detail-title { margin-bottom:1.25rem; }
 }
+
+/* Correctif : la note personnelle ne doit pas être isolée par flex-wrap. */
+.detail-modal.detail-cinema .detail-header-meta { flex-wrap:nowrap; }
+.detail-modal.detail-cinema .detail-header-meta > .detail-rating { flex:0 0 auto; }
+.detail-modal.detail-cinema .detail-header-meta > .detail-badges { flex:1 1 0; min-width:0; }
+@media(max-width:680px) {
+  .detail-modal.detail-cinema .detail-header-meta { column-gap:.35rem; }
+  .detail-modal.detail-cinema .detail-header-meta > .detail-badges { gap:.25rem; }
+  .detail-modal.detail-cinema .detail-header-meta .badge { padding-inline:.2rem; }
+}
+/* Le type de note reste disponible dans l'infobulle et son libellé accessible. */
+@container(max-width:440px) {
+  .detail-modal.detail-cinema .detail-hero-ratings .detail-external-rating small { display:none; }
+}
