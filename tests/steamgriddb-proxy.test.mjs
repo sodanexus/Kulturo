@@ -56,3 +56,15 @@ test('client : IGDB et secours en parallèle, avec cache local', () => {
   assert.match(api, /\[\.\.\.\(steamList \|\| \[\]\), \.\.\.igdbList\]/);
   assert.match(api, /steamgriddb-proxy/);
 });
+
+test('proxy : seuls les logos anglais (ou sans langue) sont gardés', () => {
+  const multi = {success:true, data:[
+    {url:'https://cdn2.steamgriddb.com/logo/ar.png', style:'official', language:'ar', mime:'image/png', score:99},
+    {url:'https://cdn2.steamgriddb.com/logo/fr.png', style:'official', language:'fr', mime:'image/png', score:80},
+    {url:'https://cdn2.steamgriddb.com/logo/ja.png', style:'official', language:'ja', mime:'image/png', score:50},
+    {url:'https://cdn2.steamgriddb.com/logo/none.png', style:'official', mime:'image/png', score:40},
+    {url:'https://cdn2.steamgriddb.com/logo/en.png', style:'custom', language:'en-US', mime:'image/png', score:1},
+  ]};
+  const out = run({action:'logos', title:'Hades'}, [{body:search},{body:multi}]);
+  assert.deepEqual(out.body.logos.map(l => l.url.split('/').pop()), ['en.png','none.png']);
+});
