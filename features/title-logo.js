@@ -1,5 +1,9 @@
 // Logos facultatifs : le titre reste toujours disponible et accessible.
+export function manualLogoUrl(value) {
+  try { const url = new URL(String(value || '').trim()); return url.protocol === 'https:' ? url.href : null; } catch { return null; }
+}
 export function supportsTitleLogo(entry) {
+  if (['movie', 'game'].includes(entry?.media_type) && manualLogoUrl(entry.logo_url)) return true;
   return Boolean(entry?.external_id && ((entry.media_type === 'movie' && entry.source_api === 'tmdb') || (entry.media_type === 'game' && entry.source_api === 'igdb')));
 }
 const preferenceKey = (entry, owner) => `kulturo:text-title:${owner || 'local'}:${entry.id}`;

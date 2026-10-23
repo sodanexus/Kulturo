@@ -19,12 +19,13 @@ const STRING_LIMITS = Object.freeze({
   description: 40_000,
   cover_url: 2_048,
   backdrop_url: 2_048,
+  logo_url: 2_048,
   watch_providers: 10_000,
   default: 2_000,
 });
 const STRING_FIELDS = new Set([
   "title", "notes", "cover_url", "external_id", "genre", "author", "platform",
-  "description", "backdrop_url", "directors", "cast_members", "air_status",
+  "description", "backdrop_url", "logo_url", "directors", "cast_members", "air_status",
   "watch_providers", "developer", "publisher", "isbn",
 ]);
 const INTEGER_LIMITS = Object.freeze({
@@ -42,7 +43,7 @@ const ALLOWED_FIELDS = new Set([
   "id", "title", "media_type", "status", "rating", "is_favorite", "repeat_count",
   "notes", "cover_url", "date_started", "date_finished", "external_id", "source_api",
   "subtype", "genre", "author", "release_year", "release_date", "release_date_precision",
-  "platform", "description", "backdrop_url", "directors", "cast_members", "duration",
+  "platform", "description", "backdrop_url", "logo_url", "directors", "cast_members", "duration",
   "seasons_count", "episodes_count", "air_status", "watch_providers", "developer",
   "publisher", "page_count", "current_page", "current_season", "current_episode", "isbn", "created_at",
 ]);
