@@ -1,4 +1,4 @@
-# Livres — 4.5.2
+# Livres
 
 ## Rôles
 - Hardcover : recherche principale et nouveaux livres.
