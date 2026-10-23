@@ -1177,3 +1177,12 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   background: linear-gradient(90deg, var(--accent), transparent 70%);
   opacity: .5;
 }
+
+/* Bannière plus haute. Les hauteurs 390/340 de 4.8.3 étaient écrasées par la règle
+   .has-backdrop d'interactions.css (214/320 effectifs) : sélecteur plus précis ici. */
+.detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop,
+.detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 380px; }
+@media (min-width: 681px) {
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop,
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 460px; }
+}
