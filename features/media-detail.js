@@ -189,13 +189,8 @@ function renderDetailPanel(e, options = {}) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
-  const links = mediaLinks(e);
-  const trailer = links.find(link => link.kind === "video");
-  const trailerHTML = trailer
-    ? `<a href="${esc(trailer.url)}" target="_blank" rel="noopener" class="detail-play-btn" aria-label="${esc(trailer.label)} — nouvel onglet"><span class="detail-play-icon">${iconPlay()}</span><span>${esc(trailer.label)}</span></a>`
-    : "";
-  const externalHTML = links.filter(link => link.kind !== "video").map(link =>
-    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
+  const externalHTML = mediaLinks(e).map(link =>
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
   ).join("");
 
   // Backdrop header
@@ -216,7 +211,6 @@ function renderDetailPanel(e, options = {}) {
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
-          ${trailerHTML}
           <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
           ${!isPreview ? `<div class="detail-compact-bar" aria-hidden="true">
             <span class="detail-compact-title">${esc(e.title)}</span>

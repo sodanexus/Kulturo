@@ -1144,42 +1144,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-backdrop-info .detail-hero-facts:empty { display: none; }
 .detail-hero-facts .detail-sep { color: var(--text-3); }
 
-/* Bouton lecture sur la bannière : disparaît avec le repli. */
-.detail-play-btn {
-  position: absolute;
-  z-index: 3;
-  right: 1.5rem;
-  bottom: 9.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  height: 38px;
-  padding: 0 .95rem 0 .4rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.2);
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #fff;
-  font-size: var(--type-label);
-  font-weight: 600;
-  text-decoration: none;
-  opacity: calc(1 - var(--detail-p, 0) * 3);
-  transition: background var(--motion-fast) ease;
-}
-.detail-play-btn:hover { background: rgba(0,0,0,.72); }
-.detail-play-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.detail-play-icon {
-  display: grid; place-items: center;
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--accent); color: #13151b;
-}
-.detail-play-icon svg { width: 13px; height: 13px; margin-left: 1px; }
-.detail-modal.is-detail-scrolled .detail-play-btn { pointer-events: none; }
-@media (max-width: 680px) {
-  .detail-play-btn { right: 1.25rem; bottom: 8.5rem; }
-}
-
 /* Notes externes : sous la bannière, avant le synopsis. */
 .detail-ratings-slot:empty { display: none; }
 .detail-ratings-slot .detail-external-section { margin: 0; }
@@ -1210,4 +1174,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin: .1rem 0 .95rem;
   background: linear-gradient(90deg, var(--accent), transparent 70%);
   opacity: .5;
+}
+
+/* Bannière plus haute. Les hauteurs 390/340 de 4.8.3 étaient écrasées par la règle
+   .has-backdrop d'interactions.css (214/320 effectifs) : sélecteur plus précis ici. */
+.detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop,
+.detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 380px; }
+@media (min-width: 681px) {
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop,
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop.has-backdrop { height: 460px; }
 }
