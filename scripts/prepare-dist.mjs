@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const DIST = join(ROOT, "dist");
-const COPY_AS_IS = ["config.js", "manifest.json", "sw.js", "logo.svg", "icon.svg", "icon-192.png", "icon-512.png"];
+const COPY_AS_IS = ["config.js", "manifest.json", "sw.js", "logo.svg", "icon.svg", "icon-192.png", "icon-512.png", "fond-biblio.jpg"];
 
 if (!existsSync(join(DIST, "index.html"))) throw new Error("Le build Vite n’a pas produit index.html.");
 for (const file of COPY_AS_IS) copyFileSync(join(ROOT, file), join(DIST, file));
