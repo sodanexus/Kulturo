@@ -59,6 +59,25 @@ async function edgeFunctionHeaders() {
   };
 }
 
+// ── Jaquettes via cover-proxy ────────────────────────────────
+// Certains hébergeurs d'images n'envoient pas d'en-tête CORS : leurs pixels ne
+// sont lisibles (couleur d'accent) qu'en passant par la fonction cover-proxy.
+export const CoverProxy = {
+  async fetchBlob(url, options = {}) {
+    if (!CONFIG?.supabase?.url) throw new Error("Supabase non configuré");
+    const response = await fetch(`${CONFIG.supabase.url}/functions/v1/cover-proxy`, {
+      method: "POST",
+      headers: await edgeFunctionHeaders(),
+      body: JSON.stringify({ url }),
+      signal: options.signal,
+    });
+    if (!response.ok) throw new Error(`cover-proxy HTTP ${response.status}`);
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) throw new Error("cover-proxy : réponse non image");
+    return blob;
+  },
+};
+
 // ── Normalisation commune ────────────────────────────────────
 // Chaque adaptateur retourne un tableau d'objets normalisés :
 // { external_id, title, cover_url, description, release_year,

@@ -13,7 +13,7 @@ import { animateSynopsis } from "./features/synopsis-motion.js";
 // ============================================================
 
 import { initSupabase, Auth, Media as RemoteMedia, Profiles, Journal, Backup, Activity } from "./supabase.js";
-import { searchMedia, apiAvailability, TMDb, IGDB, BookReleases, Hardcover, translateText } from "./api.js";
+import { searchMedia, apiAvailability, TMDb, IGDB, BookReleases, Hardcover, translateText, CoverProxy } from "./api.js";
 import {
   DEFAULT_LIBRARY_SORT,
   DEFAULT_LIBRARY_STATUS,
@@ -51,7 +51,7 @@ import {
 import { elementFromHTML, reconcileKeyedChildren } from "./features/dom-updates.js";
 import { cardSkeletons, emptyState, errorState, loadingState, setButtonBusy } from "./features/ui-states.js";
 import { clearApiCache } from "./features/request-client.js";
-import { applyCoverAccent, coverAccentForUrl, accentFromSample } from "./features/cover-accent.js";
+import { applyCoverAccent, coverAccentForUrl, accentFromSample, configureCoverAccentProxy } from "./features/cover-accent.js";
 import { entriesFingerprint, entriesForStorage } from "./features/library-cache.js";
 import { createUiActionDispatcher } from "./features/ui-actions.js";
 import { createDialogFocusManager } from "./features/dialog-focus.js";
@@ -66,6 +66,12 @@ import { createMediaRepository } from "./features/media-repository.js";
 import { buildAppRoute, parseAppRoute } from "./features/app-route.js";
 import { prefersReducedMotion, runViewTransition, motionDuration, prepareDialogClose, animateHeightChange, revealSurface, shouldDismissSheet, replaceModalContent, animateDialogUpdate } from "./features/motion.js";
 import { applySystemBarColor, playCardSheen } from "./features/finesse.js";
+
+// Jaquettes sans CORS (Hardcover…) : leur couleur d'accent passe par cover-proxy.
+configureCoverAccentProxy({
+  hosts: ["hardcover.app", "books.google.com", "books.googleusercontent.com"],
+  fetchBlob: url => CoverProxy.fetchBlob(url),
+});
 
 // En mode installé, WebKit peut initialiser la hauteur dynamique sans la zone
 // du Home Indicator. La classe permet d'appliquer un correctif ciblé aux PWA

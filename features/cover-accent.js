@@ -299,6 +299,27 @@ function sampleImage(image) {
   }
 }
 
+// Hébergeurs dont les images ne portent pas d'en-tête CORS : leurs pixels ne
+// sont lisibles qu'en passant par un proxy (fonction cover-proxy). Configuré
+// par l'application ; sans configuration, l'analyse reste directe.
+let coverProxy = null;
+
+export function configureCoverAccentProxy(config) {
+  coverProxy = typeof config?.fetchBlob === "function"
+    ? { hosts: (config.hosts || []).map(host => String(host).toLowerCase()), fetchBlob: config.fetchBlob }
+    : null;
+}
+
+function needsCoverProxy(value) {
+  if (!coverProxy) return false;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return coverProxy.hosts.some(entry => host === entry || host.endsWith(`.${entry}`));
+  } catch {
+    return false;
+  }
+}
+
 export function coverAccentForUrl(url) {
   const cleanUrl = String(url || "").trim();
   if (!cleanUrl || typeof Image === "undefined") return Promise.resolve(null);
@@ -307,28 +328,40 @@ export function coverAccentForUrl(url) {
   if (accentCache.has(key)) return Promise.resolve(accentCache.get(key));
   if (pendingAccents.has(key)) return pendingAccents.get(key);
 
+  const viaProxy = needsCoverProxy(cleanUrl);
   const promise = new Promise(resolve => {
     const image = new Image();
     let settled = false;
+    let objectUrl = "";
     const finish = value => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       image.onload = null;
       image.onerror = null;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       pendingAccents.delete(key);
       // Un échec réseau, un timeout ou une protection CORS ne doit pas rester
       // mémorisé : la prochaine ouverture pourra retenter l'analyse.
       rememberAccent(key, value);
       resolve(value);
     };
-    const timeout = setTimeout(() => finish(null), 7000);
+    const timeout = setTimeout(() => finish(null), viaProxy ? 12000 : 7000);
     image.crossOrigin = "anonymous";
     image.decoding = "async";
     image.referrerPolicy = "no-referrer";
     image.onload = () => finish(sampleImage(image));
     image.onerror = () => finish(null);
-    image.src = accentImageRequestUrl(cleanUrl);
+    if (viaProxy) {
+      // L'image arrive en blob : même origine, donc toujours lisible.
+      coverProxy.fetchBlob(cleanUrl).then(blob => {
+        if (settled) return;
+        objectUrl = URL.createObjectURL(blob);
+        image.src = objectUrl;
+      }).catch(() => finish(null));
+    } else {
+      image.src = accentImageRequestUrl(cleanUrl);
+    }
   });
   pendingAccents.set(key, promise);
   return promise;

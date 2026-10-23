@@ -60,6 +60,7 @@ Dans Modifier, les livres En cours disposent du suivi page actuelle/total et les
 | TMDb | Films et séries | Configuration publique existante dans config.js |
 | igdb-proxy | Jeux, notes et captures IGDB | Secrets Twitch/IGDB du projet |
 | steamgriddb-proxy | Logos de secours des jeux | `STEAMGRIDDB_API_KEY` |
+| cover-proxy | Couleur d’accent des jaquettes sans CORS (Hardcover) | Aucun |
 | hardcover-proxy | Recherche et métadonnées des livres | HARDCOVER_TOKEN |
 | Open Library | Livres en secours, anciennes fiches | Aucun |
 | book-releases-proxy | Parutions des flux publics BnF | Aucun secret Google |
