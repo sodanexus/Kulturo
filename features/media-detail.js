@@ -206,7 +206,7 @@ function renderDetailPanel(e, options = {}) {
   const detailSessionId = detailSessions.begin(e.id);
   replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal${e.media_type === "book" ? "" : " detail-without-poster"}" ${options.restoreView ? 'data-detail-restored' : 'data-detail-stagger'} data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+      <div class="modal detail-modal detail-cinema${e.media_type === "book" ? "" : " detail-without-poster"}" ${options.restoreView ? 'data-detail-restored' : 'data-detail-stagger'} data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>

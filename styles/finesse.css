@@ -1068,3 +1068,34 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-without-poster .detail-title-with-logo { min-height:76px; }
   .detail-without-poster .detail-title-logo { max-width:280px; max-height:76px; }
 }
+
+/* 4.8.3 — Bandeau Cinéma uniquement. Corps de fiche et synopsis inchangés. */
+.detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop {
+  height: 340px;
+}
+.detail-cinema .detail-backdrop-gradient {
+  background: linear-gradient(180deg, rgba(12,13,17,.08) 0%, rgba(12,13,17,.12) 24%, rgba(19,21,27,.48) 52%, rgba(19,21,27,.92) 83%, #13151b 100%),
+    linear-gradient(rgba(19,21,27,calc(var(--detail-p, 0) * .85)), rgba(19,21,27,calc(var(--detail-p, 0) * .85)));
+}
+.detail-modal.detail-cinema .detail-backdrop-content { padding: 1.35rem 1.5rem 1.1rem; gap:1.25rem; }
+.detail-cinema.detail-without-poster .detail-backdrop-info {
+  display:flex; flex-wrap:wrap; align-items:center; column-gap:1rem; row-gap:.7rem;
+}
+.detail-cinema.detail-without-poster .detail-title { flex:0 0 100%; margin:0 0 .35rem; text-align:left; text-wrap:pretty; }
+.detail-cinema.detail-without-poster .detail-title-with-logo { min-height:100px; }
+.detail-cinema.detail-without-poster .detail-title-logo { max-width:360px; max-height:100px; object-position:left bottom; }
+.detail-cinema.detail-without-poster .detail-rating { margin:0; flex:0 0 auto; }
+.detail-cinema.detail-without-poster .detail-badges { margin:0; flex:1 1 220px; }
+.detail-cinema.detail-without-poster .reading-progress { flex:0 0 100%; margin:0; }
+.detail-cinema .detail-backdrop-content .badge { background:rgba(19,21,27,.35); border:1px solid currentColor; }
+.detail-cinema .detail-backdrop-content .detail-badges { gap:.5rem; }
+.detail-cinema:not(.detail-without-poster) .detail-backdrop-info { padding-bottom:.2rem; }
+.detail-cinema:not(.detail-without-poster) .detail-title { margin-bottom:.6rem; }
+@media(max-width:680px) {
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop { height:300px; }
+  .detail-modal.detail-cinema .detail-backdrop-content { padding:1rem 1.25rem; gap:1rem; }
+  .detail-cinema.detail-without-poster .detail-title-with-logo { min-height:88px; }
+  .detail-cinema.detail-without-poster .detail-title-logo { max-width:280px; max-height:88px; }
+  .detail-cinema.detail-without-poster .detail-backdrop-info { column-gap:.85rem; row-gap:.6rem; }
+  .detail-cinema.detail-without-poster .detail-badges { flex-basis:180px; }
+}
