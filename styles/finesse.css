@@ -1071,7 +1071,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 
 /* 4.8.3 — Bandeau Cinéma uniquement. Corps de fiche et synopsis inchangés. */
 .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop {
-  height: 340px;
+  height: 390px;
 }
 .detail-cinema .detail-backdrop-gradient {
   background: linear-gradient(180deg, rgba(12,13,17,.08) 0%, rgba(12,13,17,.12) 24%, rgba(19,21,27,.48) 52%, rgba(19,21,27,.92) 83%, #13151b 100%),
@@ -1092,10 +1092,10 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-cinema:not(.detail-without-poster) .detail-backdrop-info { padding-bottom:.2rem; }
 .detail-cinema:not(.detail-without-poster) .detail-title { margin-bottom:.6rem; }
 @media(max-width:680px) {
-  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop { height:300px; }
+  .detail-modal.detail-cinema:not(.is-collapsible) .detail-backdrop { height:340px; }
   .detail-modal.detail-cinema .detail-backdrop-content { padding:1rem 1.25rem; gap:1rem; }
-  .detail-cinema.detail-without-poster .detail-title-with-logo { min-height:88px; }
-  .detail-cinema.detail-without-poster .detail-title-logo { max-width:280px; max-height:88px; }
+  .detail-cinema.detail-without-poster .detail-title-with-logo { min-height:64px; }
+  .detail-cinema.detail-without-poster .detail-title-logo { max-width:220px; max-height:64px; }
   .detail-cinema.detail-without-poster .detail-backdrop-info { column-gap:.85rem; row-gap:.6rem; }
   .detail-cinema.detail-without-poster .detail-badges { flex-basis:180px; }
 }
