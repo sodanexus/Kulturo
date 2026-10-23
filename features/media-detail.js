@@ -702,6 +702,14 @@ function formatDuration(minutes) {
   return rest ? `${hours} h ${String(rest).padStart(2, "0")}` : `${hours} h`;
 }
 
+// Temps de jeu, arrondi à l'heure : « ~25 h » (« ~45 min » sous une heure).
+function formatPlaytime(minutes) {
+  const total = Number.parseInt(minutes, 10);
+  if (!Number.isFinite(total) || total <= 0) return null;
+  if (total < 60) return `~${total} min`;
+  return `~${Math.round(total / 60)} h`;
+}
+
 // Notes d'autres services : logo coloré de la source, jamais mélangées à la
 // note perso. Le nom complet, le profil (joueurs, presse) et les votes restent
 // dans l'infobulle et le libellé d'accessibilité.
@@ -797,7 +805,7 @@ function detailFactsHTML(e) {
     isSeries && e.seasons_count ? `${e.seasons_count} saison${e.seasons_count > 1 ? "s" : ""}` : null,
     isSeries && e.episodes_count ? `${e.episodes_count} épisodes` : null,
     isSeries ? e.air_status : null,
-    e.media_type === "game" ? e.platform : null,
+    e.media_type === "game" ? formatPlaytime(e.duration) : null,
     e.media_type === "book" && e.page_count ? `${e.page_count} pages` : null,
   ].map(item => String(item ?? "").trim()).filter(Boolean);
   if (facts.length) return facts.map(esc).join(SEP);
