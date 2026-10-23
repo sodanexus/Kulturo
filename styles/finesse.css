@@ -1201,3 +1201,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-modal .detail-footer-actions > .btn-primary { margin-left: auto; min-width: 140px; justify-content: center; }
 }
 .detail-facts.detail-isbn { margin: 0 0 .9rem; font-size: var(--type-label); }
+
+/* Trait d'accent sous les notes : suit la couleur d'accent tirée de la jaquette. */
+.detail-synopsis-slot::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: .1rem 0 .95rem;
+  background: linear-gradient(90deg, var(--accent), transparent 70%);
+  opacity: .5;
+}
