@@ -724,11 +724,14 @@ function externalRatingSourceClass(rating) {
 }
 
 function externalRatingPillHTML(rating, extraAttrs = "") {
-  const kind = rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
   const label = externalRatingLabel(rating);
   const source = externalRatingSourceClass(rating);
+  const audience = source === "tmdb" ? "Public"
+    : source === "igdb" ? (/presse|critic/i.test(rating.kind || "") ? "Presse" : "Joueurs")
+    : String(rating.label || "").toUpperCase();
+  const kind = !["tmdb", "igdb"].includes(source) && rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
   return `<span class="detail-external-rating" data-source="${esc(source)}" title="${esc(label)}" ${extraAttrs}>
-      <span class="detail-external-logo is-${esc(source)}" aria-hidden="true">${esc(String(rating.label || "").toUpperCase())}</span>
+      <span class="detail-external-logo is-${esc(source)}" aria-hidden="true">${esc(audience)}</span>
       <strong>${esc(formatRatingValue(rating.value).replace(".", ","))}</strong>${kind}
     </span>`;
 }
