@@ -518,3 +518,13 @@ test("la mise à jour migre les anciennes images sans conserver les scripts éga
   assert.equal(stores.get("kulturo-backdrops-v1").items.has(backdropRequest.url), true);
   assert.equal(stores.get("kulturo-covers-v1").items.has(scriptRequest.url), false);
 });
+
+test("la fiche d'un livre a toujours la bannière bibliothèque locale, les autres types gardent la leur", async () => {
+  const { detailBackdropUrl, BOOK_BANNER_URL } = await import("../features/book-banner.js");
+  assert.equal(detailBackdropUrl({ media_type: "book", backdrop_url: "" }), BOOK_BANNER_URL);
+  assert.ok(fs.existsSync(new URL(`../${BOOK_BANNER_URL}`, import.meta.url)), "le fichier de bannière doit exister");
+  assert.ok(fs.readFileSync(new URL("../sw.js", import.meta.url), "utf8").includes(`"${BOOK_BANNER_URL}"`), "préchargé hors ligne");
+  assert.ok(fs.readFileSync(new URL("../scripts/prepare-dist.mjs", import.meta.url), "utf8").includes(`"${BOOK_BANNER_URL}"`), "copié dans le build");
+  assert.equal(detailBackdropUrl({ media_type: "movie", backdrop_url: "https://image.tmdb.org/t/p/w1280/x.jpg" }), "https://image.tmdb.org/t/p/w1280/x.jpg");
+  assert.equal(detailBackdropUrl({ media_type: "game" }), undefined);
+});
