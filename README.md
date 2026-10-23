@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.9.1
+## Version actuelle · 4.9.2
 
 Le bandeau Cinéma, agrandi en 4.8.5 avec des logos plus discrets sur mobile, met l’image en valeur et ancre le logo/titre dans un dégradé sombre, avec la note et les étiquettes dessous. Les livres partagent cette ambiance en conservant leur jaquette. Le contenu à partir du synopsis reste identique.
 

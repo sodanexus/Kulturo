@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
   platform        TEXT,
   description     TEXT,
   backdrop_url    TEXT,
+  logo_url        TEXT,
   directors       TEXT,
   cast_members    TEXT,
   duration        INTEGER,
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.media_entries (
 -- Rend le fichier réexécutable sur une installation plus ancienne.
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS subtype TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS backdrop_url TEXT;
+ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS directors TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS cast_members TEXT;
 ALTER TABLE public.media_entries ADD COLUMN IF NOT EXISTS duration INTEGER;

@@ -1,4 +1,4 @@
-import { tmdbLogoCandidates, igdbLogoCandidates, steamGridLogoCandidates } from "./features/title-logo.js";
+import { tmdbLogoCandidates, igdbLogoCandidates, steamGridLogoCandidates, manualLogoUrl } from "./features/title-logo.js";
 import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
@@ -904,6 +904,9 @@ function writeLogoCache(entry, logos) {
 // Indépendant des notes/synopsis : un logo ne bloque jamais leur chargement.
 export const TitleLogos = {
   async fetch(entry, options = {}) {
+    // Logo saisi à la main : prioritaire et sans appel réseau d'API.
+    const manual = manualLogoUrl(entry.logo_url);
+    if (manual) return [{url:manual}];
     if (entry.source_api === "tmdb" && CONFIG?.tmdb?.apiKey) {
       const ep = entry.subtype === "tv" ? "tv" : "movie";
       const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}`, {cachePolicy:"detail", signal:options.signal});

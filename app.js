@@ -2216,6 +2216,11 @@ function _openModalClassic(entry) {
                 <label>Image de couverture (URL)</label>
                 <input type="url" id="f-cover" value="${esc(entry.cover_url||"")}" placeholder="https://…" />
               </div>
+              <div class="form-group">
+                <label for="f-logo">Logo du titre (URL, facultatif)</label>
+                <input type="url" id="f-logo" value="${esc(entry.logo_url||"")}" placeholder="https://… image PNG/SVG/WebP à fond transparent" />
+                <small>Remplace le logo automatique des films et des jeux. Laisser vide pour le logo automatique.</small>
+              </div>
               ${supportsTitleLogo(entry) ? `<div class="form-group title-logo-setting">
                 <label for="f-text-title"><input type="checkbox" id="f-text-title" ${prefersTextTitle(entry, State.user?.id) ? "checked" : ""}> Afficher le titre en texte</label>
                 <small>À la place du logo, pour cette œuvre sur cet appareil.</small>
@@ -2248,7 +2253,7 @@ function _openModalClassic(entry) {
     animateDialogUpdate(root.querySelector(".edit-modal"), () => { detailsPanel.open = !detailsPanel.open; });
   });
   syncEditDetailsSummary();
-  ["f-genre", "f-author", "f-platform", "f-cover", "f-description"].forEach(id => {
+  ["f-genre", "f-author", "f-platform", "f-cover", "f-logo", "f-description"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", syncEditDetailsSummary);
   });
   setupSynopsisTranslation();
@@ -2443,6 +2448,7 @@ function syncEditDetailsSummary() {
     ["f-author", "Auteur / réalisation"],
     ["f-platform", "Plateforme"],
     ["f-cover", "Couverture"],
+    ["f-logo", "Logo"],
     ["f-description", "Synopsis"],
   ].filter(([id]) => document.getElementById(id)?.value?.trim()).map(([, label]) => label);
   const text = labels.length ? labels.join(" · ") : "Genre, auteur, plateforme, couverture, synopsis";
@@ -2992,6 +2998,18 @@ async function saveEntry() {
     page_count: selected?.page_count ?? (keepExistingApi ? existing.page_count : null),
     publisher: selected?.publisher ?? (keepExistingApi ? existing.publisher : null),
   };
+  // Envoyé seulement s'il sert : l'enregistrement reste possible avant la migration SQL 4.9.2.
+  const logoInput = document.getElementById("f-logo");
+  if (logoInput) {
+    const logo = logoInput.value.trim();
+    if (logo && !/^https:\/\//i.test(logo)) {
+      setButtonBusy(saveBtn, false);
+      toast("Le logo doit être une adresse https://", "error");
+      logoInput.focus({ preventScroll: true });
+      return;
+    }
+    if (logo || existing?.logo_url) payload.logo_url = logo || null;
+  }
 
   // Ces colonnes existent déjà. La même logique est utilisée dans Modifier et
   // dans les actions rapides afin qu'un revisionnage soit compté une seule fois.
