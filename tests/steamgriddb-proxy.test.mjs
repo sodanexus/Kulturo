@@ -53,5 +53,6 @@ test('client : IGDB et secours en parallèle, avec cache local', () => {
   const api = fs.readFileSync(new URL('../api.js', import.meta.url), 'utf8');
   assert.match(api, /Promise\.allSettled\(\[[\s\S]*this\.fallback\(entry, options\)/);
   assert.match(api, /readLogoCache\(entry\)/);
+  assert.match(api, /\[\.\.\.\(steamList \|\| \[\]\), \.\.\.igdbList\]/);
   assert.match(api, /steamgriddb-proxy/);
 });

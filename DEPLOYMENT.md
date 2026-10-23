@@ -1,6 +1,6 @@
-# Installer l’archive **4.9.2**
+# Installer l’archive **4.9.3**
 
-Depuis la 4.9.0/4.9.1 : remplacer les fichiers du site et exécuter une fois `migrations/4.9.2-logo-url.sql` dans l’éditeur SQL Supabase (colonne `logo_url` du logo manuel). Aucune fonction à redéployer.
+Depuis la 4.9.0, 4.9.1 ou 4.9.2 : remplacer les fichiers du site et exécuter une fois `migrations/4.9.2-logo-url.sql` dans l’éditeur SQL Supabase (colonne `logo_url` du logo manuel). Aucune fonction à redéployer.
 
 Depuis la 4.8.x : remplacer les fichiers du site, puis créer la fonction Supabase **steamgriddb-proxy** avec le contenu de `supabase/functions/steamgriddb-proxy/index.ts` (mêmes réglages d’authentification qu’igdb-proxy) ; le secret `STEAMGRIDDB_API_KEY` doit exister. Aucune migration SQL. Sans cette fonction, les jeux sans logo IGDB gardent leur titre texte.
 

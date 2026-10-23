@@ -887,7 +887,7 @@ export async function searchMedia(query, mediaType, options = {}) {
 }
 
 // Mémoire locale des logos de jeux : 30 jours si trouvés, 3 jours si aucun.
-const LOGO_CACHE_VERSION = 1;
+const LOGO_CACHE_VERSION = 2;
 const logoCacheKey = entry => `kulturo:title-logos:${LOGO_CACHE_VERSION}:${entry.source_api}:${entry.external_id}`;
 function readLogoCache(entry) {
   try {
@@ -915,7 +915,7 @@ export const TitleLogos = {
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
       const cached = readLogoCache(entry);
       if (cached) return cached;
-      // IGDB et SteamGridDB en parallèle : IGDB reste prioritaire, SteamGridDB complète.
+      // IGDB et SteamGridDB en parallèle : SteamGridDB est prioritaire, IGDB complète.
       const [igdb, steam] = await Promise.allSettled([
         apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
           method:"POST", headers:await edgeFunctionHeaders(),
@@ -927,7 +927,7 @@ export const TitleLogos = {
       if (igdb.status === "rejected" && igdb.reason?.name === "AbortError") throw igdb.reason;
       const igdbList = igdb.status === "fulfilled" ? igdbLogoCandidates(Array.isArray(igdb.value?.logos) ? igdb.value.logos : []) : [];
       const steamList = steam.status === "fulfilled" ? steam.value : null;
-      const merged = [...igdbList, ...(steamList || [])].slice(0, 6);
+      const merged = [...(steamList || []), ...igdbList].slice(0, 6);
       // Un échec réseau n'est jamais mémorisé : seule une réponse fiable l'est.
       if (igdb.status === "fulfilled" && steamList) writeLogoCache(entry, merged);
       return merged;
