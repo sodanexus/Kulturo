@@ -1,3 +1,4 @@
+import { selectTmdbLogo, selectIgdbLogo } from "./features/title-logo.js";
 import { startMeasurement } from "./features/performance.js";
 import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
@@ -691,7 +692,7 @@ export const TMDbImages = {
     const ep = subtype === "tv" ? "tv" : "movie";
     const size = options.size || "w1280";
     const data = await apiFetch(
-      `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=null`,
+      `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`,
       { cachePolicy: "detail", signal: options.signal }
     );
     return (data?.backdrops || [])
@@ -884,3 +885,23 @@ export async function searchMedia(query, mediaType, options = {}) {
   try { return await searchMediaRequest(query, mediaType, options); }
   finally { finish(); }
 }
+
+// Indépendant des notes/synopsis : un logo ne bloque jamais leur chargement.
+export const TitleLogos = {
+  async fetch(entry, options = {}) {
+    if (entry.source_api === "tmdb" && CONFIG?.tmdb?.apiKey) {
+      const ep = entry.subtype === "tv" ? "tv" : "movie";
+      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`, {cachePolicy:"detail", signal:options.signal});
+      return selectTmdbLogo(data?.logos);
+    }
+    if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
+      const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
+        method:"POST", headers:await edgeFunctionHeaders(),
+        body:JSON.stringify({action:"logos", id:Number(entry.external_id)}),
+        cachePolicy:"detail", signal:options.signal, timeoutMs:8000,
+      });
+      return selectIgdbLogo(Array.isArray(data?.logos) ? data.logos : []);
+    }
+    return null;
+  },
+};

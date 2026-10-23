@@ -1,3 +1,4 @@
+import { supportsTitleLogo, prefersTextTitle, setTextTitle } from "./features/title-logo.js";
 import { createLibraryWindow } from "./features/library-window.js";
 import { startMeasurement, performanceDiagnostics } from "./features/performance.js";
 window.KulturoPerformance = performanceDiagnostics;
@@ -2215,6 +2216,10 @@ function _openModalClassic(entry) {
                 <label>Image de couverture (URL)</label>
                 <input type="url" id="f-cover" value="${esc(entry.cover_url||"")}" placeholder="https://…" />
               </div>
+              ${supportsTitleLogo(entry) ? `<div class="form-group title-logo-setting">
+                <label for="f-text-title"><input type="checkbox" id="f-text-title" ${prefersTextTitle(entry, State.user?.id) ? "checked" : ""}> Afficher le titre en texte</label>
+                <small>À la place du logo, pour cette œuvre sur cet appareil.</small>
+              </div>` : ""}
             </div>
           </details>
         </div>
@@ -3066,6 +3071,7 @@ async function saveEntry() {
   _saveInProgress = true;
   const saveOwner = State.user?.id;
   const editingId = State.editingId;
+  const textTitleChoice = document.getElementById("f-text-title")?.checked;
   if (!saveOwner) {
     _saveInProgress = false;
     setButtonBusy(saveBtn, false);
@@ -3075,6 +3081,7 @@ async function saveEntry() {
     if (editingId) {
       const updated = await Media.update(editingId, payload);
       if (!sameOwner(saveOwner, State.user?.id)) return;
+      if (typeof textTitleChoice === "boolean") setTextTitle({id:editingId}, saveOwner, textTitleChoice);
       // Une simple note ou un cœur ne justifie pas un nouvel enrichissement.
       // Les marqueurs internes ne sont jamais envoyés à Supabase.
       if (keepExistingApi) {

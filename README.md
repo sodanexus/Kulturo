@@ -10,7 +10,11 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Son logo aligne quatre cercles légèrement superposés, dans les couleurs des catégories : corail, bleu, sarcelle et doré. Interface sombre, notes dorées, accents tirés des couvertures, utilisation sur mobile et desktop.
 
-## Version actuelle · 4.8.0
+## Version actuelle · 4.8.1
+
+Les fiches peuvent afficher le logo du film, de la série ou du jeu à la place du titre dans le bandeau déplié. La jaquette reste présente et le mode compact conserve le titre texte. Le logo apparaît après décodage dans un espace stable ; si le catalogue ne fournit pas de logo adapté, le texte reste visible. Dans Modifier, « Afficher le titre en texte » désactive ce rendu pour cette œuvre sur cet appareil.
+
+Pour les jeux, redéployer `supabase/functions/igdb-proxy/index.ts` : l’action `logos` utilise l’endpoint dédié d’IGDB. Aucun nouveau secret ni SQL. Les logos sont facultatifs et ne bloquent pas les notes ou synopsis.
 
 Les effets et leurs durées sont conservés. Les fiches regroupent leurs mesures de mise en page, les diaporamas suspendent leurs animations hors écran et Sorties conserve les cartes déjà affichées pendant l’arrivée des catalogues. Le Profil s’ouvre par défaut sur la période annuelle.
 
@@ -26,7 +30,7 @@ Le bandeau réunit le logo, les onglets par icônes sur desktop, la recherche co
 
 Le profil adapte les reprises au média : **Revisionnages**, **Parties rejouées**, **Relectures**, ou **Reprises** pour Tout. Le retour de Modifier vers une fiche conserve la transition de taille sans rejouer l’apparition progressive de son contenu. Lors du filtrage, les cartes communes conservent leurs images ; seules les nouvelles cartes apparaissent en fondu.
 
-Cette version ne change ni le schéma SQL ni les fonctions Supabase depuis la 4.5.4.
+Le schéma SQL ne change pas. La 4.8.1 met à jour uniquement la fonction igdb-proxy pour les logos des jeux.
 
 ## Les espaces
 

@@ -1,3 +1,10 @@
+## 4.8.1
+
+- Essai de logos sur les fiches dépliées : TMDb pour les films/séries, IGDB pour les jeux. Jaquette conservée, logo modéré, titre texte dans la barre compacte.
+- Texte accessible et emplacement réservés ; le logo apparaît en fondu après décodage, sans déplacer les notes. Absence, échec ou fermeture pendant le chargement conservent le texte.
+- Option « Afficher le titre en texte » dans Modifier, propre à l’œuvre et au compte sur cet appareil.
+- Nouvelle action `logos` dans igdb-proxy, indépendante des notes et synopsis. Redéployer cette fonction pour les logos des jeux ; aucune migration SQL ni nouveau secret.
+
 ## 4.8.0
 
 - Animations : mesures du bandeau regroupées et différées pendant le redimensionnement des fiches ; écritures de styles limitées aux valeurs modifiées. Effets et durées conservés.

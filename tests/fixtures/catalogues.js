@@ -25,3 +25,6 @@ export const translateText = async (text, options = {}) => !options.force && isL
 
 export const Books = {fetch:(entry,options)=>request(`details/${entry.external_id}`,options)};
 export const Hardcover = {select:async()=>null,fetch:async()=>null};
+
+// Même export que l’API réelle ; le catalogue simulé n’exige aucun appel externe.
+export const TitleLogos = { async fetch() { return null; } };
