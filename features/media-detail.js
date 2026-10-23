@@ -744,10 +744,8 @@ function externalRatingsHTML(ratings) {
       externalRatingPillHTML(rating, `data-face="${index}"${index === 0 ? " data-active" : ""}`)).join("");
     const first = group.items[0], second = group.items[1];
     const hint = `${externalRatingLabel(first)}. Appuyer pour voir : ${externalRatingLabel(second)}`;
-    const dots = group.items.map((_, index) => `<i${index === 0 ? " data-active" : ""}></i>`).join("");
     return `<span class="detail-external-flip" data-source="${esc(group.source)}" data-face-count="${group.items.length}" data-face-index="0" role="button" tabindex="0" aria-label="${esc(hint)}">
       <span class="detail-external-faces">${faces}</span>
-      <span class="detail-external-dots" aria-hidden="true">${dots}</span>
     </span>`;
   }).join("");
   return `<div class="detail-external-ratings" role="group" aria-label="Notes externes">${body}</div>`;
@@ -762,7 +760,6 @@ function flipExternalRating(flip) {
   const current = Number(flip.dataset.faceIndex) || 0;
   const next = (current + 1) % faces.length;
   faces.forEach((face, index) => face.toggleAttribute("data-active", index === next));
-  flip.querySelectorAll(".detail-external-dots i").forEach((dot, index) => dot.toggleAttribute("data-active", index === next));
   flip.dataset.faceIndex = String(next);
   flip.classList.remove("is-flipping");
   void flip.offsetWidth; // relance l'animation même sur des taps rapprochés
