@@ -1,3 +1,9 @@
+## 4.8.5
+
+- Bannières Cinéma légèrement agrandies : 390 px sur desktop (340 auparavant), 340 px sur mobile (300 auparavant).
+- Logos mobiles limités à 220 × 64 px (280 × 88 auparavant), proportions conservées et emplacement réservé ajusté avant chargement.
+- Notes, étiquettes, dégradé, couvertures des livres et animations conservés. Aucun changement Supabase.
+
 ## 4.8.4
 
 - Bandeau : aura sous le voile, raccord du dégradé avec le fond du synopsis et regroupement note/étiquettes dans la zone basse. Contenu du synopsis inchangé.
