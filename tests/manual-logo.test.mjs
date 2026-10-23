@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { manualLogoUrl, supportsTitleLogo } from '../features/title-logo.js';
+import { manualLogoUrl, supportsTitleLogo, isVideoLogo } from '../features/title-logo.js';
 const read = f => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
 test('logo manuel : https uniquement', () => {
@@ -25,4 +25,12 @@ test('logo manuel : formulaire, enregistrement prudent, API, SQL et sauvegarde',
   assert.match(read('migrations/4.9.2-logo-url.sql'), /ADD COLUMN IF NOT EXISTS logo_url TEXT/);
   assert.match(read('schema.sql'), /logo_url\s+TEXT/);
   assert.match(read('features/backup-restore.js'), /"logo_url"/);
+});
+
+test('logo animé : seuls les .webm passent par une balise vidéo', () => {
+  assert.equal(isVideoLogo('https://cdn.example/logo.webm'), true);
+  assert.equal(isVideoLogo('https://cdn.example/logo.WEBM?v=2'), true);
+  assert.equal(isVideoLogo('https://cdn.example/logo.png'), false);
+  assert.equal(isVideoLogo('https://cdn.example/webm'), false);
+  assert.equal(isVideoLogo(''), false);
 });
