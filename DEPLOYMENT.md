@@ -1,4 +1,6 @@
-# Installer l’archive **4.8.2**
+# Installer l’archive **4.8.3**
+
+Depuis la 4.8.2 : remplacer les fichiers du site uniquement. Aucun nouveau déploiement Supabase.
 
 Depuis la 4.8.0 ou 4.8.1 : remplacer les fichiers du site et redéployer **igdb-proxy** avec le contenu complet de `supabase/functions/igdb-proxy/index.ts` dans l’éditeur Supabase. Conserver les réglages d’authentification de la fonction et les secrets existants. Aucun nouveau secret et aucune migration SQL.
 

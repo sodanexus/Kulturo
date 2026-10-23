@@ -1,3 +1,11 @@
+## 4.8.3
+
+- Bandeau Cinéma sur les fiches : image plus présente en haut, voile progressif vers le corps, logo/titre ancré en bas à gauche et repères regroupés.
+- Films, séries et jeux : note et étiquettes sur une ligne si la place le permet, retour à la ligne sur petit écran.
+- Livres : même ambiance, jaquette et titre texte conservés.
+- Synopsis, informations, actions et contenu sous le bandeau inchangés ; barre compacte et animations existantes conservées.
+- Aucun changement Supabase depuis la 4.8.2.
+
 ## 4.8.2
 
 - Films, séries et jeux : jaquette retirée des fiches (y compris aperçus Sorties), bandeau rééquilibré autour du logo/titre et des notes. Livres inchangés.
