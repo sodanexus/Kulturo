@@ -1,3 +1,4 @@
+import { supportsTitleLogo, prefersTextTitle, mountTitleLogo } from "./title-logo.js";
 import { startMeasurement } from "./performance.js";
 import { readingProgress, seriesProgress, isSeries } from "./reading-progress.js";
 import { cleanBookGenres } from "./book-search.js";
@@ -5,7 +6,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
+import { TitleLogos, IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import {
   formatReleaseDate, isReplayEntry, mediaWords, normalizeTitle, repeatInfo,
@@ -186,6 +187,7 @@ function renderDetailPanel(e, options = {}) {
       : "";
   const backdropUrl = safeMediaUrl(e.backdrop_url);
   const coverUrl = safeMediaUrl(e.cover_url);
+  const useTitleLogo = supportsTitleLogo(e) && !prefersTextTitle(e, State.user?.id);
 
   const externalHTML = mediaLinks(e).map(link =>
     `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
@@ -220,7 +222,7 @@ function renderDetailPanel(e, options = {}) {
           <div class="detail-backdrop-content">
             ${posterHTML}
             <div class="detail-backdrop-info">
-              <h2 class="detail-title" id="detail-sheet-title">${esc(e.title)}</h2>
+              <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type === "movie" && e.subtype === "tv" ? "tv" : e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
@@ -269,6 +271,10 @@ function renderDetailPanel(e, options = {}) {
   enhanceRatingScore(root.querySelector(`#detail-rating-${CSS.escape(String(e.id))}`), options.restoreView ? null : 0);
   if (!options.restoreView) popFavoriteHeart(root.querySelector(`#detail-fav-${CSS.escape(String(e.id))}`), 200);
   hydrateFadeImages(root);
+  if (useTitleLogo) mountTitleLogo(root.querySelector("#detail-sheet-title"),
+    () => TitleLogos.fetch(e, {signal:detailSessions.signal(detailSessionId)}),
+    {signal:detailSessions.signal(detailSessionId), isActive:() => detailSessions.isActive(detailSessionId, e.id)});
+
   const backdropEl = root.querySelector(".detail-backdrop");
   if (backdropEl && coverUrl && !backdropUrl) {
     const cssCoverUrl = coverUrl.replace(/["\\\n\r]/g, "");

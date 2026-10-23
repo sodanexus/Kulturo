@@ -240,7 +240,8 @@ Deno.serve(async (req) => {
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     const id = Number(body?.id);
     const hasValidId = Number.isSafeInteger(id) && id > 0;
-    const action = body?.action === "upcoming" ? "upcoming" : "";
+    const action = ["upcoming", "logos"].includes(body?.action) ? body.action : "";
+    if (action === "logos" && !hasValidId) return jsonResponse({error:"Identifiant invalide"}, 400);
 
     if (!query && !hasValidId && !action) {
       return jsonResponse({ error: "query, id valide ou action requis" }, 400);
@@ -262,6 +263,12 @@ Deno.serve(async (req) => {
       "Authorization": `Bearer ${access_token}`,
       "Content-Type":  "text/plain",
     };
+
+    if (action === "logos") {
+      // Requête séparée, sans modifier la réponse des notes et captures.
+      const logos = await igdbRequest("logos", `fields image_id,alpha_channel,animated,width,height,image_type.name; where game = ${id}; limit 20;`, headers);
+      return jsonResponse({logos});
+    }
 
     let games: any[] = [];
 
