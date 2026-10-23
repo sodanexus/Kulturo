@@ -2,6 +2,10 @@
 export function manualLogoUrl(value) {
   try { const url = new URL(String(value || '').trim()); return url.protocol === 'https:' ? url.href : null; } catch { return null; }
 }
+// Logo animé : une vidéo WebM (transparence VP9) se lit dans <video>, pas dans <img>.
+export function isVideoLogo(value) {
+  try { return /\.webm$/i.test(new URL(String(value || '').trim()).pathname); } catch { return false; }
+}
 export function supportsTitleLogo(entry) {
   if (['movie', 'game'].includes(entry?.media_type) && manualLogoUrl(entry.logo_url)) return true;
   return Boolean(entry?.external_id && ((entry.media_type === 'movie' && entry.source_api === 'tmdb') || (entry.media_type === 'game' && entry.source_api === 'igdb')));
@@ -48,30 +52,47 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
       const url = typeof asset === 'string' ? asset : asset?.url;
       if (!alive()) return;
       if (!url) continue;
-      const image = new Image();
+      const isVideo = isVideoLogo(url);
+      const image = isVideo ? document.createElement('video') : new Image();
+      const reduceMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
       let timer, rejectLoad;
       const abort = () => { rejectLoad?.(new Error('Logo cancelled')); image.removeAttribute('src'); };
       image.className = 'detail-title-logo' + (asset?.monochrome ? ' is-monochrome-logo' : '');
-      image.alt = ''; image.setAttribute('aria-hidden','true'); image.decoding = 'async';
+      image.setAttribute('aria-hidden','true');
+      if (isVideo) {
+        // Lecture silencieuse en boucle ; avec « réduire les animations », une seule image fixe.
+        image.muted = true; image.defaultMuted = true; image.loop = !reduceMotion;
+        image.playsInline = true; image.disablePictureInPicture = true; image.controls = false;
+        image.preload = 'auto'; image.tabIndex = -1;
+        image.setAttribute('muted',''); image.setAttribute('playsinline','');
+      } else {
+        image.alt = ''; image.decoding = 'async';
+      }
       signal?.addEventListener('abort',abort,{once:true});
       try {
         await new Promise((resolve,reject) => {
           rejectLoad = reject;
-          timer = setTimeout(() => reject(new Error('Logo timeout')), 6000);
-          image.onload = resolve; image.onerror = reject; image.src = url;
+          timer = setTimeout(() => reject(new Error('Logo timeout')), isVideo ? 10000 : 6000);
+          if (isVideo) image.onloadeddata = resolve; else image.onload = resolve;
+          image.onerror = reject; image.src = url;
         });
-        // Le décodage peut échouer sur un SVG déjà chargé et pourtant affichable.
-        try { await image.decode?.(); } catch { if (!image.naturalWidth) throw new Error('Invalid image'); }
-        if (!alive() || !image.naturalWidth) return;
+        if (isVideo) {
+          if (!alive() || !image.videoWidth) return;
+        } else {
+          // Le décodage peut échouer sur un SVG déjà chargé et pourtant affichable.
+          try { await image.decode?.(); } catch { if (!image.naturalWidth) throw new Error('Invalid image'); }
+          if (!alive() || !image.naturalWidth) return;
+        }
         title.querySelector?.('.detail-title-logo')?.remove();
         title.append(image);
+        if (isVideo && !reduceMotion) image.play?.().catch(() => { /* Image fixe si la lecture est refusée. */ });
         requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
         return;
       } catch { /* Essayer le candidat suivant sans masquer le texte. */ }
       finally {
         clearTimeout(timer); signal?.removeEventListener('abort',abort);
-        image.onload = image.onerror = null;
-        if (!image.isConnected) image.removeAttribute('src');
+        image.onload = image.onloadeddata = image.onerror = null;
+        if (!image.isConnected) { image.removeAttribute('src'); if (isVideo) image.load?.(); }
       }
     }
   } catch { /* Le texte demeure le secours. */ }
