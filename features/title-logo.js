@@ -55,7 +55,7 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
       const isVideo = isVideoLogo(url);
       const image = isVideo ? document.createElement('video') : new Image();
       const reduceMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
-      let timer, rejectLoad;
+      let timer, rejectLoad, mounted = false;
       const abort = () => { rejectLoad?.(new Error('Logo cancelled')); image.removeAttribute('src'); };
       image.className = 'detail-title-logo' + (asset?.monochrome ? ' is-monochrome-logo' : '');
       image.setAttribute('aria-hidden','true');
@@ -70,28 +70,41 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
       }
       signal?.addEventListener('abort',abort,{once:true});
       try {
+        if (isVideo) {
+          // Un <video> hors du document n'est pas chargé par tous les navigateurs
+          // (mobile, économiseur de données) : on l'insère d'emblée, invisible
+          // (opacity 0 tant que « has-title-logo » n'est pas posé), et on lance la lecture.
+          title.querySelector?.('.detail-title-logo')?.remove();
+          title.append(image);
+        }
         await new Promise((resolve,reject) => {
           rejectLoad = reject;
-          timer = setTimeout(() => reject(new Error('Logo timeout')), isVideo ? 10000 : 6000);
-          if (isVideo) image.onloadeddata = resolve; else image.onload = resolve;
-          image.onerror = reject; image.src = url;
+          timer = setTimeout(() => reject(new Error('Logo timeout')), isVideo ? 12000 : 6000);
+          if (isVideo) { image.onloadeddata = resolve; image.oncanplay = resolve; } else image.onload = resolve;
+          image.onerror = () => reject(new Error(isVideo ? `Vidéo illisible (code ${image.error?.code ?? '?'})` : 'Image illisible'));
+          image.src = url;
+          if (isVideo) image.play?.().catch(() => { /* la lecture est relancée plus bas */ });
         });
         if (isVideo) {
-          if (!alive() || !image.videoWidth) return;
+          if (!alive() || !image.videoWidth) { if (alive()) throw new Error('Vidéo sans image'); return; }
+          if (reduceMotion) { image.pause?.(); image.currentTime = 0; }
+          else image.play?.().catch(() => { /* image fixe si la lecture est refusée */ });
         } else {
           // Le décodage peut échouer sur un SVG déjà chargé et pourtant affichable.
           try { await image.decode?.(); } catch { if (!image.naturalWidth) throw new Error('Invalid image'); }
           if (!alive() || !image.naturalWidth) return;
+          title.querySelector?.('.detail-title-logo')?.remove();
+          title.append(image);
         }
-        title.querySelector?.('.detail-title-logo')?.remove();
-        title.append(image);
-        if (isVideo && !reduceMotion) image.play?.().catch(() => { /* Image fixe si la lecture est refusée. */ });
+        mounted = true;
         requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
         return;
-      } catch { /* Essayer le candidat suivant sans masquer le texte. */ }
+      } catch (error) { if (isVideo) console.warn('[Logo animé]', url, error?.message || error); /* Candidat suivant, le texte reste le secours. */ }
       finally {
         clearTimeout(timer); signal?.removeEventListener('abort',abort);
-        image.onload = image.onloadeddata = image.onerror = null;
+        image.onload = image.onloadeddata = image.oncanplay = image.onerror = null;
+        // Un candidat refusé ne doit pas rester dans le titre (la vidéo y est insérée d'emblée).
+        if (!mounted && image.isConnected) { image.pause?.(); image.remove(); }
         if (!image.isConnected) { image.removeAttribute('src'); if (isVideo) image.load?.(); }
       }
     }

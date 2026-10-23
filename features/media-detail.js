@@ -829,21 +829,31 @@ function awaitsExternalRatings(e, options = {}) {
 function renderDetailRatingsHTML(e, options = {}) {
   const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
   if (ratings.length) return externalRatingsHTML(ratings);
+  // Pas de squelette : un repère invisible garde la hauteur de la rangée, puis les
+  // pastilles arrivent en fondu une fois les notes reçues (voir syncHeroRatings).
   if (awaitsExternalRatings(e, options)) {
-    return `<div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div>`;
+    return `<span class="detail-external-pending" aria-hidden="true"></span>`;
   }
   return "";
 }
 
-// Met à jour la rangée de notes de la bannière : les pastilles arrivent en fondu.
+// Met à jour la rangée de notes de la bannière : les pastilles apparaissent en
+// fondu (léger glissement + mise au point), l'une après l'autre.
 function syncHeroRatings(entry, options = {}) {
   const host = document.getElementById(`detail-hero-ratings-${entry.id}`);
   if (!host) return;
   const html = renderDetailRatingsHTML(entry, options);
   if (host.innerHTML === html) return;
   host.innerHTML = html;
-  host.querySelectorAll(".detail-external-flip, .detail-external-ratings > .detail-external-rating, .detail-external-skeleton").forEach((node, index) => {
-    revealSurface(node, { delay: Math.min(index * 80, 240) });
+  const nodes = [...host.querySelectorAll(".detail-external-flip, .detail-external-ratings > .detail-external-rating")];
+  if (!nodes.length || !host.animate || prefersReducedMotion()) return;
+  nodes.forEach((node, index) => {
+    node.animate([
+      { opacity: 0, transform: "translateY(5px) scale(.96)", filter: "blur(3px)" },
+      { opacity: 1, transform: "none", filter: "blur(0)" },
+    ], {
+      duration: 520, delay: Math.min(index * 90, 270), easing: "cubic-bezier(.2, .8, .2, 1)", fill: "backwards",
+    });
   });
 }
 
