@@ -1186,6 +1186,19 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-hero-ratings.detail-external-section { display: flex; margin: 0 0 0 auto; }
 .detail-hero-ratings:empty { display: none; }
 .detail-hero-ratings .detail-external-rating { background: rgba(19,21,27,.35); }
+/* Mobile : la note, les étiquettes et la pastille de la note externe tiennent sur
+   UNE seule ligne. Les espaces sont resserrés ; si l'écran est vraiment étroit
+   (< 345 px de large utile), la mention « joueurs / presse » se masque (elle reste
+   dans l'infobulle) plutôt que de casser la ligne. */
+@media (max-width: 680px) {
+  .detail-cinema .detail-header-meta { gap: .45rem; container-type: inline-size; }
+  .detail-cinema .detail-header-meta .detail-badges { flex: 0 1 auto; gap: .3rem; }
+  .detail-cinema .detail-header-meta .detail-hero-ratings { flex: 0 0 auto; margin: 0 0 0 auto; }
+  .detail-hero-ratings .detail-external-rating { gap: .35rem; padding-right: .55rem; }
+}
+@container (max-width: 344px) {
+  .detail-hero-ratings .detail-external-rating small { display: none; }
+}
 
 /* Genres : puces, comme le casting. */
 .detail-genres { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .95rem; }
