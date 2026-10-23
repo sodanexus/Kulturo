@@ -1,7 +1,8 @@
 // ============================================================
 // Easter egg du logo — quatre cercles qui jonglent
-// Survol (souris) ou toucher : les cercles sautent l'un après l'autre,
-// dans l'ordre des catégories. Cinq touchers rapprochés : les couleurs
+// Survol (souris) : les cercles sautent l'un après l'autre, dans l'ordre
+// des catégories, tant que le pointeur reste dessus. Toucher : un saut.
+// Cinq touchers rapprochés : les couleurs
 // tournent d'un cercle à l'autre. Aucun effet si le mouvement est réduit.
 // ============================================================
 
@@ -39,6 +40,7 @@ export function attachLogoEasterEgg(logo) {
   }
 
   let running = 0;
+  let hovering = false;
   let taps = [];
   const done = animation => {
     running++;
@@ -47,16 +49,23 @@ export function attachLogoEasterEgg(logo) {
     animation.addEventListener("cancel", release, { once: true });
   };
 
+  // Tant que la souris est dessus, un saut en entraîne un autre.
+  const continueIfHovering = animation => {
+    animation.addEventListener("finish", () => { if (hovering && !running) hop(); }, { once: true });
+  };
+
   function hop() {
     if (running || reducedMotion()) return;
     circles.forEach((circle, index) => {
-      done(circle.animate([
+      const animation = circle.animate([
         { transform: "translateY(0) scale(1, 1)", offset: 0 },
         { transform: "translateY(0) scale(1.12, .86)", offset: .14 },
         { transform: "translateY(-26px) scale(.92, 1.1)", offset: .44 },
         { transform: "translateY(0) scale(1.14, .84)", offset: .74 },
         { transform: "translateY(0) scale(1, 1)", offset: 1 },
-      ], { duration: HOP_MS, delay: index * HOP_STAGGER_MS, easing: "cubic-bezier(.3,.7,.3,1)", fill: "none" }));
+      ], { duration: HOP_MS, delay: index * HOP_STAGGER_MS, easing: "cubic-bezier(.3,.7,.3,1)", fill: "none" });
+      done(animation);
+      if (index === circles.length - 1) continueIfHovering(animation);
     });
   }
 
@@ -70,15 +79,22 @@ export function attachLogoEasterEgg(logo) {
         sequence.map(fill => ({ fill })),
         { duration: SPIN_MS, easing: "ease-in-out", fill: "none" },
       ));
-      done(circle.animate([
+      const rotation = circle.animate([
         { transform: "rotate(0deg) scale(1)" },
         { transform: "rotate(360deg) scale(1.18)", offset: .5 },
         { transform: "rotate(720deg) scale(1)" },
-      ], { duration: SPIN_MS, delay: index * 60, easing: "cubic-bezier(.5,0,.2,1)", fill: "none" }));
+      ], { duration: SPIN_MS, delay: index * 60, easing: "cubic-bezier(.5,0,.2,1)", fill: "none" });
+      done(rotation);
+      if (index === circles.length - 1) continueIfHovering(rotation);
     });
   }
 
-  const onEnter = event => { if (event.pointerType === "mouse") hop(); };
+  const onEnter = event => {
+    if (event.pointerType !== "mouse") return;
+    hovering = true;
+    hop();
+  };
+  const onLeave = () => { hovering = false; };
   const onClick = () => {
     const now = Date.now();
     taps = taps.filter(time => now - time < COMBO_WINDOW_MS);
@@ -94,9 +110,12 @@ export function attachLogoEasterEgg(logo) {
   };
 
   logo.addEventListener("pointerenter", onEnter);
+  logo.addEventListener("pointerleave", onLeave);
   logo.addEventListener("click", onClick);
   return () => {
+    hovering = false;
     logo.removeEventListener("pointerenter", onEnter);
+    logo.removeEventListener("pointerleave", onLeave);
     logo.removeEventListener("click", onClick);
   };
 }
