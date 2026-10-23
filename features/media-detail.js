@@ -206,7 +206,7 @@ function renderDetailPanel(e, options = {}) {
   const detailSessionId = detailSessions.begin(e.id);
   replaceModalContent(root, `
     <div class="modal-overlay" id="modal-overlay" ${uiAction("closeModalOnBg", [], { event: true })}>
-      <div class="modal detail-modal" ${options.restoreView ? 'data-detail-restored' : 'data-detail-stagger'} data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
+      <div class="modal detail-modal${e.media_type === "book" ? "" : " detail-without-poster"}" ${options.restoreView ? 'data-detail-restored' : 'data-detail-stagger'} data-detail-media-id="${esc(e.id || "")}" ${coverUrl ? `data-cover-accent-url="${esc(coverUrl)}"` : ""} role="dialog" aria-modal="true" aria-labelledby="detail-sheet-title">
 
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
@@ -220,7 +220,7 @@ function renderDetailPanel(e, options = {}) {
             </span>
           </div>` : `<div class="detail-compact-bar" aria-hidden="true"><span class="detail-compact-title">${esc(e.title)}</span></div>`}
           <div class="detail-backdrop-content">
-            ${posterHTML}
+            ${e.media_type === "book" ? posterHTML : ""}
             <div class="detail-backdrop-info">
               <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}

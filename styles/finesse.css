@@ -1056,3 +1056,15 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .title-logo-setting small { color:var(--text-3); }
 @media(max-width:680px) { .detail-title-logo { max-width:240px; max-height:76px; } }
 @media(prefers-reduced-motion:reduce) { .detail-title-text, .detail-title-logo { transition:none; } }
+
+/* Films, séries et jeux : le titre/logo et les repères occupent seuls le bandeau. */
+.detail-without-poster .detail-backdrop-info { width:100%; min-width:0; }
+.detail-without-poster .detail-backdrop-content { padding:1.25rem 1.5rem; }
+.detail-without-poster .detail-title-with-logo { min-height:92px; }
+.detail-without-poster .detail-title-logo { max-width:380px; max-height:92px; }
+.detail-title-logo.is-monochrome-logo { filter:brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
+@media(max-width:680px) {
+  .detail-without-poster .detail-backdrop-content { padding:1rem 1.25rem; }
+  .detail-without-poster .detail-title-with-logo { min-height:76px; }
+  .detail-without-poster .detail-title-logo { max-width:280px; max-height:76px; }
+}

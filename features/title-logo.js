@@ -18,12 +18,16 @@ export function selectTmdbLogo(logos = []) {
   candidates.sort((a,b) => rank(a)-rank(b) || (b.vote_average || 0)-(a.vote_average || 0) || b.width-a.width);
   return candidates[0] ? `https://image.tmdb.org/t/p/w500${candidates[0].file_path}` : null;
 }
-export function selectIgdbLogo(logos = []) {
+export function selectIgdbLogoAsset(logos = []) {
   const label = x => String(x.image_type?.name || '').toLowerCase();
-  const candidates = logos.filter(x => x?.alpha_channel === true && !x.animated && /^[a-z0-9]+$/i.test(x.image_id || '') && !/black|histor/.test(label(x)));
-  candidates.sort((a,b) => Number(/white/.test(label(b)))-Number(/white/.test(label(a))) || (b.width || 0)-(a.width || 0));
-  return candidates[0] ? `https://images.igdb.com/igdb/image/upload/t_720p/${candidates[0].image_id}.png` : null;
+  // Champ absent ≠ absence de transparence : certaines images IGDB sont incomplètement renseignées.
+  const candidates = (Array.isArray(logos) ? logos : []).filter(x => x && x.alpha_channel !== false && !x.animated && /^[a-z0-9]+$/i.test(x.image_id || ''));
+  const rank = x => (/histor/.test(label(x)) ? 10 : 0) + (/white/.test(label(x)) ? 0 : /black/.test(label(x)) ? 2 : 1);
+  candidates.sort((a,b) => rank(a)-rank(b) || (b.width || 0)-(a.width || 0));
+  const chosen = candidates[0];
+  return chosen ? {url:`https://images.igdb.com/igdb/image/upload/t_720p/${chosen.image_id}.png`, monochrome:/black/.test(label(chosen))} : null;
 }
+export function selectIgdbLogo(logos = []) { return selectIgdbLogoAsset(logos)?.url || null; }
 export async function mountTitleLogo(title, getUrl, {signal, isActive = () => true} = {}) {
   if (!title) return;
   let image;
@@ -32,10 +36,11 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
   const alive = () => !signal?.aborted && title.isConnected && isActive();
   const abort = () => { rejectLoad?.(new Error('Logo cancelled')); if (image) { image.onload = image.onerror = null; image.removeAttribute('src'); } };
   try {
-    const url = await getUrl();
+    const asset = await getUrl();
+    const url = typeof asset === "string" ? asset : asset?.url;
     if (!url || !alive()) return;
     image = new Image();
-    image.className = 'detail-title-logo';
+    image.className = 'detail-title-logo' + (asset?.monochrome ? ' is-monochrome-logo' : '');
     image.alt = '';
     image.setAttribute('aria-hidden', 'true');
     image.decoding = 'async';

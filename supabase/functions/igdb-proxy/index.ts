@@ -266,7 +266,19 @@ Deno.serve(async (req) => {
 
     if (action === "logos") {
       // Requête séparée, sans modifier la réponse des notes et captures.
-      const logos = await igdbRequest("logos", `fields image_id,alpha_channel,animated,width,height,image_type.name; where game = ${id}; limit 20;`, headers);
+      const fields = "image_id,alpha_channel,animated,width,height,image_type.name";
+      let logos: any[] = [];
+      try {
+        logos = await igdbRequest("logos", `fields ${fields}; where game = ${id}; limit 50;`, headers);
+      } catch (error) { console.warn("[IGDB logos] Endpoint dédié indisponible", error); }
+      if (!logos.some(logo => logo.image_id && logo.alpha_channel !== false && !logo.animated)) {
+        // Anciennes contributions encore classées comme artworks : seulement les types logo.
+        try {
+          const legacy = await igdbRequest("artworks", `fields ${fields}; where game = ${id}; limit 50;`, headers);
+          logos.push(...legacy.filter(image => /logo/i.test(image.image_type?.name || "")));
+        } catch (error) { console.warn("[IGDB logos] Recherche artworks indisponible", error); }
+      }
+      console.info(`[IGDB logos] jeu=${id} candidats=${logos.length}`);
       return jsonResponse({logos});
     }
 
