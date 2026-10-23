@@ -189,8 +189,13 @@ function renderDetailPanel(e, options = {}) {
   const coverUrl = safeMediaUrl(e.cover_url);
   const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
-  const externalHTML = mediaLinks(e).map(link =>
-    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
+  const links = mediaLinks(e);
+  const trailer = links.find(link => link.kind === "video");
+  const trailerHTML = trailer
+    ? `<a href="${esc(trailer.url)}" target="_blank" rel="noopener" class="detail-play-btn" aria-label="${esc(trailer.label)} — nouvel onglet"><span class="detail-play-icon">${iconPlay()}</span><span>${esc(trailer.label)}</span></a>`
+    : "";
+  const externalHTML = links.filter(link => link.kind !== "video").map(link =>
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
   ).join("");
 
   // Backdrop header
@@ -211,6 +216,7 @@ function renderDetailPanel(e, options = {}) {
         <div class="${backdropClass}">
           <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
+          ${trailerHTML}
           <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
           ${!isPreview ? `<div class="detail-compact-bar" aria-hidden="true">
             <span class="detail-compact-title">${esc(e.title)}</span>
@@ -223,6 +229,7 @@ function renderDetailPanel(e, options = {}) {
             ${e.media_type === "book" ? posterHTML : ""}
             <div class="detail-backdrop-info">
               <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
+              <p class="detail-facts detail-hero-facts" id="detail-facts-${e.id}">${detailFactsHTML(e)}</p>
               <div class="detail-header-meta">
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
@@ -252,7 +259,6 @@ function renderDetailPanel(e, options = {}) {
               ${externalHTML}
               <button class="btn btn-primary btn-sm" ${uiAction("addUpcomingToWishlistFromModal", [options.upcomingKey])}>+ Envies</button>
             </div>` : `
-            <button type="button" class="btn btn-danger btn-icon-only detail-delete-action" title="Supprimer cette œuvre" aria-label="Supprimer cette œuvre" ${uiAction("deleteEntry", [e.id])}><span class="detail-delete-icon">${iconTrash()}</span></button>
             <div class="detail-footer-actions">
               ${externalHTML}
               <button class="btn btn-primary btn-sm" ${uiAction("openEditFromDetail", [e.id])}>${iconEdit()} Modifier</button>
@@ -717,11 +723,10 @@ function externalRatingsHTML(ratings) {
   }).join("")}</div>`;
 }
 
-function renderDetailInfoHTML(e, options = {}) {
+// Repères sous le titre, dans la bannière.
+function detailFactsHTML(e) {
   const isSeries = e.media_type === "movie" && e.subtype === "tv";
   const SEP = `<span class="detail-sep" aria-hidden="true"> · </span>`;
-  let html = "";
-
   // Repères : une seule ligne discrète. L'année seule (jamais la date
   // complète), tirée de release_year ou, à défaut, de la date de sortie.
   const year = Number(e.release_year) ||
@@ -734,11 +739,39 @@ function renderDetailInfoHTML(e, options = {}) {
     isSeries ? e.air_status : null,
     e.media_type === "game" ? e.platform : null,
     e.media_type === "book" && e.page_count ? `${e.page_count} pages` : null,
-    e.media_type === "book" && e.isbn ? `ISBN ${e.isbn}` : null,
   ].map(item => String(item ?? "").trim()).filter(Boolean);
-  if (facts.length) {
-    html += `<p class="detail-facts" data-block="facts">${facts.map(esc).join(SEP)}</p>`;
+  if (facts.length) return facts.map(esc).join(SEP);
+  return "";
+}
+
+function syncHeroFacts(entry) {
+  const el = document.getElementById(`detail-facts-${entry.id}`);
+  if (!el) return;
+  const html = detailFactsHTML(entry);
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
+function awaitsExternalRatings(e, options = {}) {
+  const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
+  return options.detailsLoading && !ratings.length &&
+    ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
+}
+
+// Notes externes : une rangée de pastilles juste sous la bannière.
+function renderDetailRatingsHTML(e, options = {}) {
+  const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
+  if (ratings.length) return `<div class="detail-external-section" data-block="external">${externalRatingsHTML(ratings)}</div>`;
+  if (awaitsExternalRatings(e, options)) {
+    return `<div class="detail-external-section" data-block="external"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
   }
+  return "";
+}
+
+function renderDetailInfoHTML(e, options = {}) {
+  const isSeries = e.media_type === "movie" && e.subtype === "tv";
+  const SEP = `<span class="detail-sep" aria-hidden="true"> · </span>`;
+  let html = "";
+
 
   // Crédits : personnes, studios et genres, en liens soulignés explorables.
   const credit = (prefix, kind, value) => {
@@ -754,12 +787,14 @@ function renderDetailInfoHTML(e, options = {}) {
     e.media_type === "book" ? credit("De", "author", e.author) : "",
     e.media_type === "book" ? credit("Édité par", "publisher", e.publisher) : "",
   ].filter(Boolean);
-  const genreValues = e.media_type === "book" && e.source_api === "openlibrary" ? cleanBookGenres(e.genre) : e.genre;
-  const genres = metadataLinksHTML(e, "genre", genreValues);
-  if (genres) credits.push(`<span class="detail-credit" data-detail-key="genre">${genres}</span>`);
   if (credits.length) {
     html += `<p class="detail-credits detail-credits-section" data-block="credits">${credits.join(SEP)}</p>`;
   }
+
+  // Genres : puces, comme le casting.
+  const genreValues = e.media_type === "book" && e.source_api === "openlibrary" ? cleanBookGenres(e.genre) : e.genre;
+  const genreChips = splitMetadataValues(genreValues).map(item => metadataChipHTML(e, "genre", item)).filter(Boolean).join("");
+  if (genreChips) html += `<div class="detail-genres" data-block="genres" role="group" aria-label="Genres">${genreChips}</div>`;
 
   // Casting : rangée qui défile, une puce par personne.
   if (e.media_type === "movie" && e.cast_members) {
@@ -770,19 +805,9 @@ function renderDetailInfoHTML(e, options = {}) {
     if (cast) html += `<div class="detail-cast-section" data-block="cast" role="group" aria-label="Casting"><div class="detail-cast-row">${cast}</div></div>`;
   }
 
-  // Notes externes : logo coloré + note, sans titre de section.
-  const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
-  const awaitsRatings = options.detailsLoading && !ratings.length &&
-    ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
-  if (ratings.length) {
-    html += `<div class="detail-external-section" data-block="external">${externalRatingsHTML(ratings)}</div>`;
-  } else if (awaitsRatings) {
-    html += `<div class="detail-external-section" data-block="external"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
-  }
-
   // Aucun bloc de chargement externe pour les livres : le synopsis
   // et les métadonnées gardent leur propre enrichissement progressif.
-  const awaitsMoreInfo = options.detailsLoading && !awaitsRatings && (
+  const awaitsMoreInfo = options.detailsLoading && !awaitsExternalRatings(e, options) && (
     ["movie", "game"].includes(e.media_type) && Boolean(e.external_id)
   );
   if (awaitsMoreInfo) {
@@ -791,6 +816,9 @@ function renderDetailInfoHTML(e, options = {}) {
       <i aria-hidden="true"></i><i aria-hidden="true"></i>
     </div>`;
   }
+
+  // ISBN : trop long pour la bannière, il reste en ligne discrète dans le corps.
+  if (e.media_type === "book" && e.isbn) html += `<p class="detail-facts detail-isbn" data-block="isbn">ISBN ${esc(e.isbn)}</p>`;
 
   // Historique : une ligne discrète qui clôt la fiche (absente des fiches partagées).
   if (!options.readOnly) {
@@ -846,7 +874,7 @@ function renderDetailBody(e, options = {}) {
 
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
-  html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
+  html += `<div class="detail-enrichment"><div class="detail-ratings-slot" id="detail-ratings-slot-${e.id}">${renderDetailRatingsHTML(e, options)}</div><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
   html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
   return html;
@@ -880,7 +908,14 @@ async function refreshDetailEnrichment(entry, options = {}) {
   await waitForDialogTransition(body.closest(".modal"));
   if (!region.isConnected || !detailSessions.isActive(sessionId, entry.id) || enrichmentVersions.get(region) !== version) return;
   const synopsisSlot = region.querySelector(".detail-synopsis-slot");
+  const ratingsSlot = region.querySelector(".detail-ratings-slot");
   const info = region.querySelector(".detail-info-content");
+  syncHeroFacts(entry);
+  const ratings = document.createElement("template");
+  ratings.innerHTML = renderDetailRatingsHTML(entry, options).trim();
+  const nextRatings = ratings.content.firstElementChild;
+  const changeRatings = Boolean(ratingsSlot) &&
+    stableDetailMarkup(ratingsSlot.firstElementChild) !== stableDetailMarkup(nextRatings);
   const synopsis = document.createElement("template");
   synopsis.innerHTML = renderDetailSynopsisHTML(entry, options).trim();
   const nextSynopsis = synopsis.content.firstElementChild;
@@ -900,12 +935,13 @@ async function refreshDetailEnrichment(entry, options = {}) {
     changed.push(node);
     return node;
   });
-  if (!changeSynopsis && !changed.length && blocks.length === info.children.length) return;
+  if (!changeSynopsis && !changeRatings && !changed.length && blocks.length === info.children.length) return;
   const scroll = body.scrollTop;
-  const arriving = [...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
+  const arriving = [...(changeRatings && nextRatings ? [nextRatings] : []), ...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
   for (const node of arriving) { node.setAttribute("data-detail-awaiting", ""); node.style.opacity = "0"; }
-  const heightTarget = changeSynopsis ? region : region.querySelector(".detail-info-slot");
+  const heightTarget = changeSynopsis || changeRatings ? region : region.querySelector(".detail-info-slot");
   const heightMotion = animateHeightChange(heightTarget, () => {
+    if (changeRatings) ratingsSlot.replaceChildren(...(nextRatings ? [nextRatings] : []));
     if (changeSynopsis) synopsisSlot.replaceChildren(...(nextSynopsis ? [nextSynopsis] : []));
     info.replaceChildren(...blocks);
     // Le bouton et le nombre de lignes font partie de la hauteur cible.

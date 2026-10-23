@@ -1116,3 +1116,88 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-cinema .detail-header-meta .detail-badges { margin:0; flex:1 1 170px; }
 .detail-cinema.detail-without-poster .detail-title { margin-bottom:.8rem; }
 .detail-cinema .detail-backdrop-content .badge { border-color:transparent; background:rgba(19,21,27,.32); }
+
+/* ═══════════════════════════════════════════════════════════
+   4.10 — Fiche : bannière dégagée, repères sous le titre, bouton
+   lecture, notes sous la bannière, genres en puces, pied de fiche
+   allégé. Aucune animation ni transition n'est modifiée : seuls la
+   mise en page et le voile changent.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Voile : l'image reste visible, le fondu ne commence qu'à mi-hauteur. */
+.detail-modal.detail-cinema .detail-backdrop-gradient {
+  background:
+    linear-gradient(180deg, rgba(19,21,27,0) 0%, rgba(19,21,27,0) 46%, rgba(19,21,27,.5) 70%, rgba(19,21,27,.86) 88%, var(--bg-2) 100%),
+    linear-gradient(rgba(19,21,27,calc(var(--detail-p,0) * .85)), rgba(19,21,27,calc(var(--detail-p,0) * .85)));
+}
+.detail-cinema .detail-backdrop-content .detail-title { text-shadow: 0 2px 14px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5); }
+
+/* Repères : une ligne sous le titre ou le logo. */
+.detail-backdrop-info .detail-hero-facts {
+  flex: 0 0 100%;
+  margin: -.2rem 0 .15rem;
+  color: var(--text-2);
+  font-size: var(--type-body);
+  line-height: 1.4;
+  text-shadow: 0 1px 8px rgba(0,0,0,.7);
+}
+.detail-backdrop-info .detail-hero-facts:empty { display: none; }
+.detail-hero-facts .detail-sep { color: var(--text-3); }
+
+/* Bouton lecture sur la bannière : disparaît avec le repli. */
+.detail-play-btn {
+  position: absolute;
+  z-index: 3;
+  right: 1.5rem;
+  bottom: 9.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  height: 38px;
+  padding: 0 .95rem 0 .4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.2);
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: var(--type-label);
+  font-weight: 600;
+  text-decoration: none;
+  opacity: calc(1 - var(--detail-p, 0) * 3);
+  transition: background var(--motion-fast) ease;
+}
+.detail-play-btn:hover { background: rgba(0,0,0,.72); }
+.detail-play-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.detail-play-icon {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: #13151b;
+}
+.detail-play-icon svg { width: 13px; height: 13px; margin-left: 1px; }
+.detail-modal.is-detail-scrolled .detail-play-btn { pointer-events: none; }
+@media (max-width: 680px) {
+  .detail-play-btn { right: 1.25rem; bottom: 8.5rem; }
+}
+
+/* Notes externes : sous la bannière, avant le synopsis. */
+.detail-ratings-slot:empty { display: none; }
+.detail-ratings-slot .detail-external-section { margin: 0; }
+
+/* Genres : puces, comme le casting. */
+.detail-genres { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .95rem; }
+.detail-genres .detail-chip {
+  border-color: transparent;
+  background: var(--fiche-chip-bg);
+  color: var(--fiche-chip);
+  padding: .3rem .75rem;
+}
+.detail-genres .detail-chip > span { color: inherit; font-size: inherit; }
+.detail-genres .detail-chip:hover { color: var(--accent-2); }
+
+/* Pied de fiche : lien du site puis Modifier, sans corbeille. */
+@media (min-width: 681px) {
+  .detail-modal .detail-footer-actions { flex: 1 1 auto; }
+  .detail-modal .detail-footer-actions > .btn-primary { margin-left: auto; min-width: 140px; justify-content: center; }
+}
+.detail-facts.detail-isbn { margin: 0 0 .9rem; font-size: var(--type-label); }

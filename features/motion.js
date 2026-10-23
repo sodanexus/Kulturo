@@ -224,7 +224,7 @@ export function revealDetailSequence(modal) {
   if (!modal) return;
   queueMicrotask(() => {
     if (!modal.isConnected) return;
-    const blocks = modal.querySelectorAll('.detail-title, .detail-rating, .detail-badges, .activity-detail-notice, .reading-progress, .detail-synopsis-slot > *, .detail-info-content > *');
+    const blocks = modal.querySelectorAll('.detail-title, .detail-hero-facts, .detail-rating, .detail-badges, .activity-detail-notice, .reading-progress, .detail-ratings-slot > *, .detail-synopsis-slot > *, .detail-info-content > *');
     const start = dialogAnimations.has(modal) ? motionDuration('--motion-layout', 360) : 70;
     blocks.forEach((block, index) => revealSurface(block, { delay: start + Math.min(index * 75, 525) }));
   });

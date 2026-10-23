@@ -11,8 +11,9 @@ test("la fiche n'a plus d'actions rapides : consulter d'un côté, gérer dans M
   assert.doesNotMatch(detail, /quickActionsHTML|quickSetStatus|quickAdjustRepeat|persistQuickEntryChange/);
   const app = read("../app.js");
   assert.doesNotMatch(app, /quickSetStatus|quickAdjustRepeat/);
-  // Le pied de fiche garde Supprimer et Modifier.
-  assert.match(detail, /uiAction\("deleteEntry", \[e\.id\]\)/);
+  // Le pied de fiche ne garde que le lien du site et Modifier : la suppression vit dans Modifier.
+  assert.doesNotMatch(detail, /uiAction\("deleteEntry"/);
+  assert.match(app, /edit-delete-link[^>]*\$\{uiAction\("deleteEntry"/);
   assert.match(detail, /uiAction\("openEditFromDetail", \[e\.id\]\)/);
 });
 
