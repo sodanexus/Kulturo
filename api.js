@@ -906,7 +906,7 @@ export async function searchMedia(query, mediaType, options = {}) {
 }
 
 // Mémoire locale des logos de jeux : 30 jours si trouvés, 3 jours si aucun.
-const LOGO_CACHE_VERSION = 2;
+const LOGO_CACHE_VERSION = 3;
 const logoCacheKey = entry => `kulturo:title-logos:${LOGO_CACHE_VERSION}:${entry.source_api}:${entry.external_id}`;
 function readLogoCache(entry) {
   try {
