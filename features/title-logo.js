@@ -27,6 +27,11 @@ export function igdbLogoCandidates(logos = []) {
   candidates.sort((a,b) => rank(a)-rank(b) || (b.width || 0)-(a.width || 0));
   return candidates.slice(0,4).map(chosen => ({url:`https://images.igdb.com/igdb/image/upload/t_original/${chosen.image_id}.png`, monochrome:/black/.test(label(chosen))}));
 }
+export function steamGridLogoCandidates(logos = []) {
+  return (Array.isArray(logos) ? logos : []).filter(x => {
+    try { const url = new URL(x?.url); return url.protocol === 'https:' && /(^|\.)steamgriddb\.com$/i.test(url.hostname); } catch { return false; }
+  }).slice(0,4).map(x => ({url:x.url, monochrome:x.style === 'black'}));
+}
 export function selectIgdbLogoAsset(logos = []) { return igdbLogoCandidates(logos)[0] || null; }
 export function selectIgdbLogo(logos = []) { return selectIgdbLogoAsset(logos)?.url || null; }
 export async function mountTitleLogo(title, getUrl, {signal, isActive = () => true} = {}) {
