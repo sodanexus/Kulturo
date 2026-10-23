@@ -27,7 +27,7 @@ test("la fiche est minimaliste : repères, crédits en liens, casting qui défil
   const detail = read("../features/media-detail.js");
   // Seul « Synopsis » garde un titre de section.
   assert.match(detail, /detailSectionHTML\("Synopsis"/);
-  for (const hook of ["detail-facts", "detail-credits", "detail-cast-row", "detail-external-section", "detail-history"]) {
+  for (const hook of ["detail-facts", "detail-credits", "detail-cast-row", "detail-hero-ratings", "detail-history"]) {
     assert.ok(detail.includes(hook), hook);
   }
   // Crédits et genres ouvrent la même feuille que les puces du casting.

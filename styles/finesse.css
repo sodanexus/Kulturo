@@ -1144,9 +1144,30 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-backdrop-info .detail-hero-facts:empty { display: none; }
 .detail-hero-facts .detail-sep { color: var(--text-3); }
 
-/* Notes externes : sous la bannière, avant le synopsis. */
-.detail-ratings-slot:empty { display: none; }
-.detail-ratings-slot .detail-external-section { margin: 0; }
+/* Notes externes : même taille et même teinte que les étiquettes de la bannière. */
+.detail-hero-ratings.detail-external-section,
+.detail-hero-ratings .detail-external-ratings { display: contents; }
+.detail-hero-ratings:empty { display: none; }
+.detail-hero-ratings .detail-external-rating {
+  min-height: 0;
+  gap: .35rem;
+  padding: .1rem .35rem .1rem .15rem;
+  border: 1px solid transparent;
+  background: rgba(19,21,27,.32);
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1.6;
+}
+@media (min-width: 681px) {
+  .detail-hero-ratings .detail-external-rating { padding: .15rem .5rem .15rem .2rem; }
+}
+.detail-hero-ratings .detail-external-rating strong { color: inherit; }
+.detail-hero-ratings .detail-external-rating small { display: none; }
+.detail-hero-ratings .detail-external-logo { height: 1.2em; padding: 0 .4rem; font-size: .6rem; }
+.detail-hero-ratings .detail-external-skeleton { min-height: 0; }
+.detail-hero-ratings .detail-external-skeleton i { width: 74px; height: 1.55rem; }
 
 /* Genres : puces, comme le casting. */
 .detail-genres { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .95rem; }

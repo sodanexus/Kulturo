@@ -231,6 +231,7 @@ function renderDetailPanel(e, options = {}) {
                 ${headerStatusBadge}
                 ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
                 ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
+                <span class="detail-hero-ratings detail-external-section" id="detail-hero-ratings-${e.id}">${renderDetailRatingsHTML(e, { detailsLoading: options.detailsLoading === true })}</span>
               </div>
               </div>
               ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
@@ -751,14 +752,26 @@ function awaitsExternalRatings(e, options = {}) {
     ["movie", "game"].includes(e.media_type) && Boolean(e.external_id);
 }
 
-// Notes externes : une rangée de pastilles juste sous la bannière.
+// Notes externes : pastilles alignées avec les étiquettes, dans la bannière.
 function renderDetailRatingsHTML(e, options = {}) {
   const ratings = e.media_type !== "book" && Array.isArray(e.external_ratings) ? e.external_ratings : [];
-  if (ratings.length) return `<div class="detail-external-section" data-block="external">${externalRatingsHTML(ratings)}</div>`;
+  if (ratings.length) return externalRatingsHTML(ratings);
   if (awaitsExternalRatings(e, options)) {
-    return `<div class="detail-external-section" data-block="external"><div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div></div>`;
+    return `<div class="detail-external-skeleton" role="status" aria-label="Chargement des notes externes"><span class="sr-only">Chargement des notes externes…</span><i aria-hidden="true"></i></div>`;
   }
   return "";
+}
+
+// Met à jour la rangée de notes de la bannière : les pastilles arrivent en fondu.
+function syncHeroRatings(entry, options = {}) {
+  const host = document.getElementById(`detail-hero-ratings-${entry.id}`);
+  if (!host) return;
+  const html = renderDetailRatingsHTML(entry, options);
+  if (host.innerHTML === html) return;
+  host.innerHTML = html;
+  host.querySelectorAll(".detail-external-rating, .detail-external-skeleton").forEach((node, index) => {
+    revealSurface(node, { delay: Math.min(index * 80, 240) });
+  });
 }
 
 function renderDetailInfoHTML(e, options = {}) {
@@ -868,7 +881,7 @@ function renderDetailBody(e, options = {}) {
 
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
-  html += `<div class="detail-enrichment"><div class="detail-ratings-slot" id="detail-ratings-slot-${e.id}">${renderDetailRatingsHTML(e, options)}</div><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
+  html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
   html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
   return html;
@@ -902,14 +915,9 @@ async function refreshDetailEnrichment(entry, options = {}) {
   await waitForDialogTransition(body.closest(".modal"));
   if (!region.isConnected || !detailSessions.isActive(sessionId, entry.id) || enrichmentVersions.get(region) !== version) return;
   const synopsisSlot = region.querySelector(".detail-synopsis-slot");
-  const ratingsSlot = region.querySelector(".detail-ratings-slot");
   const info = region.querySelector(".detail-info-content");
   syncHeroFacts(entry);
-  const ratings = document.createElement("template");
-  ratings.innerHTML = renderDetailRatingsHTML(entry, options).trim();
-  const nextRatings = ratings.content.firstElementChild;
-  const changeRatings = Boolean(ratingsSlot) &&
-    stableDetailMarkup(ratingsSlot.firstElementChild) !== stableDetailMarkup(nextRatings);
+  syncHeroRatings(entry, options);
   const synopsis = document.createElement("template");
   synopsis.innerHTML = renderDetailSynopsisHTML(entry, options).trim();
   const nextSynopsis = synopsis.content.firstElementChild;
@@ -929,13 +937,12 @@ async function refreshDetailEnrichment(entry, options = {}) {
     changed.push(node);
     return node;
   });
-  if (!changeSynopsis && !changeRatings && !changed.length && blocks.length === info.children.length) return;
+  if (!changeSynopsis && !changed.length && blocks.length === info.children.length) return;
   const scroll = body.scrollTop;
-  const arriving = [...(changeRatings && nextRatings ? [nextRatings] : []), ...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
+  const arriving = [...(changeSynopsis && nextSynopsis ? [nextSynopsis] : []), ...changed];
   for (const node of arriving) { node.setAttribute("data-detail-awaiting", ""); node.style.opacity = "0"; }
-  const heightTarget = changeSynopsis || changeRatings ? region : region.querySelector(".detail-info-slot");
+  const heightTarget = changeSynopsis ? region : region.querySelector(".detail-info-slot");
   const heightMotion = animateHeightChange(heightTarget, () => {
-    if (changeRatings) ratingsSlot.replaceChildren(...(nextRatings ? [nextRatings] : []));
     if (changeSynopsis) synopsisSlot.replaceChildren(...(nextSynopsis ? [nextSynopsis] : []));
     info.replaceChildren(...blocks);
     // Le bouton et le nombre de lignes font partie de la hauteur cible.
