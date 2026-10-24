@@ -1088,7 +1088,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-title-text { transition: opacity 320ms ease; }
 .detail-title-logo { position:absolute; inset:0; width:100%; height:100%; max-width:320px; max-height:96px; margin-block:auto; object-fit:contain; object-position:left center; opacity:0; transition:opacity 420ms ease; filter:drop-shadow(0 2px 5px rgba(0,0,0,.45)); pointer-events:none; }
 .has-title-logo .detail-title-logo { opacity:1; }
-.has-title-logo .detail-title-text { opacity:0; }
+.has-title-logo .detail-title-text, .detail-title-with-logo.is-logo-pending .detail-title-text { opacity:0; }
 .title-logo-setting label { display:flex; align-items:center; gap:.65rem; }
 .title-logo-setting input[type="checkbox"] { width:18px; height:18px; flex:0 0 auto; accent-color:var(--accent); }
 .title-logo-setting small { color:var(--text-3); }
