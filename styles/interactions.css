@@ -310,3 +310,23 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
     contain-intrinsic-block-size: auto var(--library-card-height);
   }
 }
+
+/* Pendant le scroll desktop, les cartes qui passent sous le curseur restent
+   au repos. Les effets reviennent automatiquement à l'arrêt, sans toucher
+   aux fondus d'apparition ni aux interactions mobiles. */
+@media (hover: hover) and (pointer: fine) {
+  body[data-library-scrolling] #cards-grid > .media-card > :is(.card-cover, .card-cover-placeholder) {
+    transform: none !important;
+    will-change: auto !important;
+    box-shadow: var(--cover-status-ring, 0 0 0 0 transparent), var(--media-cover-shadow) !important;
+  }
+  body[data-library-scrolling] #cards-grid > .media-card::after {
+    transform: none !important;
+    background: none !important;
+  }
+  body[data-library-scrolling] #cards-grid > .media-card:is(.is-wishlist, .is-paused, .is-dropped) > :is(.card-cover, .card-cover-placeholder) {
+    opacity: .45;
+    filter: saturate(.2);
+  }
+  body[data-library-scrolling] #cards-grid .card-status-label { opacity: 1; }
+}

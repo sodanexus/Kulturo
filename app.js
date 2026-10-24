@@ -3612,13 +3612,23 @@ function bindGlobalEvents() {
 
   let prefetchTimer = 0;
   let prefetchTarget = null;
+  // Un survol provoqué par le déplacement de la grille n'est pas une intention
+  // d'ouvrir la fiche : annuler la requête encore en attente pendant le scroll.
+  document.addEventListener("scroll", event => {
+    if (event.target?.id !== "main") return;
+    clearTimeout(prefetchTimer);
+    prefetchTarget = null;
+  }, { capture: true, passive: true });
   document.addEventListener("pointerover", event => {
     if (!window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches) return;
+    if (document.body.hasAttribute("data-library-scrolling")) return;
     const target = event.target.closest?.("[data-prefetch-media]");
     if (!target || target === prefetchTarget) return;
     prefetchTarget = target;
     clearTimeout(prefetchTimer);
-    prefetchTimer = setTimeout(() => prefetchDetail(target.dataset.prefetchMedia), 180);
+    prefetchTimer = setTimeout(() => {
+      if (target.isConnected && !document.body.hasAttribute("data-library-scrolling")) prefetchDetail(target.dataset.prefetchMedia);
+    }, 180);
   });
   document.addEventListener("pointerout", event => {
     const target = event.target.closest?.("[data-prefetch-media]");
