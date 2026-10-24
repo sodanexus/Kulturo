@@ -928,7 +928,7 @@ export const TitleLogos = {
     if (manual) return [{url:manual}];
     if (entry.source_api === "tmdb" && CONFIG?.tmdb?.apiKey) {
       const ep = entry.subtype === "tv" ? "tv" : "movie";
-      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}`, {cachePolicy:"detail", signal:options.signal});
+      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`, {cachePolicy:"detail", signal:options.signal});
       return tmdbLogoCandidates(data?.logos);
     }
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
