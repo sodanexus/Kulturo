@@ -47,6 +47,17 @@ test('Saga IGDB : exclut les éditions et exige le jeu courant', () => {
   assert.equal(igdbCollection(col, 99), null);
 });
 
+test('Saga IGDB : plusieurs candidats (série + franchise), le plus complet contenant le jeu l\'emporte', () => {
+  const game = (id, date) => ({ id, name: `Jeu ${id}`, first_release_date: date });
+  const series = { name: 'Série', games: [game(1, 100000000), game(2, 200000000)] };
+  const franchise = { name: 'Franchise', games: [game(1, 100000000), game(2, 200000000), game(3, 300000000)] };
+  const unrelated = { name: 'Autre', games: [game(8, 1), game(9, 2), game(10, 3), game(11, 4)] };
+  assert.equal(igdbCollection([series, franchise, unrelated], 2).name, 'Franchise');
+  assert.equal(igdbCollection([series, { ...franchise, name: 'Égal', games: series.games }], 2).name, 'Série');
+  assert.equal(igdbCollection([unrelated], 2), null);
+  assert.equal(igdbCollection(undefined, 2), null);
+});
+
 test('Nom de saga raccourci', () => {
   assert.equal(collectionLabel('Collection Harry Potter'), 'Harry Potter');
   assert.equal(collectionLabel('Matrix Collection'), 'Matrix');
