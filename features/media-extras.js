@@ -56,8 +56,10 @@ export function tmdbCollection(collection, imageBase = "") {
   return items.length >= 2 ? { name: collection.name || "", items } : null;
 }
 
-// Jeux : les jeux d'une collection IGDB (hors éditions), dans l'ordre de sortie.
-export function igdbCollection(collection, currentId) {
+// Jeux : les jeux d'une collection ou franchise IGDB (hors éditions), dans l'ordre
+// de sortie. Accepte un candidat ou une liste : le plus complet qui contient
+// le jeu ouvert l'emporte (à égalité, le premier de la liste, donc la série).
+function igdbCollectionCandidate(collection, currentId) {
   const games = Array.isArray(collection?.games) ? collection.games : [];
   const seen = new Set();
   const items = games.filter(game => Number.isSafeInteger(Number(game?.id)) && game.name && !game.version_parent && !seen.has(game.id) && seen.add(game.id))
@@ -72,6 +74,12 @@ export function igdbCollection(collection, currentId) {
     })).sort((a, b) => (a.release_date || "9999").localeCompare(b.release_date || "9999")).slice(0, 14);
   if (!items.some(item => item.external_id === String(currentId))) return null;
   return items.length >= 2 ? { name: collection.name || "", items } : null;
+}
+
+export function igdbCollection(collection, currentId) {
+  const candidates = (Array.isArray(collection) ? collection : [collection])
+    .map(candidate => igdbCollectionCandidate(candidate, currentId)).filter(Boolean);
+  return candidates.reduce((best, item) => (!best || item.items.length > best.items.length ? item : best), null);
 }
 
 // « Collection Harry Potter », « Saga Matrix », « Matrix Collection » → nom court.
