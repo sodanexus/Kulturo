@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 4.9.6
+Version actuelle · 4.9.9
 
 ## Fonctionnalités
 
@@ -21,6 +21,7 @@ Version actuelle · 4.9.6
 | Journal | Historique personnel par mois et activité de la communauté. |
 | Profil | Bilan mensuel/annuel par média, notes, temps estimé, palmarès et sauvegardes. |
 
+- **Filtres** : panneau ancré au bouton sur desktop, panneau coulissant sur mobile. Une seule vue standard ; les anciennes préférences de densité sont supprimées.
 - **Ajout rapide** : recherche par catégorie (Tout, Films & séries, Jeux vidéo, Livres) ou collage d’un lien TMDb, IMDb, Steam, Goodreads ou Hardcover. Sur un livre, scan du code-barres ISBN avec la caméra.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
 - **Suivi** : page actuelle/totale pour les livres, saison/épisode pour les séries, reprises (revisionnages, parties rejouées, relectures).

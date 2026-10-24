@@ -158,20 +158,30 @@ function activateDialog(dialog, options = {}) {
   });
 }
 
-function readLibraryDensity() {
-  try {
-    return localStorage.getItem(LIBRARY_DENSITY_KEY) === "compact" ? "compact" : "standard";
-  } catch {
-    return "standard";
-  }
-}
+// Une seule présentation : retirer aussi les anciennes préférences Compact.
+try { localStorage.removeItem(LIBRARY_DENSITY_KEY); } catch {}
+delete document.documentElement.dataset.libraryDensity;
 
-function applyLibraryDensity(value = readLibraryDensity()) {
-  const density = value === "compact" ? "compact" : "standard";
-  document.documentElement.dataset.libraryDensity = density;
-  return density;
+let cleanupFilterPosition = null;
+function positionFilterPopover(overlay) {
+  const update = () => {
+    const anchor = document.getElementById("btn-filter-toggle");
+    if (!anchor || !overlay.isConnected) return;
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(420, window.innerWidth - 32);
+    const left = Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16));
+    const top = Math.max(16, Math.min(rect.bottom + 12, window.innerHeight - 160));
+    overlay.style.setProperty("--filter-left", `${left}px`);
+    overlay.style.setProperty("--filter-top", `${top}px`);
+  };
+  update();
+  window.addEventListener("resize", update);
+  window.addEventListener("scroll", update, { passive: true });
+  return () => {
+    window.removeEventListener("resize", update);
+    window.removeEventListener("scroll", update);
+  };
 }
-applyLibraryDensity();
 
 let _updateBannerDismissed = false;
 window.addEventListener("kulturo:update-ready", () => {
@@ -784,7 +794,7 @@ function renderApp() {
         <span class="search-icon">${iconSearch()}</span>
         <input id="global-search" type="search" placeholder="Rechercher dans ma bibliothèque" aria-label="Rechercher dans ma bibliothèque par titre, artiste, auteur, casting, genre ou année" autocomplete="off" />
       </div>
-        <button class="topbar-filter-btn" id="btn-filter-toggle" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
+        <button class="topbar-filter-btn" id="btn-filter-toggle" aria-haspopup="dialog" aria-expanded="false" ${uiAction("toggleFilterDrawer")} aria-label="Ouvrir les filtres de la bibliothèque" title="Filtres">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
       </div>
@@ -3984,8 +3994,6 @@ function updateCategoryTabs() {
   _updateFilterToggleLabel();
 }
 
-// ── Vue grille / liste ────────────────────────────────────────
-// ── Taille des cartes (small / medium) ───────────────────────
 
 
 async function exportLibrary(button = null) {
@@ -4246,16 +4254,6 @@ async function restoreBackup() {
   }
 }
 
-function setLibraryDensity(value) {
-  const density = applyLibraryDensity(value);
-  try { localStorage.setItem(LIBRARY_DENSITY_KEY, density); } catch {}
-  document.querySelectorAll(".library-density-btn").forEach(button => {
-    const active = button.dataset.density === density;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-}
-
 // ── Fiches média ──────────────────────────────────────────────
 mediaDetailFeature = createMediaDetailFeature({
   State,
@@ -4438,7 +4436,6 @@ window.UI = {
         ["game", "Jeux", iconMedia("game")],
         ["book", "Livres", iconMedia("book")],
       ];
-      const libraryDensity = readLibraryDensity();
       const typeChips = types.map(([v,l,icon]) =>
         `<button class="filter-chip ${(State.filters.type === "movie" ? State.filters.subtype : State.filters.type) === v ? "active" : ""}" data-value="${v}" aria-pressed="${(State.filters.type === "movie" ? State.filters.subtype : State.filters.type) === v}"
           ${uiAction("setTypeFilter", [v])}>${icon}${l}</button>`
@@ -4488,17 +4485,7 @@ window.UI = {
                 <div class="filter-modal-label">Trier par</div>
                 <div class="filter-modal-chips" id="fm-sort-chips">${sortChips}</div>
               </div>
-              <div class="filter-modal-section">
-                <div class="filter-modal-label">Densité de la bibliothèque</div>
-                <div class="library-density-control" role="group" aria-label="Densité de la grille">
-                  <button type="button" class="library-density-btn ${libraryDensity === "standard" ? "active" : ""}" data-density="standard" aria-pressed="${libraryDensity === "standard"}" ${uiAction("setLibraryDensity", ["standard"])}>
-                    <span aria-hidden="true">▦</span><span><strong>Standard</strong><small>Affiches plus grandes</small></span>
-                  </button>
-                  <button type="button" class="library-density-btn ${libraryDensity === "compact" ? "active" : ""}" data-density="compact" aria-pressed="${libraryDensity === "compact"}" ${uiAction("setLibraryDensity", ["compact"])}>
-                    <span aria-hidden="true">▦</span><span><strong>Compact</strong><small>Plus d’œuvres à l’écran</small></span>
-                  </button>
-                </div>
-              </div>
+
             </div>
             <div class="modal-footer">
               <button class="btn btn-secondary" id="fm-reset-btn" style="${hasActive ? "" : "visibility:hidden"}" ${uiAction("resetFilters")}>Réinitialiser</button>
@@ -4512,6 +4499,9 @@ window.UI = {
     syncDialogBackground();
     pushHistoryLayer("filters");
     const overlay = document.getElementById("filter-modal-overlay");
+    cleanupFilterPosition?.();
+    cleanupFilterPosition = positionFilterPopover(overlay);
+    document.getElementById("btn-filter-toggle")?.setAttribute("aria-expanded", "true");
     setupMobileSheetSwipe({
       overlay,
       sheet: overlay?.querySelector(".filter-modal"),
@@ -4555,6 +4545,9 @@ window.UI = {
     const overlay = document.getElementById("filter-modal-overlay");
     if (!overlay) return;
     if (overlay.classList.contains("is-closing")) return;
+    cleanupFilterPosition?.();
+    cleanupFilterPosition = null;
+    document.getElementById("btn-filter-toggle")?.setAttribute("aria-expanded", "false");
     const filterDialog = overlay.querySelector(".filter-modal");
     prepareDialogClose(overlay);
     overlay.classList.add("is-closing");
@@ -4625,7 +4618,6 @@ window.UI = {
   chooseBackupFile,
   previewBackupRestore,
   restoreBackup,
-  setLibraryDensity,
   applyAppUpdate,
   dismissUpdateBanner,
   showRatingLabel,
