@@ -21,7 +21,8 @@ export function setTextTitle(entry, owner, enabled) {
   } catch { /* Le titre reste utilisable si le stockage est indisponible. */ }
 }
 export function tmdbLogoCandidates(logos = []) {
-  const rank = x => x.iso_639_1 === 'fr' ? 0 : !x.iso_639_1 ? 1 : x.iso_639_1 === 'en' ? 2 : 3;
+  // Français d'abord, puis anglais, puis logo sans langue (souvent du texte d'une autre langue mal étiqueté).
+  const rank = x => x.iso_639_1 === 'fr' ? 0 : x.iso_639_1 === 'en' ? 1 : !x.iso_639_1 ? 2 : 3;
   return (Array.isArray(logos) ? logos : []).filter(x => /^\/[a-z0-9_-]+\.(png|svg|webp)$/i.test(x?.file_path || ''))
     .sort((a,b) => rank(a)-rank(b) || (b.vote_average || 0)-(a.vote_average || 0))
     .slice(0,4).map(x => ({url:`https://image.tmdb.org/t/p/original${x.file_path}`}));
