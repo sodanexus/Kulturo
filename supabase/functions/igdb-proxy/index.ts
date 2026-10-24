@@ -311,10 +311,18 @@ Deno.serve(async (req) => {
         // Bande-annonce et saga : requêtes séparées et facultatives, pour qu'un
         // échec n'empêche jamais d'afficher la fiche du jeu.
         try { game.videos = await igdbRequest("game_videos", `fields name,video_id; where game = ${id}; limit 10;`, headers); } catch { /* Facultatif. */ }
-        try {
-          const [collection] = await igdbRequest("collections", `fields name,games.name,games.cover.image_id,games.first_release_date,games.version_parent; where games = ${id}; limit 1;`, headers);
-          if (collection) game.collection_details = collection;
-        } catch { /* Facultatif. */ }
+        // IGDB distingue les « collections » (séries) des « franchises », et un jeu
+        // peut appartenir à plusieurs des deux : on récupère tous les candidats,
+        // le client retient le plus complet.
+        const candidates: any[] = [];
+        for (const endpoint of ["collections", "franchises"]) {
+          try {
+            const rows = await igdbRequest(endpoint, `fields name,games.name,games.cover.image_id,games.first_release_date,games.version_parent; where games = (${id}); limit 10;`, headers);
+            candidates.push(...rows);
+          } catch (error) { console.warn(`[IGDB ${endpoint}] indisponible`, error); }
+        }
+        console.info(`[IGDB saga] jeu=${id} candidats=${candidates.map(c => `${c.name}:${c.games?.length ?? 0}`).join(" | ") || "aucun"}`);
+        if (candidates.length) game.collection_details = candidates;
       }
       const parentId = Number(game?.version_parent);
       if (Number.isSafeInteger(parentId) && parentId > 0 && parentId !== id &&
