@@ -302,3 +302,11 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   #cards-grid .media-card { transition: none; }
   #cards-grid .media-card.library-card-pending { opacity: 1; }
 }
+
+/* Dimensions réelles mémorisées avant de suspendre le contenu lointain. */
+@supports (content-visibility: auto) {
+  #cards-grid > .library-card-offscreen:not(:focus-within):not(:hover) {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto var(--library-card-height);
+  }
+}

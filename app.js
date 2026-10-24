@@ -1,3 +1,5 @@
+import { libraryCoverSources, LIBRARY_COVER_SIZES } from "./features/library-covers.js";
+import { createLibraryVisibility } from "./features/library-visibility.js";
 import { supportsTitleLogo, prefersTextTitle, setTextTitle } from "./features/title-logo.js";
 import { createLibraryWindow } from "./features/library-window.js";
 import { startMeasurement, performanceDiagnostics } from "./features/performance.js";
@@ -395,6 +397,7 @@ function restoreUiSnapshot() {
 function clearUiSnapshot() {
   libraryWindow.clear();
   stopLibraryMore();
+  libraryVisibility?.dispose(); libraryVisibility = null;
   _libraryRevealObserver?.disconnect();
   _libraryRevealObserver = null;
   try { sessionStorage.removeItem(UI_SNAPSHOT_KEY); } catch {}
@@ -803,6 +806,7 @@ function openAddFromRoute(route) {
 
 // ── Auth UI ───────────────────────────────────────────────────
 function renderAuthPage() {
+  libraryVisibility?.dispose(); libraryVisibility = null;
   closeDesktopFilters(true);
   const app = document.getElementById("app");
   document.body.classList.remove("app-shell-active");
@@ -831,6 +835,7 @@ function renderAuthPage() {
 
 // ── App shell ─────────────────────────────────────────────────
 function renderApp() {
+  libraryVisibility?.dispose(); libraryVisibility = null;
   closeDesktopFilters(true);
   const app = document.getElementById("app");
   document.body.classList.add("app-shell-active");
@@ -1662,6 +1667,7 @@ function renderCards(options = {}) {
   if (!grid) return;
 
   stopLibraryMore();
+  libraryVisibility?.dispose(); libraryVisibility = null;
   _libraryRevealObserver?.disconnect();
   _libraryRevealObserver = null;
   grid.setAttribute("aria-busy", String(State.libraryStatus === "loading"));
@@ -1731,36 +1737,52 @@ function stopLibraryMore() {
   if (more) more.hidden = true;
 }
 
+let libraryVisibility = null;
 function renderLibraryWindow(append = false) {
   const grid = document.getElementById("cards-grid");
   if (!grid) return;
   stopLibraryMore();
-  if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
-  reconcileKeyedChildren(grid, libraryWindow.visible(), {
-    key: entry => entry.id,
-    create: (entry, index) => {
-      const card = createMediaCardNode(entry, index);
-      if (append && card && typeof IntersectionObserver === "function" && !prefersReducedMotion()) {
-        card.classList.add("library-card-pending");
-      }
-      return card;
-    },
-    update: (node, entry) => patchMediaCardNode(node, entry),
-  });
-  hydrateFadeImages(grid);
-  _libraryRevealObserver?.disconnect();
-  _libraryRevealObserver = null;
-  const pendingCards = grid.querySelectorAll(".library-card-pending");
-  if (pendingCards.length && typeof IntersectionObserver === "function" && !prefersReducedMotion()) {
-    _libraryRevealObserver = new IntersectionObserver(records => {
+  const createCard = (entry, index) => {
+    const card = createMediaCardNode(entry, index);
+    if (append && card && typeof IntersectionObserver === "function" && !prefersReducedMotion()) card.classList.add("library-card-pending");
+    return card;
+  };
+  let newCards;
+  if (append) {
+    // La sélection et l'ordre ne changent pas pendant next() : seul le suffixe
+    // nouveau est créé. Aucun parcours, patch ou décodage des anciennes cartes.
+    const fragment = document.createDocumentFragment();
+    const start = grid.childElementCount;
+    newCards = libraryWindow.visible(start).map((entry, i) => createCard(entry, i)).filter(Boolean);
+    for (const card of newCards) fragment.append(card);
+    grid.append(fragment);
+    for (const card of newCards) hydrateFadeImages(card);
+  } else {
+    libraryVisibility?.dispose();
+    libraryVisibility = null;
+    _libraryRevealObserver?.disconnect();
+    _libraryRevealObserver = null;
+    if ([...grid.children].some(node => !node.classList.contains("media-card"))) grid.replaceChildren();
+    reconcileKeyedChildren(grid, libraryWindow.visible(), {
+      key: entry => entry.id, create: createCard,
+      update: (node, entry) => patchMediaCardNode(node, entry),
+    });
+    newCards = [...grid.children];
+    for (const card of newCards) card.classList.remove("library-card-pending");
+    hydrateFadeImages(grid);
+  }
+  if (!libraryVisibility) libraryVisibility = createLibraryVisibility(grid, document.getElementById("main"));
+  libraryVisibility.observe(newCards);
+  if (append && newCards.length && typeof IntersectionObserver === "function" && !prefersReducedMotion()) {
+    if (!_libraryRevealObserver) _libraryRevealObserver = new IntersectionObserver(records => {
       for (const record of records) {
         if (!record.isIntersecting) continue;
         record.target.classList.remove("library-card-pending");
         _libraryRevealObserver?.unobserve(record.target);
       }
     }, { root: document.getElementById("main"), threshold: 0.01 });
-    pendingCards.forEach(card => _libraryRevealObserver.observe(card));
-  } else pendingCards.forEach(card => card.classList.remove("library-card-pending"));
+    newCards.forEach(card => _libraryRevealObserver.observe(card));
+  } else newCards.forEach(card => card.classList.remove("library-card-pending"));
   const more = document.getElementById("library-more");
   const main = document.getElementById("main");
   if (!more || !main || !libraryWindow.hasMore()) return;
@@ -1851,9 +1873,11 @@ function activityStateMarkersHTML(entry) {
 }
 
 function cardHTML(e, i = 0) {
-  const coverUrl = safeMediaUrl(e.cover_url);
+  const cover = libraryCoverSources(safeMediaUrl(e.cover_url));
+  const coverUrl = cover.src;
+  const responsiveCover = cover.srcset ? `srcset="${esc(cover.srcset)}" sizes="${LIBRARY_COVER_SIZES}"` : "";
   const coverHTML = coverUrl
-    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" alt="${esc(e.title)}" loading="lazy" decoding="async">
+    ? `<img class="card-cover fade-image" data-fade-image data-image-fallback="flex" src="${esc(coverUrl)}" ${responsiveCover} alt="${esc(e.title)}" loading="lazy" decoding="async">
        <div class="card-cover-placeholder" style="display:none">${iconMedia(e.media_type, e.subtype)}</div>`
     : `<div class="card-cover-placeholder">${iconMedia(e.media_type, e.subtype)}</div>`;
 
@@ -1918,6 +1942,11 @@ function patchMediaCardNode(node, entry) {
   if (coverChanged && currentCover && nextCover) currentCover.replaceWith(nextCover);
   else if (currentCover?.tagName === "IMG" && nextCover?.tagName === "IMG") {
     currentCover.alt = nextCover.alt;
+    for (const attribute of ["srcset", "sizes"]) {
+      const value = nextCover.getAttribute(attribute);
+      if (value) currentCover.setAttribute(attribute, value);
+      else currentCover.removeAttribute(attribute);
+    }
   }
 
   const currentStatus = node.querySelector(".card-status-label");
