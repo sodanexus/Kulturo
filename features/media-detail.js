@@ -713,7 +713,7 @@ function formatPlaytime(minutes) {
 }
 
 // Notes d'autres services : logo coloré de la source, jamais mélangées à la
-// note perso. Le nom complet, le profil (joueurs, presse) et les votes restent
+// note perso. Le nom complet, le profil (public, presse) et les votes restent
 // dans l'infobulle et le libellé d'accessibilité.
 function externalRatingLabel(rating) {
   const votes = rating.votes ? ` · ${new Intl.NumberFormat("fr-FR").format(rating.votes)} votes` : "";
@@ -737,7 +737,7 @@ function externalRatingPillHTML(rating, extraAttrs = "") {
     </span>`;
 }
 
-// Une source qui donne plusieurs notes (IGDB : joueurs + presse) forme une
+// Une source qui donne plusieurs notes (IGDB : public + presse) forme une
 // seule pastille sur mobile : un tap retourne la pastille d'une note à l'autre.
 // Sur grand écran, toutes les notes restent affichées côte à côte.
 function externalRatingsHTML(ratings) {
