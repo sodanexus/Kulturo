@@ -19,6 +19,7 @@ const POSTER_COVERS = ".card-cover, .card-cover-placeholder, .continue-cover, .p
 let frame = 0;
 let active = null;
 let scrollTicking = false;
+let libraryScrollTimer = 0;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -29,7 +30,7 @@ function releaseCard(card) {
 }
 
 function onPointerMove(event) {
-  if (event.pointerType !== "mouse" || prefersReducedMotion()) return;
+  if (event.pointerType !== "mouse" || prefersReducedMotion() || document.body.hasAttribute("data-library-scrolling")) return;
   const card = event.target instanceof Element ? event.target.closest(POSTER_HOSTS) : null;
   if (card !== active) {
     releaseCard(active);
@@ -72,7 +73,16 @@ function progressBar() {
 
 function onScroll(event) {
   const main = event.target;
-  if (!(main instanceof Element) || main.id !== "main" || scrollTicking) return;
+  if (!(main instanceof Element) || main.id !== "main") return;
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches && main.querySelector("#page-library.active")) {
+    if (!document.body.hasAttribute("data-library-scrolling")) {
+      document.body.setAttribute("data-library-scrolling", "");
+      resetActive();
+    }
+    clearTimeout(libraryScrollTimer);
+    libraryScrollTimer = setTimeout(() => document.body.removeAttribute("data-library-scrolling"), 180);
+  }
+  if (scrollTicking) return;
   scrollTicking = true;
   requestAnimationFrame(() => {
     scrollTicking = false;
@@ -80,7 +90,8 @@ function onScroll(event) {
     const progress = max > 0 ? clamp(main.scrollTop / max, 0, 1) : 0;
     const bar = progressBar();
     if (bar) bar.style.transform = `scaleX(${progress.toFixed(4)})`;
-    document.body.dataset.scrolled = main.scrollTop > 8 ? "true" : "false";
+    const scrolled = main.scrollTop > 8 ? "true" : "false";
+    if (document.body.dataset.scrolled !== scrolled) document.body.dataset.scrolled = scrolled;
     // La carte sous le curseur change pendant le défilement : on repart propre.
     if (active) resetActive();
   });
