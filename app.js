@@ -2833,19 +2833,22 @@ function setupWizardUniversalSearch() {
       if (!input.isConnected || signal.aborted || seq !== requestSeq || input.value.trim() !== query) return;
 
       const allItems = grouped.flat();
-      const items = allItems.filter(item => !findMatchingEntry(item));
+      // Les œuvres déjà possédées restent visibles mais grisées (non sélectionnables), après les nouvelles.
+      const owned = new Set(allItems.filter(item => findMatchingEntry(item)));
+      const items = [...allItems.filter(item => !owned.has(item)), ...allItems.filter(item => owned.has(item))];
       const unavailable = failures.map(type => ({movie: "films et séries", game: "jeux", book: "livres"})[type]).join(", ");
-      const emptyMessage = allItems.length ? "Les œuvres trouvées sont déjà dans votre bibliothèque." : failures.length ? "La recherche est incomplète. Réessayez dans quelques instants ou ajoutez votre œuvre manuellement." : `Aucun résultat pour « ${esc(query)} ». Essayez un titre plus court ou, pour un livre, son ISBN.`;
+      const emptyMessage = failures.length ? "La recherche est incomplète. Réessayez dans quelques instants ou ajoutez votre œuvre manuellement." : `Aucun résultat pour « ${esc(query)} ». Essayez un titre plus court ou, pour un livre, son ISBN.`;
       window._apiResults = items;
       const resultItems = items.map((item, index) => {
         const coverUrl = searchCoverUrl(item.cover_url);
         return `
-          <button type="button" class="api-result-item wz-universal-result" ${uiAction("fillFromApi", [index])}>
+          <button type="button" class="api-result-item wz-universal-result${owned.has(item) ? " is-owned" : ""}" ${owned.has(item) ? 'disabled aria-disabled="true"' : uiAction("fillFromApi", [index])}>
             ${coverUrl ? `<img class="api-result-thumb fade-image" data-fade-image src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : `<div class="api-result-thumb api-result-placeholder">${iconMedia(item.media_type, item.subtype)}</div>`}
             <span class="api-result-info">
               <strong class="api-result-title">${esc(item.title)}</strong>
               <small class="api-result-sub">${esc(getTypeLabel(item))}${item.release_year ? ` · ${esc(item.release_year)}` : ""}${item.author ? ` · ${esc(item.author)}` : ""}</small>
             </span>
+            ${owned.has(item) ? `<span class="api-result-owned"><span aria-hidden="true">✓</span> Déjà dans votre bibliothèque</span>` : ""}
           </button>`;
       }).join("");
       animateHeightChange(results, () => { results.innerHTML = `
@@ -3200,7 +3203,7 @@ async function saveEntry() {
       // Une simple note ou un cœur ne justifie pas un nouvel enrichissement.
       // Les marqueurs internes ne sont jamais envoyés à Supabase.
       if (keepExistingApi) {
-        for (const key of ["_detailsFetched", "_backdropRepairAttempted", "cast_people", "external_ratings"]) {
+        for (const key of ["_detailsFetched", "_backdropRepairAttempted", "cast_people", "external_ratings", "collection", "trailer_url"]) {
           if (existing[key] !== undefined) updated[key] = existing[key];
         }
       }
@@ -4335,6 +4338,7 @@ async function restoreBackup() {
 
 // ── Fiches média ──────────────────────────────────────────────
 mediaDetailFeature = createMediaDetailFeature({
+  findMatchingEntry,
   State,
   Media,
   Journal,
@@ -4483,6 +4487,7 @@ window.UI = {
   setEditDetailsView,
   closeModal,
   openEditFromDetail,
+  openDetailFromCollection: (id, control = null) => { openDetailPanel(id, { transitionSource: control }); },
   closeModalOnBg,
   saveEntry,
   deleteEntry,

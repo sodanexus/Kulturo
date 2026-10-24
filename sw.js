@@ -39,6 +39,7 @@ const STATIC_ASSET_PATHS = [
   "features/cover-accent.js",
   "features/detail-enrichment.js",
   "features/media-links.js",
+  "features/media-extras.js",
   "features/detail-session.js",
   "features/dialog-focus.js",
   "features/finesse.js",

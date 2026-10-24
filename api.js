@@ -4,6 +4,7 @@ import { searchBooksWithFallback } from "./features/hardcover.js";
 import { normalizeISBN, isLatinTitle, preferredBookTitle, cleanBookGenres } from "./features/book-search.js";
 import { isLikelyFrench } from "./features/text-language.js";
 import { igdbMediaData, igdbPlayMinutes } from "./features/igdb-media.js";
+import { tmdbTrailerUrl, tmdbCollection, igdbTrailerUrl, igdbCollection } from "./features/media-extras.js";
 // ============================================================
 // api.js — Intégrations APIs médias
 // TMDb · IGDB · Open Library · Google Books
@@ -607,15 +608,17 @@ export const TMDbDetails = {
       ? { cachePolicy: "detail", fresh: true, signal: options.signal }
       : { cachePolicy: "detail", signal: options.signal };
 
-    const [main, credits, providers] = await Promise.allSettled([
+    const [main, credits, providers, videos] = await Promise.allSettled([
       apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, detailRequest),
       apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, detailRequest),
       apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, detailRequest),
+      apiFetch(`${base}/${ep}/${externalId}/videos?api_key=${key}&${lang}&include_video_language=fr,en`, detailRequest),
     ]);
 
     const d = main.status === "fulfilled" ? main.value : null;
     const c = credits.status === "fulfilled" ? credits.value : null;
     const p = providers.status === "fulfilled" ? providers.value : null;
+    const v = videos.status === "fulfilled" ? videos.value : null;
 
     if (options.signal?.aborted) {
       const error = new Error("Requête annulée");
@@ -624,6 +627,16 @@ export const TMDbDetails = {
     }
 
     if (!d) return null;
+
+    // Bande-annonce directe et saga : transitoires, jamais enregistrées.
+    const trailer_url = tmdbTrailerUrl(v?.results);
+    let collection = null;
+    if (ep === "movie" && d.belongs_to_collection?.id) {
+      try {
+        const data = await apiFetch(`${base}/collection/${d.belongs_to_collection.id}?api_key=${key}&${lang}`, detailRequest);
+        collection = tmdbCollection(data, CONFIG.tmdb.imageBase);
+      } catch { /* Facultatif : la fiche reste complète sans la saga. */ }
+    }
 
     // Réalisateur (film) ou créateur (série)
     let directors = null;
@@ -690,7 +703,7 @@ export const TMDbDetails = {
     const releaseDate = ep === "movie" ? d.release_date : d.first_air_date;
     const release_year = releaseDate ? Number.parseInt(String(releaseDate).slice(0, 4), 10) || null : null;
 
-    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers, external_ratings, release_year };
+    return { backdrop_url, description, directors, cast_members, cast_people, duration, seasons_count, episodes_count, air_status, watch_providers, external_ratings, release_year, trailer_url, collection };
   },
 };
 
@@ -778,7 +791,8 @@ export const IGDBDetails = {
     // Temps de jeu (minutes) stocké dans `duration`, comme la durée d'un film.
     const duration = igdbPlayMinutes(g);
 
-    return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year, duration };
+    return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year, duration,
+      trailer_url: igdbTrailerUrl(g.videos), collection: igdbCollection(g.collection_details, g.id) };
   },
 };
 
