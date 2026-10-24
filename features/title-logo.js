@@ -42,8 +42,14 @@ export function steamGridLogoCandidates(logos = []) {
 }
 export function selectIgdbLogoAsset(logos = []) { return igdbLogoCandidates(logos)[0] || null; }
 export function selectIgdbLogo(logos = []) { return selectIgdbLogoAsset(logos)?.url || null; }
-export async function mountTitleLogo(title, getUrl, {signal, isActive = () => true} = {}) {
+// Le titre texte reste masqué pendant la recherche du logo ; sans logo, il apparaît en fondu.
+export async function mountTitleLogo(title, getUrl, options = {}) {
   if (!title) return;
+  const mounted = await tryMountTitleLogo(title, getUrl, options);
+  if (!mounted && title.isConnected && !options.signal?.aborted) title.classList?.remove?.('is-logo-pending');
+}
+async function tryMountTitleLogo(title, getUrl, {signal, isActive = () => true} = {}) {
+  if (!title) return false;
   const alive = () => !signal?.aborted && title.isConnected && isActive();
   try {
     const result = await getUrl();
@@ -98,7 +104,7 @@ export async function mountTitleLogo(title, getUrl, {signal, isActive = () => tr
         }
         mounted = true;
         requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
-        return;
+        return true;
       } catch (error) { if (isVideo) console.warn('[Logo animé]', url, error?.message || error); /* Candidat suivant, le texte reste le secours. */ }
       finally {
         clearTimeout(timer); signal?.removeEventListener('abort',abort);
