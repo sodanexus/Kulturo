@@ -1368,6 +1368,34 @@ async function openDetailPanel(id, options = {}) {
 
 
 
+// Fiche d'une œuvre de la Communauté : même rendu qu'une fiche personnelle
+// (logo, bannière, synopsis, casting, notes externes), mais en lecture seule.
+// Les détails récupérés restent en mémoire : on n'écrit jamais dans la base,
+// l'œuvre appartient à quelqu'un d'autre.
+async function openSharedDetail(entry, options = {}) {
+  if (!entry?.id) return;
+  const e = { ...entry };
+  const needsDetails = canEnrichMediaDetails(e) && (e.media_type !== "book" || !e.description);
+  const sessionId = renderDetailPanel(e, { readOnly: true, detailsLoading: needsDetails, transitionSource: options.transitionSource || null });
+  _scheduleSynopsisOverflowCheck(e.id);
+  if (!needsDetails) return;
+  const signal = detailSessions.signal(sessionId);
+  const isActive = () => detailSessions.isActive(sessionId, e.id);
+  try {
+    const details = await requestPrefetchedDetails(e, { signal });
+    if (!isActive()) return;
+    if (details) {
+      if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
+      if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
+      Object.assign(e, collectDetailUpdates(e, details));
+      _injectBackdrop(e.backdrop_url, e.id, sessionId);
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") console.warn("[Communauté] détails indisponibles:", error);
+  }
+  if (isActive()) refreshDetailEnrichment(e, { detailsLoading: false });
+}
+
 function retryDetailInfo(id) {
   const body = document.getElementById(`detail-body-${id}`);
   if (!body || State.entries.find(item => item.id === id)?._detailsFetching) return;
@@ -1387,6 +1415,7 @@ function retryDetailInfo(id) {
     injectBackdrop: _injectBackdrop,
     scheduleSynopsisOverflowCheck: _scheduleSynopsisOverflowCheck,
     openDetailPanel,
+    openSharedDetail,
     openMetadataFromElement,
     openMetadataMedia,
     closeMetadataPanel,

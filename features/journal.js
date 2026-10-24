@@ -11,7 +11,7 @@ export function createJournalFeature({
   State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
-  confirmDialog, toast, openDetailPanel, renderDetailPanel,
+  confirmDialog, toast, openDetailPanel, openSharedDetail,
   getCurrentPage, onContextChange, onViewReady, sameOwner,
 }) {
   try {
@@ -413,11 +413,7 @@ export function createJournalFeature({
       return;
     }
 
-    renderDetailPanel({
-      ...entry,
-      external_id: null,
-      source_api: "activity",
-    }, { readOnly: true, transitionSource });
+    openSharedDetail(entry, { transitionSource });
   }
 
   function syncFloating() {
