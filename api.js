@@ -782,7 +782,7 @@ export const IGDBDetails = {
     // Les éditions peuvent ne noter que le jeu de base : le libellé le précise.
     const media = igdbMediaData(g);
     const external_ratings = [
-      media.players ? externalRating("igdb", "IGDB", media.players.value, 100, { kind: media.players.fromParent ? "joueurs · jeu de base" : "joueurs", votes: Number(media.players.votes) || null }) : null,
+      media.players ? externalRating("igdb", "IGDB", media.players.value, 100, { kind: media.players.fromParent ? "public · jeu de base" : "public", votes: Number(media.players.votes) || null }) : null,
       media.critics ? externalRating("igdb", "IGDB", media.critics.value, 100, { kind: media.critics.fromParent ? "presse · jeu de base" : "presse", votes: Number(media.critics.votes) || null }) : null,
     ].filter(Boolean);
 
