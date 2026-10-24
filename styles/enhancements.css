@@ -123,7 +123,7 @@ body { background-color: var(--system-bar-color); }
 .profile-category-row,
 .profile-top-cover,
 .profile-backup-panel,
-.library-density-btn { border-radius: var(--radius); }
+
 
 /* États communs ------------------------------------------------ */
 .ui-state {
@@ -437,12 +437,7 @@ body { background-color: var(--system-bar-color); }
   .upcoming-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
-@media (min-width: 681px) {
-  html[data-library-density="compact"] .upcoming-grid {
-    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-    gap: .55rem;
-  }
-}
+
 
 @media (max-width: 680px) {
   .upcoming-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
@@ -454,14 +449,6 @@ body { background-color: var(--system-bar-color); }
   }
   .upcoming-wishlist-mark { right: .4rem; bottom: .4rem; width: 30px; height: 30px; }
   .release-countdown { top: .4rem; right: .4rem; }
-  html[data-library-density="compact"] .upcoming-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .42rem;
-  }
-  html[data-library-density="compact"] .upcoming-wishlist-mark {
-    width: 26px;
-    height: 26px;
-  }
 }
 
 /* Jaquettes : une interaction commune pour la bibliothèque, À reprendre,
@@ -517,56 +504,6 @@ body { background-color: var(--system-bar-color); }
     transform: scale(var(--media-press-scale));
     transition-duration: var(--motion-touch);
   }
-}
-
-/* Bibliothèque dense ------------------------------------------ */
-.library-density-control {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .45rem;
-}
-.library-density-btn {
-  display: flex;
-  align-items: center;
-  gap: .55rem;
-  min-height: 54px;
-  padding: .55rem .65rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-3);
-  color: var(--text-2);
-  text-align: left;
-}
-.library-density-btn > span:first-child { color: var(--text-3); font-size: var(--type-title-sm); }
-.library-density-btn > span:last-child { display: flex; min-width: 0; flex-direction: column; }
-.library-density-btn strong { font-size: var(--type-label); }
-.library-density-btn small { color: var(--text-3); font-size: var(--type-micro); }
-.library-density-btn.active {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
-  background: var(--accent-glow);
-  color: var(--accent-2);
-}
-.library-density-btn.active > span:first-child { color: var(--accent); }
-
-@media (min-width: 681px) {
-  html[data-library-density="compact"] #cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-    gap: .55rem;
-  }
-  html[data-library-density="compact"] .card-bottom { min-height: .85rem; }
-  html[data-library-density="compact"] .card-rating { font-size: var(--type-caption); }
-  html[data-library-density="compact"] .card-status-label { bottom: 1.65rem; font-size: var(--type-micro); }
-}
-
-@media (max-width: 680px) {
-  html[data-library-density="compact"] #cards-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .42rem;
-  }
-  html[data-library-density="compact"] .card-rating { font-size: var(--type-micro); }
-  html[data-library-density="compact"] .card-heart,
-  html[data-library-density="compact"] .card-repeat { transform: scale(.82); transform-origin: right center; }
-  html[data-library-density="compact"] .card-status-label { display: none; }
 }
 
 @keyframes localItemIn {
