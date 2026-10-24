@@ -101,6 +101,7 @@ let _modalReturnControlId = null;
 let mediaDetailFeature;
 let detailSessions;
 let openDetailPanel;
+let openSharedDetail;
 let renderDetailPanel;
 let prefetchDetail;
 let openMetadataFromElement;
@@ -4379,6 +4380,7 @@ mediaDetailFeature = createMediaDetailFeature({
 ({
   detailSessions,
   openDetailPanel,
+  openSharedDetail,
   renderDetailPanel,
   prefetchDetail,
   openMetadataFromElement,
@@ -4411,7 +4413,7 @@ const journalFeature = createJournalFeature({
   State, Journal, Activity, refreshJournalEvents, replayMotion, hydrateFadeImages,
   esc, safeMediaUrl, uiAction, iconMedia, iconStatus, iconTrash, iconJournalAction,
   journalActionTone, ratingScoreHTML, activityStateMarkersHTML, getTypeLabel,
-  confirmDialog, toast, openDetailPanel, renderDetailPanel,
+  confirmDialog, toast, openDetailPanel, openSharedDetail, renderDetailPanel,
   getCurrentPage: () => _currentPage,
   onContextChange: persistUiSnapshot,
   onViewReady: restorePageScroll,
