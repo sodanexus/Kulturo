@@ -920,7 +920,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-external-logo.is-tmdb { background: linear-gradient(90deg, #90cea1, #01b4e4); color: #0d253f; }
 .detail-external-logo.is-igdb { background: #9147ff; }
 .detail-external-pending { display: block; width: 1px; height: 30px; }
-/* Notes multiples d'une même source (IGDB joueurs / presse) :
+/* Notes multiples d'une même source (IGDB public / presse) :
    mobile = une pastille qui se retourne au tap ; grand écran = côte à côte. */
 .detail-external-flip { display: contents; }
 .detail-external-faces { display: contents; }
@@ -1218,7 +1218,7 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
 .detail-hero-ratings .detail-external-rating { background: rgba(19,21,27,.35); }
 /* Mobile : la note, les étiquettes et la pastille de la note externe tiennent sur
    UNE seule ligne. Les espaces sont resserrés ; si l'écran est vraiment étroit
-   (< 345 px de large utile), la mention « joueurs / presse » se masque (elle reste
+   (< 345 px de large utile), la mention « public / presse » se masque (elle reste
    dans l'infobulle) plutôt que de casser la ligne. */
 @media (max-width: 680px) {
   .detail-cinema .detail-header-meta { gap: .45rem; container-type: inline-size; }
