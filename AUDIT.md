@@ -1,46 +1,34 @@
-# Audit Kulturo 4.0.7
+# Audit Kulturo 4.9.11
 
-Audit du 14 octobre 2026, à partir de la version 4.0.6 fournie dans cette conversation. Aucune donnée de production modifiée.
+24 octobre 2026. Base : dernière archive fournie (4.9.10), avec les correctifs de cadrage du palmarès et de largeur du Journal. Aucune donnée de production ni fonction Supabase modifiée.
 
-## Problèmes confirmés et corrigés
+## Corrections confirmées
 
-| Zone | Problème constaté dans le code | Correction |
-| --- | --- | --- |
-| Journal | Deux mécanismes de recherche ; seul le filtre DOM était branché. Une soustraction incorrecte pouvait masquer un mois contenant un résultat. Communauté n’était pas filtrée. | Une recherche sur les données, appliquée aux deux modes, avec état vide et liste des mois cohérente. |
-| Journal | Mois sélectionné devenu absent conservé après une recherche vide. | Réinitialisation à Tout l’historique ; conservation du mois demandé pendant le chargement. |
-| Journal | Bouton inactif retiré du parcours Tab, sans navigation par flèches. | Flèches gauche/droite, Home et End, avec activation du panneau et transfert du focus. |
-| Journal | Dates sans heure interprétées en UTC dans certains endroits et localement dans d’autres. | Clés de mois partagées avec le domaine et libellés de jour en heure locale. |
-| Journal | État de recherche et navigation conservé après déconnexion. | Réinitialisation du contexte pour la session suivante. |
-| Recherche | Les ligatures françaises ne correspondaient pas à leur saisie ordinaire. | « œuvre » / « oeuvre » et « æ » / « ae » normalisés comme les accents. |
-| Sorties | Réinitialiser les filtres laissait l’ancien texte dans le champ supérieur visible. | Synchronisation du champ partagé avec les filtres Sorties uniquement lorsque cette page est active. |
-| Contrôles | Certaines règles communes utilisaient une spécificité trop faible et perdaient contre les styles des pages. Sélecteurs de dates de tailles différentes. | Sélecteurs explicites, dimensions, rayons et typographie partagés ; taille minimale de 44 px pour les contrôles communs sur pointeur tactile. |
-| Défilement | Sorties conservait les panneaux flottants et offsets fixes retirés du Journal. | Commandes et en-têtes de mois dans le flux, sur fond transparent. |
-| Navigation | Icônes Profil différentes sur ordinateur et mobile. | Même icône utilisateur. |
-| Dialogues | Croix de fermeture masquées sur mobile ; éléments summary absents du cycle de focus. | Fermeture explicite conservée en complément du geste ; summary inclus dans le parcours clavier. |
-| Mouvement | Retour en haut toujours animé. | Respect du réglage de mouvement réduit. |
-| Profil | Observations de révélation en attente conservées au reset. | Nettoyage des observations à la réinitialisation. |
+- **Filtres desktop** : nettoyage des écouteurs et du ResizeObserver avant reconstruction de l’application ou de l’écran de connexion, même si le panneau a déjà disparu.
+- **Clics rapides** : un panneau en cours de fermeture peut être remplacé immédiatement ; son ancien minuteur ne vise que l’ancien élément.
+- **Accessibilité** : `aria-pressed` des statuts se met aussi à jour lors d’une réinitialisation des filtres.
+- **Communauté** : le rafraîchissement des détails transmet désormais `readOnly: true`. L’historique personnel ne réapparaît plus dans le contenu partagé après l’appel API. Le parcours ne sauvegarde rien et ignore les réponses d’une session fermée.
+- **Tests navigateur** : remplacement du parcours qui cherchait encore le bouton de densité Compact supprimé. Distinction entre palette desktop et panneau mobile.
 
-## Vérifications effectuées
+## Nettoyage limité et vérifié
 
-- 77 tests techniques réussis, dont 7 nouveaux tests ciblés sur les régressions.
-- Les 7 nouveaux tests passent aussi dans le fuseau America/Los_Angeles, qui révèle les décalages des dates sans heure.
-- 6 parcours fonctionnels réussis dans un DOM simulé avec les modules réels et des doubles réseau locaux : recherche bibliothèque, recherche Journal, Communauté et clavier, raccourci Profil, filtres Sorties, modification/sauvegarde d’une fiche.
-- Aucune erreur JavaScript remontée dans ces six parcours.
-- Contrôle de syntaxe et cohérence des versions ; build Vite et validation des ressources de déploiement.
-- Vérification TypeScript complémentaire avec 5.9.3. Le compilateur natif 7.0.2 doit toujours être validé dans GitHub Actions ; il ne peut pas démarrer ici (`/proc/self/exe` indisponible).
+- Suppression du compteur DOM caché et de son recalcul dans la palette desktop. Le compteur de la bibliothèque reste présent ; l’indicateur animé des statuts reste actualisé.
+- Suppression de sa règle CSS devenue inutile.
+- Ajout de `dist/` et des archives de livraison aux exclusions Git.
+- README et documentation des tests actualisés. L’ancien audit reste disponible dans [docs/audit-4.0.7.md](docs/audit-4.0.7.md) à titre historique.
+- Aucun module `features/` sans référence littérale trouvé dans les sources et outils examinés. Aucun dossier supprimé sur simple présomption d’inutilité. Les compatibilités des anciennes données sont conservées.
 
-## Limites et vérification finale
+## Vérification
 
-La cohérence visuelle a été examinée dans les règles CSS et le balisage, pas dans un navigateur réel. Cet audit ne garantit pas l’absence de tout bug. Il reste à vérifier sur Safari/iPad et téléphone : espaces entre pages, retours à la ligne à 390/768/1120 px, sélecteurs natifs, feuilles de détail, fermeture au toucher et focus réel. Le comportement tactile, les animations et le rendu des polices ne sont pas validés par un DOM simulé.
+- Suite Node complète et quatre régressions ciblées : nettoyage d’un panneau déjà retiré, fin de fermeture, lecture seule après enrichissement, réponse communautaire tardive.
+- Contrôle de syntaxe JavaScript, cohérence des versions et fabrication de l’archive via le script de livraison.
+- Build Vite et préparation des ressources PWA.
+- Vérification des contrats TypeScript avec le compilateur JavaScript disponible localement. Le compilateur natif verrouillé dans le dépôt doit être confirmé dans GitHub Actions : cet environnement ne lui fournit pas `/proc/self/exe`.
 
-Les appels réels Supabase/TMDb/IGDB/Google Books, la connexion de production, la synchronisation entre plusieurs appareils et l’installation hors ligne de la PWA n’ont pas été exercés. Les tests existants couvrent plusieurs courses de synchronisation avec des doubles, sans remplacer ces vérifications en situation réelle.
+## Limites
+
+Les parcours navigateur ont été actualisés, mais pas exécutés ici dans un navigateur réel. Le rendu Safari, les gestes tactiles, l’installation PWA, les appels réels aux catalogues et la synchronisation multi-appareils restent à vérifier en situation réelle. Les tests simulés ne prouvent pas l’absence de tout bug. Pas de mise à jour des dépendances ni de refonte générale des styles pendant cet audit.
 
 ## Installation
 
-Remplacer les fichiers du projet par l’intégralité du contenu de cette archive, dossier `tests/` compris. Les fichiers de version, de cache PWA et de documentation sont synchronisés en 4.0.7. Laisser GitHub Actions exécuter `npm run verify` avant le déploiement.
-
-## Fichiers fonctionnels modifiés
-
-`app.js`, `domain.js`, `features/journal.js`, `features/journal-navigation.js`, `features/upcoming.js`, `features/dialog-focus.js`, `features/profile.js`, `style.css`, `styles/enhancements.css`, `styles/design-system-v4.css`, `styles/mobile-polish.css`.
-
-Tests : `tests/journal-audit.test.mjs`, `tests/browser-runner.js`. Les autres différences portent sur la version 4.0.7 et la documentation.
+Cette livraison modifie du code, les tests, la documentation et les fichiers de version. Utiliser l’archive complète en conservant sa configuration. Aucun SQL à exécuter et aucune Edge Function à redéployer.

@@ -181,9 +181,9 @@ function updateFilterIndicator() {
 }
 function closeDesktopFilters(immediate = false) {
   const panel = document.getElementById("desktop-filter-panel");
-  if (!panel) return;
   cleanupDesktopFilters?.();
   cleanupDesktopFilters = null;
+  if (!panel) return;
   const hadFocus = panel.contains(document.activeElement);
   panel.inert = true;
   panel.classList.remove("is-open");
@@ -208,10 +208,7 @@ function openDesktopFilters(html) {
   content.querySelector(".modal-body").className = "palette-controls";
   content.querySelector(".modal-footer").className = "palette-footer";
   const apply = content.querySelector("#fm-apply-btn");
-  const count = document.createElement("span");
-  count.id = "fm-result-count";
-  count.setAttribute("aria-live", "polite");
-  apply.replaceWith(count);
+  apply.remove();
   const sort = content.querySelector("#fm-sort-chips");
   sort.innerHTML = desktopSortHTML();
   const sections = content.querySelectorAll(".filter-modal-section");
@@ -806,6 +803,7 @@ function openAddFromRoute(route) {
 
 // ── Auth UI ───────────────────────────────────────────────────
 function renderAuthPage() {
+  closeDesktopFilters(true);
   const app = document.getElementById("app");
   document.body.classList.remove("app-shell-active");
   app.style.cssText = "display:block";
@@ -833,6 +831,7 @@ function renderAuthPage() {
 
 // ── App shell ─────────────────────────────────────────────────
 function renderApp() {
+  closeDesktopFilters(true);
   const app = document.getElementById("app");
   document.body.classList.add("app-shell-active");
   app.style.cssText = "";
@@ -1446,12 +1445,7 @@ function _updateResetBtn() {
 }
 
 function _updateFilterResultCount() {
-  const counter = document.getElementById("fm-result-count");
-  if (counter) {
-    const count = filterEntries(State.entries || []).length;
-    counter.textContent = `${count} œuvre${count > 1 ? "s" : ""}`;
-    updateFilterIndicator();
-  }
+  updateFilterIndicator();
   const btn = document.getElementById("fm-apply-btn");
   if (!btn) return;
   const count = filterEntries(State.entries || []).length;
@@ -3455,6 +3449,7 @@ function syncFilterChips() {
   document.querySelectorAll("#fm-status-chips .filter-chip").forEach(chip => {
     const value = chip.dataset.value;
     chip.classList.toggle("active", value === status);
+    chip.setAttribute("aria-pressed", String(value === status));
   });
   const favoriteChip = document.querySelector('#fm-marker-chips [data-marker="favorite"]');
   if (favoriteChip) {
@@ -4511,7 +4506,9 @@ window.UI = {
   showMoreLibrary,
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
-    if (document.getElementById("desktop-filter-panel")) { closeDesktopFilters(); return; }
+    const palette = document.getElementById("desktop-filter-panel");
+    if (palette && !palette.inert) { closeDesktopFilters(); return; }
+    if (palette) closeDesktopFilters(true);
     // Evite double ouverture
     if (document.getElementById("filter-modal-overlay")) return;
 

@@ -85,12 +85,23 @@ start.addEventListener("click", async () => {
       assert(Math.abs(rect.width - cover.width) < 1 && Math.abs(rect.height - cover.height) < 1, "Taille différente entre chargement et résultat");
       assert(doc.documentElement.scrollWidth <= width + 1, "Débordement horizontal");
       action("toggleFilterDrawer").click();
-      await waitFor(() => doc.querySelector(".filter-modal"), "Filtres absents");
-      action("setLibraryDensity", ["compact"]).click();
-      action("applyFilters").click();
-      await waitFor(() => !doc.querySelector("#filter-modal-overlay"), "Filtres non fermés");
-      assert(doc.documentElement.dataset.libraryDensity === "compact", "Densité Compact non appliquée");
-      assert(doc.documentElement.scrollWidth <= width + 1, "Débordement en Compact");
+      await waitFor(() => doc.querySelector(".filter-modal, #desktop-filter-panel"), "Filtres absents");
+      assert(!doc.querySelector(".library-density-control"), "Densité obsolète présente");
+      if (width > 680) {
+        const panel = doc.querySelector("#desktop-filter-panel");
+        assert(panel?.closest("#page-library"), "Palette absente de la page");
+        assert(!doc.querySelector("#main").inert, "Bibliothèque bloquée");
+        assert(!panel.querySelector("#fm-apply-btn, #fm-result-count"), "Validation ou compteur redondant");
+        action("setTypeFilter", ["book"], panel).click();
+        await waitFor(() => doc.querySelectorAll("#cards-grid .media-card").length === 5, "Filtre non appliqué directement");
+        action("toggleFilterDrawer").click();
+        await waitFor(() => !doc.querySelector("#desktop-filter-panel"), "Palette non fermée");
+      } else {
+        action("applyFilters").click();
+        await waitFor(() => !doc.querySelector("#filter-modal-overlay"), "Filtres non fermés");
+      }
+      assert(!doc.documentElement.dataset.libraryDensity, "Ancienne densité conservée");
+      assert(doc.documentElement.scrollWidth <= width + 1, "Débordement après les filtres");
     });
   }
 

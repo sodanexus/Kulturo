@@ -25,7 +25,7 @@ L’interface et les modules testés sont ceux de l’application. Seuls la conf
 
 Les parcours vérifient :
 
-- les proportions des squelettes et des jaquettes, les densités et l’absence de débordement à 390, 768 et 1120 pixels ;
+- les proportions des squelettes et des jaquettes, la palette desktop, le panneau mobile et l’absence de débordement à 390, 768 et 1120 pixels ;
 - les actions proposées après une recherche vide, des filtres sans résultat et un échec de chargement ;
 - quarante ouvertures et fermetures successives de fiches, avec restauration du focus et sans clone de transition orphelin ;
 - le retour à la fiche après modification ou annulation, la note, le cœur et la position de lecture ;
@@ -38,6 +38,6 @@ Compléter manuellement par une modification en mode hors connexion, un retour r
 
 La coupure concerne la requête d’enregistrement simulée : elle ne coupe pas le réseau de l’appareil. Les largeurs de fenêtres intégrées vérifient la mise en page ; elles ne simulent ni le moteur Safari, ni les gestes tactiles, ni une PWA installée. Pour ceux-ci, compléter sur l’iPad ou l’iPhone réel avec une fiche longue, Modifier, Enregistrer, puis quelques ouvertures successives dans Sorties.
 
-## Validation de l’archive 4.9.4
+## Validation de l’archive 4.9.11
 
 Avant publication, `npm run verify` doit terminer sans erreur. Les parcours navigateur restent à compléter sur Safari/iPad réel pour les gestes tactiles, la suspension de la PWA et la pression mémoire après de nombreuses fiches.

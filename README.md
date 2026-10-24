@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 4.9.10
+Version actuelle · 4.9.11
 
 ## Fonctionnalités
 
@@ -23,6 +23,8 @@ Version actuelle · 4.9.10
 
 - **Filtres** : palette horizontale intégrée à la bibliothèque sur desktop (résultats immédiats, statuts animés, tri discret), panneau coulissant sur mobile. Une seule vue standard ; les anciennes préférences de densité sont supprimées.
 - **Ajout rapide** : recherche par catégorie (Tout, Films & séries, Jeux vidéo, Livres) ou collage d’un lien TMDb, IMDb, Steam, Goodreads ou Hardcover. Sur un livre, scan du code-barres ISBN avec la caméra.
+- **Mise en page** : Journal et Profil partagent une largeur centrée sur grand écran. Les jaquettes du palmarès remplissent leur cadre sans déformation, avec recadrage si nécessaire.
+- **Communauté** : fiches enrichies en lecture seule ; les informations récupérées ne modifient pas la bibliothèque du membre.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
 - **Suivi** : page actuelle/totale pour les livres, saison/épisode pour les séries, reprises (revisionnages, parties rejouées, relectures).
 - **Sauvegardes** : export et restauration JSON de la collection et des événements.
@@ -62,6 +64,8 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 
 | Dossier / fichier | Responsabilité |
 |---|---|
+| `src/` | Point d’entrée Vite et contrats TypeScript ; le code JavaScript historique n’est pas intégralement typé |
+| `scripts/` | Synchronisation des versions, contrôles et fabrication de la livraison |
 | `app.js` | État de l’interface, navigation, bibliothèque et formulaires |
 | `api.js` | Adaptateurs des catalogues et traductions |
 | `features/` | Fiches, profil, journal, stockage, animations et autres modules |
@@ -69,6 +73,15 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 | `supabase/functions/` | Fonctions serveur (Edge Functions) |
 | `migrations/` | Évolutions SQL, à conserver dans le repo |
 | `tests/` | Tests automatisés et parcours navigateur avec services simulés |
+
+## Entretien du dépôt
+
+- Garder `features/`, `tests/`, `scripts/` et `migrations/` : ce sont des sources ou des outils actifs, pas des fichiers temporaires.
+- `dist/` et `node_modules/` sont régénérables et ne doivent pas être commités. Les ZIP de livraison restent également hors du dépôt.
+- Les références à d’anciens fournisseurs dans les tests ou la normalisation peuvent servir aux anciennes sauvegardes : ne pas les supprimer sur leur seul nom.
+- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase n’est nécessaire pour la 4.9.11.
+
+Le bilan des corrections et les limites des vérifications sont décrits dans [AUDIT.md](AUDIT.md). Les parcours navigateur sont documentés dans [tests/README.md](tests/README.md).
 
 ## Mesurer la fluidité
 

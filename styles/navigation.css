@@ -205,7 +205,6 @@
 .filter-selection { position: absolute; left: 0; top: 0; border-radius: 10px; background: var(--accent-glow); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); pointer-events: none; transition: transform 240ms var(--ease-enter), width 240ms var(--ease-enter), height 240ms var(--ease-enter); }
 .palette-sort select { width: 185px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); background: var(--bg-3); font: inherit; font-size: .8rem; }
 .palette-footer { grid-column: 2; grid-row: 2; justify-self: end; display: flex; justify-content: flex-start; align-items: center; flex-direction: row-reverse; flex-wrap: wrap; gap: 6px 12px; min-height: 34px; color: var(--text-3); font-size: .8rem; }
-#desktop-filter-panel #fm-result-count { display: none; }
 .palette-footer .btn { min-height: 34px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-3); color: var(--text-2); font-size: .8rem; }
 .palette-footer .btn:hover { border-color: var(--text-3); color: var(--text-1); background: var(--bg-2); }
 @media (max-width: 1200px) {
