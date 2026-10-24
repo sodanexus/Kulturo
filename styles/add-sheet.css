@@ -100,6 +100,12 @@
 .wz-universal-result .api-result-info { min-width: 0; text-align: left; }
 .wz-universal-result .api-result-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wz-universal-result .api-result-sub { display: block; overflow: hidden; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
+.wz-universal-result.is-owned { cursor: default; }
+.wz-universal-result.is-owned:hover { background: transparent; }
+.wz-universal-result.is-owned .api-result-thumb,
+.wz-universal-result.is-owned .api-result-info { opacity: .45; filter: grayscale(1); }
+.api-result-owned { flex: 0 0 auto; margin-left: auto; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-3); font-size: .72rem; font-weight: 600; white-space: nowrap; }
+@media (max-width: 480px) { .api-result-owned { max-width: 7.5rem; white-space: normal; text-align: center; line-height: 1.2; } }
 .api-result-placeholder { display: flex; align-items: center; justify-content: center; font-size: var(--type-title-sm); }
 
 .wz-search-start {
