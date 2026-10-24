@@ -223,7 +223,7 @@ function renderDetailPanel(e, options = {}) {
           <div class="detail-backdrop-content">
             ${e.media_type === "book" ? posterHTML : ""}
             <div class="detail-backdrop-info">
-              <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
+              <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}${useTitleLogo && (supportsTitleLogo(e) || (!isReadOnly && !isPreview && canResolveMediaIdentity(e))) ? " is-logo-pending" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
               <p class="detail-facts detail-hero-facts" id="detail-facts-${e.id}">${detailFactsHTML(e)}</p>
               ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
               <div class="detail-header-meta">
@@ -1265,6 +1265,9 @@ async function openDetailPanel(id, options = {}) {
       const title = document.getElementById('detail-sheet-title');
       if (supportsTitleLogo(e) && !prefersTextTitle(e, State.user?.id) && !title?.querySelector('.detail-title-logo')) {
         mountTitleLogo(title, () => TitleLogos.fetch(e, {signal:detailSignal}), {signal:detailSignal, isActive:ownsDetailSession});
+      } else if (!title?.querySelector('.detail-title-logo')) {
+        // Aucun logo possible après le rapprochement : le titre texte apparaît en fondu.
+        title?.classList.remove('is-logo-pending');
       }
     }
 
