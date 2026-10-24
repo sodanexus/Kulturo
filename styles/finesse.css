@@ -938,7 +938,11 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-external-faces { display: inline-grid; transform-style: preserve-3d; }
   .detail-external-faces > .detail-external-rating {
     grid-area: 1 / 1;
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    /* Calque permanent : sans cela, le texte est redessiné d'un coup au début et
+       à la fin du retournement (micro-saut visible, surtout sur iPhone). */
+    will-change: transform, opacity, filter;
     opacity: 0;
     visibility: hidden;
     transform: rotateX(-90deg) scale(.92);
@@ -948,8 +952,10 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   .detail-external-faces > .detail-external-rating[data-active] {
     opacity: 1;
     visibility: visible;
-    transform: none;
-    filter: none;
+    /* Jamais « none » : un état de repos explicite garde le calque et évite le
+       recalage du texte quand le retournement se termine. */
+    transform: rotateX(0deg) scale(1);
+    filter: blur(0px);
     transition-delay: .06s, .06s, .06s, 0s;
   }
   .detail-external-flip.is-flipping .detail-external-faces > .detail-external-rating[data-active] strong {
