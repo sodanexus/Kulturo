@@ -307,6 +307,15 @@ Deno.serve(async (req) => {
           } catch { /* Facultatif : ne jamais casser la fiche. */ }
         }
       }
+      if (game) {
+        // Bande-annonce et saga : requêtes séparées et facultatives, pour qu'un
+        // échec n'empêche jamais d'afficher la fiche du jeu.
+        try { game.videos = await igdbRequest("game_videos", `fields name,video_id; where game = ${id}; limit 10;`, headers); } catch { /* Facultatif. */ }
+        try {
+          const [collection] = await igdbRequest("collections", `fields name,games.name,games.cover.image_id,games.first_release_date,games.version_parent; where games = ${id}; limit 1;`, headers);
+          if (collection) game.collection_details = collection;
+        } catch { /* Facultatif. */ }
+      }
       const parentId = Number(game?.version_parent);
       if (Number.isSafeInteger(parentId) && parentId > 0 && parentId !== id &&
           (!game?.screenshots?.length || !game.rating || !game.aggregated_rating)) {
