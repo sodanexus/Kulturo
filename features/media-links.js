@@ -1,4 +1,6 @@
 // Liens contextuels. Aucun identifiant de livre n’est supposé être un identifiant Open Library.
+import { safeTrailerUrl } from "./media-extras.js";
+
 function webUrl(value) {
   try {
     const url = new URL(value);
@@ -42,7 +44,9 @@ export function mediaLinks(entry) {
   }
   if (title && ["movie", "game"].includes(entry.media_type)) {
     const qualifier = entry.media_type === "game" ? "jeu" : entry.subtype === "tv" ? "série" : "film";
-    add(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${entry.release_year || ""} ${qualifier} bande annonce`.replace(/\s+/g, " "))}`, "Bande-annonce", "video");
+    // Lien direct quand le catalogue en fournit un, sinon recherche YouTube.
+    const trailer = safeTrailerUrl(entry.trailer_url);
+    add(trailer || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${entry.release_year || ""} ${qualifier} bande annonce`.replace(/\s+/g, " "))}`, "Bande-annonce", "video");
   }
   return links;
 }

@@ -18,6 +18,7 @@ import {
 } from "./media-metadata.js";
 import { createDetailSessionManager } from "./detail-session.js";
 import { collectDetailUpdates, mergeDetailResponse } from "./detail-enrichment.js";
+import { safeTrailerUrl, collectionLabel } from "./media-extras.js";
 
 export function createMediaDetailFeature({
   State, Media, Journal, refreshJournalEvents, cacheEntriesLocally, safeMediaUrl, esc, uiAction,
@@ -27,7 +28,7 @@ export function createMediaDetailFeature({
   pushHistoryLayer, syncSystemBar, getCurrentPage, hydrateFadeImages,
   setupMobileSheetSwipe, closeModal, syncDialogBackground, historyOwnsLayer,
   updateBadges, markJournalDirty, renderCards, renderUpcomingCards, toast,
-  launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false,
+  launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false, findMatchingEntry = () => null,
 }) {
 function canEnrichMediaDetails(entry) {
   if (!entry) return false;
@@ -191,7 +192,7 @@ function renderDetailPanel(e, options = {}) {
   const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
   const externalHTML = mediaLinks(e).map(link =>
-    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" data-link-kind="${esc(link.kind)}" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
   ).join("");
 
   // Backdrop header
@@ -899,6 +900,9 @@ function renderDetailInfoHTML(e, options = {}) {
     if (cast) html += `<div class="detail-cast-section" data-block="cast" role="group" aria-label="Casting"><div class="detail-cast-row">${cast}</div></div>`;
   }
 
+  // Saga : les autres œuvres de la même collection, celles de la bibliothèque marquées.
+  html += renderCollectionHTML(e);
+
   // Aucun bloc de chargement externe pour les livres : le synopsis
   // et les métadonnées gardent leur propre enrichissement progressif.
   const awaitsMoreInfo = options.detailsLoading && !awaitsExternalRatings(e, options) && (
@@ -932,6 +936,44 @@ function renderDetailInfoHTML(e, options = {}) {
     html += `<div class="detail-load-status" data-block="load-status" role="status"><span>${esc(e._detailLoadError)}</span><button type="button" class="btn btn-ghost btn-sm" ${uiAction("retryDetailInfo", [e.id])}>Réessayer</button></div>`;
   }
   return html;
+}
+
+// Le lien « Bande-annonce » du pied de fiche passe de la recherche YouTube au lien direct dès qu'il est connu.
+function syncTrailerLink(entry) {
+  const url = safeTrailerUrl(entry.trailer_url);
+  if (!url) return;
+  const modal = [...document.querySelectorAll(".detail-modal")].find(node => node.dataset.detailMediaId === String(entry.id));
+  modal?.querySelectorAll('.detail-ext-link[data-link-kind="video"]').forEach(link => { if (link.href !== url) link.href = url; });
+}
+
+function renderCollectionHTML(e) {
+  const collection = e.collection;
+  if (!collection || !Array.isArray(collection.items) || collection.items.length < 2) return "";
+  const sameWork = item => String(item.external_id) === String(e.external_id) && item.source_api === e.source_api;
+  if (!collection.items.some(sameWork)) return "";
+  const items = collection.items.map(item => {
+    const current = sameWork(item);
+    const owned = current ? null : findMatchingEntry(item);
+    const coverUrl = safeMediaUrl(item.cover_url);
+    const cover = coverUrl
+      ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">`
+      : `<span class="detail-collection-placeholder" aria-hidden="true">${iconMedia(item.media_type, item.subtype)}</span>`;
+    const state = current ? "Cette fiche" : owned ? "Dans votre bibliothèque" : "";
+    const body = `
+      <span class="detail-collection-cover">${cover}${owned ? '<span class="detail-collection-badge" aria-hidden="true">✓</span>' : ""}</span>
+      <span class="detail-collection-name">${esc(item.title)}</span>
+      <small>${item.release_year ? esc(item.release_year) : "&nbsp;"}</small>
+      ${state ? `<span class="sr-only">${state}</span>` : ""}`;
+    const classes = `detail-collection-item${current ? " is-current" : ""}${owned ? " is-owned" : ""}`;
+    return owned
+      ? `<button type="button" class="${classes}" ${uiAction("openDetailFromCollection", [owned.id], { control: true })} aria-label="Ouvrir ${esc(item.title)}">${body}</button>`
+      : `<div class="${classes}"${current ? ' aria-current="true"' : ""}>${body}</div>`;
+  }).join("");
+  const label = collectionLabel(collection.name);
+  return `<section class="detail-collection-section" data-block="collection" aria-label="Saga${label ? ` : ${esc(label)}` : ""}">
+    <h3 class="detail-collection-heading">Saga${label ? ` <span>· ${esc(label)}</span>` : ""}</h3>
+    <div class="detail-collection-row">${items}</div>
+  </section>`;
 }
 
 function readingProgressHTML(entry) {
@@ -1005,6 +1047,7 @@ async function refreshDetailEnrichment(entry, options = {}) {
   const info = region.querySelector(".detail-info-content");
   syncHeroFacts(entry);
   syncHeroRatings(entry, options);
+  syncTrailerLink(entry);
   const synopsis = document.createElement("template");
   synopsis.innerHTML = renderDetailSynopsisHTML(entry, options).trim();
   const nextSynopsis = synopsis.content.firstElementChild;
@@ -1317,6 +1360,8 @@ async function openDetailPanel(id, options = {}) {
     }
     if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
     if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
+    if (details.collection) e.collection = details.collection;
+    if (details.trailer_url) e.trailer_url = details.trailer_url;
     if (e.media_type === "game" && !details.external_ratings?.length && !details.backdrop_url) {
       e._detailLoadError = "IGDB n’a renvoyé ni note ni capture pour cette fiche. Vérifiez la liaison dans Modifier et la mise à jour du service igdb-proxy.";
     }
@@ -1390,6 +1435,8 @@ async function openSharedDetail(entry, options = {}) {
     if (details) {
       if (Array.isArray(details.cast_people)) e.cast_people = details.cast_people;
       if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
+      if (details.collection) e.collection = details.collection;
+      if (details.trailer_url) e.trailer_url = details.trailer_url;
       Object.assign(e, collectDetailUpdates(e, details));
       _injectBackdrop(e.backdrop_url, e.id, sessionId);
     }
