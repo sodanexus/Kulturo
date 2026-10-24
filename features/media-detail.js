@@ -728,7 +728,7 @@ function externalRatingPillHTML(rating, extraAttrs = "") {
   const label = externalRatingLabel(rating);
   const source = externalRatingSourceClass(rating);
   const audience = source === "tmdb" ? "Public"
-    : source === "igdb" ? (/presse|critic/i.test(rating.kind || "") ? "Presse" : "Joueurs")
+    : source === "igdb" ? (/presse|critic/i.test(rating.kind || "") ? "Presse" : "Public")
     : String(rating.label || "").toUpperCase();
   const kind = !["tmdb", "igdb"].includes(source) && rating.kind ? `<small>${esc(rating.kind)}</small>` : "";
   return `<span class="detail-external-rating" data-source="${esc(source)}" title="${esc(label)}" ${extraAttrs}>
