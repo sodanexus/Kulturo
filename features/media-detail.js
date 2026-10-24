@@ -1514,7 +1514,7 @@ async function openSharedDetail(entry, options = {}) {
   } catch (error) {
     if (error?.name !== "AbortError") console.warn("[Communauté] détails indisponibles:", error);
   }
-  if (isActive()) refreshDetailEnrichment(e, { detailsLoading: false });
+  if (isActive()) refreshDetailEnrichment(e, { readOnly: true, detailsLoading: false });
 }
 
 function retryDetailInfo(id) {
