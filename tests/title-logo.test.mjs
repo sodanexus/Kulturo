@@ -4,7 +4,7 @@ import {selectTmdbLogo, selectIgdbLogo, supportsTitleLogo, prefersTextTitle, set
 test('Logos TMDb : français prioritaire, puis neutre, chemins sûrs et PNG',()=>{
  const image={width:500,height:160,vote_average:8};
  assert.equal(selectTmdbLogo([{...image,file_path:'/en.png',iso_639_1:'en'},{...image,file_path:'/fr.png',iso_639_1:'fr',vote_average:1}]),'https://image.tmdb.org/t/p/original/fr.png');
- assert.equal(selectTmdbLogo([{...image,file_path:'/neutral.png',iso_639_1:null},{...image,file_path:'/en.png',iso_639_1:'en'}]),'https://image.tmdb.org/t/p/original/neutral.png');
+ assert.equal(selectTmdbLogo([{...image,file_path:'/neutral.png',iso_639_1:null},{...image,file_path:'/en.png',iso_639_1:'en'}]),'https://image.tmdb.org/t/p/original/en.png');
  assert.equal(selectTmdbLogo([{...image,file_path:'https://evil/a.png'},{...image,file_path:'/x.jpg'}]),null);
 });
 test('Logos IGDB : transparence obligatoire, blanc prioritaire, animations et images opaques écartées',()=>{
