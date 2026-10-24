@@ -7,7 +7,7 @@ export function createLibraryWindow(batchSize = 48) {
       key = nextKey;
       items = nextItems;
     },
-    visible: () => items.slice(0, limit),
+    visible: (start = 0) => items.slice(start, limit),
     hasMore: () => items.length > limit,
     next() {
       if (items.length <= limit) return false;
