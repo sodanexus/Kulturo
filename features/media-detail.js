@@ -946,7 +946,13 @@ function syncTrailerLink(entry) {
   modal?.querySelectorAll('.detail-ext-link[data-link-kind="video"]').forEach(link => { if (link.href !== url) link.href = url; });
 }
 
+// Entrée affichée par chaque saga ouverte : l'action « envies » retrouve ainsi l'œuvre touchée.
+const _collectionHosts = new Map();
+const _collectionAdding = new Set();
+const collectionKey = item => `${item.source_api}:${item.external_id}`;
+
 function renderCollectionHTML(e) {
+  _collectionHosts.set(String(e.id), e);
   const collection = e.collection;
   if (!collection || !Array.isArray(collection.items) || collection.items.length < 2) return "";
   const sameWork = item => String(item.external_id) === String(e.external_id) && item.source_api === e.source_api;
@@ -959,8 +965,13 @@ function renderCollectionHTML(e) {
       ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">`
       : `<span class="detail-collection-placeholder" aria-hidden="true">${iconMedia(item.media_type, item.subtype)}</span>`;
     const state = current ? "Cette fiche" : owned ? "Dans votre bibliothèque" : "";
+    let overlay = owned ? '<span class="detail-collection-badge" aria-hidden="true">✓</span>' : "";
+    if (!owned && !current) {
+      const adding = _collectionAdding.has(collectionKey(item));
+      overlay = `<button type="button" class="detail-collection-mark${adding ? " is-adding" : ""}" aria-busy="${adding}" aria-label="Ajouter ${esc(item.title)} aux envies" title="Ajouter aux envies" ${adding ? "disabled" : uiAction("addCollectionToWishlist", [e.id, item.external_id])}>${iconStatus("wishlist")}</button>`;
+    }
     const body = `
-      <span class="detail-collection-cover">${cover}${owned ? '<span class="detail-collection-badge" aria-hidden="true">✓</span>' : ""}</span>
+      <span class="detail-collection-cover">${cover}${overlay}</span>
       <span class="detail-collection-name">${esc(item.title)}</span>
       <small>${item.release_year ? esc(item.release_year) : "&nbsp;"}</small>
       ${state ? `<span class="sr-only">${state}</span>` : ""}`;
@@ -974,6 +985,66 @@ function renderCollectionHTML(e) {
     <h3 class="detail-collection-heading">Saga${label ? ` <span>· ${esc(label)}</span>` : ""}</h3>
     <div class="detail-collection-row">${items}</div>
   </section>`;
+}
+
+// Met à jour la rangée de la saga sans toucher au reste de la fiche (défilement conservé).
+function refreshCollectionRow(hostId) {
+  const host = _collectionHosts.get(String(hostId));
+  const modal = [...document.querySelectorAll(".detail-modal")].find(node => node.dataset.detailMediaId === String(hostId));
+  const section = modal?.querySelector(".detail-collection-section");
+  if (!host || !section) return;
+  const template = document.createElement("template");
+  template.innerHTML = renderCollectionHTML(host).trim();
+  const next = template.content.firstElementChild;
+  if (!next) return;
+  const scroll = section.querySelector(".detail-collection-row")?.scrollLeft || 0;
+  section.replaceWith(next);
+  const row = next.querySelector(".detail-collection-row");
+  if (row) row.scrollLeft = scroll;
+}
+
+async function addCollectionToWishlist(hostId, externalId) {
+  const host = _collectionHosts.get(String(hostId));
+  const item = host?.collection?.items?.find(candidate => String(candidate.external_id) === String(externalId));
+  const owner = State.user?.id;
+  if (!item || !owner || findMatchingEntry(item) || _collectionAdding.has(collectionKey(item))) return;
+  _collectionAdding.add(collectionKey(item));
+  refreshCollectionRow(hostId);
+  const isMovie = item.media_type === "movie";
+  try {
+    const created = await Media.create({
+      title: item.title,
+      media_type: item.media_type,
+      subtype: isMovie ? (item.subtype || "movie") : null,
+      status: "wishlist",
+      cover_url: item.cover_url || null,
+      description: null,
+      release_year: item.release_year || null,
+      release_date: item.release_date || null,
+      release_date_precision: "day",
+      genre: null,
+      author: null,
+      external_id: item.external_id,
+      source_api: item.source_api,
+      is_favorite: false,
+      rating: null,
+      notes: null,
+      platform: null,
+    });
+    if (!sameOwner(owner, State.user?.id)) return;
+    State.entries.unshift(created);
+    cacheEntriesLocally();
+    markJournalDirty();
+    updateBadges();
+    renderCards();
+    const awaitsSync = Media.getStatus?.().pending > 0;
+    toast(awaitsSync ? `"${item.title}" ajouté aux envies sur cet appareil` : `"${item.title}" ajouté aux envies ✓`, awaitsSync ? "info" : "success");
+  } catch (error) {
+    if (sameOwner(owner, State.user?.id)) toast("Erreur : " + error.message, "error");
+  } finally {
+    _collectionAdding.delete(collectionKey(item));
+    if (sameOwner(owner, State.user?.id)) refreshCollectionRow(hostId);
+  }
 }
 
 function readingProgressHTML(entry) {
@@ -1462,6 +1533,7 @@ function retryDetailInfo(id) {
     prefetchDetail,
     renderDetailPanel,
     refreshDetailEnrichment,
+    addCollectionToWishlist,
     injectBackdrop: _injectBackdrop,
     scheduleSynopsisOverflowCheck: _scheduleSynopsisOverflowCheck,
     openDetailPanel,
