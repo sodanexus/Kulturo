@@ -4487,6 +4487,7 @@ window.UI = {
   setEditDetailsView,
   closeModal,
   openEditFromDetail,
+  addCollectionToWishlist: (hostId, externalId) => mediaDetailFeature.addCollectionToWishlist(hostId, externalId),
   openDetailFromCollection: (id, control = null) => { openDetailPanel(id, { transitionSource: control }); },
   closeModalOnBg,
   saveEntry,
