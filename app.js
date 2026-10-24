@@ -162,25 +162,96 @@ function activateDialog(dialog, options = {}) {
 try { localStorage.removeItem(LIBRARY_DENSITY_KEY); } catch {}
 delete document.documentElement.dataset.libraryDensity;
 
-let cleanupFilterPosition = null;
-function positionFilterPopover(overlay) {
-  const update = () => {
-    const anchor = document.getElementById("btn-filter-toggle");
-    if (!anchor || !overlay.isConnected) return;
-    const rect = anchor.getBoundingClientRect();
-    const width = Math.min(420, window.innerWidth - 32);
-    const left = Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16));
-    const top = Math.max(16, Math.min(rect.bottom + 12, window.innerHeight - 160));
-    overlay.style.setProperty("--filter-left", `${left}px`);
-    overlay.style.setProperty("--filter-top", `${top}px`);
+let cleanupDesktopFilters = null;
+function updateFilterIndicator() {
+  const group = document.querySelector("#desktop-filter-panel #fm-status-chips");
+  const active = group?.querySelector(".filter-chip.active");
+  if (!group || !active) return;
+  let indicator = group.querySelector(".filter-selection");
+  if (!indicator) {
+    indicator = document.createElement("span");
+    indicator.className = "filter-selection";
+    indicator.setAttribute("aria-hidden", "true");
+    group.prepend(indicator);
+  }
+  indicator.style.width = `${active.offsetWidth}px`;
+  indicator.style.height = `${active.offsetHeight}px`;
+  indicator.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+}
+function closeDesktopFilters(immediate = false) {
+  const panel = document.getElementById("desktop-filter-panel");
+  if (!panel) return;
+  cleanupDesktopFilters?.();
+  cleanupDesktopFilters = null;
+  const hadFocus = panel.contains(document.activeElement);
+  panel.inert = true;
+  panel.classList.remove("is-open");
+  document.getElementById("btn-filter-toggle")?.setAttribute("aria-expanded", "false");
+  if (hadFocus) document.getElementById("btn-filter-toggle")?.focus({ preventScroll: true });
+  if (immediate) panel.remove();
+  else setTimeout(() => panel.remove(), motionDuration() ? 300 : 0);
+}
+function openDesktopFilters(html) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const panel = template.content.firstElementChild;
+  panel.id = "desktop-filter-panel";
+  panel.className = "desktop-filter-panel";
+  // Le panneau fait partie de la page : ni overlay, ni piège de focus.
+  [...panel.attributes].filter(a => a.name.startsWith("data-ui-")).forEach(a => panel.removeAttribute(a.name));
+  const content = panel.firstElementChild;
+  content.className = "filter-palette";
+  content.setAttribute("role", "region");
+  content.removeAttribute("aria-modal");
+  content.querySelector(".modal-header").className = "palette-heading";
+  content.querySelector(".modal-body").className = "palette-controls";
+  content.querySelector(".modal-footer").className = "palette-footer";
+  const apply = content.querySelector("#fm-apply-btn");
+  const count = document.createElement("span");
+  count.id = "fm-result-count";
+  count.setAttribute("aria-live", "polite");
+  apply.replaceWith(count);
+  const sort = content.querySelector("#fm-sort-chips");
+  sort.innerHTML = desktopSortHTML();
+  const sections = content.querySelectorAll(".filter-modal-section");
+  ["palette-types", "palette-markers", "palette-status", "palette-sort"].forEach((name, i) => sections[i].classList.add(name));
+  const viewport = document.createElement("div");
+  viewport.className = "palette-viewport";
+  panel.append(viewport);
+  viewport.append(content);
+  document.getElementById("page-library").prepend(panel);
+  document.getElementById("main")?.scrollTo({ top: 0, behavior: motionDuration() ? "smooth" : "auto" });
+  const trigger = document.getElementById("btn-filter-toggle");
+  trigger?.setAttribute("aria-expanded", "true");
+  trigger?.setAttribute("aria-controls", panel.id);
+  trigger?.removeAttribute("aria-haspopup");
+  _updateFilterResultCount();
+  const escape = event => {
+    if (event.key === "Escape" && !document.querySelector(".modal-overlay, #metadata-overlay")) closeDesktopFilters();
   };
-  update();
-  window.addEventListener("resize", update);
-  window.addEventListener("scroll", update, { passive: true });
-  return () => {
-    window.removeEventListener("resize", update);
-    window.removeEventListener("scroll", update);
+  const resize = () => {
+    if (window.innerWidth <= 680) closeDesktopFilters(true);
+    else updateFilterIndicator();
   };
+  document.addEventListener("keydown", escape);
+  window.addEventListener("resize", resize);
+  const observer = new ResizeObserver(updateFilterIndicator);
+  observer.observe(content.querySelector("#fm-status-chips"));
+  cleanupDesktopFilters = () => {
+    observer.disconnect();
+    document.removeEventListener("keydown", escape);
+    window.removeEventListener("resize", resize);
+  };
+  requestAnimationFrame(() => {
+    if (!panel.isConnected || panel.inert) return;
+    panel.getBoundingClientRect();
+    panel.classList.add("is-open");
+    updateFilterIndicator();
+  });
+}
+function desktopSortHTML() {
+  return `<select aria-label="Trier les œuvres" ${uiAction("setSort", [], { value: true })}>${librarySortOptions(State.filters.status).map(([value, label]) =>
+    `<option value="${value}" ${resolveLibrarySort(State.filters) === value ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>`;
 }
 
 let _updateBannerDismissed = false;
@@ -1096,6 +1167,7 @@ function navTo(key, options = {}) {
   if (key === "profile") key = "dashboard";
 
   const requestedPage = ["dashboard", "upcoming", "journal"].includes(key) ? key : "library";
+  if (requestedPage !== "library") closeDesktopFilters(true);
   if (!options.withinViewTransition && _historyReady && requestedPage !== _currentPage) {
     return runViewTransition(() => navTo(key, { ...options, withinViewTransition: true }), "page");
   }
@@ -1373,6 +1445,12 @@ function _updateResetBtn() {
 }
 
 function _updateFilterResultCount() {
+  const counter = document.getElementById("fm-result-count");
+  if (counter) {
+    const count = filterEntries(State.entries || []).length;
+    counter.textContent = `${count} œuvre${count > 1 ? "s" : ""}`;
+    updateFilterIndicator();
+  }
   const btn = document.getElementById("fm-apply-btn");
   if (!btn) return;
   const count = filterEntries(State.entries || []).length;
@@ -3420,7 +3498,7 @@ function sortChipsHTML() {
 
 function refreshSortChips() {
   const chips = document.getElementById("fm-sort-chips");
-  if (chips) chips.innerHTML = sortChipsHTML();
+  if (chips) chips.innerHTML = document.getElementById("desktop-filter-panel") ? desktopSortHTML() : sortChipsHTML();
 }
 
 function setSort(val) {
@@ -4425,6 +4503,7 @@ window.UI = {
   showMoreLibrary,
   toggleFilterDrawer: () => {
     const root = document.getElementById("modal-root");
+    if (document.getElementById("desktop-filter-panel")) { closeDesktopFilters(); return; }
     // Evite double ouverture
     if (document.getElementById("filter-modal-overlay")) return;
 
@@ -4495,12 +4574,13 @@ window.UI = {
         </div>`;
     };
 
+    if (window.matchMedia("(min-width: 681px)").matches) { openDesktopFilters(_buildModal()); return; }
+    document.getElementById("btn-filter-toggle")?.setAttribute("aria-haspopup", "dialog");
+    document.getElementById("btn-filter-toggle")?.setAttribute("aria-controls", "filter-modal-overlay");
     root.insertAdjacentHTML("beforeend", _buildModal());
     syncDialogBackground();
     pushHistoryLayer("filters");
     const overlay = document.getElementById("filter-modal-overlay");
-    cleanupFilterPosition?.();
-    cleanupFilterPosition = positionFilterPopover(overlay);
     document.getElementById("btn-filter-toggle")?.setAttribute("aria-expanded", "true");
     setupMobileSheetSwipe({
       overlay,
@@ -4538,6 +4618,7 @@ window.UI = {
   },
 
   closeFilterModal: (options = {}) => {
+    if (document.getElementById("desktop-filter-panel")) { closeDesktopFilters(); return; }
     if (!options.fromHistory && historyOwnsLayer("filters")) {
       history.back();
       return;
@@ -4545,8 +4626,6 @@ window.UI = {
     const overlay = document.getElementById("filter-modal-overlay");
     if (!overlay) return;
     if (overlay.classList.contains("is-closing")) return;
-    cleanupFilterPosition?.();
-    cleanupFilterPosition = null;
     document.getElementById("btn-filter-toggle")?.setAttribute("aria-expanded", "false");
     const filterDialog = overlay.querySelector(".filter-modal");
     prepareDialogClose(overlay);
