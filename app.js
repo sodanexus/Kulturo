@@ -918,26 +918,18 @@ function renderApp() {
               <button class="upcoming-type-btn" id="upcoming-filter-game" ${uiAction("setUpcomingType", ["game"])} aria-pressed="false">Jeux</button>
               <button class="upcoming-type-btn" id="upcoming-filter-book" ${uiAction("setUpcomingType", ["book"])} aria-pressed="false">Livres</button>
             </div>
+            <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
+              <span>Genre</span>
+              <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
+                <option value="all">Tous les genres</option>
+              </select>
+            </label>
             <button class="btn btn-ghost btn-sm upcoming-refresh-btn" id="upcoming-refresh-btn" ${uiAction("refreshUpcoming")} title="Actualiser les sorties" aria-label="Actualiser les sorties">
               <span class="upcoming-refresh-icon" aria-hidden="true">${iconRefresh()}</span>
               <span class="upcoming-refresh-label">Actualiser</span>
             </button>
           </div>
           <input type="search" id="upcoming-search" class="upcoming-search-state" aria-label="Recherche des prochaines sorties" tabindex="-1" autocomplete="off" />
-          <label class="upcoming-genre-filter" id="upcoming-genre-wrap" for="upcoming-genre-select">
-            <span>Genre</span>
-            <select id="upcoming-genre-select" ${uiAction("setUpcomingGenre", [], { value: true })} disabled>
-              <option value="all">Tous les genres</option>
-            </select>
-          </label>
-          <div class="upcoming-toolbar-meta">
-            <label class="compact-toggle">
-              <input type="checkbox" id="upcoming-hide-added" ${uiAction("setUpcomingHideAdded", [], { checked: true })} />
-              <span class="compact-toggle-track" aria-hidden="true"><span></span></span>
-              <span>Non ajoutés uniquement</span>
-            </label>
-            <span id="upcoming-result-count" class="section-count"></span>
-          </div>
         </div>
         <section id="upcoming-wishlist-section" class="continue-section awaited-section" aria-labelledby="upcoming-wishlist-title" hidden></section>
         <div id="upcoming-grid" class="upcoming-months"></div>

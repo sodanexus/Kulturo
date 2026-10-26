@@ -405,7 +405,7 @@ export function eventsForPeriod(events, year, month = "all") {
   return (events || []).filter(event => {
     if (isRevokedEvent(event)) return false;
     const key = yearMonthOf(event?.occurred_at);
-    if (!key || Number(key.slice(0, 4)) !== expectedYear) return false;
+    if (!key || (year !== "all" && Number(key.slice(0, 4)) !== expectedYear)) return false;
     return month === "all" || key === `${expectedYear}-${String(month).padStart(2, "0")}`;
   });
 }
