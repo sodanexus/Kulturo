@@ -4105,6 +4105,7 @@ input, textarea, select { border-radius: 12px; }
               transform var(--motion-fast) var(--ease-smooth);
 }
 .profile-account-details[open] .profile-account-body { animation: accountReveal var(--motion-base) var(--ease-out) both; }
+.profile-account-details:not([open]) .profile-account-body { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .profile-account-details[open] .profile-account-body { animation: none; } .profile-account-chevron { transition: none; } }
 .active-filter-summary:not([hidden]) { animation: surfaceRefresh var(--motion-fast) var(--ease-out) both; }
 
