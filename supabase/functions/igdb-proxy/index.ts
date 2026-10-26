@@ -26,7 +26,7 @@ function escapeIgdbSearch(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
-const IGDB_FIELDS = "name,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,platforms.name";
+const IGDB_FIELDS = "name,slug,url,cover.image_id,summary,first_release_date,genres.name,involved_companies.company.name,involved_companies.developer,involved_companies.publisher,platforms.name";
 // Seule la fiche détaillée demande les captures d'écran (bannière animée) et
 // les notes (joueurs / presse) :
 // la recherche et les sorties gardent la même réponse, légère.
