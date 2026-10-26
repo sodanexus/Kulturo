@@ -6,7 +6,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TitleLogos, IGDB, OpenLibrary, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople, HardcoverAuthors, OpenLibraryAuthors, IGDBCompanies, CreatorCatalogWorks } from "../api.js";
+import { TitleLogos, IGDB, OpenLibrary, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople, HardcoverAuthors, HardcoverPublishers, OpenLibraryAuthors, IGDBCompanies, CreatorCatalogWorks } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import { detailBackdropUrl } from "./book-banner.js";
 import {
@@ -520,10 +520,11 @@ function metadataTarget(entry, kind, value) {
   return { cleanValue, directUrl };
 }
 
-function metadataDataAttrs(kind, target) {
+function metadataDataAttrs(kind, target, entry) {
   return `data-meta-kind="${esc(kind)}"
       data-meta-value="${esc(target.cleanValue)}"
       data-meta-external="${esc(target.directUrl)}"
+      data-meta-media="${esc(entry?.media_type || "")}"
       ${uiAction("openMetadataFromElement", [], { control: true })}`;
 }
 
@@ -533,7 +534,7 @@ function metadataChipHTML(entry, kind, value) {
   if (!target) return "";
   return `
     <button type="button" class="detail-chip detail-meta-link"
-      ${metadataDataAttrs(kind, target)}>
+      ${metadataDataAttrs(kind, target, entry)}>
       <span>${esc(target.cleanValue)}</span>
     </button>`;
 }
@@ -543,7 +544,7 @@ function metadataLinkHTML(entry, kind, value) {
   const target = metadataTarget(entry, kind, value);
   if (!target) return "";
   return `<button type="button" class="detail-link"
-      ${metadataDataAttrs(kind, target)}>${esc(target.cleanValue)}</button>`;
+      ${metadataDataAttrs(kind, target, entry)}>${esc(target.cleanValue)}</button>`;
 }
 
 function metadataLinksHTML(entry, kind, value) {
@@ -559,40 +560,61 @@ const metadataWorkCard = (item, action = "") => {
   </${action ? "button" : "div"}>`;
 };
 
+// Verrouille la hauteur actuelle AVANT les changements de contenu, puis
+// anime vers la nouvelle hauteur. Le calcul se fait sans frame visible entre
+// l'ancien et le nouveau contenu : aucune dilatation brusque.
+function transitionCreatorSurface(overlay, update, { reveal = [] } = {}) {
+  const sheet = overlay?.querySelector(".metadata-sheet");
+  if (!sheet || prefersReducedMotion() || !overlay.classList.contains("is-open")) {
+    update();
+    return;
+  }
+  sheet.getAnimations?.().filter(animation => animation.__kulturoResize).forEach(animation => animation.cancel());
+  const from = sheet.getBoundingClientRect().height;
+  sheet.style.height = `${from}px`;
+  update();
+  sheet.style.height = "auto";
+  const to = sheet.getBoundingClientRect().height;
+  sheet.style.height = `${from}px`;
+  if (Math.abs(to - from) < 2) {
+    sheet.style.height = "";
+  } else {
+    const animation = sheet.animate([
+      { height: `${from}px` }, { height: `${to}px` },
+    ], { duration: motionDuration("--motion-layout", 420), easing: "cubic-bezier(.22,1,.36,1)" });
+    animation.__kulturoResize = true;
+    animation.finished.catch(() => {}).then(() => {
+      if (sheet.isConnected && sheet.style.height === `${from}px`) sheet.style.height = "";
+    });
+  }
+  reveal.filter(Boolean).forEach(node => node.animate?.([
+    { opacity: 0, transform: "translateY(12px)" },
+    { opacity: 1, transform: "translateY(0)" },
+  ], { duration: motionDuration("--motion-layout", 420), easing: "cubic-bezier(.22,1,.36,1)" }));
+}
+
 function switchCreatorTab(element) {
   const overlay = document.getElementById("metadata-overlay");
   if (!overlay) return;
   const tab = element?.dataset?.creatorTab;
   if (!["library", "all"].includes(tab) || overlay.dataset.activeCreatorTab === tab) return;
-  overlay.dataset.activeCreatorTab = tab;
-  const sheet = overlay.querySelector(".metadata-sheet");
-  const body = overlay.querySelector(".metadata-sheet-body");
-  const fromHeight = sheet?.getBoundingClientRect().height;
-  overlay.querySelectorAll("[data-creator-tab]").forEach(button => {
-    const active = button.dataset.creatorTab === tab;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-selected", String(active));
-    button.tabIndex = active ? 0 : -1;
-  });
-  overlay.querySelectorAll("[data-creator-panel]").forEach(panel => {
-    panel.hidden = panel.dataset.creatorPanel !== tab;
-  });
   const target = overlay.querySelector(`[data-creator-panel="${tab}"]`);
-  if (target && !prefersReducedMotion()) {
-    target.animate?.([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "translateY(0)" }],
-      { duration: motionDuration("--motion-layout", 360), easing: "cubic-bezier(.2,.7,.2,1)" });
-  }
-  // Adapter la hauteur de la feuille à chaque contenu sans dépasser le viewport.
-  if (sheet && body && fromHeight && !prefersReducedMotion()) {
-    const toHeight = sheet.getBoundingClientRect().height;
-    if (Math.abs(toHeight - fromHeight) >= 2) {
-      sheet.animate?.([{ height: `${fromHeight}px` }, { height: `${toHeight}px` }],
-        { duration: motionDuration("--motion-layout", 360), easing: "cubic-bezier(.2,.7,.2,1)" });
-    }
-  }
+  transitionCreatorSurface(overlay, () => {
+    overlay.dataset.activeCreatorTab = tab;
+    overlay.querySelectorAll("[data-creator-tab]").forEach(button => {
+      const active = button.dataset.creatorTab === tab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    overlay.querySelectorAll("[data-creator-panel]").forEach(panel => {
+      panel.hidden = panel.dataset.creatorPanel !== tab;
+    });
+    overlay.querySelector(".metadata-sheet-body")?.scrollTo?.({ top: 0 });
+  }, { reveal: [target] });
 }
 
-async function enrichOtherCreator(kind, value, overlay) {
+async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
   const token = overlay.dataset.creatorToken;
   const status = overlay.querySelector("[data-creator-status]");
   const target = overlay.querySelector("[data-creator-all]");
@@ -607,38 +629,52 @@ async function enrichOtherCreator(kind, value, overlay) {
           if (matched?.key) profile = await OpenLibraryAuthors.details(matched.key) || profile;
         } catch { /* Conserver le profil Hardcover s'il existe. */ }
       }
-    } else if (["developer", "publisher"].includes(kind)) {
+    } else if (kind === "publisher" && mediaType === "book") {
+      profile = await HardcoverPublishers.find(value);
+    } else if (kind === "developer" || (kind === "publisher" && mediaType === "game")) {
       profile = await IGDBCompanies.find(value, kind);
     }
     if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     if (!profile || profile.not_found) {
-      if (status) status.textContent = kind === "developer" || kind === "publisher"
-        ? "Studio ou éditeur introuvable sur IGDB sous ce nom. Vérifiez le nom affiché sur la fiche du jeu."
-        : "Aucun profil correspondant identifié avec certitude.";
+      if (status) status.textContent = (kind === "developer" || mediaType === "game")
+        ? "Aucune société IGDB correspondant à ce nom."
+        : mediaType === "book" && kind === "publisher"
+          ? "Aucune maison d’édition correspondante sur Hardcover."
+          : "Aucun profil correspondant identifié avec certitude.";
       return;
     }
     const info = overlay.querySelector("[data-creator-info]");
     const photo = profile.profile_url || (profile.logo?.image_id ? `https://images.igdb.com/igdb/image/upload/t_logo_med/${profile.logo.image_id}.webp` : null);
-    if (info) info.innerHTML = `<div class="creator-identity">
-      ${photo ? `<img src="${esc(safeMediaUrl(photo))}" alt="" loading="lazy" decoding="async">` : `<div class="creator-identity-placeholder" aria-hidden="true">${iconUser()}</div>`}
-      <div><p class="creator-role">${kind === "author" ? `Auteur ou autrice · ${profile.source_api === "hardcover" ? "Hardcover" : "Open Library"}` : `${kind === "publisher" ? "Éditeur" : "Studio de développement"} · IGDB`}</p>
-      ${profile.birthplace ? `<p class="creator-place">${esc(profile.birthplace)}</p>` : ""}
-      ${profile.description || profile.biography ? `<p class="creator-bio">${esc(profile.description || profile.biography)}</p>` : `<p class="creator-place">Biographie non renseignée par la source.</p>`}</div></div>`;
-    if (target) target.innerHTML = profile.works?.length
-      ? `<div class="creator-work-grid">${profile.works.map(work => metadataWorkCard(work,
-         `data-creator-source="${esc(work.source_api)}" data-creator-external-id="${esc(work.external_id)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>`
-      : `<div class="metadata-empty">Aucune œuvre répertoriée dans ce catalogue.</div>`;
-    if (status) status.textContent = `${profile.works?.length || 0} œuvre${profile.works?.length === 1 ? "" : "s"} · ${kind === "author" ? (profile.source_api === "hardcover" ? "Hardcover" : "Open Library") : "IGDB"}`;
+    const isBook = kind === "author" || (kind === "publisher" && mediaType === "book");
+    const sourceLabel = isBook ? (profile.source_api === "hardcover" ? "Hardcover" : "Open Library") : "IGDB";
+    const roleLabel = kind === "author" ? "Auteur ou autrice" : kind === "publisher" ? (isBook ? "Maison d’édition" : "Éditeur de jeux") : "Studio de développement";
+    const works = (profile.works || []).filter(work => work && work.title && work.external_id != null);
     const footer = overlay.querySelector("[data-creator-external]");
-    if (footer) {
-      footer.href = kind === "author" ? profile.url : `https://www.igdb.com/companies/${encodeURIComponent(profile.slug || String(profile.id))}`;
-      footer.textContent = kind === "author" ? (profile.source_api === "hardcover" ? "Voir sur Hardcover ↗" : "Voir sur Open Library ↗") : "Voir sur IGDB ↗";
-      footer.hidden = false;
-    }
+    const url = profile.url && /^https:\/\/(?:www\.)?(?:igdb\.com|hardcover\.app|openlibrary\.org)\//i.test(profile.url) ? profile.url
+      : !isBook && /^[a-z0-9][a-z0-9-]*$/i.test(String(profile.slug || ""))
+        ? `https://www.igdb.com/companies/${profile.slug}` : null;
+    transitionCreatorSurface(overlay, () => {
+      if (info) info.innerHTML = `<div class="creator-identity">
+        ${photo ? `<img src="${esc(safeMediaUrl(photo))}" alt="" loading="lazy" decoding="async">` : `<div class="creator-identity-placeholder" aria-hidden="true">${iconUser()}</div>`}
+        <div><p class="creator-role">${esc(roleLabel)} · ${esc(sourceLabel)}</p>
+        ${profile.birthplace ? `<p class="creator-place">${esc(profile.birthplace)}</p>` : ""}
+        ${profile.description || profile.biography ? `<p class="creator-bio">${esc(profile.description || profile.biography)}</p>` : `<p class="creator-place">Présentation non renseignée par ${esc(sourceLabel)}.</p>`}
+        </div></div>`;
+      if (target) target.innerHTML = works.length
+        ? `<div class="creator-work-grid">${works.map(work => metadataWorkCard(work,
+           `data-creator-source="${esc(work.source_api)}" data-creator-external-id="${esc(work.external_id)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>`
+        : `<div class="metadata-empty">Aucune œuvre répertoriée dans ce catalogue.</div>`;
+      if (status) status.textContent = `${works.length}${profile.limited ? " premières" : ""} œuvre${works.length === 1 ? "" : "s"} · ${sourceLabel}${profile.limited ? " · sélection limitée" : ""}`;
+      if (footer) {
+        if (url) { footer.href = url; footer.textContent = `Voir sur ${sourceLabel} ↗`; footer.hidden = false; }
+        else { footer.hidden = true; footer.removeAttribute("href"); }
+      }
+    }, { reveal: [info, overlay.dataset.activeCreatorTab === "all" ? target : null] });
+
   } catch (error) {
     console.error("[Kulturo] Chargement du profil créateur", { kind, value, error });
     if (overlay.isConnected && overlay.dataset.creatorToken === token && status) {
-      status.textContent = `Catalogue indisponible (${kind === "developer" || kind === "publisher" ? "IGDB" : "livres"}). Vérifiez les journaux de la fonction Supabase.`;
+      status.textContent = `Catalogue indisponible (${kind === "developer" || mediaType === "game" ? "IGDB" : "Hardcover"}). Vérifiez les journaux de la fonction Supabase.`;
     }
   }
 }
@@ -657,19 +693,20 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
     const person = await TMDbPeople.details(resolved.id);
     if (!person || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     const info = overlay.querySelector("[data-creator-info]");
-    if (info) info.innerHTML = `<div class="creator-identity">
-      ${person.profile_url ? `<img src="${esc(safeMediaUrl(person.profile_url))}" alt="" loading="lazy" decoding="async">` : ""}
-      <div>${person.known_for ? `<p class="creator-role">${esc(person.known_for)}</p>` : ""}
-        ${person.birthplace ? `<p class="creator-place">${esc(person.birthplace)}</p>` : ""}
-        ${person.biography ? `<p class="creator-bio">${esc(person.biography)}</p>` : ""}</div></div>`;
     const target = overlay.querySelector("[data-creator-all]");
     const status = overlay.querySelector("[data-creator-status]");
-    if (target) {
-      target.innerHTML = person.works.length ? `<div class="creator-work-grid">${person.works.map(work => metadataWorkCard(work, `data-creator-tmdb="${esc(work.id)}" data-creator-type="${esc(work.subtype)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>` : `<div class="metadata-empty">Aucune filmographie disponible.</div>`;
-    }
-    if (status) status.textContent = `${person.works.length} œuvre${person.works.length > 1 ? "s" : ""} · TMDB`;
     const footer = overlay.querySelector("[data-creator-external]");
-    if (footer) { footer.href = `https://www.themoviedb.org/person/${person.id}`; footer.hidden = false; }
+    transitionCreatorSurface(overlay, () => {
+      if (info) info.innerHTML = `<div class="creator-identity">
+        ${person.profile_url ? `<img src="${esc(safeMediaUrl(person.profile_url))}" alt="" loading="lazy" decoding="async">` : ""}
+        <div>${person.known_for ? `<p class="creator-role">${esc(person.known_for)}</p>` : ""}
+          ${person.birthplace ? `<p class="creator-place">${esc(person.birthplace)}</p>` : ""}
+          ${person.biography ? `<p class="creator-bio">${esc(person.biography)}</p>` : ""}</div></div>`;
+      if (target) target.innerHTML = person.works.length ? `<div class="creator-work-grid">${person.works.map(work => metadataWorkCard(work, `data-creator-tmdb="${esc(work.id)}" data-creator-type="${esc(work.subtype)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>` : `<div class="metadata-empty">Aucune filmographie disponible.</div>`;
+      if (status) status.textContent = `${person.works.length} œuvre${person.works.length > 1 ? "s" : ""} · TMDB`;
+      if (footer) { footer.href = `https://www.themoviedb.org/person/${person.id}`; footer.hidden = false; }
+    }, { reveal: [info, overlay.dataset.activeCreatorTab === "all" ? target : null] });
+
   } catch (error) {
     if (overlay.isConnected && overlay.dataset.creatorToken === token) {
       const status = overlay.querySelector("[data-creator-status]");
@@ -718,7 +755,9 @@ function openMetadataFromElement(element) {
   if (previousMetadataDialog) dialogFocus.deactivate(previousMetadataDialog, { restoreFocus: false });
   document.getElementById("metadata-overlay")?.remove();
   _metadataReturnFocus = element;
-  const matches = entriesForMetadata(State.entries, kind, value);
+  const mediaType = element?.dataset?.metaMedia || "";
+  const matches = entriesForMetadata(State.entries, kind, value)
+    .filter(entry => kind !== "publisher" || !mediaType || entry.media_type === mediaType);
   const directUrl = safeMediaUrl(element.dataset.metaExternal);
   const external = metadataExternalLink(kind, value, directUrl || null);
   const externalUrl = safeMediaUrl(external?.url);
@@ -776,7 +815,7 @@ function openMetadataFromElement(element) {
   if (isCreator && creatorOverlay) {
     creatorOverlay.dataset.creatorToken = `${Date.now()}-${Math.random()}`;
     creatorOverlay.dataset.activeCreatorTab = "library";
-    void (["cast", "director"].includes(kind) ? enrichCreatorPanel(kind, value, directUrl, creatorOverlay) : enrichOtherCreator(kind, value, creatorOverlay));
+    void (["cast", "director"].includes(kind) ? enrichCreatorPanel(kind, value, directUrl, creatorOverlay) : enrichOtherCreator(kind, value, creatorOverlay, mediaType));
   }
 
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
@@ -1133,8 +1172,34 @@ function syncIgdbLink(entry) {
   const link = mediaLinks(entry).find(item => item.label === "Voir sur IGDB");
   if (!link) return;
   const modal = [...document.querySelectorAll(".detail-modal")].find(node => node.dataset.detailMediaId === String(entry.id));
-  const current = modal?.querySelector('.detail-ext-link[data-link-kind="igdb"]');
-  if (current) { current.href = link.url; current.querySelector(".detail-ext-label").textContent = link.label; }
+  const current = modal?.querySelectorAll('.detail-ext-link[data-link-kind="igdb"]');
+  if (current?.length) {
+    current.forEach(node => {
+      node.href = link.url;
+      node.setAttribute("aria-label", `${link.label} — nouvel onglet`);
+      const label = node.querySelector(".detail-ext-label");
+      if (label) label.textContent = link.label;
+    });
+    return;
+  }
+  // Le slug IGDB est généralement obtenu APRÈS l'ouverture de la fiche.
+  // La disparition des anciens liens de recherche ne doit pas empêcher
+  // l'apparition du vrai bouton quand l'enrichissement se termine.
+  modal?.querySelectorAll(".detail-footer-actions").forEach(footer => {
+    const anchor = document.createElement("a");
+    anchor.href = link.url;
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    anchor.className = "btn btn-secondary btn-sm detail-ext-link";
+    anchor.dataset.linkKind = "igdb";
+    anchor.setAttribute("aria-label", `${link.label} — nouvel onglet`);
+    anchor.innerHTML = `${iconExternal()}<span class="detail-ext-label">Voir sur IGDB</span>`;
+    footer.prepend(anchor);
+    if (!prefersReducedMotion()) anchor.animate?.([
+      { opacity: 0, transform: "translateY(5px)" },
+      { opacity: 1, transform: "translateY(0)" },
+    ], { duration: motionDuration("--motion-base", 240), easing: "ease-out" });
+  });
 }
 
 // Entrée affichée par chaque saga ouverte : l'action « envies » retrouve ainsi l'œuvre touchée.

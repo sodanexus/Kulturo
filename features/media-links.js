@@ -37,13 +37,14 @@ export function mediaLinks(entry) {
 
   if (entry.media_type === "game") {
     const igdbDirect = webUrl(entry.igdb_url);
-    if (igdbDirect && /(^|\.)igdb\.com$/i.test(new URL(igdbDirect).hostname)) {
+    if (igdbDirect && /(^|\.)igdb\.com$/i.test(new URL(igdbDirect).hostname) && /^\/games\/[a-z0-9][a-z0-9-]*\/?$/i.test(new URL(igdbDirect).pathname)) {
       add(igdbDirect, "Voir sur IGDB");
-    } else if (direct && /(^|\.)igdb\.com$/i.test(new URL(direct).hostname)) {
+    } else if (direct && /(^|\.)igdb\.com$/i.test(new URL(direct).hostname) && /^\/games\/[a-z0-9][a-z0-9-]*\/?$/i.test(new URL(direct).pathname)) {
       add(direct, "Voir sur IGDB");
-    } else if (title) {
-      add(`https://www.igdb.com/search?type=1&q=${query}`, "Rechercher sur IGDB");
     }
+    // IGDB utilise des slugs pour ses URL de jeux. Une recherche approximative
+    // ou un identifiant numérique dans le chemin peut pointer vers une mauvaise page.
+    // Le lien n'est montré qu'après récupération de l'URL officielle du jeu.
   } else if (entry.media_type === "movie") {
     if (entry.source_api === "tmdb" && /^\d+$/.test(String(entry.external_id || ""))) {
       add(`https://www.themoviedb.org/${entry.subtype === "tv" ? "tv" : "movie"}/${entry.external_id}`, "Voir sur TMDB");
