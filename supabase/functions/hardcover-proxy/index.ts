@@ -65,7 +65,7 @@ Deno.serve(async req => {
       if (!publisher) return reply({ profile: null });
       // On interroge les éditions du publisher et on déduplique les livres.
       // Limite API volontaire : une maison comme Kana compte des milliers de tomes.
-      const catalog = await graphql(`query($id:bigint!){editions(where:{publisher_id:{_eq:$id}},limit:75,order_by:{users_count:desc}){book{id title release_year image{url}}}}`, { id: publisher.id });
+      const catalog = await graphql(`query($id:Int!){editions(where:{publisher_id:{_eq:$id}},limit:75,order_by:{users_count:desc}){book{id title release_year image{url}}}}`, { id: publisher.id });
       const seen = new Set<number>();
       const works: any[] = [];
       for (const edition of catalog.editions || []) {
