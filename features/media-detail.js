@@ -611,8 +611,10 @@ async function enrichOtherCreator(kind, value, overlay) {
       profile = await IGDBCompanies.find(value, kind);
     }
     if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
-    if (!profile) {
-      if (status) status.textContent = "Aucun profil correspondant identifié avec certitude.";
+    if (!profile || profile.not_found) {
+      if (status) status.textContent = kind === "developer" || kind === "publisher"
+        ? "Studio ou éditeur introuvable sur IGDB sous ce nom. Vérifiez le nom affiché sur la fiche du jeu."
+        : "Aucun profil correspondant identifié avec certitude.";
       return;
     }
     const info = overlay.querySelector("[data-creator-info]");
@@ -633,8 +635,11 @@ async function enrichOtherCreator(kind, value, overlay) {
       footer.textContent = kind === "author" ? (profile.source_api === "hardcover" ? "Voir sur Hardcover ↗" : "Voir sur Open Library ↗") : "Voir sur IGDB ↗";
       footer.hidden = false;
     }
-  } catch {
-    if (overlay.isConnected && overlay.dataset.creatorToken === token && status) status.textContent = "Catalogue momentanément indisponible.";
+  } catch (error) {
+    console.error("[Kulturo] Chargement du profil créateur", { kind, value, error });
+    if (overlay.isConnected && overlay.dataset.creatorToken === token && status) {
+      status.textContent = `Catalogue indisponible (${kind === "developer" || kind === "publisher" ? "IGDB" : "livres"}). Vérifiez les journaux de la fonction Supabase.`;
+    }
   }
 }
 
