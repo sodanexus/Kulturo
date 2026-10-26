@@ -323,6 +323,7 @@ export const IGDB = {
                     || g.involved_companies?.[0]?.company?.name || null,
       platform:     g.platforms?.map(x => x.name).join(", ") || null,
       source_api:   "igdb",
+      igdb_url: g.url || (g.slug ? `https://www.igdb.com/games/${g.slug}` : null),
     }));
   },
 
@@ -792,7 +793,7 @@ export const IGDBDetails = {
     const duration = igdbPlayMinutes(g);
 
     return { backdrop_url, developer, publisher, platform, description, external_ratings, release_year, duration,
-      trailer_url: igdbTrailerUrl(g.videos), collection: igdbCollection(g.collection_details, g.id) };
+      trailer_url: igdbTrailerUrl(g.videos), igdb_url: g.url || (g.slug ? `https://www.igdb.com/games/${g.slug}` : null), collection: igdbCollection(g.collection_details, g.id) };
   },
 };
 

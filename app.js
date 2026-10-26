@@ -934,7 +934,7 @@ function renderApp() {
             <label class="compact-toggle">
               <input type="checkbox" id="upcoming-hide-added" ${uiAction("setUpcomingHideAdded", [], { checked: true })} />
               <span class="compact-toggle-track" aria-hidden="true"><span></span></span>
-              <span>Masquer les titres ajoutés</span>
+              <span>Non ajoutés uniquement</span>
             </label>
             <span id="upcoming-result-count" class="section-count"></span>
           </div>
@@ -4373,6 +4373,13 @@ async function restoreBackup() {
 // ── Fiches média ──────────────────────────────────────────────
 mediaDetailFeature = createMediaDetailFeature({
   findMatchingEntry,
+  openCollectionAdd: item => {
+    openModal();
+    if (!_wizardState) return;
+    _wizardState = selectAddResult(_wizardState, item);
+    window._apiSelected = item;
+    _renderWizard();
+  },
   State,
   Media,
   Journal,
@@ -4522,6 +4529,7 @@ window.UI = {
   closeModal,
   openEditFromDetail,
   addCollectionToWishlist: (hostId, externalId) => mediaDetailFeature.addCollectionToWishlist(hostId, externalId),
+  openCollectionAdd: (hostId, externalId) => mediaDetailFeature.openCollectionAdd(hostId, externalId),
   openDetailFromCollection: (id, control = null) => { openDetailPanel(id, { transitionSource: control }); },
   closeModalOnBg,
   saveEntry,
