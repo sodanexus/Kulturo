@@ -31,17 +31,12 @@ test("la route conserve les recherches indépendantes et le filtre Séries", () 
   assert.equal(route.filters.search, "Dune"); assert.equal(route.filters.subtype, "tv");
   assert.equal(route.views.upcoming.search, "été"); assert.equal(route.views.upcoming.type, "book");
 });
-test("les livres proposent uniquement Chercher le livre, même avec des liens enrichis", () => {
-  for (const source_api of ["openlibrary", "googlebooks", "manual"]) {
-    const links = mediaLinks({ title: "Dune", author: "Frank Herbert", media_type: "book", source_api,
-      external_id: "OL123W", external_url: "https://example.com/livre", preview_url: "https://example.com/extrait",
-      publisher_url: "https://example.com/editeur", isbn: "9781234567890" });
-    assert.equal(links.length, 1);
-    assert.equal(links[0].label, "Chercher le livre");
-    assert.equal(new URL(links[0].url).searchParams.get("q"), "isbn:9781234567890");
-  }
-  const links = mediaLinks({ title: "Dune", author: "Frank Herbert", media_type: "book" });
-  assert.equal(new URL(links[0].url).searchParams.get("q"), "Dune Frank Herbert");
+test("les livres ouvrent directement leur source et ne suivent pas des URLs tierces", () => {
+  const hardcover = mediaLinks({title:"Dune", media_type:"book", source_api:"hardcover", external_id:"123:456"});
+  assert.equal(hardcover[0]?.url, "https://hardcover.app/book/123");
+  const open = mediaLinks({title:"Dune", media_type:"book", source_api:"openlibrary", external_id:"OL123W", external_url:"https://example.com/livre"});
+  assert.equal(open[0]?.url, "https://openlibrary.org/works/OL123W");
+  assert.deepEqual(mediaLinks({title:"Dune",media_type:"book",source_api:"manual"}), []);
 });
 test("les jeux pointent vers IGDB, les films vers TMDB et les bandes-annonces sont directes", () => {
   assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" })[0].url.includes("igdb.com"));
