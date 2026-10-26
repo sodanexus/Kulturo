@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import typescript from 'typescript';
-const { transpileModule, ModuleKind, ScriptTarget } = typescript;
+import { stripTypeScriptTypes } from 'node:module';
 
 async function loadProxy() {
   const originalDeno = globalThis.Deno;
@@ -10,7 +9,7 @@ async function loadProxy() {
   globalThis.Deno = { serve: fn => { handler = fn; } };
   try {
     const source = await readFile(new URL('../supabase/functions/cover-proxy/index.ts', import.meta.url), 'utf8');
-    const js = transpileModule(source, { compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 } }).outputText;
+    const js = stripTypeScriptTypes(source, { mode: 'strip' });
     const module = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${Math.random()}`);
     return { handler, module };
   } finally {
