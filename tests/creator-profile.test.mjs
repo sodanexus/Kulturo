@@ -22,3 +22,19 @@ test('Les fiches TMDB utilisent des identifiants natifs', () => {
   assert.match(api, /combined_credits/);
   assert.doesNotMatch(api, /castExternalIds/);
 });
+
+test('les éditeurs de livres ne sont jamais recherchés dans IGDB', () => {
+  const detail = readFileSync(new URL('../features/media-detail.js', import.meta.url), 'utf8');
+  const api = readFileSync(new URL('../api.js', import.meta.url), 'utf8');
+  const hardcover = readFileSync(new URL('../supabase/functions/hardcover-proxy/index.ts', import.meta.url), 'utf8');
+  const igdb = readFileSync(new URL('../supabase/functions/igdb-proxy/index.ts', import.meta.url), 'utf8');
+  assert.match(detail, /kind === "publisher" && mediaType === "book"/);
+  assert.match(detail, /HardcoverPublishers\.find\(value\)/);
+  assert.match(detail, /kind === "publisher" && mediaType === "game"/);
+  assert.match(detail, /data-meta-media/);
+  assert.match(api, /action: "publisher", query/);
+  assert.match(hardcover, /query_type:"Publisher"/);
+  assert.match(hardcover, /limit:75/);
+  assert.match(igdb, /where slug = /);
+  assert.match(detail, /function transitionCreatorSurface/);
+});

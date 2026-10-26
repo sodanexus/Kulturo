@@ -15,6 +15,19 @@ test('proxy Hardcover : authentification, ISBN, variables GraphQL et cache', asy
     assert.equal(options.headers.Authorization, 'Bearer private-test-token');
     const body = JSON.parse(options.body);
     calls.push(body);
+    if (body.query.includes('query_type:"Publisher"')) {
+      return Response.json({data:{search:{ids:[76]}}});
+    }
+    if (body.query.includes('publishers(where:')) {
+      return Response.json({data:{publishers:[{id:76,name:'Kana',slug:'kana'}]}});
+    }
+    if (body.query.includes('publisher_id:')) {
+      return Response.json({data:{editions:[
+        {book:{id:44,title:'One Piece',release_year:1997,image:{url:'https://test.invalid/onepiece.jpg'}}},
+        {book:{id:44,title:'One Piece',release_year:1997,image:{url:'https://test.invalid/onepiece.jpg'}}},
+        {book:{id:45,title:'Naruto',release_year:1999,image:{url:'https://test.invalid/naruto.jpg'}}},
+      ]}});
+    }
     if (body.query.includes('search(')) {
       assert.ok(!body.query.includes('editions('));
       return Response.json({data:{search:{results:{hits:body.variables.q === 'absent' ? [] : [{document:{id:2,title:'Undercurrent',author_names:['Tetsuya Toyoda'],image:{url:'https://test.invalid/cover.jpg'}}}]}}}});
@@ -52,6 +65,13 @@ test('proxy Hardcover : authentification, ISBN, variables GraphQL et cache', asy
     const details = await (await handler(request({action:'details',id:'2:4'}))).json();
     assert.equal(details.items[0].external_id,'2:4');
     assert.deepEqual(calls.at(-1).variables,{id:4,book:2});
+    calls = [];
+    const publisher = await (await handler(request({action:'publisher',query:'Kana'}))).json();
+    assert.equal(publisher.profile.url, 'https://hardcover.app/publishers/kana');
+    assert.deepEqual(publisher.profile.works.map(work => work.title), ['One Piece','Naruto']);
+    assert.ok(publisher.profile.works.every(work => work.source_api === 'hardcover'));
+    assert.equal(calls.length, 3);
+    assert.match(calls[2].query, /limit:75/);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalDeno === undefined) delete globalThis.Deno; else globalThis.Deno = originalDeno;

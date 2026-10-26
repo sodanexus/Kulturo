@@ -39,7 +39,8 @@ test("les livres ouvrent directement leur source et ne suivent pas des URLs tier
   assert.deepEqual(mediaLinks({title:"Dune",media_type:"book",source_api:"manual"}), []);
 });
 test("les jeux pointent vers IGDB, les films vers TMDB et les bandes-annonces sont directes", () => {
-  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" })[0].url.includes("igdb.com"));
+  assert.deepEqual(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" }), []);
+  assert.deepEqual(mediaLinks({ title: "Jeu", media_type: "game", igdb_url: "https://www.igdb.com/search?c=1&q=undefined" }), []);
   assert.equal(mediaLinks({ title: "Jeu", media_type: "game", igdb_url: "https://www.igdb.com/games/portal-2" })[0].url, "https://www.igdb.com/games/portal-2");
   assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PS5" }).every(link => !link.url.includes("steampowered.com")));
   assert.equal(mediaLinks({ title: "Dune", media_type: "movie", source_api: "tmdb", external_id: "438631" })[0].url, "https://www.themoviedb.org/movie/438631");

@@ -22,3 +22,32 @@ test('IGDB search recovers missing exact titles, deduplicates and preserves usef
  mode='failure';calls=[];response=await search();data=await response.json();assert.equal(response.status,200);assert.equal(data[0].id,8);
  `], {cwd:new URL('..',import.meta.url),stdio:'pipe'});
 });
+
+test('IGDB retrouve Team17 par son slug officiel et charge les jeux publiés', () => {
+ execFileSync(process.execPath, ['--experimental-strip-types','--input-type=module','-e', `
+ import assert from 'node:assert/strict';
+ let handler; const queries=[];
+ globalThis.Deno={serve:fn=>handler=fn,env:{get:()=> 'fixture'}};
+ globalThis.fetch=async (url,options)=>{
+   if(String(url).includes('oauth2'))return Response.json({access_token:'fixture'});
+   const body=options.body; queries.push(body);
+   if(String(url).includes('/companies')) {
+     if(body.includes('where slug = "team17"'))return Response.json([{id:300,name:'Team17',slug:'team17',developed:[],published:[10,11],description:'Studio britannique'}]);
+     return Response.json([]);
+   }
+   if(String(url).includes('/games'))return Response.json([
+     {id:10,name:'Jeu A',first_release_date:1650000000,slug:'jeu-a'},
+     {id:11,name:'Jeu B',first_release_date:1660000000,slug:'jeu-b'}]);
+   return Response.json([]);
+ };
+ await import('./supabase/functions/igdb-proxy/index.ts');
+ const response=await handler(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({action:'company',query:'Team17',role:'developer'})}));
+ const data=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(data.url,'https://www.igdb.com/companies/team17');
+ assert.equal(data.role,'published');
+ assert.deepEqual(data.works.map(w=>w.title),['Jeu B','Jeu A']);
+ assert.ok(queries.some(q=>q.includes('where slug = "team17"')));
+ assert.ok(queries.some(q=>q.includes('where id = (10,11)')));
+ `], {cwd:new URL('..',import.meta.url),stdio:'pipe'});
+});
