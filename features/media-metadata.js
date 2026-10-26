@@ -66,11 +66,5 @@ export function metadataExternalLink(kind, value, directUrl = null) {
   if (!definition) return null;
   if (directUrl) return { url: directUrl, label: "Voir sur TMDB" };
   // Aucun lien de recherche approximatif pour les personnes sans identifiant.
-  if (definition.external === "goodreads") {
-    return { url: `https://www.goodreads.com/search?q=${query}`, label: "Rechercher sur Goodreads" };
-  }
-  if (definition.external === "steam") {
-    return { url: `https://store.steampowered.com/search/?term=${query}`, label: "Rechercher sur Steam" };
-  }
   return null;
 }

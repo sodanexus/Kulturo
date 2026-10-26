@@ -6,7 +6,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TitleLogos, IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople } from "../api.js";
+import { TitleLogos, IGDB, OpenLibrary, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople, HardcoverAuthors, OpenLibraryAuthors, IGDBCompanies, CreatorCatalogWorks } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import { detailBackdropUrl } from "./book-banner.js";
 import {
@@ -563,13 +563,79 @@ function switchCreatorTab(element) {
   const overlay = document.getElementById("metadata-overlay");
   if (!overlay) return;
   const tab = element?.dataset?.creatorTab;
-  if (!["library", "all"].includes(tab)) return;
+  if (!["library", "all"].includes(tab) || overlay.dataset.activeCreatorTab === tab) return;
+  overlay.dataset.activeCreatorTab = tab;
+  const sheet = overlay.querySelector(".metadata-sheet");
+  const body = overlay.querySelector(".metadata-sheet-body");
+  const fromHeight = sheet?.getBoundingClientRect().height;
   overlay.querySelectorAll("[data-creator-tab]").forEach(button => {
     const active = button.dataset.creatorTab === tab;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
   });
-  overlay.querySelectorAll("[data-creator-panel]").forEach(panel => { panel.hidden = panel.dataset.creatorPanel !== tab; });
+  overlay.querySelectorAll("[data-creator-panel]").forEach(panel => {
+    panel.hidden = panel.dataset.creatorPanel !== tab;
+  });
+  const target = overlay.querySelector(`[data-creator-panel="${tab}"]`);
+  if (target && !prefersReducedMotion()) {
+    target.animate?.([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "translateY(0)" }],
+      { duration: motionDuration("--motion-layout", 360), easing: "cubic-bezier(.2,.7,.2,1)" });
+  }
+  // Adapter la hauteur de la feuille à chaque contenu sans dépasser le viewport.
+  if (sheet && body && fromHeight && !prefersReducedMotion()) {
+    const toHeight = sheet.getBoundingClientRect().height;
+    if (Math.abs(toHeight - fromHeight) >= 2) {
+      sheet.animate?.([{ height: `${fromHeight}px` }, { height: `${toHeight}px` }],
+        { duration: motionDuration("--motion-layout", 360), easing: "cubic-bezier(.2,.7,.2,1)" });
+    }
+  }
+}
+
+async function enrichOtherCreator(kind, value, overlay) {
+  const token = overlay.dataset.creatorToken;
+  const status = overlay.querySelector("[data-creator-status]");
+  const target = overlay.querySelector("[data-creator-all]");
+  try {
+    let profile;
+    if (kind === "author") {
+      // Hardcover en premier. Repli Open Library si le profil ou la liste d'œuvres manque.
+      try { profile = await HardcoverAuthors.find(value); } catch { /* Repli sur Open Library. */ }
+      if (!profile?.works?.length) {
+        try {
+          const matched = await OpenLibraryAuthors.find(value);
+          if (matched?.key) profile = await OpenLibraryAuthors.details(matched.key) || profile;
+        } catch { /* Conserver le profil Hardcover s'il existe. */ }
+      }
+    } else if (["developer", "publisher"].includes(kind)) {
+      profile = await IGDBCompanies.find(value, kind);
+    }
+    if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    if (!profile) {
+      if (status) status.textContent = "Aucun profil correspondant identifié avec certitude.";
+      return;
+    }
+    const info = overlay.querySelector("[data-creator-info]");
+    const photo = profile.profile_url || (profile.logo?.image_id ? `https://images.igdb.com/igdb/image/upload/t_logo_med/${profile.logo.image_id}.webp` : null);
+    if (info) info.innerHTML = `<div class="creator-identity">
+      ${photo ? `<img src="${esc(safeMediaUrl(photo))}" alt="" loading="lazy" decoding="async">` : `<div class="creator-identity-placeholder" aria-hidden="true">${iconUser()}</div>`}
+      <div><p class="creator-role">${kind === "author" ? `Auteur ou autrice · ${profile.source_api === "hardcover" ? "Hardcover" : "Open Library"}` : `${kind === "publisher" ? "Éditeur" : "Studio de développement"} · IGDB`}</p>
+      ${profile.birthplace ? `<p class="creator-place">${esc(profile.birthplace)}</p>` : ""}
+      ${profile.description || profile.biography ? `<p class="creator-bio">${esc(profile.description || profile.biography)}</p>` : `<p class="creator-place">Biographie non renseignée par la source.</p>`}</div></div>`;
+    if (target) target.innerHTML = profile.works?.length
+      ? `<div class="creator-work-grid">${profile.works.map(work => metadataWorkCard(work,
+         `data-creator-source="${esc(work.source_api)}" data-creator-external-id="${esc(work.external_id)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>`
+      : `<div class="metadata-empty">Aucune œuvre répertoriée dans ce catalogue.</div>`;
+    if (status) status.textContent = `${profile.works?.length || 0} œuvre${profile.works?.length === 1 ? "" : "s"} · ${kind === "author" ? (profile.source_api === "hardcover" ? "Hardcover" : "Open Library") : "IGDB"}`;
+    const footer = overlay.querySelector("[data-creator-external]");
+    if (footer) {
+      footer.href = kind === "author" ? profile.url : `https://www.igdb.com/companies/${encodeURIComponent(profile.slug || String(profile.id))}`;
+      footer.textContent = kind === "author" ? (profile.source_api === "hardcover" ? "Voir sur Hardcover ↗" : "Voir sur Open Library ↗") : "Voir sur IGDB ↗";
+      footer.hidden = false;
+    }
+  } catch {
+    if (overlay.isConnected && overlay.dataset.creatorToken === token && status) status.textContent = "Catalogue momentanément indisponible.";
+  }
 }
 
 async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
@@ -608,6 +674,20 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
 }
 
 async function openCreatorWorkFromElement(element) {
+  const source = element?.dataset?.creatorSource;
+  const externalId = element?.dataset?.creatorExternalId;
+  if (source === "openlibrary" || source === "igdb" || source === "hardcover") {
+    const type = source === "igdb" ? "game" : "book";
+    const existing = State.entries.find(entry => entry.media_type === type && String(entry.external_id) === String(externalId));
+    if (existing) { openMetadataMedia(existing.id); return; }
+    try {
+      const result = source === "igdb" ? await CreatorCatalogWorks.igdbGame(externalId) : source === "hardcover" ? await CreatorCatalogWorks.hardcoverBook(externalId) : await CreatorCatalogWorks.openLibraryWork(externalId);
+      if (!result) { toast("Œuvre indisponible.", "error"); return; }
+      closeMetadataPanel({ restoreFocus: false });
+      setTimeout(() => openCollectionAdd(result), motionDuration() + 10);
+    } catch { toast("Impossible d’ouvrir cette œuvre.", "error"); }
+    return;
+  }
   const id = Number(element?.dataset?.creatorTmdb);
   const subtype = element?.dataset?.creatorType;
   if (!Number.isSafeInteger(id) || id <= 0 || !["movie", "tv"].includes(subtype)) return;
@@ -675,9 +755,9 @@ function openMetadataFromElement(element) {
           </div>` : ""}
         <div class="metadata-sheet-body">
           ${isCreator ? `<div data-creator-panel="library">${mediaRows || `<div class="metadata-empty">Aucune œuvre de ce créateur dans votre bibliothèque.</div>`}</div>
-          <div data-creator-panel="all" hidden><p class="creator-loading" data-creator-status>${kind === "cast" || kind === "director" ? "Chargement de la filmographie…" : "Catalogue complet non disponible pour cette source."}</p><div data-creator-all></div></div>` : (mediaRows || `<div class="metadata-empty">Aucune œuvre correspondante dans votre bibliothèque.</div>`) }
+          <div data-creator-panel="all" hidden><p class="creator-loading" data-creator-status>${kind === "cast" || kind === "director" ? "Chargement de la filmographie…" : "Chargement des œuvres et du profil…"}</p><div data-creator-all></div></div>` : (mediaRows || `<div class="metadata-empty">Aucune œuvre correspondante dans votre bibliothèque.</div>`) }
         </div>
-        ${isCreator && (kind === "cast" || kind === "director") && !externalUrl ? `<footer class="metadata-sheet-footer"><a data-creator-external hidden class="btn btn-secondary" target="_blank" rel="noopener">Voir sur TMDB ↗</a></footer>` : ""}
+        ${isCreator && !externalUrl ? `<footer class="metadata-sheet-footer"><a data-creator-external hidden class="btn btn-secondary" target="_blank" rel="noopener">Voir sur TMDB ↗</a></footer>` : ""}
         ${externalUrl ? `
           <footer class="metadata-sheet-footer">
             <a class="btn btn-secondary" href="${esc(externalUrl)}" target="_blank" rel="noopener">${esc(external.label)} ↗</a>
@@ -690,7 +770,8 @@ function openMetadataFromElement(element) {
   const creatorOverlay = document.getElementById("metadata-overlay");
   if (isCreator && creatorOverlay) {
     creatorOverlay.dataset.creatorToken = `${Date.now()}-${Math.random()}`;
-    void enrichCreatorPanel(kind, value, directUrl, creatorOverlay);
+    creatorOverlay.dataset.activeCreatorTab = "library";
+    void (["cast", "director"].includes(kind) ? enrichCreatorPanel(kind, value, directUrl, creatorOverlay) : enrichOtherCreator(kind, value, creatorOverlay));
   }
 
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
