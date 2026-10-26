@@ -519,14 +519,15 @@ export function createProfileFeature({
       </section>
 
       <details class="profile-account-details" data-ui-key="profile-account">
-        <summary>
-          <span><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
-          <span aria-hidden="true">⌄</span>
+        <summary class="profile-account-toggle">
+          <span class="profile-account-heading-copy"><strong>Compte et sauvegarde</strong><small>${esc(cachedUsername || State.user?.email || "Votre compte Kulturo")}</small></span>
+          <span class="profile-account-chevron" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
         </summary>
         <div class="profile-account-body">
-          <div class="profile-account-main">
+          <div class="profile-account-main profile-account-panel">
             <div class="profile-avatar-circle">${iconUser()}</div>
             <div class="profile-identity-meta">
+              <div class="profile-account-eyebrow">Mon compte</div>
               <div class="profile-identity-email">${esc(State.user?.email || "")}</div>
               <div class="profile-username-row">
                 <input type="text" id="input-username" placeholder="Votre pseudo…" maxlength="30" value="${esc(cachedUsername)}" aria-label="Pseudo" />
@@ -534,8 +535,8 @@ export function createProfileFeature({
               </div>
             </div>
           </div>
-          <div class="profile-backup-panel">
-            <div><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
+          <div class="profile-backup-panel profile-account-panel">
+            <div class="profile-backup-copy"><span class="profile-account-eyebrow">Mes données</span><strong>Copie de sécurité</strong><span id="last-backup-label">${esc(formatLastBackup())}</span></div>
             <div class="profile-backup-actions">
               <button class="btn btn-secondary btn-sm" ${uiAction("exportLibrary", [], { control: true })}>↓ Sauvegarder</button>
               <button class="btn btn-secondary btn-sm" id="backup-restore-picker" ${uiAction("chooseBackupFile")}>↑ Restaurer</button>
