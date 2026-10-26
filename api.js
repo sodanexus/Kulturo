@@ -207,6 +207,36 @@ export const IGDBCompanies = {
   },
 };
 
+// Traductions et présentations manquantes via Groq,
+// uniquement à partir du nom, du rôle et des œuvres réellement renvoyées.
+export const CreatorDescriptions = {
+  async enrich(profile, { name, role, signal } = {}) {
+    if (!profile) return { text: "", generated: false };
+    const source = String(profile.description || profile.biography || "").trim();
+    if (source) {
+      const result = await translateText(source.slice(0, 4500), { signal });
+      return { text: result.text || source, generated: false };
+    }
+    const works = (profile.works || []).filter(work => work?.title).slice(0, 12)
+      .map(work => String(work.title).slice(0, 130));
+    if (!works.length || !CONFIG?.supabase?.url) return { text: "", generated: false };
+    try {
+      const result = await apiFetch(`${CONFIG.supabase.url}/functions/v1/groq-proxy`, {
+        method: "POST", headers: await edgeFunctionHeaders(),
+        body: JSON.stringify({ action: "creator-description", name: String(name || profile.name || "").slice(0, 140),
+          role: String(role || "Créateur").slice(0, 80), works }),
+        cachePolicy: "detail", timeoutMs: 20000, signal,
+      });
+      const text = String(result?.description || "").trim();
+      return { text: text.slice(0, 900), generated: Boolean(text) };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      console.warn("[Kulturo] Présentation Groq indisponible", error);
+      return { text: "", generated: false };
+    }
+  },
+};
+
 export const TMDbPeople = {
   available() { return Boolean(CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_")); },
   async find(name, options = {}) {
