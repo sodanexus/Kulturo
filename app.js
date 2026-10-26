@@ -4528,6 +4528,8 @@ window.UI = {
   openEditFromDetail,
   addCollectionToWishlist: (hostId, externalId) => mediaDetailFeature.addCollectionToWishlist(hostId, externalId),
   openCollectionAdd: (hostId, externalId) => mediaDetailFeature.openCollectionAdd(hostId, externalId),
+  openSagaCollectionDetail: (hostId, externalId) => mediaDetailFeature.openSagaCollectionDetail(hostId, externalId),
+  addSagaPreview: previewId => mediaDetailFeature.addSagaPreview(previewId),
   openDetailFromCollection: (id, control = null) => { openDetailPanel(id, { transitionSource: control }); },
   closeModalOnBg,
   saveEntry,
