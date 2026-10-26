@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 const file = async path => readFile(new URL(path, import.meta.url), 'utf8');
-test('Hardcover : ID éditeur en bigint pour recherche et catalogue', async () => {
+test('Hardcover : type bigint pour les IDs publisher et Int pour publisher_id des éditions', async () => {
   const source = await file('../supabase/functions/hardcover-proxy/index.ts');
   assert.match(source, /query\(\$ids:\[bigint!\]!\)\{publishers/);
-  assert.match(source, /query\(\$id:bigint!\)\{editions\(where:\{publisher_id/);
+  assert.match(source, /query\(\$id:Int!\)\{editions\(where:\{publisher_id/);
+  assert.doesNotMatch(source, /query\(\$id:bigint!\)\{editions\(where:\{publisher_id/);
 });
 test('Créateurs : traduction française des biographies, secours Groq identifié', async () => {
   const api = await file('../api.js');
