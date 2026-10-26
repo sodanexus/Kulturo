@@ -9,8 +9,8 @@ test("la détection du français est partagée et exportée", () => {
   assert.match(api, /export \{ isLikelyFrench \}/);
   assert.match(read("../features/text-language.js"), /export function isLikelyFrench/);
   assert.match(api, /export async function translateText/);
-  // Une seule route de traduction : groq-proxy, avec consigne fixe côté serveur.
-  assert.equal((api.match(/functions\/v1\/groq-proxy/g) || []).length, 1);
+  // La traduction et les biographies générées réutilisent le même proxy Groq.
+  assert.equal((api.match(/functions\/v1\/groq-proxy/g) || []).length, 2);
 });
 
 test("un synopsis ISBN étranger n'est pas enregistré tel quel", () => {
