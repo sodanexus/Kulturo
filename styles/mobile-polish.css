@@ -258,3 +258,23 @@
 .creator-visual--logo .creator-visual-fallback span { font-size: 1.25rem; }
 @media (max-width:700px) { .creator-visual { width: 72px; height: 96px; } .creator-visual--logo img { padding: 6px; } .creator-visual-fallback span { font-size: 1.18rem; } .creator-visual-fallback small { font-size: .52rem; } }
 @media (prefers-reduced-motion: reduce) { .creator-visual img { transition: none; } .creator-visual--logo.has-loaded-logo { transition: none; } }
+
+/* Kulturo 5.0 — animation raffinée du sélecteur et des œuvres créateurs. */
+.creator-tabs { position: relative; }
+.creator-tabs::after {
+  content: ""; position: absolute; bottom: -1px; left: 1.15rem;
+  width: calc((100% - 2.3rem - .35rem) / 2); height: 2px;
+  background: var(--accent); pointer-events: none;
+  transform: translateX(0);
+  transition: transform 340ms cubic-bezier(.22,1,.36,1);
+}
+.creator-tabs.is-all::after { transform: translateX(calc(100% + .35rem)); }
+.creator-tabs button.is-active { border-bottom-color: transparent; }
+/* Les cartes sont animées une fois en JS, après résolution de la source. */
+.creator-work-grid { animation: none; }
+@media (max-width: 700px) {
+  .creator-tabs::after { left: .85rem; width: calc((100% - 1.7rem - .35rem) / 2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-tabs::after { transition: none; }
+}
