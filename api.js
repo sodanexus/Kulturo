@@ -155,6 +155,20 @@ export const HardcoverAuthors = {
   },
 };
 
+// Les éditeurs de livres sont des entités Hardcover, jamais des sociétés IGDB.
+export const HardcoverPublishers = {
+  async find(name) {
+    const query = String(name || "").trim();
+    if (!query) return null;
+    const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
+      method: "POST", headers: await edgeFunctionHeaders(),
+      body: JSON.stringify({ action: "publisher", query }), cachePolicy: "detail",
+    });
+    if (data?.error) throw new Error(data.error);
+    return data?.profile || null;
+  },
+};
+
 export const OpenLibraryAuthors = {
   async find(name) {
     const query = String(name || "").trim();
