@@ -265,13 +265,27 @@ Deno.serve(async (req) => {
     };
 
     if (action === "company") {
+      if (!query) return jsonResponse({ error: "Nom du studio ou éditeur requis" }, 400);
       const role = body?.role === "publisher" ? "published" : "developed";
-      const matches = await igdbRequest("companies", `search "${escapeIgdbSearch(query)}"; fields name,description,logo.image_id,country,start_date,slug; limit 20;`, headers);
-      const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-      const company = matches.find(item => normalize(item.name || "") === normalize(query));
+      // Les champs `developed` et `published` sont directement fournis par IGDB.
+      // Évite une seconde association `involved_companies` fragile pour les fiches de sociétés.
+      const matches = await igdbRequest("companies", `search "${escapeIgdbSearch(query)}"; fields name,description,logo.image_id,country,start_date,slug,developed,published; limit 50;`, headers);
+      const normalize = (value: string) => String(value || "").normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+      const stripSuffix = (value: string) => normalize(value)
+        .replace(/(?:\s+(?:inc|llc|ltd|limited|corp|corporation|co|company|studios?|games?|entertainment|interactive))+$/g, "").trim();
+      const expected = normalize(query);
+      const company = matches.find(item => normalize(item.name) === expected)
+        || matches.find(item => stripSuffix(item.name) === stripSuffix(query) && stripSuffix(query).length >= 4);
       if (!company) return jsonResponse(null);
-      const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
-      const gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
+      let gameIds = [...new Set((Array.isArray(company[role]) ? company[role] : [])
+        .map((id: unknown) => Number(id)).filter(Number.isSafeInteger))].slice(0, 100);
+      // Repli pour les fiches où IGDB ne renseigne pas encore developed/published.
+      if (!gameIds.length) {
+        const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
+        gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
+      }
       const games = gameIds.length ? await igdbRequest("games", `fields name,cover.image_id,first_release_date,slug; where id = (${gameIds.join(",")}); sort first_release_date desc; limit 100;`, headers) : [];
       return jsonResponse({ ...company, works: games.map(game => ({ id: game.id, title: game.name, subtype: "game", source_api: "igdb", external_id: String(game.id), release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null, cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null })) });
     }
