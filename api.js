@@ -115,7 +115,84 @@ function tmdbNormalizeShow(s) {
   };
 }
 
+// Ouvrir une œuvre exacte depuis les catalogues créateurs.
+export const CreatorCatalogWorks = {
+  async hardcoverBook(id) {
+    return Hardcover.fetch(id);
+  },
+  async openLibraryWork(id) {
+    if (!/^OL\d+W$/.test(String(id || ""))) return null;
+    const work = await apiFetch(`https://openlibrary.org/works/${id}.json`, { cachePolicy: "detail" });
+    if (!work?.title) return null;
+    return { external_id: id, title: work.title, media_type: "book", source_api: "openlibrary",
+      cover_url: work.covers?.[0] ? `https://covers.openlibrary.org/b/id/${work.covers[0]}-M.jpg` : null,
+      description: typeof work.description === "string" ? work.description : work.description?.value || null,
+      author: null, release_year: null };
+  },
+  async igdbGame(id) {
+    const game = await fetchIgdbGame(id);
+    if (!game) return null;
+    return { external_id: String(game.id), title: game.name, media_type: "game", source_api: "igdb",
+      cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null,
+      description: game.summary || null, release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null,
+      author: game.involved_companies?.find(item => item.developer)?.company?.name || null };
+  },
+};
+
 // Fiches créateurs et filmographies : informations publiques TMDb, jamais IMDb.
+// Profils auteurs Open Library : correspondance stricte du nom pour éviter les homonymes.
+// Hardcover est prioritaire pour les créateurs littéraires ; Open Library reste le repli.
+export const HardcoverAuthors = {
+  async find(name) {
+    const query = String(name || "").trim();
+    if (!query) return null;
+    const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
+      method: "POST", headers: await edgeFunctionHeaders(),
+      body: JSON.stringify({ action: "author", query }), cachePolicy: "detail",
+    });
+    if (data?.error) throw new Error(data.error);
+    return data?.profile || null;
+  },
+};
+
+export const OpenLibraryAuthors = {
+  async find(name) {
+    const query = String(name || "").trim();
+    if (!query) return null;
+    const data = await apiFetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=20`, { cachePolicy: "search" });
+    const norm = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return (data.docs || []).find(item => norm(item.name) === norm(query)) || null;
+  },
+  async details(key) {
+    const id = String(key || "").replace(/^\/authors\//, "");
+    if (!/^OL\d+A$/.test(id)) return null;
+    const [author, catalog] = await Promise.all([
+      apiFetch(`https://openlibrary.org/authors/${id}.json`, { cachePolicy: "detail" }),
+      apiFetch(`https://openlibrary.org/authors/${id}/works.json?limit=100`, { cachePolicy: "detail" }),
+    ]);
+    const description = typeof author.bio === "string" ? author.bio : author.bio?.value || "";
+    return { id, name: author.name, biography: description, birthplace: author.birth_date ? `Naissance : ${author.birth_date}` : "",
+      profile_url: author.photos?.[0] ? `https://covers.openlibrary.org/a/id/${author.photos[0]}-M.jpg` : null,
+      url: `https://openlibrary.org/authors/${id}`,
+      works: (catalog.entries || []).filter(work => /^\/works\/OL\d+W$/.test(work.key || "")).map(work => ({
+        id: work.key.split("/").pop(), title: work.title, subtype: "book", external_id: work.key.split("/").pop(), source_api: "openlibrary",
+        cover_url: work.covers?.[0] ? `https://covers.openlibrary.org/b/id/${work.covers[0]}-M.jpg` : null,
+        release_year: work.first_publish_date ? Number(String(work.first_publish_date).match(/\d{4}/)?.[0]) || null : null,
+      })) };
+  },
+};
+
+export const IGDBCompanies = {
+  async find(name, role = "developer") {
+    if (!IGDB.available() || !String(name || "").trim()) return null;
+    const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
+      method: "POST", headers: await edgeFunctionHeaders(), body: JSON.stringify({ action: "company", query: name, role }), cachePolicy: "detail",
+    });
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+};
+
 export const TMDbPeople = {
   available() { return Boolean(CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_")); },
   async find(name, options = {}) {

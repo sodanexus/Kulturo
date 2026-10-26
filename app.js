@@ -849,7 +849,7 @@ function renderApp() {
         ${logoMarkHTML()}
         <span class="topbar-brand-copy">
           <span class="topbar-wordmark">Kulturo</span>
-          <span class="topbar-tagline">Suivez votre culture</span>
+
         </span>
       </div>
       <nav id="topnav" aria-label="Navigation principale">
