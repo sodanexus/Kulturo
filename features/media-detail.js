@@ -210,10 +210,11 @@ function renderDetailPanel(e, options = {}) {
   const finishRender = startMeasurement("detail:visible");
   rememberModalReturnFocus(options.transitionSource, e.id);
   markModalPristine();
+  const isSagaPreview = options.sagaPreview === true;
   const isPreview = options.preview === true;
   const isReadOnly = options.readOnly === true;
-  const ratingDisplay = isPreview ? "" : ratingScoreHTML(e.rating, "detail-rating-score");
-  const headerStatusBadge = isPreview
+  const ratingDisplay = isPreview || isSagaPreview ? "" : ratingScoreHTML(e.rating, "detail-rating-score");
+  const headerStatusBadge = isSagaPreview ? "" : isPreview
     ? `<span class="badge badge-upcoming">${iconCalendar()} À venir</span>`
     : e.status
       ? `<span class="badge badge-${e.status}" id="detail-status-${e.id}">${iconStatus(e.status)} ${statusLabelFor(e.status, e.media_type)}</span>`
@@ -245,7 +246,7 @@ function renderDetailPanel(e, options = {}) {
           <div class="detail-swipe-handle" aria-hidden="true"></div>
           <div class="detail-backdrop-gradient"></div>
           <button class="detail-close-btn btn-icon" ${uiAction("closeModal")} aria-label="Fermer">${iconX()}</button>
-          ${!isPreview ? `<div class="detail-compact-bar" aria-hidden="true">
+          ${!isPreview && !isSagaPreview ? `<div class="detail-compact-bar" aria-hidden="true">
             <span class="detail-compact-title">${esc(e.title)}</span>
             <span class="detail-compact-meta">
               <span class="detail-compact-badges" id="detail-compact-badges-${e.id}">${compactBadgesHTML(e)}</span>
@@ -257,14 +258,14 @@ function renderDetailPanel(e, options = {}) {
             <div class="detail-backdrop-info">
               <h2 class="detail-title${useTitleLogo ? " detail-title-with-logo" : ""}${useTitleLogo && (supportsTitleLogo(e) || (!isReadOnly && !isPreview && canResolveMediaIdentity(e))) ? " is-logo-pending" : ""}" id="detail-sheet-title"><span class="detail-title-text">${esc(e.title)}</span></h2>
               <p class="detail-facts detail-hero-facts" id="detail-facts-${e.id}">${detailFactsHTML(e)}</p>
-              ${!isReadOnly && !isPreview ? readingProgressHTML(e) : ""}
+              ${!isReadOnly && !isPreview && !isSagaPreview ? readingProgressHTML(e) : ""}
               <div class="detail-header-meta">
               ${ratingDisplay ? `<div class="detail-rating" id="detail-rating-${e.id}">${ratingDisplay}</div>` : ""}
               <div class="detail-badges">
                 <span class="badge badge-${e.media_type === "movie" && e.subtype === "tv" ? "tv" : e.media_type}">${iconMedia(e.media_type, e.subtype)} ${getTypeLabel(e)}</span>
                 ${headerStatusBadge}
-                ${!isPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
-                ${!isPreview ? detailRepeatIndicatorHTML(e) : ""}
+                ${!isPreview && !isSagaPreview ? `<span class="detail-fav ${e.is_favorite ? "is-active" : ""}" id="detail-fav-${e.id}" title="Coup de cœur" aria-label="Coup de cœur">♥</span>` : ""}
+                ${!isPreview && !isSagaPreview ? detailRepeatIndicatorHTML(e) : ""}
                 <span class="detail-hero-ratings detail-external-section" id="detail-hero-ratings-${e.id}">${renderDetailRatingsHTML(e, { detailsLoading: options.detailsLoading === true })}</span>
               </div>
               </div>
@@ -278,7 +279,11 @@ function renderDetailPanel(e, options = {}) {
         })}</div>
 
         <div class="modal-footer">
-          ${isReadOnly ? `
+          ${isSagaPreview ? `
+            <div class="detail-footer-actions">
+              ${externalHTML}
+              <button class="btn btn-primary btn-sm" ${uiAction("addSagaPreview", [e.id])}>+ Ajouter</button>
+            </div>` : isReadOnly ? `
             <div class="detail-footer-actions detail-footer-actions-readonly">
               ${externalHTML}
               <button class="btn btn-primary btn-sm" ${uiAction("closeModal")}>Fermer</button>
@@ -1286,6 +1291,7 @@ function syncIgdbLink(entry) {
 // Entrée affichée par chaque saga ouverte : l'action « envies » retrouve ainsi l'œuvre touchée.
 const _collectionHosts = new Map();
 const _collectionAdding = new Set();
+const _sagaPreviews = new Map();
 const collectionKey = item => `${item.source_api}:${item.external_id}`;
 
 function renderCollectionHTML(e) {
@@ -1313,13 +1319,61 @@ function renderCollectionHTML(e) {
       ? `<button type="button" class="${classes}" ${uiAction("openDetailFromCollection", [owned.id], { control: true })} aria-label="Ouvrir ${esc(item.title)}">${body}</button>`
       : current
         ? `<div class="${classes}" aria-current="true">${body}</div>`
-        : `<button type="button" class="${classes}" ${uiAction("openCollectionAdd", [e.id, item.external_id])} aria-label="Ajouter ${esc(item.title)} à votre bibliothèque">${body}</button>`;
+        : `<button type="button" class="${classes}" ${uiAction("openSagaCollectionDetail", [e.id, item.external_id])} aria-label="Voir la fiche de ${esc(item.title)}">${body}</button>`;
   }).join("");
   const label = collectionLabel(collection.name);
   return `<section class="detail-collection-section" data-block="collection" aria-label="Saga${label ? ` : ${esc(label)}` : ""}">
     <h3 class="detail-collection-heading">Saga${label ? ` <span>· ${esc(label)}</span>` : ""}</h3>
     <div class="detail-collection-row">${items}</div>
   </section>`;
+}
+
+// Fiche temporaire de saga : aucune écriture dans la bibliothèque avant le clic sur « Ajouter ».
+async function openSagaCollectionDetail(hostId, externalId) {
+  const host = _collectionHosts.get(String(hostId));
+  const item = host?.collection?.items?.find(candidate => String(candidate.external_id) === String(externalId));
+  if (!item) return;
+  const existing = findMatchingEntry(item);
+  if (existing) { await openDetailPanel(existing.id); return; }
+  const entry = {
+    ...item,
+    id: `saga-preview-${item.source_api}-${item.external_id}`,
+    status: null,
+    rating: null,
+    is_favorite: false,
+    notes: null,
+    created_at: null,
+  };
+  _sagaPreviews.clear();
+  _sagaPreviews.set(entry.id, item);
+  const sessionId = renderDetailPanel(entry, { sagaPreview: true, detailsLoading: canEnrichMediaDetails(entry) });
+  const signal = detailSessions.signal(sessionId);
+  const isActive = () => detailSessions.isActive(sessionId, entry.id);
+  _scheduleSynopsisOverflowCheck(entry.id);
+  if (!canEnrichMediaDetails(entry)) return;
+  try {
+    const details = await requestPrefetchedDetails(entry, { signal });
+    if (!isActive() || !details) return;
+    Object.assign(entry, details);
+    // Garder l'identité temporaire et le bouton Ajouter même après l'enrichissement.
+    entry.id = `saga-preview-${item.source_api}-${item.external_id}`;
+    entry.status = null;
+    _injectBackdrop(entry.backdrop_url, entry.id, sessionId);
+    await refreshDetailEnrichment(entry, { detailsLoading: false });
+  } catch (error) {
+    if (error?.name !== "AbortError" && isActive()) {
+      entry._detailLoadError = "Certaines informations sont momentanément indisponibles.";
+      await refreshDetailEnrichment(entry, { detailsLoading: false });
+    }
+  }
+}
+
+function addSagaPreview(previewId) {
+  const item = _sagaPreviews.get(String(previewId));
+  if (!item) return;
+  const owned = findMatchingEntry(item);
+  if (owned) { openDetailPanel(owned.id); return; }
+  openCollectionAdd(item);
 }
 
 // Met à jour la rangée de la saga sans toucher au reste de la fiche (défilement conservé).
@@ -1872,6 +1926,8 @@ function retryDetailInfo(id) {
     renderDetailPanel,
     refreshDetailEnrichment,
     addCollectionToWishlist,
+    openSagaCollectionDetail,
+    addSagaPreview,
     openCollectionAdd: (hostId, externalId) => {
       const host = _collectionHosts.get(String(hostId));
       const item = host?.collection?.items?.find(candidate => String(candidate.external_id) === String(externalId));
