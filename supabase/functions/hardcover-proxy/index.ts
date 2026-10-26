@@ -47,11 +47,28 @@ Deno.serve(async req => {
     stage = String(body.action);
     const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
     const identity = hardcoverIdentity(body.id);
-    if (!['search', 'details', 'select'].includes(body.action) || (body.action === 'search' ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
+    if (!['search', 'details', 'select', 'author'].includes(body.action) || (['search', 'author'].includes(body.action) ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
     const key = JSON.stringify([body.action, query, identity]);
     const saved = cache.get(key);
     if (saved && saved.until > Date.now()) return reply({ items: saved.items });
     let items;
+    if (body.action === 'author') {
+      const normalized = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      // L'index de recherche fournit un identifiant stable, pas une correspondance floue.
+      const found = await graphql('query($q:String!){search(query:$q,query_type:"author",per_page:10,page:1){ids}}', { q: query });
+      const ids = (found.search?.ids || []).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 10);
+      const result = ids.length ? await graphql('query($ids:[Int!]!){authors(where:{id:{_in:$ids}}){id name slug bio books_count}}', { ids }) : { authors: [] };
+      const author = result.authors?.find((entry: any) => normalized(entry.name) === normalized(query));
+      if (!author) return reply({ profile: null });
+      const catalog = await graphql(`query($name:String!){books(where:{contributions:{author:{name:{_eq:$name}}}},limit:100,order_by:{users_count:desc}){id title release_year image { url }}}`, { name: author.name });
+      const works = (catalog.books || []).filter((book: any) => book?.id && book?.title).map((book: any) => ({
+        external_id: String(book.id), id: book.id, title: book.title, subtype: 'book', source_api: 'hardcover',
+        cover_url: book.image?.url || null, release_year: book.release_year || null,
+      }));
+      return reply({ profile: { id: author.id, name: author.name, biography: author.bio || '',
+        source_api: 'hardcover', url: `https://hardcover.app/authors/${author.slug || author.id}`,
+        works } });
+    }
     if (body.action === 'details' || body.action === 'select') {
       const data = await graphql(`query($id:Int!){books(where:{id:{_eq:$id}},limit:1){${BOOK}}}`, { id: identity!.bookId });
       const book = data.books?.[0];
