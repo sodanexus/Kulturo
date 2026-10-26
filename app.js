@@ -108,6 +108,8 @@ let renderDetailPanel;
 let prefetchDetail;
 let openMetadataFromElement;
 let openMetadataMedia;
+let switchCreatorTab;
+let openCreatorWorkFromElement;
 let closeMetadataPanel;
 let revokeStaleRepeatEvents;
 let canEnrichMediaDetails;
@@ -4422,6 +4424,8 @@ mediaDetailFeature = createMediaDetailFeature({
   prefetchDetail,
   openMetadataFromElement,
   openMetadataMedia,
+  switchCreatorTab,
+  openCreatorWorkFromElement,
   closeMetadataPanel,
   revokeStaleRepeatEvents,
   canEnrichMediaDetails,
@@ -4515,6 +4519,8 @@ window.UI = {
   openEditModal:   (id, transitionSource = null) => { openDetailPanel(id, { transitionSource }); },
   openMetadataFromElement,
   openMetadataMedia,
+  switchCreatorTab,
+  openCreatorWorkFromElement,
   closeMetadataPanel,
   retryDetailInfo: id => mediaDetailFeature.retryDetailInfo(id),
   setEditDetailsView,

@@ -115,6 +115,41 @@ function tmdbNormalizeShow(s) {
   };
 }
 
+// Fiches créateurs et filmographies : informations publiques TMDb, jamais IMDb.
+export const TMDbPeople = {
+  available() { return Boolean(CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_")); },
+  async find(name, options = {}) {
+    if (!this.available() || !String(name || "").trim()) return null;
+    const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/search/person?api_key=${CONFIG.tmdb.apiKey}&language=fr-FR&query=${encodeURIComponent(name)}`, { cachePolicy: "search", signal: options.signal });
+    const normalize = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr-FR").trim();
+    return (data?.results || []).find(person => normalize(person.name) === normalize(name)) || null;
+  },
+  async details(id, options = {}) {
+    if (!this.available() || !Number.isSafeInteger(Number(id)) || Number(id) <= 0) return null;
+    const base = `${CONFIG.tmdb.baseUrl}/person/${encodeURIComponent(id)}`;
+    const query = `api_key=${CONFIG.tmdb.apiKey}&language=fr-FR`;
+    const [person, credits] = await Promise.all([
+      apiFetch(`${base}?${query}`, { cachePolicy: "detail", signal: options.signal }),
+      apiFetch(`${base}/combined_credits?${query}`, { cachePolicy: "detail", signal: options.signal }),
+    ]);
+    if (!person?.id) return null;
+    return {
+      id: person.id, name: person.name, biography: person.biography || "",
+      profile_url: person.profile_path ? `${CONFIG.tmdb.imageBase}${person.profile_path}` : null,
+      known_for: person.known_for_department || "", birthplace: person.place_of_birth || "",
+      works: [...(credits?.cast || []).map(item => ({ ...item, credit_role: "cast" })),
+        ...(credits?.crew || []).filter(item => ["Director", "Creator", "Writer", "Screenplay"].includes(item.job)).map(item => ({ ...item, credit_role: "crew" }))]
+        .filter(item => (item.media_type === "tv" || item.media_type === "movie") && item.id)
+        .filter((item, index, items) => items.findIndex(other => other.id === item.id && other.media_type === item.media_type) === index)
+        .sort((a, b) => (b.release_date || b.first_air_date || "").localeCompare(a.release_date || a.first_air_date || ""))
+        .slice(0, 120).map(item => ({ id: item.id, subtype: item.media_type, title: item.title || item.name || "",
+          release_year: Number((item.release_date || item.first_air_date || "").slice(0, 4)) || null,
+          cover_url: item.poster_path ? `${CONFIG.tmdb.imageBase}${item.poster_path}` : null,
+          role: item.credit_role === "crew" ? (item.job || "Création") : (item.character || "Interprétation") })),
+    };
+  },
+};
+
 export const TMDb = {
   available() {
     return CONFIG?.tmdb?.apiKey && !CONFIG.tmdb.apiKey.includes("VOTRE_");
@@ -647,25 +682,10 @@ export const TMDbDetails = {
       directors = d.created_by.map(x => x.name).slice(0, 2).join(", ") || null;
     }
 
-    // Casting top 4. Les identifiants IMDb restent transitoires : ils servent
-    // uniquement à produire des liens exacts et ne modifient pas le schéma SQL.
+    // Identifiants natifs TMDb : pas de requêtes supplémentaires vers IMDb.
     const topCast = c?.cast?.slice(0, 4) || [];
     const cast_members = topCast.map(x => x.name).join(", ") || null;
-    const castExternalIds = await Promise.allSettled(topCast.map(person =>
-      apiFetch(`${base}/person/${person.id}/external_ids?api_key=${key}`, detailRequest)
-    ));
-    if (options.signal?.aborted) {
-      const error = new Error("Requête annulée");
-      error.name = "AbortError";
-      throw error;
-    }
-    const cast_people = topCast.map((person, index) => ({
-      id: person.id,
-      name: person.name,
-      imdb_id: castExternalIds[index]?.status === "fulfilled"
-        ? (castExternalIds[index].value?.imdb_id || null)
-        : null,
-    }));
+    const cast_people = topCast.map(person => ({ id: person.id, name: person.name }));
 
     // Durée / saisons / épisodes
     // Films : durée du film. Séries : durée d'un épisode (le Profil la multiplie par episodes_count).
