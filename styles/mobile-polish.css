@@ -225,3 +225,12 @@
   .creator-tabs { padding: .5rem .85rem 0; }
 }
 @media (prefers-reduced-motion: reduce) { .creator-work-card, .creator-tabs button { transition: none; } }
+
+/* Transitions fiches créateurs : adaptation du dialogue et fondu du contenu. */
+.metadata-sheet:has(.creator-tabs) { height: fit-content; transition: max-height var(--motion-layout, 360ms) cubic-bezier(.2,.7,.2,1); }
+.creator-identity-placeholder { width: 88px; height: 116px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; background: var(--bg-3); color: var(--text-3); }
+.creator-identity-placeholder svg { width: 28px; height: 28px; }
+.creator-work-grid { animation: creator-content-appear var(--motion-layout, 360ms) ease both; }
+@keyframes creator-content-appear { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width:700px) { .creator-identity-placeholder { width: 72px; height: 96px; } }
+@media (prefers-reduced-motion: reduce) { .creator-work-grid { animation: none; } .metadata-sheet:has(.creator-tabs) { transition: none; } }
