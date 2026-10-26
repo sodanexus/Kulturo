@@ -60,12 +60,12 @@ Deno.serve(async req => {
       const found = await graphql('query($q:String!){search(query:$q,query_type:"Publisher",per_page:15,page:1){ids}}', { q: query });
       const ids = (found.search?.ids || []).map(Number)
         .filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 15);
-      const result = ids.length ? await graphql('query($ids:[Int!]!){publishers(where:{id:{_in:$ids}}){id name slug}}', { ids }) : { publishers: [] };
+      const result = ids.length ? await graphql('query($ids:[bigint!]!){publishers(where:{id:{_in:$ids}}){id name slug}}', { ids }) : { publishers: [] };
       const publisher = result.publishers?.find((entry: any) => normalized(entry.name) === normalized(query));
       if (!publisher) return reply({ profile: null });
       // On interroge les éditions du publisher et on déduplique les livres.
       // Limite API volontaire : une maison comme Kana compte des milliers de tomes.
-      const catalog = await graphql(`query($id:Int!){editions(where:{publisher_id:{_eq:$id}},limit:75,order_by:{users_count:desc}){book{id title release_year image{url}}}}`, { id: publisher.id });
+      const catalog = await graphql(`query($id:bigint!){editions(where:{publisher_id:{_eq:$id}},limit:75,order_by:{users_count:desc}){book{id title release_year image{url}}}}`, { id: publisher.id });
       const seen = new Set<number>();
       const works: any[] = [];
       for (const edition of catalog.editions || []) {
