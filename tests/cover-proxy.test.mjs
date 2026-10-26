@@ -3,22 +3,27 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 
+let importSequence = 0;
 async function loadProxy() {
-  // Execute the stripped source as a function instead of importing a .ts module.
-  // Node versions differ in how they classify TypeScript ESM imports.
+  // Load the real ESM exports after stripping TypeScript, without requiring
+  // Node to interpret .ts files and without rewriting source text with regex.
   const source = await readFile(new URL('../supabase/functions/cover-proxy/index.ts', import.meta.url), 'utf8');
   const js = stripTypeScriptTypes(source, { mode: 'strip' });
-  const executable = js.replace(/\bexport\s+function\s+allowedCoverUrl\b/, 'function allowedCoverUrl');
-  if (executable === js) throw new Error('Export allowedCoverUrl introuvable dans cover-proxy');
   let handler;
-  const Deno = { serve(fn) { handler = fn; } };
-  const create = new Function('Deno', 'fetch', `${executable}\nreturn { allowedCoverUrl };`);
-  const module = create(Deno, (...args) => globalThis.fetch(...args));
-  if (typeof module.allowedCoverUrl !== 'function' || typeof handler !== 'function') {
-    throw new Error('cover-proxy: exports ou gestionnaire absents');
+  const previousDeno = globalThis.Deno;
+  globalThis.Deno = { serve(fn) { handler = fn; } };
+  try {
+    const url = `data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${++importSequence}`;
+    const module = await import(url);
+    assert.equal(typeof module.allowedCoverUrl, 'function', 'index.ts doit exporter allowedCoverUrl');
+    assert.equal(typeof handler, 'function', 'index.ts doit enregistrer Deno.serve');
+    return { handler, module };
+  } finally {
+    if (previousDeno === undefined) delete globalThis.Deno;
+    else globalThis.Deno = previousDeno;
   }
-  return { handler, module };
 }
+
 const post = body => new Request('https://x.test/cover-proxy', { method: 'POST', body: JSON.stringify(body) });
 const png = () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } });
 
