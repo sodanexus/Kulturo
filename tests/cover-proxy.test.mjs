@@ -1,13 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { transpileModule, ModuleKind, ScriptTarget } from 'typescript';
 
 async function loadProxy() {
   const originalDeno = globalThis.Deno;
   let handler;
   globalThis.Deno = { serve: fn => { handler = fn; } };
-  const module = await import(`../supabase/functions/cover-proxy/index.ts?${Math.random()}`);
-  globalThis.Deno = originalDeno;
-  return { handler, module };
+  try {
+    const source = await readFile(new URL('../supabase/functions/cover-proxy/index.ts', import.meta.url), 'utf8');
+    const js = transpileModule(source, { compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 } }).outputText;
+    const module = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${Math.random()}`);
+    return { handler, module };
+  } finally {
+    globalThis.Deno = originalDeno;
+  }
 }
 const post = body => new Request('https://x.test/cover-proxy', { method: 'POST', body: JSON.stringify(body) });
 const png = () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } });
