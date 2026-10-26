@@ -234,3 +234,11 @@
 @keyframes creator-content-appear { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width:700px) { .creator-identity-placeholder { width: 72px; height: 96px; } }
 @media (prefers-reduced-motion: reduce) { .creator-work-grid { animation: none; } .metadata-sheet:has(.creator-tabs) { transition: none; } }
+
+/* Profil créateur : transitions des résultats une fois les données résolues. */
+.metadata-sheet:has(.creator-tabs) { height: auto; }
+.creator-profile, [data-creator-panel] { min-width: 0; }
+.creator-identity, .creator-work-grid, .creator-loading { will-change: opacity; }
+@media (prefers-reduced-motion: reduce) {
+  .creator-identity, .creator-work-grid, .creator-loading { will-change: auto; }
+}
