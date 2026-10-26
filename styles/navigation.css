@@ -249,3 +249,33 @@
   #page-upcoming .upcoming-genre-filter { flex: 1 1 auto; min-width: 0; width: auto; }
   #page-upcoming .upcoming-refresh-btn { flex: 0 0 var(--control-height); }
 }
+
+/* Profil desktop : Annuel/Mensuel à gauche, année/mois à leur ancienne place. */
+@media (min-width: 681px) {
+  #page-dashboard .profile-page-toolbar .profile-scope-toolbar { display: contents; }
+  #page-dashboard .profile-page-toolbar .profile-period-switch { order: 0; flex: 0 0 auto; }
+  #page-dashboard .profile-page-toolbar .profile-date-controls { order: 1; flex: 0 0 auto; }
+  #page-dashboard .profile-page-toolbar .profile-media-switch { order: 2; margin-left: auto; }
+}
+
+/* Profil mobile uniquement : signature Kulturo et slogan blanc sur une ligne. */
+@media (max-width: 680px) {
+  body:has(#page-dashboard.active) #topbar .topbar-brand-copy {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: .3rem;
+    white-space: nowrap;
+  }
+  body:has(#page-dashboard.active) #topbar .topbar-tagline {
+    display: inline;
+    font-family: var(--font-body, sans-serif);
+    font-size: clamp(.58rem, 2.5vw, .8rem);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1;
+    text-transform: none;
+    color: #fff;
+  }
+  body:has(#page-dashboard.active) #topbar .topbar-tagline::before { content: "– "; }
+}
