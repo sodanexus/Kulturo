@@ -591,19 +591,25 @@ const metadataWorkCard = (item, action = "") => {
   </${action ? "button" : "div"}>`;
 };
 
-// Verrouille la hauteur actuelle AVANT les changements de contenu, puis
-// anime vers la nouvelle hauteur. Le calcul se fait sans frame visible entre
-// l'ancien et le nouveau contenu : aucune dilatation brusque.
+// Une seule animation de taille active par fiche. Une réponse API tardive ou
+// un changement rapide d’onglet invalide la fin de la transition précédente.
+const creatorResizeStates = new WeakMap();
 function transitionCreatorSurface(overlay, update, { reveal = [] } = {}) {
   const sheet = overlay?.querySelector(".metadata-sheet");
   if (!sheet || prefersReducedMotion() || !overlay.classList.contains("is-open")) {
     update();
     return;
   }
-  sheet.getAnimations?.().filter(animation => animation.__kulturoResize).forEach(animation => animation.cancel());
+  const oldState = creatorResizeStates.get(sheet);
+  // Lire la hauteur *visible* AVANT l’annulation : sinon le navigateur revient
+  // brièvement à la hauteur naturelle de l’ancienne fiche.
   const from = sheet.getBoundingClientRect().height;
   sheet.style.height = `${from}px`;
+  if (oldState) oldState.animation?.cancel();
+  const state = { animation: null };
+  creatorResizeStates.set(sheet, state);
   update();
+  // Mesurer la hauteur naturelle avec les nouvelles données, dans la même frame.
   sheet.style.height = "auto";
   const to = sheet.getBoundingClientRect().height;
   sheet.style.height = `${from}px`;
@@ -612,11 +618,26 @@ function transitionCreatorSurface(overlay, update, { reveal = [] } = {}) {
   } else {
     const animation = sheet.animate([
       { height: `${from}px` }, { height: `${to}px` },
-    ], { duration: motionDuration("--motion-layout", 420), easing: "cubic-bezier(.22,1,.36,1)" });
+    ], { duration: motionDuration("--motion-layout", 420), easing: "cubic-bezier(.22,1,.36,1)", fill: "forwards" });
     animation.__kulturoResize = true;
-    animation.finished.catch(() => {}).then(() => {
-      if (sheet.isConnected && sheet.style.height === `${from}px`) sheet.style.height = "";
-    });
+    state.animation = animation;
+    animation.finished.then(() => {
+      if (!sheet.isConnected || creatorResizeStates.get(sheet) !== state) return;
+      // Garder la hauteur d’arrivée le temps de libérer la contrainte. Si
+      // la hauteur naturelle a changé (polices, images, viewport), l’animer
+      // au lieu de laisser la fenêtre sauter d’un seul coup.
+      sheet.style.height = `${to}px`;
+      animation.cancel();
+      sheet.style.height = "auto";
+      const natural = sheet.getBoundingClientRect().height;
+      if (Math.abs(natural - to) >= 2) {
+        sheet.style.height = `${to}px`;
+        transitionCreatorSurface(overlay, () => {}, { reveal: [] });
+      } else {
+        sheet.style.height = "";
+        creatorResizeStates.delete(sheet);
+      }
+    }).catch(() => {});
   }
   // Entrée progressive, courte et bornée : on ne retarde jamais tout un grand catalogue.
   reveal.filter(Boolean).forEach(node => {
