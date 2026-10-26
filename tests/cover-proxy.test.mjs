@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { transpileModule, ModuleKind, ScriptTarget } from 'typescript';
+import typescript from 'typescript';
+const { transpileModule, ModuleKind, ScriptTarget } = typescript;
 
 async function loadProxy() {
   const originalDeno = globalThis.Deno;
