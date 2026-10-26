@@ -218,3 +218,34 @@
   .palette-footer { grid-column: 1 / -1; grid-row: 4; justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) { .desktop-filter-panel, .filter-selection { transition: none; } }
+
+/* Sorties : filtres sur une même rangée desktop, sans filtre supplémentaire. */
+@media (min-width: 681px) {
+  #page-upcoming .upcoming-toolbar { display: block; }
+  #page-upcoming .upcoming-toolbar-main { display: flex; flex-wrap: nowrap; width: 100%; gap: .65rem; }
+  #page-upcoming .upcoming-type-switch { flex: 0 1 auto; min-width: 0; }
+  #page-upcoming .upcoming-genre-filter { flex: 0 1 230px; min-width: 145px; width: auto; margin-left: .25rem; }
+  #page-upcoming .upcoming-refresh-btn { margin-left: auto; flex-shrink: 0; }
+}
+@media (max-width: 680px) {
+  /* Sur le profil, le nom rejoint le logo ; pas sur les autres pages. */
+  body:has(#page-dashboard.active) #topbar .topbar-brand-copy { display: flex; }
+  body:has(#page-dashboard.active) #topbar .topbar-wordmark { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; letter-spacing: -.03em; line-height: 1; }
+  body:has(#page-dashboard.active) #topbar .topbar-tagline { display: none; }
+  body:has(#page-dashboard.active) #topbar .topbar-logo { gap: .4rem; }
+  /* Première ligne : annuel/mensuel pleine largeur ; deuxième : année/mois. */
+  #page-dashboard .profile-page-toolbar { display: flex; flex-direction: column; align-items: stretch; }
+  #page-dashboard .profile-scope-toolbar { display: contents; }
+  #page-dashboard .profile-period-switch { order: 0; align-self: stretch; width: 100%; }
+  #page-dashboard .profile-period-switch > button { flex: 1 1 50%; min-width: 0; }
+  #page-dashboard .profile-date-controls { order: 1; align-self: stretch; width: 100%; }
+  #page-dashboard .profile-media-switch { order: 2; align-self: stretch; max-width: 100%; }
+}
+
+@media (max-width: 680px) {
+  #page-upcoming .upcoming-toolbar { display: block; }
+  #page-upcoming .upcoming-toolbar-main { display: flex; flex-wrap: wrap; gap: .5rem; }
+  #page-upcoming .upcoming-type-switch { flex: 1 1 100%; justify-content: space-between; }
+  #page-upcoming .upcoming-genre-filter { flex: 1 1 auto; min-width: 0; width: auto; }
+  #page-upcoming .upcoming-refresh-btn { flex: 0 0 var(--control-height); }
+}
