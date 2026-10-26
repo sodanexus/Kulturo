@@ -278,21 +278,43 @@ Deno.serve(async (req) => {
       const base = stripSuffix(query);
       const candidates = [query];
       if (base.length >= 4 && base !== expected) candidates.push(base);
-      // Certaines raisons sociales ne sont pas indexées sous leur forme complète.
+      const companyFields = "name,description,logo.image_id,country,start_date,slug,developed,published";
+      // La recherche textuelle IGDB n'est pas exhaustive. La page IGDB possède
+      // un slug stable : Team17 => team17. On interroge aussi ce champ directement.
+      const slug = normalize(query).replace(/\s+/g, "-");
       const matches = new Map<number, any>();
-      for (const term of candidates) {
-        const found = await igdbRequest("companies", `search "${escapeIgdbSearch(term)}"; fields name,description,logo.image_id,country,start_date,slug,developed,published; limit 50;`, headers);
-        for (const item of found) if (Number.isSafeInteger(item.id)) matches.set(item.id, item);
+      if (/^[a-z0-9][a-z0-9-]{1,100}$/.test(slug)) {
+        try {
+          const direct = await igdbRequest("companies", `fields ${companyFields}; where slug = "${escapeIgdbSearch(slug)}"; limit 5;`, headers);
+          direct.forEach(item => { if (Number.isSafeInteger(item.id)) matches.set(item.id, item); });
+        } catch (error) { console.warn("[IGDB company] Recherche par slug indisponible", error); }
       }
-      const company = [...matches.values()].find(item => normalize(item.name) === expected)
+      for (const term of candidates) {
+        try {
+          const found = await igdbRequest("companies", `search "${escapeIgdbSearch(term)}"; fields ${companyFields}; limit 50;`, headers);
+          for (const item of found) if (Number.isSafeInteger(item.id)) matches.set(item.id, item);
+        } catch (error) { if (!matches.size) throw error; console.warn("[IGDB company] Recherche texte indisponible", error); }
+      }
+      const company = [...matches.values()].find(item => normalize(item.slug) === slug.replaceAll("-", " "))
+        || [...matches.values()].find(item => normalize(item.name) === expected)
         || (base.length >= 4 ? [...matches.values()].find(item => stripSuffix(item.name) === base) : null);
       if (!company) return jsonResponse({ not_found: true, works: [], searched: candidates.length, message: `Aucune entreprise IGDB correspondant à « ${query} »` });
+      let actualRole = role;
       let gameIds = [...new Set((Array.isArray(company[role]) ? company[role] : [])
         .map((id: unknown) => Number(id)).filter(Number.isSafeInteger))].slice(0, 100);
-      // Repli pour les fiches où IGDB ne renseigne pas encore developed/published.
+      // Une société comme Team17 est souvent renseignée comme éditeur, même
+      // lorsqu'un jeu l'affiche aussi comme développeur. Proposer les titres
+      // liés à la société plutôt que montrer une liste vide trompeuse.
       if (!gameIds.length) {
-        const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
-        gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
+        try {
+          const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
+          gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
+        } catch (err) { console.warn("[IGDB company] Associations secondaires indisponibles", err); }
+      }
+      if (!gameIds.length) {
+        actualRole = role === "published" ? "developed" : "published";
+        gameIds = [...new Set((Array.isArray(company[actualRole]) ? company[actualRole] : [])
+          .map((id: unknown) => Number(id)).filter(Number.isSafeInteger))].slice(0, 100);
       }
       // IGDB limite certaines requêtes à une fenêtre de résultats réduite.
       const games: any[] = [];
@@ -301,7 +323,7 @@ Deno.serve(async (req) => {
         games.push(...await igdbRequest("games", `fields name,cover.image_id,first_release_date,slug; where id = (${ids.join(",")}); limit 25;`, headers));
       }
       games.sort((a, b) => (b.first_release_date || 0) - (a.first_release_date || 0));
-      return jsonResponse({ ...company, works: games.map(game => ({ id: game.id, title: game.name, subtype: "game", source_api: "igdb", external_id: String(game.id), release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null, cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null })) });
+      return jsonResponse({ ...company, url: company.slug ? `https://www.igdb.com/companies/${company.slug}` : null, role: actualRole, limited: gameIds.length >= 100, works: games.map(game => ({ id: game.id, title: game.name, subtype: "game", source_api: "igdb", external_id: String(game.id), release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null, cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null })) });
     }
 
     if (action === "logos") {
