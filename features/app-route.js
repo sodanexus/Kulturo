@@ -83,10 +83,11 @@ export function parseAppRoute(hash = "") {
   const views = {
     profile: { period: "year" },
     journal: { mode: "personal", periods: { personal: "all", community: "all" } },
-    upcoming: { type: "all", genre: "all", hideAdded: true },
+    upcoming: { type: "all", genre: "all", hideAdded: false },
   };
   const profileYear = Number(params.get("py"));
-  if (profileYear >= 1900 && profileYear <= 2200) views.profile.year = profileYear;
+  if (params.get("py") === "all") views.profile.year = "all";
+  else if (profileYear >= 1900 && profileYear <= 2200) views.profile.year = profileYear;
   if (/^(0[1-9]|1[0-2])$/.test(params.get("pm") || "")) views.profile.month = params.get("pm");
   if (["month", "year"].includes(params.get("period"))) views.profile.period = params.get("period");
   if (["all", "film", "tv", "game", "book"].includes(params.get("media"))) views.profile.media = params.get("media");

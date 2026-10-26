@@ -84,10 +84,10 @@ function readUpcomingPreferences() {
     return {
       type: UPCOMING_TYPES.includes(saved.type) ? saved.type : "all",
       genre: typeof saved.genre === "string" && saved.genre ? saved.genre : "all",
-      hideAdded: typeof saved.hideAdded === "boolean" ? saved.hideAdded : true,
+      hideAdded: false,
     };
   } catch {
-    return { type: "all", genre: "all", hideAdded: true };
+    return { type: "all", genre: "all", hideAdded: false };
   }
 }
 
@@ -401,7 +401,7 @@ function filteredUpcomingResults() {
     filtered = filtered.filter(it => upcomingGenresForItem(it).includes(UpcomingState.genre));
   }
   if (UpcomingState.search) filtered = filtered.filter(it => librarySearchScore(it, UpcomingState.search) > 0);
-  if (UpcomingState.hideAdded) filtered = filtered.filter(it => !isUpcomingInLibrary(it));
+  // Tous les titres sont visibles, y compris ceux déjà ajoutés.
   return filtered;
 }
 
@@ -532,7 +532,7 @@ function renderUpcomingCards() {
   }
 
   if (!results.length) {
-    const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all" || UpcomingState.hideAdded;
+    const hasFilter = Boolean(UpcomingState.search) || UpcomingState.type !== "all" || UpcomingState.genre !== "all";
     const pendingLabels = pendingUpcomingSourceLabels(true);
     if (pendingLabels.length) {
       reconcileMarkup(grid, `<p class="upcoming-loading" data-ui-key="loading" role="status">Chargement en cours : ${esc(pendingLabels.join(", "))}…</p>`);
@@ -754,7 +754,7 @@ function setUpcomingGenre(genre) {
 }
 
 function setUpcomingHideAdded(value) {
-  UpcomingState.hideAdded = Boolean(value);
+  UpcomingState.hideAdded = false;
   persistUpcomingPreferences();
   onContextChange?.();
   renderUpcomingCards();
@@ -817,7 +817,7 @@ function resetUpcomingFilters() {
       UpcomingState.search = typeof value.search === "string" ? value.search.slice(0, 120) : "";
       if (UPCOMING_TYPES.includes(value?.type)) UpcomingState.type = value.type;
       if (typeof value?.genre === "string" && value.genre.length <= 120) UpcomingState.genre = value.genre || "all";
-      if (typeof value?.hideAdded === "boolean") UpcomingState.hideAdded = value.hideAdded;
+      UpcomingState.hideAdded = false;
     },
     cancel: cancelUpcoming,
     reset() {

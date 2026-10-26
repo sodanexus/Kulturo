@@ -150,7 +150,7 @@ export function createProfileFeature({
       return uniqueEntriesForEvents(entries, eventsForPeriod(State.events, year, month));
     }
     return entries.filter(entry => {
-      if (entryActivityYear(entry) !== Number(year)) return false;
+      if (year !== "all" && entryActivityYear(entry) !== Number(year)) return false;
       return month === "all" || entryActivityMonth(entry) === `${year}-${String(month).padStart(2, "0")}`;
     });
   }
@@ -183,8 +183,9 @@ export function createProfileFeature({
   }
 
   function setProfileYear(y) {
-    const year = Number.parseInt(y, 10);
-    if (!Number.isFinite(year)) return;
+    const year = y === "all" ? "all" : Number.parseInt(y, 10);
+    if (year !== "all" && !Number.isFinite(year)) return;
+    if (year === "all") _profilePeriod = "year";
     _profileYear = year;
     _profileMonthAutoResolve = false;
     onContextChange?.();
@@ -203,6 +204,7 @@ export function createProfileFeature({
   function setProfilePeriod(period) {
     if (!['year', 'month'].includes(period) || period === _profilePeriod) return;
     _profilePeriod = period;
+    if (period === "month" && _profileYear === "all") _profileYear = _profileToday.getFullYear();
     if (period === "month") _profileMonthAutoResolve = true;
     onContextChange?.();
     renderDashboard();
@@ -335,8 +337,8 @@ export function createProfileFeature({
       : [];
     const years = [...new Set([...all.map(entryActivityYear).filter(Boolean), ...eventYears])]
       .sort((a,b)=>b-a);
-    if (!years.includes(_profileYear)) years.unshift(_profileYear);
-    const yearOptions = years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
+    if (_profileYear !== "all" && !years.includes(_profileYear)) years.unshift(_profileYear);
+    const yearOptions = `<option value="all" ${_profileYear === "all" ? "selected" : ""}>Toutes les années</option>` + years.map(y => `<option value="${y}" ${y===_profileYear?"selected":""}>${y}</option>`).join("");
 
     const monthOptions = Array.from({ length: 12 }, (_, index) => {
       const value = String(index + 1).padStart(2, "0");
@@ -346,7 +348,7 @@ export function createProfileFeature({
     const periodMonth = _profilePeriod === "month" ? _profileMonth : "all";
     const periodLabel = _profilePeriod === "month"
       ? new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(_profileYear, Number(_profileMonth) - 1, 1))
-      : String(_profileYear);
+      : (_profileYear === "all" ? "toutes les années" : String(_profileYear));
     const dateScopedEntries = profileEntriesForPeriod(all, _profileYear, periodMonth);
     const scopedEntries = dateScopedEntries.filter(entry => profileMediaMatches(entry));
     const periodEvents = State.journalAvailable ? eventsForPeriod(State.events, _profileYear, periodMonth) : [];
@@ -595,11 +597,11 @@ export function createProfileFeature({
       return { year: _profileYear, month: _profileMonth, period: _profilePeriod, media: _profileMedia };
     },
     restoreContext(value = {}) {
-      const year = Number.parseInt(value?.year, 10);
+      const year = value?.year === "all" ? "all" : Number.parseInt(value?.year, 10);
       const month = String(value?.month || "").padStart(2, "0");
-      if (Number.isInteger(year) && year >= 1900 && year <= 2200) _profileYear = year;
+      if (year === "all" || (Number.isInteger(year) && year >= 1900 && year <= 2200)) _profileYear = year;
       if (/^(0[1-9]|1[0-2])$/.test(month)) _profileMonth = month;
-      if (["year", "month"].includes(value?.period)) _profilePeriod = value.period;
+      if (["year", "month"].includes(value?.period)) _profilePeriod = year === "all" ? "year" : value.period;
       if (PROFILE_MEDIA_OPTIONS.some(([key]) => key === value?.media)) _profileMedia = value.media;
       _profileMonthAutoResolve = false;
     },
