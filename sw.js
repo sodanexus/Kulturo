@@ -56,6 +56,7 @@ const STATIC_ASSET_PATHS = [
   "features/library-visibility.js",
   "features/local-database.js",
   "features/media-detail.js",
+  "features/creator-rich-text.js",
   "features/media-repository.js",
   "features/motion.js",
   "features/performance.js",
