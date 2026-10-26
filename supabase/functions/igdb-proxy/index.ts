@@ -269,16 +269,24 @@ Deno.serve(async (req) => {
       const role = body?.role === "publisher" ? "published" : "developed";
       // Les champs `developed` et `published` sont directement fournis par IGDB.
       // Évite une seconde association `involved_companies` fragile pour les fiches de sociétés.
-      const matches = await igdbRequest("companies", `search "${escapeIgdbSearch(query)}"; fields name,description,logo.image_id,country,start_date,slug,developed,published; limit 50;`, headers);
       const normalize = (value: string) => String(value || "").normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ")
         .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
       const stripSuffix = (value: string) => normalize(value)
         .replace(/(?:\s+(?:inc|llc|ltd|limited|corp|corporation|co|company|studios?|games?|entertainment|interactive))+$/g, "").trim();
       const expected = normalize(query);
-      const company = matches.find(item => normalize(item.name) === expected)
-        || matches.find(item => stripSuffix(item.name) === stripSuffix(query) && stripSuffix(query).length >= 4);
-      if (!company) return jsonResponse(null);
+      const base = stripSuffix(query);
+      const candidates = [query];
+      if (base.length >= 4 && base !== expected) candidates.push(base);
+      // Certaines raisons sociales ne sont pas indexées sous leur forme complète.
+      const matches = new Map<number, any>();
+      for (const term of candidates) {
+        const found = await igdbRequest("companies", `search "${escapeIgdbSearch(term)}"; fields name,description,logo.image_id,country,start_date,slug,developed,published; limit 50;`, headers);
+        for (const item of found) if (Number.isSafeInteger(item.id)) matches.set(item.id, item);
+      }
+      const company = [...matches.values()].find(item => normalize(item.name) === expected)
+        || (base.length >= 4 ? [...matches.values()].find(item => stripSuffix(item.name) === base) : null);
+      if (!company) return jsonResponse({ not_found: true, works: [], searched: candidates.length, message: `Aucune entreprise IGDB correspondant à « ${query} »` });
       let gameIds = [...new Set((Array.isArray(company[role]) ? company[role] : [])
         .map((id: unknown) => Number(id)).filter(Number.isSafeInteger))].slice(0, 100);
       // Repli pour les fiches où IGDB ne renseigne pas encore developed/published.
@@ -286,7 +294,13 @@ Deno.serve(async (req) => {
         const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
         gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
       }
-      const games = gameIds.length ? await igdbRequest("games", `fields name,cover.image_id,first_release_date,slug; where id = (${gameIds.join(",")}); sort first_release_date desc; limit 100;`, headers) : [];
+      // IGDB limite certaines requêtes à une fenêtre de résultats réduite.
+      const games: any[] = [];
+      for (let offset = 0; offset < gameIds.length; offset += 25) {
+        const ids = gameIds.slice(offset, offset + 25);
+        games.push(...await igdbRequest("games", `fields name,cover.image_id,first_release_date,slug; where id = (${ids.join(",")}); limit 25;`, headers));
+      }
+      games.sort((a, b) => (b.first_release_date || 0) - (a.first_release_date || 0));
       return jsonResponse({ ...company, works: games.map(game => ({ id: game.id, title: game.name, subtype: "game", source_api: "igdb", external_id: String(game.id), release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null, cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null })) });
     }
 
