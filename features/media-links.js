@@ -18,13 +18,19 @@ export function mediaLinks(entry) {
   };
   const direct = webUrl(entry.external_url);
   if (entry.media_type === "book") {
-    if (entry.source_api === "hardcover" && title) {
-      add(`https://hardcover.app/search?q=${query}`, "Chercher sur Hardcover");
-      return links;
-    }
-    if (title) {
-      const bookQuery = entry.isbn ? `isbn:${entry.isbn}` : `${title} ${entry.author || ""}`.trim();
-      add(`https://openlibrary.org/search?q=${encodeURIComponent(bookQuery)}`, "Chercher le livre");
+    const id = String(entry.external_id || "").trim();
+    if (entry.source_api === "hardcover") {
+      const match = /^(\d+)(?::\d+)?$/.exec(id);
+      if (match) add(`https://hardcover.app/book/${match[1]}`, "Voir sur Hardcover");
+      else if (direct && new URL(direct).hostname === "hardcover.app") add(direct, "Voir sur Hardcover");
+    } else if (entry.source_api === "openlibrary") {
+      const openId = id.replace(/^\/(?:works|books)\//, "");
+      if (/^OL\d+W$/i.test(openId)) add(`https://openlibrary.org/works/${openId}`, "Voir sur Open Library");
+      else if (/^OL\d+M$/i.test(openId)) add(`https://openlibrary.org/books/${openId}`, "Voir sur Open Library");
+      else if (direct && new URL(direct).hostname === "openlibrary.org") add(direct, "Voir sur Open Library");
+      else if (/^(?:97[89])?\d{9}[\dX]$/i.test(String(entry.isbn || "").replace(/[-\s]/g, ""))) {
+        add(`https://openlibrary.org/isbn/${String(entry.isbn).replace(/[-\s]/g, "")}`, "Voir sur Open Library");
+      }
     }
     return links;
   }
