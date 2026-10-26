@@ -31,6 +31,36 @@ export function createMediaDetailFeature({
   updateBadges, markJournalDirty, renderCards, renderUpcomingCards, toast,
   launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false, findMatchingEntry = () => null, openCollectionAdd = () => {},
 }) {
+// Avatar local lorsque le catalogue ne fournit aucune photo ou aucun logo.
+// Aucun appel externe, aucune image fictive attribuée à une personne réelle.
+function creatorInitials(name, organization = false) {
+  const words = String(name || "").normalize("NFKC").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  const letters = organization && words.length === 1 ? words[0].slice(0, 4) : words.length > 1 ? words.slice(0, 2).map(word => word[0]).join("") : words[0].slice(0, 2);
+  return letters.toLocaleUpperCase("fr");
+}
+function creatorVisual(name, photo, { organization = false } = {}) {
+  const initials = esc(creatorInitials(name, organization));
+  const label = esc(organization ? "Organisation" : "Créateur ou créatrice");
+  const url = photo ? safeMediaUrl(photo) : "";
+  return `<div class="creator-visual${organization ? " creator-visual--logo" : ""}" role="img" aria-label="${esc(name)}">
+    <div class="creator-visual-fallback" aria-hidden="true"><span>${initials}</span><small>${label}</small></div>
+    ${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" data-creator-visual-image>` : ""}
+  </div>`;
+}
+function activateCreatorVisual(info) {
+  const image = info?.querySelector("[data-creator-visual-image]");
+  if (!image) return;
+  const onLoad = () => { if (image.isConnected && image.naturalWidth > 0) {
+    image.classList.add("is-loaded");
+    if (image.closest(".creator-visual--logo")) image.parentElement.classList.add("has-loaded-logo");
+  } };
+  const onError = () => { image.remove(); };
+  image.addEventListener("load", onLoad, { once: true });
+  image.addEventListener("error", onError, { once: true });
+  if (image.complete) { if (image.naturalWidth > 0) onLoad(); else onError(); }
+}
+
 function canEnrichMediaDetails(entry) {
   if (!entry) return false;
   if (entry.media_type === "book") return true;
@@ -662,11 +692,12 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
         ? `https://www.igdb.com/companies/${profile.slug}` : null;
     transitionCreatorSurface(overlay, () => {
       if (info) info.innerHTML = `<div class="creator-identity">
-        ${photo ? `<img src="${esc(safeMediaUrl(photo))}" alt="" loading="lazy" decoding="async">` : `<div class="creator-identity-placeholder" aria-hidden="true">${iconUser()}</div>`}
+        ${creatorVisual(value, photo, { organization: kind !== "author" })}
         <div><p class="creator-role">${esc(roleLabel)} · ${esc(sourceLabel)}</p>
         ${profile.birthplace ? `<p class="creator-place">${esc(profile.birthplace)}</p>` : ""}
         ${about.text ? `<p class="creator-bio">${creatorRichText(about.text)}</p>${about.generated ? `<p class="creator-place">Présentation générée par Groq à partir des œuvres répertoriées · à vérifier</p>` : ""}` : `<p class="creator-place">Présentation non renseignée par ${esc(sourceLabel)}.</p>`}
         </div></div>`;
+      activateCreatorVisual(info);
       if (target) target.innerHTML = works.length
         ? `<div class="creator-work-grid">${works.map(work => metadataWorkCard(work,
            `data-creator-source="${esc(work.source_api)}" data-creator-external-id="${esc(work.external_id)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>`
@@ -705,10 +736,11 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
     const footer = overlay.querySelector("[data-creator-external]");
     transitionCreatorSurface(overlay, () => {
       if (info) info.innerHTML = `<div class="creator-identity">
-        ${person.profile_url ? `<img src="${esc(safeMediaUrl(person.profile_url))}" alt="" loading="lazy" decoding="async">` : ""}
+        ${creatorVisual(value, person.profile_url)}
         <div>${person.known_for ? `<p class="creator-role">${esc(person.known_for)}</p>` : ""}
           ${person.birthplace ? `<p class="creator-place">${esc(person.birthplace)}</p>` : ""}
           ${person.biography ? `<p class="creator-bio">${esc(person.biography)}</p>` : ""}</div></div>`;
+      activateCreatorVisual(info);
       if (target) target.innerHTML = person.works.length ? `<div class="creator-work-grid">${person.works.map(work => metadataWorkCard(work, `data-creator-tmdb="${esc(work.id)}" data-creator-type="${esc(work.subtype)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>` : `<div class="metadata-empty">Aucune filmographie disponible.</div>`;
       if (status) status.textContent = `${person.works.length} œuvre${person.works.length > 1 ? "s" : ""} · TMDB`;
       if (footer) { footer.href = `https://www.themoviedb.org/person/${person.id}`; footer.hidden = false; }
