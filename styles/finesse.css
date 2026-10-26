@@ -1346,3 +1346,9 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
 
 /* Note personnelle mise en valeur ; les notes externes gardent leur graisse. */
 .detail-modal.detail-cinema .detail-header-meta .detail-rating .rating-score { font-weight:700; }
+
+/* Collections : mêmes titres et typographies que les autres sections des fiches. */
+.detail-collection-heading { font-size: var(--type-label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: .55rem; }
+.detail-collection-heading span { font-size: inherit; font-weight: inherit; letter-spacing: inherit; text-transform: none; }
+.detail-collection-name { font-size: var(--type-label); line-height: 1.4; }
+.detail-collection-item small { font-size: var(--type-label); }
