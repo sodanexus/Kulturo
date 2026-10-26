@@ -40,6 +40,45 @@ export function createProfileFeature({
   let _profileMonthAutoResolve = true;
   const _profileNumberValues = new Map();
   const renderGate = createAsyncGate();
+  // Un seul gestionnaire par conteneur : les sections peuvent être remplacées
+  // lors du rendu des statistiques sans multiplier les écouteurs.
+  const animatedAccountContainers = new WeakSet();
+  const accountTransitions = new WeakMap();
+  function enableAccountDisclosure(container) {
+    if (animatedAccountContainers.has(container)) return;
+    animatedAccountContainers.add(container);
+    container.addEventListener("click", event => {
+      const summary = event.target?.closest?.(".profile-account-toggle");
+      if (!summary || !container.contains(summary)) return;
+      const details = summary.closest(".profile-account-details");
+      if (!details || typeof details.animate !== "function" || prefersReducedMotion()) return;
+      event.preventDefault();
+      const previous = accountTransitions.get(details);
+      const wasClosing = previous?.closing;
+      previous?.animation.cancel();
+      accountTransitions.delete(details);
+      const opening = wasClosing || !details.open;
+      const startHeight = details.getBoundingClientRect().height;
+      if (opening) details.open = true;
+      const summaryHeight = summary.getBoundingClientRect().height;
+      const destination = opening ? details.scrollHeight : summaryHeight;
+      // Fixer la taille visible pendant toute la transition, fermeture comprise.
+      details.style.height = `${startHeight}px`;
+      details.style.overflow = "hidden";
+      const animation = details.animate([
+        { height: `${startHeight}px` },
+        { height: `${destination}px` },
+      ], { duration: 340, easing: "cubic-bezier(.22,1,.36,1)" });
+      accountTransitions.set(details, { animation, closing: !opening });
+      animation.onfinish = () => {
+        if (accountTransitions.get(details)?.animation !== animation) return;
+        accountTransitions.delete(details);
+        if (!opening) details.open = false;
+        details.style.removeProperty("height");
+        details.style.removeProperty("overflow");
+      };
+    });
+  }
   const PROFILE_MEDIA_OPTIONS = [
     ["all", "Tout"],
     ["film", "Films"],
@@ -558,6 +597,7 @@ export function createProfileFeature({
       replayMotion(block, "profile-block-enter");
       block.addEventListener("animationend", () => block.classList.remove("profile-block-enter"), { once: true });
     });
+    enableAccountDisclosure(container);
     prepareProfileReveal(container);
     animateProfileNumbers(container);
     observeProfileReveal();
