@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     const id = Number(body?.id);
     const hasValidId = Number.isSafeInteger(id) && id > 0;
-    const action = ["upcoming", "logos"].includes(body?.action) ? body.action : "";
+    const action = ["upcoming", "logos", "company"].includes(body?.action) ? body.action : "";
     if (action === "logos" && !hasValidId) return jsonResponse({error:"Identifiant invalide"}, 400);
 
     if (!query && !hasValidId && !action) {
@@ -263,6 +263,18 @@ Deno.serve(async (req) => {
       "Authorization": `Bearer ${access_token}`,
       "Content-Type":  "text/plain",
     };
+
+    if (action === "company") {
+      const role = body?.role === "publisher" ? "published" : "developed";
+      const matches = await igdbRequest("companies", `search "${escapeIgdbSearch(query)}"; fields name,description,logo.image_id,country,start_date,slug; limit 20;`, headers);
+      const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      const company = matches.find(item => normalize(item.name || "") === normalize(query));
+      if (!company) return jsonResponse(null);
+      const associations = await igdbRequest("involved_companies", `fields game; where company = ${company.id} & ${role === "published" ? "publisher" : "developer"} = true; limit 150;`, headers);
+      const gameIds = [...new Set(associations.map(row => Number(row.game)).filter(Number.isSafeInteger))].slice(0, 100);
+      const games = gameIds.length ? await igdbRequest("games", `fields name,cover.image_id,first_release_date,slug; where id = (${gameIds.join(",")}); sort first_release_date desc; limit 100;`, headers) : [];
+      return jsonResponse({ ...company, works: games.map(game => ({ id: game.id, title: game.name, subtype: "game", source_api: "igdb", external_id: String(game.id), release_year: game.first_release_date ? new Date(game.first_release_date * 1000).getUTCFullYear() : null, cover_url: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.webp` : null })) });
+    }
 
     if (action === "logos") {
       // Requête séparée, sans modifier la réponse des notes et captures.
