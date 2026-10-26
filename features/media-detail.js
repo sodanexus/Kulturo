@@ -618,10 +618,30 @@ function transitionCreatorSurface(overlay, update, { reveal = [] } = {}) {
       if (sheet.isConnected && sheet.style.height === `${from}px`) sheet.style.height = "";
     });
   }
-  reveal.filter(Boolean).forEach(node => node.animate?.([
-    { opacity: 0, transform: "translateY(12px)" },
-    { opacity: 1, transform: "translateY(0)" },
-  ], { duration: motionDuration("--motion-layout", 420), easing: "cubic-bezier(.22,1,.36,1)" }));
+  // Entrée progressive, courte et bornée : on ne retarde jamais tout un grand catalogue.
+  reveal.filter(Boolean).forEach(node => {
+    if (!node.isConnected || node.hidden) return;
+    const stages = node.matches?.("[data-creator-info]")
+      ? [...node.querySelectorAll(".creator-visual, .creator-role, .creator-place, .creator-bio")]
+      : [];
+    if (stages.length) {
+      stages.forEach((part, index) => part.animate?.([
+        { opacity: 0, transform: "translateY(5px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ], { duration: 290, delay: Math.min(index, 5) * 55, easing: "ease-out", fill: "backwards" }));
+    } else {
+      node.animate?.([{ opacity: 0 }, { opacity: 1 }],
+        { duration: 290, easing: "ease-out" });
+    }
+    // Maximum 12 cartes animées ; les suivantes sont visibles immédiatement.
+    node.querySelectorAll?.(".creator-work-card, .metadata-media-row").forEach((card, index) => {
+      if (index >= 12) return;
+      card.animate?.([
+        { opacity: 0, transform: "translateY(7px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ], { duration: 320, delay: Math.min(index, 9) * 35, easing: "ease-out", fill: "backwards" });
+    });
+  });
 }
 
 function switchCreatorTab(element) {
@@ -632,6 +652,7 @@ function switchCreatorTab(element) {
   const target = overlay.querySelector(`[data-creator-panel="${tab}"]`);
   transitionCreatorSurface(overlay, () => {
     overlay.dataset.activeCreatorTab = tab;
+    overlay.querySelector(".creator-tabs")?.classList.toggle("is-all", tab === "all");
     overlay.querySelectorAll("[data-creator-tab]").forEach(button => {
       const active = button.dataset.creatorTab === tab;
       button.classList.toggle("is-active", active);
