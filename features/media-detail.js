@@ -6,7 +6,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TitleLogos, IGDB, OpenLibrary, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople, HardcoverAuthors, HardcoverPublishers, OpenLibraryAuthors, IGDBCompanies, CreatorCatalogWorks } from "../api.js";
+import { TitleLogos, IGDB, OpenLibrary, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople, HardcoverAuthors, HardcoverPublishers, OpenLibraryAuthors, IGDBCompanies, CreatorCatalogWorks, CreatorDescriptions } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import { detailBackdropUrl } from "./book-banner.js";
 import {
@@ -643,6 +643,12 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
           : "Aucun profil correspondant identifié avec certitude.";
       return;
     }
+    // Charger et traduire la présentation avant le redimensionnement : le
+    // nouveau contenu apparaît en fondu une fois les données prêtes.
+    let about = { text: String(profile.description || profile.biography || ""), generated: false };
+    try { about = await CreatorDescriptions.enrich(profile, { name: value, role: kind }); }
+    catch (error) { if (error?.name === "AbortError") return; }
+    if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     const info = overlay.querySelector("[data-creator-info]");
     const photo = profile.profile_url || (profile.logo?.image_id ? `https://images.igdb.com/igdb/image/upload/t_logo_med/${profile.logo.image_id}.webp` : null);
     const isBook = kind === "author" || (kind === "publisher" && mediaType === "book");
@@ -658,7 +664,7 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
         ${photo ? `<img src="${esc(safeMediaUrl(photo))}" alt="" loading="lazy" decoding="async">` : `<div class="creator-identity-placeholder" aria-hidden="true">${iconUser()}</div>`}
         <div><p class="creator-role">${esc(roleLabel)} · ${esc(sourceLabel)}</p>
         ${profile.birthplace ? `<p class="creator-place">${esc(profile.birthplace)}</p>` : ""}
-        ${profile.description || profile.biography ? `<p class="creator-bio">${esc(profile.description || profile.biography)}</p>` : `<p class="creator-place">Présentation non renseignée par ${esc(sourceLabel)}.</p>`}
+        ${about.text ? `<p class="creator-bio">${esc(about.text)}</p>${about.generated ? `<p class="creator-place">Présentation générée par Groq à partir des œuvres répertoriées · à vérifier</p>` : ""}` : `<p class="creator-place">Présentation non renseignée par ${esc(sourceLabel)}.</p>`}
         </div></div>`;
       if (target) target.innerHTML = works.length
         ? `<div class="creator-work-grid">${works.map(work => metadataWorkCard(work,
