@@ -6,7 +6,7 @@ import { exactGameMatch, gameSearchQueries } from "./game-identity.js";
 import { isDialogTransitioning, prefersReducedMotion, motionDuration, prepareDialogClose, animateHeightChange, replaceModalContent, transitionDialogReplacement, revealSurface, waitForDialogTransition, waitForHeightTransition, revealDetailSequence } from "./motion.js";
 // Fiches œuvre : rendu, enrichissement, métadonnées et ouverture de fiche.
 import { mediaLinks } from "./media-links.js";
-import { TitleLogos, IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books } from "../api.js";
+import { TitleLogos, IGDB, TMDb, TMDbDetails, TMDbImages, IGDBDetails, IGDBImages, Books, TMDbPeople } from "../api.js";
 import { startBackdropDrift, startBackdropShow } from "./backdrop-motion.js";
 import { detailBackdropUrl } from "./book-banner.js";
 import {
@@ -515,7 +515,7 @@ function metadataTarget(entry, kind, value) {
   let directUrl = "";
   if (kind === "cast" && Array.isArray(entry?.cast_people)) {
     const person = entry.cast_people.find(candidate => normalizeTitle(candidate?.name) === normalizeTitle(cleanValue));
-    if (person?.imdb_id) directUrl = `https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/`;
+    if (person?.id) directUrl = `https://www.themoviedb.org/person/${encodeURIComponent(person.id)}`;
   }
   return { cleanValue, directUrl };
 }
@@ -550,6 +550,78 @@ function metadataLinksHTML(entry, kind, value) {
   return splitMetadataValues(value).map(item => metadataLinkHTML(entry, kind, item)).filter(Boolean).join(", ");
 }
 
+const CREATOR_KINDS = new Set(["cast", "director", "author", "developer", "publisher"]);
+const metadataWorkCard = (item, action = "") => {
+  const cover = safeMediaUrl(item.cover_url);
+  return `<${action ? "button" : "div"} ${action ? `type="button" ${action}` : ""} class="creator-work-card">
+    ${cover ? `<img src="${esc(cover)}" loading="lazy" decoding="async" alt="">` : `<div class="creator-work-placeholder">${iconMedia(item.subtype === "tv" ? "movie" : "movie", item.subtype)}</div>`}
+    <strong>${esc(item.title)}</strong><small>${esc(item.release_year || "")}</small>
+  </${action ? "button" : "div"}>`;
+};
+
+function switchCreatorTab(element) {
+  const overlay = document.getElementById("metadata-overlay");
+  if (!overlay) return;
+  const tab = element?.dataset?.creatorTab;
+  if (!["library", "all"].includes(tab)) return;
+  overlay.querySelectorAll("[data-creator-tab]").forEach(button => {
+    const active = button.dataset.creatorTab === tab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  overlay.querySelectorAll("[data-creator-panel]").forEach(panel => { panel.hidden = panel.dataset.creatorPanel !== tab; });
+}
+
+async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
+  if (!["cast", "director"].includes(kind) || !TMDbPeople.available()) return;
+  const idMatch = exactUrl?.match(/themoviedb\.org\/person\/(\d+)/);
+  const token = overlay.dataset.creatorToken;
+  try {
+    const resolved = idMatch ? { id: Number(idMatch[1]) } : await TMDbPeople.find(value);
+    if (!resolved?.id || !overlay.isConnected || overlay.dataset.creatorToken !== token) {
+      const status = overlay.querySelector("[data-creator-status]");
+      if (status) status.textContent = "Aucune fiche TMDB identifiée avec certitude.";
+      return;
+    }
+    const person = await TMDbPeople.details(resolved.id);
+    if (!person || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    const info = overlay.querySelector("[data-creator-info]");
+    if (info) info.innerHTML = `<div class="creator-identity">
+      ${person.profile_url ? `<img src="${esc(safeMediaUrl(person.profile_url))}" alt="" loading="lazy" decoding="async">` : ""}
+      <div>${person.known_for ? `<p class="creator-role">${esc(person.known_for)}</p>` : ""}
+        ${person.birthplace ? `<p class="creator-place">${esc(person.birthplace)}</p>` : ""}
+        ${person.biography ? `<p class="creator-bio">${esc(person.biography)}</p>` : ""}</div></div>`;
+    const target = overlay.querySelector("[data-creator-all]");
+    const status = overlay.querySelector("[data-creator-status]");
+    if (target) {
+      target.innerHTML = person.works.length ? `<div class="creator-work-grid">${person.works.map(work => metadataWorkCard(work, `data-creator-tmdb="${esc(work.id)}" data-creator-type="${esc(work.subtype)}" ${uiAction("openCreatorWorkFromElement", [], { control: true })}`)).join("")}</div>` : `<div class="metadata-empty">Aucune filmographie disponible.</div>`;
+    }
+    if (status) status.textContent = `${person.works.length} œuvre${person.works.length > 1 ? "s" : ""} · TMDB`;
+    const footer = overlay.querySelector("[data-creator-external]");
+    if (footer) { footer.href = `https://www.themoviedb.org/person/${person.id}`; footer.hidden = false; }
+  } catch (error) {
+    if (overlay.isConnected && overlay.dataset.creatorToken === token) {
+      const status = overlay.querySelector("[data-creator-status]");
+      if (status) status.textContent = "Filmographie momentanément indisponible.";
+    }
+  }
+}
+
+async function openCreatorWorkFromElement(element) {
+  const id = Number(element?.dataset?.creatorTmdb);
+  const subtype = element?.dataset?.creatorType;
+  if (!Number.isSafeInteger(id) || id <= 0 || !["movie", "tv"].includes(subtype)) return;
+  const match = State.entries.find(entry => entry.media_type === "movie" && String(entry.external_id) === String(id) && (entry.subtype === "tv" ? "tv" : "movie") === subtype);
+  if (match) { openMetadataMedia(match.id); return; }
+  try {
+    const item = await TMDb.byId(id, subtype);
+    if (!item) { toast("Cette œuvre est indisponible.", "error"); return; }
+    // Réutiliser la fenêtre d'ajout existante via le parcours des collections.
+    closeMetadataPanel({ restoreFocus: false });
+    setTimeout(() => openCollectionAdd(item), motionDuration() + 10);
+  } catch { toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
+}
+
 function openMetadataFromElement(element) {
   const kind = element?.dataset?.metaKind;
   const value = element?.dataset?.metaValue;
@@ -579,6 +651,7 @@ function openMetadataFromElement(element) {
         ${entry.rating ? ratingScoreHTML(entry.rating, "metadata-media-rating") : `<span class="metadata-media-arrow" aria-hidden="true">›</span>`}
       </button>`;
   }).join("");
+  const isCreator = CREATOR_KINDS.has(kind);
   const countLabel = matches.length
     ? `${matches.length} œuvre${matches.length > 1 ? "s" : ""} dans votre bibliothèque`
     : "Aucune œuvre correspondante dans votre bibliothèque";
@@ -595,9 +668,16 @@ function openMetadataFromElement(element) {
           </div>
           <button type="button" class="btn-icon" ${uiAction("closeMetadataPanel")} aria-label="Fermer">${iconX()}</button>
         </header>
+        ${isCreator ? `<div class="creator-profile" data-creator-info></div>
+          <div class="creator-tabs" role="tablist" aria-label="Œuvres du créateur">
+            <button class="is-active" role="tab" aria-selected="true" data-creator-tab="library" ${uiAction("switchCreatorTab", [], { control: true })}>Ma bibliothèque</button>
+            <button role="tab" aria-selected="false" data-creator-tab="all" ${uiAction("switchCreatorTab", [], { control: true })}>Toutes les œuvres</button>
+          </div>` : ""}
         <div class="metadata-sheet-body">
-          ${mediaRows || `<div class="metadata-empty">Cette information deviendra utile lorsque votre bibliothèque contiendra une autre œuvre correspondante.</div>`}
+          ${isCreator ? `<div data-creator-panel="library">${mediaRows || `<div class="metadata-empty">Aucune œuvre de ce créateur dans votre bibliothèque.</div>`}</div>
+          <div data-creator-panel="all" hidden><p class="creator-loading" data-creator-status>${kind === "cast" || kind === "director" ? "Chargement de la filmographie…" : "Catalogue complet non disponible pour cette source."}</p><div data-creator-all></div></div>` : (mediaRows || `<div class="metadata-empty">Aucune œuvre correspondante dans votre bibliothèque.</div>`) }
         </div>
+        ${isCreator && (kind === "cast" || kind === "director") && !externalUrl ? `<footer class="metadata-sheet-footer"><a data-creator-external hidden class="btn btn-secondary" target="_blank" rel="noopener">Voir sur TMDB ↗</a></footer>` : ""}
         ${externalUrl ? `
           <footer class="metadata-sheet-footer">
             <a class="btn btn-secondary" href="${esc(externalUrl)}" target="_blank" rel="noopener">${esc(external.label)} ↗</a>
@@ -607,6 +687,11 @@ function openMetadataFromElement(element) {
   syncDialogBackground();
   pushHistoryLayer("metadata", { metadata: `${kind}:${value}` });
   hydrateFadeImages(document.getElementById("metadata-overlay"));
+  const creatorOverlay = document.getElementById("metadata-overlay");
+  if (isCreator && creatorOverlay) {
+    creatorOverlay.dataset.creatorToken = `${Date.now()}-${Math.random()}`;
+    void enrichCreatorPanel(kind, value, directUrl, creatorOverlay);
+  }
 
   const detailModal = document.querySelector("#modal-overlay .detail-modal");
   if (detailModal) detailModal.inert = true;
@@ -1566,6 +1651,8 @@ function retryDetailInfo(id) {
     openSharedDetail,
     openMetadataFromElement,
     openMetadataMedia,
+    switchCreatorTab: element => switchCreatorTab(element),
+    openCreatorWorkFromElement: element => openCreatorWorkFromElement(element),
     closeMetadataPanel,
     revokeStaleRepeatEvents,
 

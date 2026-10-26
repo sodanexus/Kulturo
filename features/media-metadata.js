@@ -1,9 +1,9 @@
 import { cleanBookGenres } from "./book-search.js";
 const DEFINITIONS = Object.freeze({
-  cast: Object.freeze({ label: "Acteur ou actrice", fields: ["cast_members"], mediaTypes: ["movie"], external: "imdb" }),
-  director: Object.freeze({ label: "Réalisation", fields: ["directors", "author"], mediaTypes: ["movie"], external: "imdb" }),
+  cast: Object.freeze({ label: "Acteur ou actrice", fields: ["cast_members"], mediaTypes: ["movie"], external: "tmdb" }),
+  director: Object.freeze({ label: "Réalisation", fields: ["directors", "author"], mediaTypes: ["movie"], external: "tmdb" }),
   author: Object.freeze({ label: "Auteur ou autrice", fields: ["author"], mediaTypes: ["book"], external: "goodreads" }),
-  developer: Object.freeze({ label: "Développement", fields: ["developer", "author"], mediaTypes: ["game"], external: "steam" }),
+  developer: Object.freeze({ label: "Développement", fields: ["developer", "author"], mediaTypes: ["game"], external: null }),
   publisher: Object.freeze({ label: "Édition", fields: ["publisher"], mediaTypes: ["game", "book"], external: null }),
   genre: Object.freeze({ label: "Genre", fields: ["genre"], external: null }),
 });
@@ -64,12 +64,8 @@ export function entriesForMetadata(entries, kind, value) {
 export function metadataExternalLink(kind, value, directUrl = null) {
   const definition = metadataDefinition(kind);
   if (!definition) return null;
-  if (directUrl) return { url: directUrl, label: "Voir sur IMDb" };
-  const query = encodeURIComponent(String(value || "").trim());
-  if (!query) return null;
-  if (definition.external === "imdb") {
-    return { url: `https://www.imdb.com/find/?q=${query}&s=nm`, label: "Rechercher sur IMDb" };
-  }
+  if (directUrl) return { url: directUrl, label: "Voir sur TMDB" };
+  // Aucun lien de recherche approximatif pour les personnes sans identifiant.
   if (definition.external === "goodreads") {
     return { url: `https://www.goodreads.com/search?q=${query}`, label: "Rechercher sur Goodreads" };
   }
