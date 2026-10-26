@@ -43,11 +43,14 @@ test("les livres proposent uniquement Chercher le livre, même avec des liens en
   const links = mediaLinks({ title: "Dune", author: "Frank Herbert", media_type: "book" });
   assert.equal(new URL(links[0].url).searchParams.get("q"), "Dune Frank Herbert");
 });
-test("les jeux console ne sont pas envoyés sur Steam et les liens dangereux sont ignorés", () => {
-  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" })[0].url.includes("steampowered.com"));
-  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PS5" })[0].url.includes("playstation.com"));
-  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "Nintendo Switch" }).every(link => !link.url.includes("steampowered.com")));
+test("les jeux pointent vers IGDB, les films vers TMDB et les bandes-annonces sont directes", () => {
+  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PC" })[0].url.includes("igdb.com"));
+  assert.equal(mediaLinks({ title: "Jeu", media_type: "game", igdb_url: "https://www.igdb.com/games/portal-2" })[0].url, "https://www.igdb.com/games/portal-2");
+  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", platform: "PS5" }).every(link => !link.url.includes("steampowered.com")));
+  assert.equal(mediaLinks({ title: "Dune", media_type: "movie", source_api: "tmdb", external_id: "438631" })[0].url, "https://www.themoviedb.org/movie/438631");
+  assert.equal(mediaLinks({ title: "Série", media_type: "movie", subtype: "tv", source_api: "tmdb", external_id: "44" })[0].url, "https://www.themoviedb.org/tv/44");
   const links = mediaLinks({ title: '<Film & série>', media_type: "movie", external_url: "javascript:alert(1)" });
   assert.ok(links.every(link => link.url.startsWith("https://")));
-  assert.ok(links.some(link => link.label === "Bande-annonce"));
+  assert.ok(!links.some(link => link.label === "Bande-annonce"));
+  assert.ok(mediaLinks({ title: "Jeu", media_type: "game", trailer_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }).some(link => link.kind === "video"));
 });
