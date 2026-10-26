@@ -4,17 +4,20 @@ import { readFile } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 
 async function loadProxy() {
-  const originalDeno = globalThis.Deno;
+  // Execute the stripped source as a function instead of importing a .ts module.
+  // Node versions differ in how they classify TypeScript ESM imports.
+  const source = await readFile(new URL('../supabase/functions/cover-proxy/index.ts', import.meta.url), 'utf8');
+  const js = stripTypeScriptTypes(source, { mode: 'strip' });
+  const executable = js.replace(/\bexport\s+function\s+allowedCoverUrl\b/, 'function allowedCoverUrl');
+  if (executable === js) throw new Error('Export allowedCoverUrl introuvable dans cover-proxy');
   let handler;
-  globalThis.Deno = { serve: fn => { handler = fn; } };
-  try {
-    const source = await readFile(new URL('../supabase/functions/cover-proxy/index.ts', import.meta.url), 'utf8');
-    const js = stripTypeScriptTypes(source, { mode: 'strip' });
-    const module = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}#${Math.random()}`);
-    return { handler, module };
-  } finally {
-    globalThis.Deno = originalDeno;
+  const Deno = { serve(fn) { handler = fn; } };
+  const create = new Function('Deno', 'fetch', `${executable}\nreturn { allowedCoverUrl };`);
+  const module = create(Deno, (...args) => globalThis.fetch(...args));
+  if (typeof module.allowedCoverUrl !== 'function' || typeof handler !== 'function') {
+    throw new Error('cover-proxy: exports ou gestionnaire absents');
   }
+  return { handler, module };
 }
 const post = body => new Request('https://x.test/cover-proxy', { method: 'POST', body: JSON.stringify(body) });
 const png = () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } });
