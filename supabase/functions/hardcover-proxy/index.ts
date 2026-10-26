@@ -47,11 +47,41 @@ Deno.serve(async req => {
     stage = String(body.action);
     const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
     const identity = hardcoverIdentity(body.id);
-    if (!['search', 'details', 'select', 'author'].includes(body.action) || (['search', 'author'].includes(body.action) ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
+    if (!['search', 'details', 'select', 'author', 'publisher'].includes(body.action) || (['search', 'author', 'publisher'].includes(body.action) ? query.length < 2 : !identity)) return reply({ error: 'Requête invalide' }, 400);
     const key = JSON.stringify([body.action, query, identity]);
     const saved = cache.get(key);
     if (saved && saved.until > Date.now()) return reply({ items: saved.items });
     let items;
+    if (body.action === 'publisher') {
+      const normalized = (value: string) => String(value || '').normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+      // Hardcover sépare les éditeurs et auteurs. L'index fournit l'ID de
+      // l'éditeur (jamais un ID IGDB) et permet de distinguer les homonymes.
+      const found = await graphql('query($q:String!){search(query:$q,query_type:"Publisher",per_page:15,page:1){ids}}', { q: query });
+      const ids = (found.search?.ids || []).map(Number)
+        .filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 15);
+      const result = ids.length ? await graphql('query($ids:[Int!]!){publishers(where:{id:{_in:$ids}}){id name slug}}', { ids }) : { publishers: [] };
+      const publisher = result.publishers?.find((entry: any) => normalized(entry.name) === normalized(query));
+      if (!publisher) return reply({ profile: null });
+      // On interroge les éditions du publisher et on déduplique les livres.
+      // Limite API volontaire : une maison comme Kana compte des milliers de tomes.
+      const catalog = await graphql(`query($id:Int!){editions(where:{publisher_id:{_eq:$id}},limit:75,order_by:{users_count:desc}){book{id title release_year image{url}}}}`, { id: publisher.id });
+      const seen = new Set<number>();
+      const works: any[] = [];
+      for (const edition of catalog.editions || []) {
+        const book = edition.book;
+        if (!Number.isSafeInteger(Number(book?.id)) || !book?.title || seen.has(Number(book.id))) continue;
+        seen.add(Number(book.id));
+        works.push({ id: book.id, external_id: String(book.id), title: book.title,
+          subtype: 'book', source_api: 'hardcover', cover_url: book.image?.url || null,
+          release_year: book.release_year || null });
+        if (works.length >= 36) break;
+      }
+      return reply({ profile: { id: publisher.id, name: publisher.name, biography: '',
+        source_api: 'hardcover', limited: (catalog.editions || []).length >= 75 || works.length >= 36,
+        url: `https://hardcover.app/publishers/${encodeURIComponent(publisher.slug || publisher.id)}`,
+        works } });
+    }
     if (body.action === 'author') {
       const normalized = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       // L'index de recherche fournit un identifiant stable, pas une correspondance floue.
