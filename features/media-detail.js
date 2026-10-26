@@ -28,7 +28,7 @@ export function createMediaDetailFeature({
   pushHistoryLayer, syncSystemBar, getCurrentPage, hydrateFadeImages,
   setupMobileSheetSwipe, closeModal, syncDialogBackground, historyOwnsLayer,
   updateBadges, markJournalDirty, renderCards, renderUpcomingCards, toast,
-  launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false, findMatchingEntry = () => null,
+  launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false, findMatchingEntry = () => null, openCollectionAdd = () => {},
 }) {
 function canEnrichMediaDetails(entry) {
   if (!entry) return false;
@@ -192,7 +192,7 @@ function renderDetailPanel(e, options = {}) {
   const useTitleLogo = ["movie", "game"].includes(e.media_type) && !prefersTextTitle(e, State.user?.id);
 
   const externalHTML = mediaLinks(e).map(link =>
-    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" data-link-kind="${esc(link.kind)}" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
+    `<a href="${esc(link.url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm detail-ext-link" data-link-kind="${esc(link.label === "Voir sur IGDB" || link.label === "Rechercher sur IGDB" ? "igdb" : link.kind)}" aria-label="${esc(link.label)} — nouvel onglet">${link.kind === "video" ? iconPlay() : iconExternal()}<span class="detail-ext-label">${esc(link.label)}</span></a>`
   ).join("");
 
   // Backdrop header
@@ -943,7 +943,27 @@ function syncTrailerLink(entry) {
   const url = safeTrailerUrl(entry.trailer_url);
   if (!url) return;
   const modal = [...document.querySelectorAll(".detail-modal")].find(node => node.dataset.detailMediaId === String(entry.id));
-  modal?.querySelectorAll('.detail-ext-link[data-link-kind="video"]').forEach(link => { if (link.href !== url) link.href = url; });
+  const existing = modal?.querySelectorAll('.detail-ext-link[data-link-kind="video"]');
+  if (existing?.length) { existing.forEach(link => { if (link.href !== url) link.href = url; }); return; }
+  modal?.querySelectorAll(".detail-footer-actions").forEach(footer => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.className = "btn btn-secondary btn-sm detail-ext-link";
+    link.dataset.linkKind = "video";
+    link.setAttribute("aria-label", "Bande-annonce — nouvel onglet");
+    link.innerHTML = `${iconPlay()}<span class="detail-ext-label">Bande-annonce</span>`;
+    footer.prepend(link);
+  });
+}
+
+function syncIgdbLink(entry) {
+  const link = mediaLinks(entry).find(item => item.label === "Voir sur IGDB");
+  if (!link) return;
+  const modal = [...document.querySelectorAll(".detail-modal")].find(node => node.dataset.detailMediaId === String(entry.id));
+  const current = modal?.querySelector('.detail-ext-link[data-link-kind="igdb"]');
+  if (current) { current.href = link.url; current.querySelector(".detail-ext-label").textContent = link.label; }
 }
 
 // Entrée affichée par chaque saga ouverte : l'action « envies » retrouve ainsi l'œuvre touchée.
@@ -965,11 +985,7 @@ function renderCollectionHTML(e) {
       ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">`
       : `<span class="detail-collection-placeholder" aria-hidden="true">${iconMedia(item.media_type, item.subtype)}</span>`;
     const state = current ? "Cette fiche" : owned ? "Dans votre bibliothèque" : "";
-    let overlay = owned ? '<span class="detail-collection-badge" aria-hidden="true">✓</span>' : "";
-    if (!owned && !current) {
-      const adding = _collectionAdding.has(collectionKey(item));
-      overlay = `<button type="button" class="detail-collection-mark${adding ? " is-adding" : ""}" aria-busy="${adding}" aria-label="Ajouter ${esc(item.title)} aux envies" title="Ajouter aux envies" ${adding ? "disabled" : uiAction("addCollectionToWishlist", [e.id, item.external_id])}>${iconStatus("wishlist")}</button>`;
-    }
+    const overlay = owned ? '<span class="detail-collection-badge" aria-hidden="true">✓</span>' : "";
     const body = `
       <span class="detail-collection-cover">${cover}${overlay}</span>
       <span class="detail-collection-name">${esc(item.title)}</span>
@@ -978,7 +994,9 @@ function renderCollectionHTML(e) {
     const classes = `detail-collection-item${current ? " is-current" : ""}${owned ? " is-owned" : ""}`;
     return owned
       ? `<button type="button" class="${classes}" ${uiAction("openDetailFromCollection", [owned.id], { control: true })} aria-label="Ouvrir ${esc(item.title)}">${body}</button>`
-      : `<div class="${classes}"${current ? ' aria-current="true"' : ""}>${body}</div>`;
+      : current
+        ? `<div class="${classes}" aria-current="true">${body}</div>`
+        : `<button type="button" class="${classes}" ${uiAction("openCollectionAdd", [e.id, item.external_id])} aria-label="Ajouter ${esc(item.title)} à votre bibliothèque">${body}</button>`;
   }).join("");
   const label = collectionLabel(collection.name);
   return `<section class="detail-collection-section" data-block="collection" aria-label="Saga${label ? ` : ${esc(label)}` : ""}">
@@ -1119,6 +1137,7 @@ async function refreshDetailEnrichment(entry, options = {}) {
   syncHeroFacts(entry);
   syncHeroRatings(entry, options);
   syncTrailerLink(entry);
+  syncIgdbLink(entry);
   const synopsis = document.createElement("template");
   synopsis.innerHTML = renderDetailSynopsisHTML(entry, options).trim();
   const nextSynopsis = synopsis.content.firstElementChild;
@@ -1433,6 +1452,7 @@ async function openDetailPanel(id, options = {}) {
     if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
     if (details.collection) e.collection = details.collection;
     if (details.trailer_url) e.trailer_url = details.trailer_url;
+    if (details.igdb_url) e.igdb_url = details.igdb_url;
     if (e.media_type === "game" && !details.external_ratings?.length && !details.backdrop_url) {
       e._detailLoadError = "IGDB n’a renvoyé ni note ni capture pour cette fiche. Vérifiez la liaison dans Modifier et la mise à jour du service igdb-proxy.";
     }
@@ -1508,6 +1528,7 @@ async function openSharedDetail(entry, options = {}) {
       if (Array.isArray(details.external_ratings)) e.external_ratings = details.external_ratings;
       if (details.collection) e.collection = details.collection;
       if (details.trailer_url) e.trailer_url = details.trailer_url;
+      if (details.igdb_url) e.igdb_url = details.igdb_url;
       Object.assign(e, collectDetailUpdates(e, details));
       _injectBackdrop(e.backdrop_url, e.id, sessionId);
     }
@@ -1534,6 +1555,11 @@ function retryDetailInfo(id) {
     renderDetailPanel,
     refreshDetailEnrichment,
     addCollectionToWishlist,
+    openCollectionAdd: (hostId, externalId) => {
+      const host = _collectionHosts.get(String(hostId));
+      const item = host?.collection?.items?.find(candidate => String(candidate.external_id) === String(externalId));
+      if (item && !findMatchingEntry(item)) openCollectionAdd(item);
+    },
     injectBackdrop: _injectBackdrop,
     scheduleSynopsisOverflowCheck: _scheduleSynopsisOverflowCheck,
     openDetailPanel,

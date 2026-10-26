@@ -30,23 +30,26 @@ export function mediaLinks(entry) {
   }
 
   if (entry.media_type === "game") {
-    if (direct) add(direct, entry.external_label || "Site du jeu");
-    else if (title) {
-      const platform = String(entry.platform || "");
-      if (/\b(PC|Windows|Linux|Mac|Steam)\b/i.test(platform)) add(`https://store.steampowered.com/search/?term=${query}`, "Chercher sur Steam");
-      else if (/PlayStation|PS[345]/i.test(platform)) add(`https://store.playstation.com/fr-fr/search/${query}`, "PlayStation Store");
-      else if (/Xbox/i.test(platform)) add(`https://www.xbox.com/fr-FR/Search/Results?q=${query}`, "Chercher sur Xbox");
-      else add(`https://www.igdb.com/search?type=1&q=${query}`, "Fiche du jeu");
+    const igdbDirect = webUrl(entry.igdb_url);
+    if (igdbDirect && /(^|\.)igdb\.com$/i.test(new URL(igdbDirect).hostname)) {
+      add(igdbDirect, "Voir sur IGDB");
+    } else if (direct && /(^|\.)igdb\.com$/i.test(new URL(direct).hostname)) {
+      add(direct, "Voir sur IGDB");
+    } else if (title) {
+      add(`https://www.igdb.com/search?type=1&q=${query}`, "Rechercher sur IGDB");
     }
   } else if (entry.media_type === "movie") {
-    if (direct) add(direct, entry.external_label || "Fiche officielle");
-    else if (title) add(`https://www.imdb.com/find/?q=${query}`, "Chercher sur IMDb");
+    if (entry.source_api === "tmdb" && /^\d+$/.test(String(entry.external_id || ""))) {
+      add(`https://www.themoviedb.org/${entry.subtype === "tv" ? "tv" : "movie"}/${entry.external_id}`, "Voir sur TMDB");
+    } else if (direct && /(^|\.)themoviedb\.org$/i.test(new URL(direct).hostname)) {
+      add(direct, "Voir sur TMDB");
+    } else if (title) {
+      add(`https://www.themoviedb.org/search?query=${query}`, "Rechercher sur TMDB");
+    }
   }
-  if (title && ["movie", "game"].includes(entry.media_type)) {
-    const qualifier = entry.media_type === "game" ? "jeu" : entry.subtype === "tv" ? "série" : "film";
-    // Lien direct quand le catalogue en fournit un, sinon recherche YouTube.
+  if (["movie", "game"].includes(entry.media_type)) {
     const trailer = safeTrailerUrl(entry.trailer_url);
-    add(trailer || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${entry.release_year || ""} ${qualifier} bande annonce`.replace(/\s+/g, " "))}`, "Bande-annonce", "video");
+    if (trailer) add(trailer, "Bande-annonce", "video");
   }
   return links;
 }

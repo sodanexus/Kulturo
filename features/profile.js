@@ -399,7 +399,7 @@ export function createProfileFeature({
     const timeStackHTML = TIME_MEDIA.map(([key, , color]) => `<i class="${timeAll[key] > 0 ? "" : "is-empty"}" style="flex:${timeAll[key]} 1 0%;background:${color};opacity:${_profileMedia === "all" || _profileMedia === key ? 1 : .25}"></i>`).join("");
     const timeLegendHTML = TIME_MEDIA.map(([key, label, color]) => `
       <button type="button" class="${timeAll[key] > 0 ? "" : "is-empty"}" style="--c:${color}" ${uiAction("openProfileCollection", ["finished", _profileYear, periodMonth, key])}>${label} · ${timeAll[key] > 0 ? formatWatchTime(timeAll[key]) : "—"}</button>`).join("");
-    const timeNote = `Films : durée TMDb · séries : épisodes × durée d’épisode · livres : ≈ 40 pages/h${timeAll.missing ? ` · ${timeAll.missing} œuvre${timeAll.missing > 1 ? "s" : ""} sans durée connue exclue${timeAll.missing > 1 ? "s" : ""}` : ""}.`;
+    const timeNote = `Films : durée TMDb · séries : épisodes × durée d’épisode · jeux : durée de jeu estimée par IGDB (si disponible) · livres : ≈ 40 pages/h${timeAll.missing ? ` · ${timeAll.missing} œuvre${timeAll.missing > 1 ? "s" : ""} sans durée connue exclue${timeAll.missing > 1 ? "s" : ""}` : ""}.`;
     const genreInsights = exploredGenres(scopedEntries, 6);
     const genresHTML = genreInsights.map(item => `<span class="profile-chip">${esc(item.label)}<b>${item.count}</b></span>`).join("");
 
