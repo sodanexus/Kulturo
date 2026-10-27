@@ -62,3 +62,24 @@ test('Logo : une image cassée ne bloque pas le candidat suivant',async()=>{
  const title={isConnected:true,children:[],classList:{add(){}},append(img){img.isConnected=true;this.children.push(img);}};
  try{await mountTitleLogo(title,async()=>[{url:'bad'},{url:'good'}]);assert.deepEqual(attempts,['bad','good']);assert.equal(title.children.length,1);}finally{Object.assign(globalThis,originals);}
 });
+
+
+test('a mounted animated logo stops and releases its source when the detail session closes', async () => {
+ const { mountTitleLogo } = await import('../features/title-logo.js');
+ const originalDocument = globalThis.document, originalRAF = globalThis.requestAnimationFrame;
+ let paused = 0, released = 0, loaded = 0;
+ const video = { videoWidth: 500, isConnected: false, setAttribute() {},
+  removeAttribute(name) { if (name === 'src') released++; },
+  set src(value) { queueMicrotask(() => this.onloadeddata?.()); },
+  play() { return Promise.resolve(); }, pause() { paused++; }, load() { loaded++; }
+ };
+ globalThis.document = { createElement: () => video };
+ globalThis.requestAnimationFrame = callback => callback();
+ const title = { isConnected: true, classList: { add() {} }, append(image) { image.isConnected = true; } };
+ try {
+  const controller = new AbortController();
+  await mountTitleLogo(title, async () => 'https://example.test/logo.webm', { signal: controller.signal });
+  const before = paused; controller.abort();
+  assert.equal(paused, before + 1); assert.equal(released, 1); assert.equal(loaded, 1);
+ } finally { globalThis.document = originalDocument; globalThis.requestAnimationFrame = originalRAF; }
+});

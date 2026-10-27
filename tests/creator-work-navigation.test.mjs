@@ -25,7 +25,8 @@ test('5.0.1 : montée mobile similaire aux fiches œuvres et mouvement réduit',
   assert.match(css, /metadata-overlay\.is-closing \.metadata-sheet \{ transform: translateY\(40px\)/);
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
-test('5.0.1 : cache renouvelé et nouvelle version', () => {
-  assert.match(sw, /kulturo-static-v5\.0\.1/);
+test('le cache statique correspond à la version publiée', () => {
+  const version = readFileSync(new URL('../VERSION', import.meta.url), 'utf8').trim();
+  assert.ok(sw.includes(`kulturo-static-v${version}`));
   assert.match(sw, /"features\/media-detail\.js"/);
 });

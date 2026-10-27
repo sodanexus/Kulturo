@@ -14,3 +14,17 @@ test('fresh detail requests replace the cached response for subsequent screensho
   assert.equal(calls,2);
  }finally{globalThis.fetch=original;clearApiCache()}
 });
+
+
+test('an aborted request cannot return a cached result or start a new fetch', async () => {
+ const original = globalThis.fetch; let calls = 0;
+ globalThis.fetch = async () => { calls++; return Response.json({ title: 'cached' }); };
+ try {
+  clearApiCache();
+  const options = { cachePolicy: 'detail', retries: 0 };
+  await requestJSON('https://example.test/cancelled', options);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(requestJSON('https://example.test/cancelled', { ...options, signal: controller.signal }), { name: 'AbortError' });
+  assert.equal(calls, 1);
+ } finally { globalThis.fetch = original; clearApiCache(); }
+});

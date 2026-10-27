@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.0.1
+Version actuelle · 5.0.2
 
 ## Fonctionnalités
 
@@ -28,6 +28,8 @@ Version actuelle · 5.0.1
 - **Mise en page** : Journal et Profil partagent une largeur centrée sur grand écran. Les jaquettes du palmarès remplissent leur cadre sans déformation, avec recadrage si nécessaire.
 - **Communauté** : fiches enrichies en lecture seule ; les informations récupérées ne modifient pas la bibliothèque du membre.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
+- **Créateurs** : fiches de personnes TMDb, auteurs et éditeurs de livres, studios et éditeurs de jeux ; onglets bibliothèque et catalogue, avec ouverture des œuvres. Les requêtes sont annulées à la fermeture du panneau.
+- **Logos animés** : un lien WebM personnalisé est accepté ; sa lecture est arrêtée à la fermeture de la fiche. La préférence système de réduction des animations reste prise en compte.
 - **Suivi** : page actuelle/totale pour les livres, saison/épisode pour les séries, reprises (revisionnages, parties rejouées, relectures).
 - **Sauvegardes** : export et restauration JSON de la collection et des événements.
 - **Hors ligne** : le shell et les images consultées sont mis en cache ; les recherches dans les catalogues externes nécessitent une connexion.
@@ -37,16 +39,16 @@ Version actuelle · 5.0.1
 
 | Source | Rôle | Secret serveur |
 |---|---|---|
-| TMDb | Films et séries | Clé publique dans `config.js` |
+| TMDb | Films, séries et personnes | Clé API côté client dans `config.js` (visible dans le navigateur) |
 | `igdb-proxy` | Jeux, notes, captures et logos IGDB | Secrets Twitch/IGDB |
 | `steamgriddb-proxy` | Logos des jeux (prioritaires) | `STEAMGRIDDB_API_KEY` |
 | `hardcover-proxy` | Recherche et métadonnées des livres | `HARDCOVER_TOKEN` |
 | Open Library | Livres en secours, anciennes fiches | Aucun |
 | `book-releases-proxy` | Parutions de livres (flux publics BnF) | Aucun |
 | `cover-proxy` | Couleur d’accent des jaquettes Hardcover | Aucun |
-| `groq-proxy` | Traduction des synopsis | Secret Groq |
+| `groq-proxy` | Traduction des synopsis et présentations de créateurs | Secret Groq |
 
-Les secrets restent dans Supabase, jamais dans le dépôt. Les fonctions sont dans `supabase/functions/` et se déploient séparément de GitHub Pages. Détails sur les livres : [docs/HARDCOVER.md](docs/HARDCOVER.md).
+Les secrets des proxys restent dans Supabase, jamais dans le dépôt. La clé TMDb utilisée côté client est visible dans le navigateur. Les fonctions sont dans `supabase/functions/` et se déploient séparément de GitHub Pages. Détails sur les livres : [docs/HARDCOVER.md](docs/HARDCOVER.md).
 
 ## Développement
 
@@ -81,7 +83,7 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 - Garder `features/`, `tests/`, `scripts/` et `migrations/` : ce sont des sources ou des outils actifs, pas des fichiers temporaires.
 - `dist/` et `node_modules/` sont régénérables et ne doivent pas être commités. Les ZIP de livraison restent également hors du dépôt.
 - Les références à d’anciens fournisseurs dans les tests ou la normalisation peuvent servir aux anciennes sauvegardes : ne pas les supprimer sur leur seul nom.
-- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase n’est nécessaire pour la 4.9.11.
+- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.2 depuis la 5.0.1.
 
 Le bilan des corrections et les limites des vérifications sont décrits dans [AUDIT.md](AUDIT.md). Les parcours navigateur sont documentés dans [tests/README.md](tests/README.md).
 

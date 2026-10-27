@@ -29,7 +29,7 @@ test('les éditeurs de livres ne sont jamais recherchés dans IGDB', () => {
   const hardcover = readFileSync(new URL('../supabase/functions/hardcover-proxy/index.ts', import.meta.url), 'utf8');
   const igdb = readFileSync(new URL('../supabase/functions/igdb-proxy/index.ts', import.meta.url), 'utf8');
   assert.match(detail, /kind === "publisher" && mediaType === "book"/);
-  assert.match(detail, /HardcoverPublishers\.find\(value\)/);
+  assert.match(detail, /HardcoverPublishers\.find\(value, \{ signal \}\)/);
   assert.match(detail, /kind === "publisher" && mediaType === "game"/);
   assert.match(detail, /data-meta-media/);
   assert.match(api, /action: "publisher", query/);

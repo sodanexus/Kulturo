@@ -1,34 +1,34 @@
-# Audit Kulturo 4.9.11
+# Audit Kulturo 5.0.2
 
-24 octobre 2026. Base : dernière archive fournie (4.9.10), avec les correctifs de cadrage du palmarès et de largeur du Journal. Aucune donnée de production ni fonction Supabase modifiée.
+27 octobre 2026. Base : archive 5.0.1 fournie par l’utilisateur. Corrections ciblées, sans changement de données, de dépendances, de fonctions Supabase ni de direction visuelle.
 
-## Corrections confirmées
+## Corrections
 
-- **Filtres desktop** : nettoyage des écouteurs et du ResizeObserver avant reconstruction de l’application ou de l’écran de connexion, même si le panneau a déjà disparu.
-- **Clics rapides** : un panneau en cours de fermeture peut être remplacé immédiatement ; son ancien minuteur ne vise que l’ancien élément.
-- **Accessibilité** : `aria-pressed` des statuts se met aussi à jour lors d’une réinitialisation des filtres.
-- **Communauté** : le rafraîchissement des détails transmet désormais `readOnly: true`. L’historique personnel ne réapparaît plus dans le contenu partagé après l’appel API. Le parcours ne sauvegarde rien et ignore les réponses d’une session fermée.
-- **Tests navigateur** : remplacement du parcours qui cherchait encore le bouton de densité Compact supprimé. Distinction entre palette desktop et panneau mobile.
+- Les demandes de profils et catalogues créateurs TMDb, Hardcover, Open Library et IGDB transmettent un signal d’annulation. La fermeture ou le remplacement du panneau annule aussi l’enrichissement de sa présentation ; une annulation ne déclenche pas de requête de secours.
+- Une requête déjà annulée ne peut plus retourner immédiatement une valeur du cache. Cela évite de poursuivre un enchaînement devenu inutile.
+- Le minuteur d’un ancien panneau créateur ne déverrouille plus la fiche ni ne restaure le focus lorsqu’un nouveau panneau est ouvert entre-temps.
+- Un logo WebM déjà chargé est arrêté et libère sa source quand sa session de fiche est annulée.
+- Les réponses tardives ne remplacent pas le contenu d’un panneau fermé ou remplacé.
 
-## Nettoyage limité et vérifié
+## Cohérence et nettoyage
 
-- Suppression du compteur DOM caché et de son recalcul dans la palette desktop. Le compteur de la bibliothèque reste présent ; l’indicateur animé des statuts reste actualisé.
-- Suppression de sa règle CSS devenue inutile.
-- Ajout de `dist/` et des archives de livraison aux exclusions Git.
-- README et documentation des tests actualisés. L’ancien audit reste disponible dans [docs/audit-4.0.7.md](docs/audit-4.0.7.md) à titre historique.
-- Aucun module `features/` sans référence littérale trouvé dans les sources et outils examinés. Aucun dossier supprimé sur simple présomption d’inutilité. Les compatibilités des anciennes données sont conservées.
+Les durées, fondus, redimensionnements et styles existants sont conservés. Les protections de survol pendant le scroll desktop et le chargement progressif de la bibliothèque restent en place. Le travail porte sur le cycle de vie des éléments, sans prétendre à un gain de FPS mesuré.
 
-## Vérification
+Aucun module de `features/` sans référence littérale n’a été identifié dans les sources et outils examinés. Ce contrôle ne constitue pas une preuve exhaustive d’absence de code mort. Les compatibilités des anciennes données sont conservées. Un commentaire obsolète sur les fournisseurs a été corrigé ; le README décrit maintenant les profils créateurs et les logos WebM. Audit précédent : [audit 4.9.11](docs/audit-4.9.11.md).
 
-- Suite Node complète et quatre régressions ciblées : nettoyage d’un panneau déjà retiré, fin de fermeture, lecture seule après enrichissement, réponse communautaire tardive.
-- Contrôle de syntaxe JavaScript, cohérence des versions et fabrication de l’archive via le script de livraison.
-- Build Vite et préparation des ressources PWA.
-- Vérification des contrats TypeScript avec le compilateur JavaScript disponible localement. Le compilateur natif verrouillé dans le dépôt doit être confirmé dans GitHub Actions : cet environnement ne lui fournit pas `/proc/self/exe`.
+## Validation
 
-## Limites
+- 308 tests Node : suite existante et régressions sur le cache annulé, la fermeture concurrente et l’arrêt des logos WebM.
+- Un test de cache figé sur 5.0.1 lit maintenant `VERSION` : il contrôle la cohérence sans bloquer chaque nouvelle publication.
+- Le script de livraison exécute les fichiers de tests successivement pour limiter les processus simultanés sur les petits runners.
+- Contrôle de syntaxe JavaScript et cohérence des fichiers de version via le script de livraison.
+- Build Vite et préparation des ressources de distribution.
+- Contrats TypeScript vérifiés avec le compilateur JavaScript 5.9.3 disponible pour l’audit. Le compilateur natif 7.0.2 verrouillé dans le projet ne démarre pas dans cet environnement sans `/proc/self/exe` ; la validation avec cette version reste à confirmer dans GitHub Actions. Les dépendances du projet n’ont pas été remplacées.
 
-Les parcours navigateur ont été actualisés, mais pas exécutés ici dans un navigateur réel. Le rendu Safari, les gestes tactiles, l’installation PWA, les appels réels aux catalogues et la synchronisation multi-appareils restent à vérifier en situation réelle. Les tests simulés ne prouvent pas l’absence de tout bug. Pas de mise à jour des dépendances ni de refonte générale des styles pendant cet audit.
+## Limites et vérifications manuelles restantes
+
+Pas de validation visuelle dans un navigateur réel : le navigateur local n’a pas pu démarrer. Pas de mesure de performance sur appareil, ni de vérification des services de production avec les comptes utilisateur. Vérifier sur mobile et desktop : ouverture/fermeture rapide de créateurs, aller-retour fiche → modifier → annuler, logo WebM, navigation avec retour navigateur et grand scroll de bibliothèque. Les tests automatisés ne garantissent pas l’absence de tout bug.
 
 ## Installation
 
-Cette livraison modifie du code, les tests, la documentation et les fichiers de version. Utiliser l’archive complète en conservant sa configuration. Aucun SQL à exécuter et aucune Edge Function à redéployer.
+Utiliser l’archive complète 5.0.2 en conservant sa configuration. Aucun SQL à exécuter ni Edge Function à redéployer depuis la version 5.0.1 fournie.

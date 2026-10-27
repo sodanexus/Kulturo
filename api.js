@@ -7,7 +7,7 @@ import { igdbMediaData, igdbPlayMinutes } from "./features/igdb-media.js";
 import { tmdbTrailerUrl, tmdbCollection, igdbTrailerUrl, igdbCollection } from "./features/media-extras.js";
 // ============================================================
 // api.js — Intégrations APIs médias
-// TMDb · IGDB · Open Library · Google Books
+// TMDb · IGDB · Hardcover · Open Library
 // ============================================================
 
 import { Auth } from "./supabase.js";
@@ -143,12 +143,12 @@ export const CreatorCatalogWorks = {
 // Profils auteurs Open Library : correspondance stricte du nom pour éviter les homonymes.
 // Hardcover est prioritaire pour les créateurs littéraires ; Open Library reste le repli.
 export const HardcoverAuthors = {
-  async find(name) {
+  async find(name, options = {}) {
     const query = String(name || "").trim();
     if (!query) return null;
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
       method: "POST", headers: await edgeFunctionHeaders(),
-      body: JSON.stringify({ action: "author", query }), cachePolicy: "detail",
+      body: JSON.stringify({ action: "author", query }), cachePolicy: "detail", signal: options.signal,
     });
     if (data?.error) throw new Error(data.error);
     return data?.profile || null;
@@ -157,12 +157,12 @@ export const HardcoverAuthors = {
 
 // Les éditeurs de livres sont des entités Hardcover, jamais des sociétés IGDB.
 export const HardcoverPublishers = {
-  async find(name) {
+  async find(name, options = {}) {
     const query = String(name || "").trim();
     if (!query) return null;
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/hardcover-proxy`, {
       method: "POST", headers: await edgeFunctionHeaders(),
-      body: JSON.stringify({ action: "publisher", query }), cachePolicy: "detail",
+      body: JSON.stringify({ action: "publisher", query }), cachePolicy: "detail", signal: options.signal,
     });
     if (data?.error) throw new Error(data.error);
     return data?.profile || null;
@@ -170,19 +170,19 @@ export const HardcoverPublishers = {
 };
 
 export const OpenLibraryAuthors = {
-  async find(name) {
+  async find(name, options = {}) {
     const query = String(name || "").trim();
     if (!query) return null;
-    const data = await apiFetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=20`, { cachePolicy: "search" });
+    const data = await apiFetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=20`, { cachePolicy: "search", signal: options.signal });
     const norm = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     return (data.docs || []).find(item => norm(item.name) === norm(query)) || null;
   },
-  async details(key) {
+  async details(key, options = {}) {
     const id = String(key || "").replace(/^\/authors\//, "");
     if (!/^OL\d+A$/.test(id)) return null;
     const [author, catalog] = await Promise.all([
-      apiFetch(`https://openlibrary.org/authors/${id}.json`, { cachePolicy: "detail" }),
-      apiFetch(`https://openlibrary.org/authors/${id}/works.json?limit=100`, { cachePolicy: "detail" }),
+      apiFetch(`https://openlibrary.org/authors/${id}.json`, { cachePolicy: "detail", signal: options.signal }),
+      apiFetch(`https://openlibrary.org/authors/${id}/works.json?limit=100`, { cachePolicy: "detail", signal: options.signal }),
     ]);
     const description = typeof author.bio === "string" ? author.bio : author.bio?.value || "";
     return { id, name: author.name, biography: description, birthplace: author.birth_date ? `Naissance : ${author.birth_date}` : "",
@@ -197,10 +197,10 @@ export const OpenLibraryAuthors = {
 };
 
 export const IGDBCompanies = {
-  async find(name, role = "developer") {
+  async find(name, role = "developer", options = {}) {
     if (!IGDB.available() || !String(name || "").trim()) return null;
     const data = await apiFetch(`${CONFIG.supabase.url}/functions/v1/igdb-proxy`, {
-      method: "POST", headers: await edgeFunctionHeaders(), body: JSON.stringify({ action: "company", query: name, role }), cachePolicy: "detail",
+      method: "POST", headers: await edgeFunctionHeaders(), body: JSON.stringify({ action: "company", query: name, role }), cachePolicy: "detail", signal: options.signal,
     });
     if (data?.error) throw new Error(data.error);
     return data;
