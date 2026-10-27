@@ -278,3 +278,17 @@
 @media (prefers-reduced-motion: reduce) {
   .creator-tabs::after { transition: none; }
 }
+
+/* 5.0.1 — Les fiches créateurs mobiles entrent comme les fiches d'œuvres.
+   Fondu uniquement sur le voile ; montée/descente sur le panneau. */
+@media (max-width: 700px) {
+  .metadata-overlay .metadata-sheet {
+    transform: translateY(40px);
+    transition: transform .35s ease, opacity .35s ease;
+  }
+  .metadata-overlay.is-open .metadata-sheet { transform: translateY(0); opacity: 1; }
+  .metadata-overlay.is-closing .metadata-sheet { transform: translateY(40px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metadata-overlay .metadata-sheet { transition: none; }
+}
