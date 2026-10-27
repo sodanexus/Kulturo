@@ -7,8 +7,8 @@ const creatorClick = detail.slice(detail.indexOf('async function openCreatorWork
 const preview = detail.slice(detail.indexOf('async function openUnownedCatalogueDetail('), detail.indexOf('\nfunction addSagaPreview('));
 
 test('les œuvres des créateurs ouvrent une fiche temporaire, pas le formulaire directement', () => {
-  assert.match(creatorClick, /openUnownedCatalogueDetail\(result, "creator"\)/);
-  assert.match(creatorClick, /openUnownedCatalogueDetail\(item, "creator"\)/);
+  assert.match(creatorClick, /openUnownedCatalogueDetail\(item, "creator", \{ history: "none" \}\)/);
+  assert.match(creatorClick, /await showSelected\(item\)/);
   assert.doesNotMatch(creatorClick, /openCollectionAdd\(/);
 });
 
@@ -22,7 +22,7 @@ test('la fiche catalogue ne sauvegarde rien et propose Ajouter via le même parc
 });
 
 test('une œuvre déjà ajoutée continue à ouvrir sa fiche personnelle', () => {
-  assert.match(creatorClick, /if \(existing\) \{ openMetadataMedia\(existing\.id\); return; \}/);
-  assert.match(creatorClick, /if \(match\) \{ openMetadataMedia\(match\.id\); return; \}/);
+  assert.match(creatorClick, /if \(owned\) \{ await showSelected\(owned, owned\); return; \}/);
+  assert.match(creatorClick, /if \(target\) await openDetailPanel\(target\.id, \{ history: "none" \}\)/);
   assert.match(preview, /if \(owned\) \{ await openDetailPanel\(owned\.id\); return; \}/);
 });
