@@ -813,8 +813,10 @@ async function openCreatorWorkFromElement(element) {
       if (!result) { toast("Œuvre indisponible.", "error"); return; }
       const owned = findMatchingEntry(result);
       if (owned) { openMetadataMedia(owned.id); return; }
-      closeMetadataPanel({ restoreFocus: false });
-      setTimeout(() => openUnownedCatalogueDetail(result, "creator"), motionDuration() + 10);
+      // Changement direct de fiche : ne pas appeler history.back(), qui peut
+      // refermer la nouvelle fiche après son ouverture sur GitHub Pages.
+      closeMetadataPanel({ restoreFocus: false, immediate: true });
+      await openUnownedCatalogueDetail(result, "creator");
     } catch { toast("Impossible d’ouvrir cette œuvre.", "error"); }
     return;
   }
@@ -828,8 +830,8 @@ async function openCreatorWorkFromElement(element) {
     if (!item) { toast("Cette œuvre est indisponible.", "error"); return; }
     const owned = findMatchingEntry(item);
     if (owned) { openMetadataMedia(owned.id); return; }
-    closeMetadataPanel({ restoreFocus: false });
-    setTimeout(() => openUnownedCatalogueDetail(item, "creator"), motionDuration() + 10);
+    closeMetadataPanel({ restoreFocus: false, immediate: true });
+    await openUnownedCatalogueDetail(item, "creator");
   } catch { toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
 }
 
