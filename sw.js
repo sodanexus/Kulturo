@@ -4,7 +4,7 @@
 // ============================================================
 
 const CACHE_PREFIX = "kulturo-";
-const STATIC_CACHE = "kulturo-static-v5.0.3-creator-preview-4";
+const STATIC_CACHE = "kulturo-static-v5.0.4-creator-preview-4";
 const COVER_CACHE = "kulturo-covers-v1";
 const BACKDROP_CACHE = "kulturo-backdrops-v1";
 const CURRENT_CACHES = new Set([STATIC_CACHE, COVER_CACHE, BACKDROP_CACHE]);
@@ -82,9 +82,9 @@ const STATIC_ASSET_PATHS = [
   "features/upcoming.js",
   "logo.svg",
   "fond-biblio.jpg",
-  "icon.svg?v=5.0.3",
-  "icon-192.png?v=5.0.3",
-  "icon-512.png?v=5.0.3",
+  "icon.svg?v=5.0.4",
+  "icon-192.png?v=5.0.4",
+  "icon-512.png?v=5.0.4",
 ];
 const STATIC_ASSETS = STATIC_ASSET_PATHS.map(appAsset);
 const EXTERNAL_APP_ASSETS = [

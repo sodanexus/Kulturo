@@ -29,3 +29,7 @@ Pas de mesure sur appareil ni d’appel aux services de production. Le rendu Saf
 ## Installation
 
 Archive complète 5.0.3. Aucun SQL ni redéploiement Supabase requis depuis 5.0.2. Conserver sa configuration. Les nouvelles optimisations ne changent ni les durées d’animation, ni le design.
+
+## Correctif 5.0.4 — 28 octobre 2026
+
+Les initiales de secours des créateurs et organisations sont masquées dès que leur image est chargée, y compris avec un logo transparent. Elles restent présentes si le chargement échoue ; le fond du logo est réinitialisé en cas d’erreur. Le fondu du logo est conservé. Aucun changement des API ou du cache catalogue.

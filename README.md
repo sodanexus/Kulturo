@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.0.3
+Version actuelle · 5.0.4
 
 ## Fonctionnalités
 
@@ -84,7 +84,7 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 - Garder `features/`, `tests/`, `scripts/` et `migrations/` : ce sont des sources ou des outils actifs, pas des fichiers temporaires.
 - `dist/` et `node_modules/` sont régénérables et ne doivent pas être commités. Les ZIP de livraison restent également hors du dépôt.
 - Les références à d’anciens fournisseurs dans les tests ou la normalisation peuvent servir aux anciennes sauvegardes : ne pas les supprimer sur leur seul nom.
-- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.3 depuis la 5.0.2.
+- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.4 depuis la 5.0.3.
 
 Le bilan des corrections et les limites des vérifications sont décrits dans [AUDIT.md](AUDIT.md). Les parcours navigateur sont documentés dans [tests/README.md](tests/README.md).
 
