@@ -806,13 +806,15 @@ async function openCreatorWorkFromElement(element) {
   const externalId = element?.dataset?.creatorExternalId;
   if (source === "openlibrary" || source === "igdb" || source === "hardcover") {
     const type = source === "igdb" ? "game" : "book";
-    const existing = State.entries.find(entry => entry.media_type === type && String(entry.external_id) === String(externalId));
+    const existing = State.entries.find(entry => entry.media_type === type && String(entry.external_id) === String(externalId) && (!entry.source_api || entry.source_api === source));
     if (existing) { openMetadataMedia(existing.id); return; }
     try {
       const result = source === "igdb" ? await CreatorCatalogWorks.igdbGame(externalId) : source === "hardcover" ? await CreatorCatalogWorks.hardcoverBook(externalId) : await CreatorCatalogWorks.openLibraryWork(externalId);
       if (!result) { toast("Œuvre indisponible.", "error"); return; }
+      const owned = findMatchingEntry(result);
+      if (owned) { openMetadataMedia(owned.id); return; }
       closeMetadataPanel({ restoreFocus: false });
-      setTimeout(() => openCollectionAdd(result), motionDuration() + 10);
+      setTimeout(() => openUnownedCatalogueDetail(result, "creator"), motionDuration() + 10);
     } catch { toast("Impossible d’ouvrir cette œuvre.", "error"); }
     return;
   }
@@ -824,9 +826,10 @@ async function openCreatorWorkFromElement(element) {
   try {
     const item = await TMDb.byId(id, subtype);
     if (!item) { toast("Cette œuvre est indisponible.", "error"); return; }
-    // Réutiliser la fenêtre d'ajout existante via le parcours des collections.
+    const owned = findMatchingEntry(item);
+    if (owned) { openMetadataMedia(owned.id); return; }
     closeMetadataPanel({ restoreFocus: false });
-    setTimeout(() => openCollectionAdd(item), motionDuration() + 10);
+    setTimeout(() => openUnownedCatalogueDetail(item, "creator"), motionDuration() + 10);
   } catch { toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
 }
 
@@ -1335,9 +1338,19 @@ async function openSagaCollectionDetail(hostId, externalId) {
   if (!item) return;
   const existing = findMatchingEntry(item);
   if (existing) { await openDetailPanel(existing.id); return; }
+  await openUnownedCatalogueDetail(item, "saga");
+}
+
+// Un parcours unique pour les sagas et les catalogues de créateurs :
+// fiche temporaire d'abord, formulaire d'ajout seulement après « Ajouter ».
+async function openUnownedCatalogueDetail(item, origin = "creator") {
+  if (!item?.title || !item?.media_type) return;
+  const owned = findMatchingEntry(item);
+  if (owned) { await openDetailPanel(owned.id); return; }
+  const previewId = `saga-preview-${origin}-${item.source_api || item.media_type}-${item.external_id || item.title}`;
   const entry = {
     ...item,
-    id: `saga-preview-${item.source_api}-${item.external_id}`,
+    id: previewId,
     status: null,
     rating: null,
     is_favorite: false,
@@ -1355,8 +1368,8 @@ async function openSagaCollectionDetail(hostId, externalId) {
     const details = await requestPrefetchedDetails(entry, { signal });
     if (!isActive() || !details) return;
     Object.assign(entry, details);
-    // Garder l'identité temporaire et le bouton Ajouter même après l'enrichissement.
-    entry.id = `saga-preview-${item.source_api}-${item.external_id}`;
+    // Ne jamais remplacer l'identité temporaire par celle du catalogue.
+    entry.id = previewId;
     entry.status = null;
     _injectBackdrop(entry.backdrop_url, entry.id, sessionId);
     await refreshDetailEnrichment(entry, { detailsLoading: false });
