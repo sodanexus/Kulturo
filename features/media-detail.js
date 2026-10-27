@@ -1771,7 +1771,7 @@ async function openDetailPanel(id, options = {}) {
     e._detailLoadError = "Les notes et captures IGDB manquent pour cette fiche. Réessayez ou vérifiez son association dans Modifier.";
   }
   const detailsLoading = (!e._detailsFetched || canResolveMediaIdentity(e)) && (canEnrichMediaDetails(e) || canResolveMediaIdentity(e));
-  const detailSessionId = renderDetailPanel(e, { detailsLoading, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
+  const detailSessionId = renderDetailPanel(e, { detailsLoading, history: options.history, transitionSource: options.transitionSource || null, restoreView: options.restoreView });
   const detailSignal = detailSessions.signal(detailSessionId);
   const ownsDetailSession = () => sameOwner(detailOwner, State.user?.id) &&
     detailSessions.isActive(detailSessionId, e.id);
