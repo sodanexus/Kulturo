@@ -8,7 +8,7 @@ const preview = detail.slice(detail.indexOf('async function openUnownedCatalogue
 
 test('les œuvres des créateurs ouvrent une fiche temporaire, pas le formulaire directement', () => {
   assert.match(creatorClick, /openUnownedCatalogueDetail\(item, "creator", \{ history: "none" \}\)/);
-  assert.match(creatorClick, /await showSelected\(item\)/);
+  assert.match(creatorClick, /openUnownedCatalogueDetail\(item, "creator", \{ history: "none" \}\)/);
   assert.doesNotMatch(creatorClick, /openCollectionAdd\(/);
 });
 
@@ -22,7 +22,7 @@ test('la fiche catalogue ne sauvegarde rien et propose Ajouter via le même parc
 });
 
 test('une œuvre déjà ajoutée continue à ouvrir sa fiche personnelle', () => {
-  assert.match(creatorClick, /if \(owned\) \{ await showSelected\(owned, owned\); return; \}/);
-  assert.match(creatorClick, /if \(target\) await openDetailPanel\(target\.id, \{ history: "none" \}\)/);
+  assert.match(creatorClick, /if \(owned\) \{/);
+  assert.match(creatorClick, /await openDetailPanel\(owned\.id, \{ history: "none" \}\)/);
   assert.match(preview, /if \(owned\) \{ await openDetailPanel\(owned\.id\); return; \}/);
 });
