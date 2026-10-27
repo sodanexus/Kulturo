@@ -53,9 +53,13 @@ function activateCreatorVisual(info) {
   if (!image) return;
   const onLoad = () => { if (image.isConnected && image.naturalWidth > 0) {
     image.classList.add("is-loaded");
+    image.parentElement.classList.add("has-loaded-visual");
     if (image.closest(".creator-visual--logo")) image.parentElement.classList.add("has-loaded-logo");
   } };
-  const onError = () => { image.remove(); };
+  const onError = () => {
+    image.parentElement?.classList.remove("has-loaded-visual", "has-loaded-logo");
+    image.remove();
+  };
   image.addEventListener("load", onLoad, { once: true });
   image.addEventListener("error", onError, { once: true });
   if (image.complete) { if (image.naturalWidth > 0) onLoad(); else onError(); }
