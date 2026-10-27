@@ -145,6 +145,7 @@ export async function requestJSON(url, options = {}) {
     signal = null,
     ...fetchOptions
   } = options;
+  if (signal?.aborted) throw abortError();
   const method = String(fetchOptions.method || "GET").toUpperCase();
   const key = requestKey(url, method, fetchOptions.body, cacheKey);
   const cached = !fresh && cacheTtlMs > 0 ? cachedValue(key) : undefined;

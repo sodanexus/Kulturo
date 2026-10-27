@@ -105,7 +105,8 @@ for (const file of javascriptFiles) {
 }
 
 const testFiles = projectFiles.filter(path => /tests[/\\].+\.test\.mjs$/.test(path));
-const tests = spawnSync(process.execPath, ["--test", ...testFiles], { cwd: ROOT, stdio: "inherit" });
+// Exécution séquentielle : éviter une rafale de processus sur les petits runners.
+const tests = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...testFiles], { cwd: ROOT, stdio: "inherit" });
 if (tests.status !== 0) fail("les tests techniques ont échoué.");
 
 if (checkOnly) {

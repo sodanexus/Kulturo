@@ -103,6 +103,15 @@ async function tryMountTitleLogo(title, getUrl, {signal, isActive = () => true} 
           title.querySelector?.('.detail-title-logo')?.remove();
           title.append(image);
         }
+        if (isVideo && signal) {
+          // Le chargement est terminé, mais la lecture doit aussi s'arrêter
+          // quand la session de fiche se ferme ou change de propriétaire.
+          signal.addEventListener('abort', () => {
+            image.pause?.();
+            image.removeAttribute('src');
+            image.load?.();
+          }, { once: true });
+        }
         mounted = true;
         requestAnimationFrame(() => { if (alive()) title.classList.add('has-title-logo'); });
         return true;

@@ -692,7 +692,20 @@ function switchCreatorTab(element) {
   }, { reveal: [target] });
 }
 
+const creatorRequests = new WeakMap();
+function creatorSignal(overlay) {
+  let controller = creatorRequests.get(overlay);
+  if (!controller) { controller = new AbortController(); creatorRequests.set(overlay, controller); }
+  return controller.signal;
+}
+function stopCreatorRequests(overlay) {
+  if (!overlay) return;
+  creatorRequests.get(overlay)?.abort();
+  creatorRequests.delete(overlay);
+}
+
 async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
+  const signal = creatorSignal(overlay);
   const token = overlay.dataset.creatorToken;
   const status = overlay.querySelector("[data-creator-status]");
   const target = overlay.querySelector("[data-creator-all]");
@@ -700,19 +713,19 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
     let profile;
     if (kind === "author") {
       // Hardcover en premier. Repli Open Library si le profil ou la liste d'œuvres manque.
-      try { profile = await HardcoverAuthors.find(value); } catch { /* Repli sur Open Library. */ }
+      try { profile = await HardcoverAuthors.find(value, { signal }); } catch (error) { if (signal.aborted) throw error; /* Repli sur Open Library. */ }
       if (!profile?.works?.length) {
         try {
-          const matched = await OpenLibraryAuthors.find(value);
-          if (matched?.key) profile = await OpenLibraryAuthors.details(matched.key) || profile;
-        } catch { /* Conserver le profil Hardcover s'il existe. */ }
+          const matched = await OpenLibraryAuthors.find(value, { signal });
+          if (matched?.key) profile = await OpenLibraryAuthors.details(matched.key, { signal }) || profile;
+        } catch (error) { if (signal.aborted) throw error; /* Conserver le profil Hardcover s'il existe. */ }
       }
     } else if (kind === "publisher" && mediaType === "book") {
-      profile = await HardcoverPublishers.find(value);
+      profile = await HardcoverPublishers.find(value, { signal });
     } else if (kind === "developer" || (kind === "publisher" && mediaType === "game")) {
-      profile = await IGDBCompanies.find(value, kind);
+      profile = await IGDBCompanies.find(value, kind, { signal });
     }
-    if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    if (signal.aborted || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     if (!profile || profile.not_found) {
       if (status) status.textContent = (kind === "developer" || mediaType === "game")
         ? "Aucune société IGDB correspondant à ce nom."
@@ -724,9 +737,9 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
     // Charger et traduire la présentation avant le redimensionnement : le
     // nouveau contenu apparaît en fondu une fois les données prêtes.
     let about = { text: String(profile.description || profile.biography || ""), generated: false };
-    try { about = await CreatorDescriptions.enrich(profile, { name: value, role: kind }); }
+    try { about = await CreatorDescriptions.enrich(profile, { signal, name: value, role: kind }); }
     catch (error) { if (error?.name === "AbortError") return; }
-    if (!overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    if (signal.aborted || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     const info = overlay.querySelector("[data-creator-info]");
     const photo = profile.profile_url || (profile.logo?.image_id ? `https://images.igdb.com/igdb/image/upload/t_logo_med/${profile.logo.image_id}.webp` : null);
     const isBook = kind === "author" || (kind === "publisher" && mediaType === "book");
@@ -757,6 +770,7 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
     }, { reveal: [info, overlay.dataset.activeCreatorTab === "all" ? target : null] });
 
   } catch (error) {
+    if (signal.aborted || error?.name === "AbortError") return;
     console.error("[Kulturo] Chargement du profil créateur", { kind, value, error });
     if (overlay.isConnected && overlay.dataset.creatorToken === token && status) {
       status.textContent = `Catalogue indisponible (${kind === "developer" || mediaType === "game" ? "IGDB" : "Hardcover"}). Vérifiez les journaux de la fonction Supabase.`;
@@ -765,18 +779,20 @@ async function enrichOtherCreator(kind, value, overlay, mediaType = "") {
 }
 
 async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
+  const signal = creatorSignal(overlay);
   if (!["cast", "director"].includes(kind) || !TMDbPeople.available()) return;
   const idMatch = exactUrl?.match(/themoviedb\.org\/person\/(\d+)/);
   const token = overlay.dataset.creatorToken;
   try {
-    const resolved = idMatch ? { id: Number(idMatch[1]) } : await TMDbPeople.find(value);
-    if (!resolved?.id || !overlay.isConnected || overlay.dataset.creatorToken !== token) {
+    const resolved = idMatch ? { id: Number(idMatch[1]) } : await TMDbPeople.find(value, { signal });
+    if (signal.aborted || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    if (!resolved?.id) {
       const status = overlay.querySelector("[data-creator-status]");
       if (status) status.textContent = "Aucune fiche TMDB identifiée avec certitude.";
       return;
     }
-    const person = await TMDbPeople.details(resolved.id);
-    if (!person || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
+    const person = await TMDbPeople.details(resolved.id, { signal });
+    if (!person || signal.aborted || !overlay.isConnected || overlay.dataset.creatorToken !== token) return;
     const info = overlay.querySelector("[data-creator-info]");
     const target = overlay.querySelector("[data-creator-all]");
     const status = overlay.querySelector("[data-creator-status]");
@@ -794,6 +810,7 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
     }, { reveal: [info, overlay.dataset.activeCreatorTab === "all" ? target : null] });
 
   } catch (error) {
+    if (signal.aborted || error?.name === "AbortError") return;
     if (overlay.isConnected && overlay.dataset.creatorToken === token) {
       const status = overlay.querySelector("[data-creator-status]");
       if (status) status.textContent = "Filmographie momentanément indisponible.";
@@ -853,6 +870,7 @@ function openMetadataFromElement(element) {
   const previousMetadataDialog = document.querySelector("#metadata-overlay .metadata-sheet");
   const previousMetadataRect = previousMetadataDialog?.getBoundingClientRect();
   if (previousMetadataDialog) dialogFocus.deactivate(previousMetadataDialog, { restoreFocus: false });
+  stopCreatorRequests(document.getElementById("metadata-overlay"));
   document.getElementById("metadata-overlay")?.remove();
   _metadataReturnFocus = element;
   const mediaType = element?.dataset?.metaMedia || "";
@@ -940,6 +958,7 @@ function openMetadataFromElement(element) {
 }
 
 function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
+  stopCreatorRequests(document.getElementById("metadata-overlay"));
   if (!immediate && historyOwnsLayer("metadata")) {
     history.back();
     return;
@@ -948,11 +967,12 @@ function closeMetadataPanel({ restoreFocus = true, immediate = false } = {}) {
   const metadataDialog = overlay?.querySelector(".metadata-sheet") || null;
   const finish = () => {
     overlay?.remove();
+    const newerPanel = document.getElementById("metadata-overlay");
     const detailModal = document.querySelector("#modal-overlay .detail-modal");
-    if (detailModal) detailModal.inert = false;
+    if (detailModal && !newerPanel) detailModal.inert = false;
     syncDialogBackground();
-    if (metadataDialog) dialogFocus.deactivate(metadataDialog, { restoreFocus });
-    _metadataReturnFocus = null;
+    if (metadataDialog) dialogFocus.deactivate(metadataDialog, { restoreFocus: restoreFocus && !newerPanel });
+    if (!newerPanel) _metadataReturnFocus = null;
   };
   if (!overlay || immediate) { finish(); return; }
   if (overlay.classList.contains("is-closing")) return;
