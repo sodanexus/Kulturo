@@ -250,6 +250,8 @@
 .creator-visual-fallback small { color: var(--text-3); font-size: .58rem; letter-spacing: .07em; text-transform: uppercase; line-height: 1.2; }
 .creator-visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: 0; transition: opacity 340ms ease; }
 .creator-visual img.is-loaded { opacity: 1; }
+/* Les zones transparentes du logo ne doivent pas révéler les initiales. */
+.creator-visual.has-loaded-visual .creator-visual-fallback { visibility: hidden; }
 .creator-visual--logo { background: var(--bg-3); }
 /* A quiet neutral backing makes black/transparent brand marks visible on the dark theme.
    Only reveal it after the logo loads; missing logos keep the original dark avatar. */
