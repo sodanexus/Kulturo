@@ -4399,6 +4399,10 @@ mediaDetailFeature = createMediaDetailFeature({
   dialogFocus,
   activateDialog,
   pushHistoryLayer,
+  replaceCreatorHistory: mediaId => {
+    const payload = { modal: "detail", mediaId };
+    history.replaceState(appHistoryState(_currentPage, "modal", payload), "", historyUrl(_currentPage, "modal", payload));
+  },
   syncSystemBar,
   getCurrentPage: () => _currentPage,
   hydrateFadeImages,
