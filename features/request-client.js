@@ -1,3 +1,4 @@
+import { createCatalogueCache } from "./catalogue-cache.js";
 // ============================================================
 // Couche réseau commune — annulation, cache, délai et reprise
 // ============================================================
@@ -132,7 +133,16 @@ async function performRequest(url, options, key) {
   throw new Error("Requête impossible");
 }
 
+const persistentCatalogue = createCatalogueCache();
+
 export async function requestJSON(url, options = {}) {
+  const { persistentCache, persistentFresh, ...networkOptions } = options;
+  if (!persistentCache) return requestNetworkJSON(url, networkOptions);
+  return persistentCatalogue(persistentCache.key, persistentCache.policy,
+    force => requestNetworkJSON(url, { ...networkOptions, fresh: force || networkOptions.fresh }), { ...networkOptions, fresh: persistentFresh ?? networkOptions.fresh });
+}
+
+async function requestNetworkJSON(url, options = {}) {
   const {
     timeoutMs = 8_000,
     retries = 1,

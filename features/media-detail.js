@@ -1792,7 +1792,10 @@ async function openDetailPanel(id, options = {}) {
   const needsDetailRefresh = ["movie", "game"].includes(e.media_type) && Boolean(e.external_id) &&
     (!e.backdrop_url || !e.external_ratings?.length) &&
     (!e._detailsFetchedAt || Date.now() - e._detailsFetchedAt > DETAIL_PREFETCH_TTL);
-  if (e._detailsFetched && !needsBackdropRepair && !needsDetailRefresh && !canResolveMediaIdentity(e)) {
+  // Relire le cache catalogue à la réouverture pour récupérer une actualisation
+  // terminée en arrière-plan, sans afficher de nouvel état de chargement.
+  const usesPersistentCatalogue = Boolean(e.external_id) && ["tmdb", "igdb"].includes(e.source_api);
+  if (e._detailsFetched && !usesPersistentCatalogue && !needsBackdropRepair && !needsDetailRefresh && !canResolveMediaIdentity(e)) {
     _injectBackdrop(e.backdrop_url, e.id, detailSessionId);
     return;
   }
@@ -1852,8 +1855,10 @@ async function openDetailPanel(id, options = {}) {
 
     const refreshBackdrop = (e.media_type === "movie" || (e.media_type === "game" && e.source_api === "igdb" && e.external_id)) && !e.backdrop_url;
     if (refreshBackdrop) e._backdropRepairAttempted = true;
+    if (usesPersistentCatalogue && e._detailsFetched) _detailPrefetchCache.delete(detailPrefetchKey(e));
     const details = await requestPrefetchedDetails(e, {
       fresh: Boolean(options.fresh) || refreshBackdrop || needsDetailRefresh,
+      persistentFresh: Boolean(options.fresh),
       signal: detailSignal,
     });
     if (!ownsDetailSession()) return;
