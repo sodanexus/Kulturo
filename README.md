@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.0.2
+Version actuelle · 5.0.3
 
 ## Fonctionnalités
 
@@ -27,6 +27,7 @@ Version actuelle · 5.0.2
 - **Ajout rapide** : recherche par catégorie (Tout, Films & séries, Jeux vidéo, Livres) ou collage d’un lien TMDb, IMDb, Steam, Goodreads ou Hardcover. Sur un livre, scan du code-barres ISBN avec la caméra.
 - **Mise en page** : Journal et Profil partagent une largeur centrée sur grand écran. Les jaquettes du palmarès remplissent leur cadre sans déformation, avec recadrage si nécessaire.
 - **Communauté** : fiches enrichies en lecture seule ; les informations récupérées ne modifient pas la bibliothèque du membre.
+- **Cache catalogue persistant** : les enrichissements TMDb et IGDB sont conservés dans une base IndexedDB séparée des données personnelles. Cache valide : pas d’appel API correspondant. Cache périmé : affichage immédiat et tentative d’actualisation en arrière-plan, utilisée à la prochaine ouverture sans déplacer le contenu en cours de lecture. Le rafraîchissement explicite contourne le cache.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
 - **Créateurs** : fiches de personnes TMDb, auteurs et éditeurs de livres, studios et éditeurs de jeux ; onglets bibliothèque et catalogue, avec ouverture des œuvres. Les requêtes sont annulées à la fermeture du panneau.
 - **Logos animés** : un lien WebM personnalisé est accepté ; sa lecture est arrêtée à la fermeture de la fiche. La préférence système de réduction des animations reste prise en compte.
@@ -83,7 +84,7 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 - Garder `features/`, `tests/`, `scripts/` et `migrations/` : ce sont des sources ou des outils actifs, pas des fichiers temporaires.
 - `dist/` et `node_modules/` sont régénérables et ne doivent pas être commités. Les ZIP de livraison restent également hors du dépôt.
 - Les références à d’anciens fournisseurs dans les tests ou la normalisation peuvent servir aux anciennes sauvegardes : ne pas les supprimer sur leur seul nom.
-- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.2 depuis la 5.0.1.
+- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.3 depuis la 5.0.2.
 
 Le bilan des corrections et les limites des vérifications sont décrits dans [AUDIT.md](AUDIT.md). Les parcours navigateur sont documentés dans [tests/README.md](tests/README.md).
 
@@ -108,3 +109,11 @@ Voir [DEPLOYMENT.md](DEPLOYMENT.md). Sur une installation existante, n’appliqu
 ## Licence
 
 Voir [LICENSE](LICENSE).
+
+### Durées du cache catalogue
+
+- TMDb : détails principaux (notes et saisons comprises) et disponibilités, 24 h ; crédits et vidéos, 7 jours ; listes de logos et bannières, 30 jours.
+- IGDB : réponse de détails/captures, 24 h, car les notes et captures sont renvoyées ensemble. Les logos de jeux conservent leur cache local existant (30 jours si trouvés, 3 jours sinon).
+- Maximum : 200 réponses et environ 5 Mio de contenu JSON comptabilisé ; 512 Kio par réponse. Éviction des moins récemment consultées. Aucune donnée de plus de 90 jours n’est réutilisée.
+- Le cache ne contient ni jetons d’authentification, ni clé TMDb, ni notes personnelles. Les erreurs ne sont pas conservées ; les données précédentes restent utilisables si l’actualisation échoue.
+- Stockage indisponible ou quota atteint : retour au réseau et au cache mémoire existant. Ce cache concerne les réponses catalogue ; images et traductions ont leur propre fonctionnement. La suppression des données du site l’efface sans modifier les données distantes.

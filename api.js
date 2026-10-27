@@ -764,12 +764,13 @@ export const TMDbDetails = {
     const detailRequest = options.fresh
       ? { cachePolicy: "detail", fresh: true, signal: options.signal }
       : { cachePolicy: "detail", signal: options.signal };
+    const catalogue = (part, policy) => ({ ...detailRequest, persistentFresh: options.persistentFresh, persistentCache: { key: `tmdb:${ep}:${externalId}:fr:${part}:v1`, policy } });
 
     const [main, credits, providers, videos] = await Promise.allSettled([
-      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, detailRequest),
-      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, detailRequest),
-      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, detailRequest),
-      apiFetch(`${base}/${ep}/${externalId}/videos?api_key=${key}&${lang}&include_video_language=fr,en`, detailRequest),
+      apiFetch(`${base}/${ep}/${externalId}?api_key=${key}&${lang}`, catalogue("main", "daily")),
+      apiFetch(`${base}/${ep}/${externalId}/credits?api_key=${key}&${lang}`, catalogue("credits", "metadata")),
+      apiFetch(`${base}/${ep}/${externalId}/watch/providers?api_key=${key}`, catalogue("providers", "daily")),
+      apiFetch(`${base}/${ep}/${externalId}/videos?api_key=${key}&${lang}&include_video_language=fr,en`, catalogue("videos", "metadata")),
     ]);
 
     const d = main.status === "fulfilled" ? main.value : null;
@@ -867,7 +868,7 @@ export const TMDbImages = {
     const size = options.size || "w1280";
     const data = await apiFetch(
       `${CONFIG.tmdb.baseUrl}/${ep}/${externalId}/images?api_key=${CONFIG.tmdb.apiKey}`,
-      { cachePolicy: "detail", signal: options.signal }
+      { cachePolicy: "detail", signal: options.signal, persistentCache: { key: `tmdb:${ep}:${externalId}:backdrops:v1`, policy: "images" } }
     );
     return (data?.backdrops || [])
       .filter(b => b?.file_path && !b.iso_639_1 && (b.width || 0) >= 1280)
@@ -894,6 +895,8 @@ async function fetchIgdbGame(externalId, options = {}) {
     method: "POST",
     headers: await edgeFunctionHeaders(),
     body: JSON.stringify({ id: Number(externalId) }),
+    persistentFresh: options.persistentFresh,
+    persistentCache: { key: `igdb:${CONFIG.supabase.url}:${Number(externalId)}:game:v1`, policy: "daily" },
     cachePolicy: "detail",
     fresh: Boolean(options.fresh),
     timeoutMs: 12_000,
@@ -1084,7 +1087,7 @@ export const TitleLogos = {
     if (manual) return [{url:manual}];
     if (entry.source_api === "tmdb" && CONFIG?.tmdb?.apiKey) {
       const ep = entry.subtype === "tv" ? "tv" : "movie";
-      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`, {cachePolicy:"detail", signal:options.signal});
+      const data = await apiFetch(`${CONFIG.tmdb.baseUrl}/${ep}/${encodeURIComponent(entry.external_id)}/images?api_key=${CONFIG.tmdb.apiKey}&include_image_language=fr,en,null`, {cachePolicy:"detail", signal:options.signal, persistentCache: { key: `tmdb:${ep}:${entry.external_id}:logos:fr-en:v1`, policy: "images" }});
       return tmdbLogoCandidates(data?.logos);
     }
     if (entry.source_api === "igdb" && CONFIG?.supabase?.url) {
