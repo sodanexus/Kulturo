@@ -26,7 +26,7 @@ export function createMediaDetailFeature({
   iconCalendar, iconPlay, iconEdit, iconTrash, iconRepeat, iconExternal, iconX,
   iconUser, iconMedia, iconStatus, getTypeLabel, ratingScoreHTML,
   rememberModalReturnFocus, bindCoverAccent, dialogFocus, activateDialog,
-  pushHistoryLayer, syncSystemBar, getCurrentPage, hydrateFadeImages,
+  pushHistoryLayer, replaceCreatorHistory, syncSystemBar, getCurrentPage, hydrateFadeImages,
   setupMobileSheetSwipe, closeModal, syncDialogBackground, historyOwnsLayer,
   updateBadges, markJournalDirty, renderCards, renderUpcomingCards, toast,
   launchConfetti, markModalPristine, sameOwner, isModalDirty = () => false, findMatchingEntry = () => null, openCollectionAdd = () => {},
@@ -801,38 +801,59 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
   }
 }
 
+// Sélectionner une autre œuvre remplace l'entrée « créateur » de l'historique :
+// l'ancienne fiche sous-jacente ne doit jamais reprendre la main.
+let creatorWorkSelection = 0;
 async function openCreatorWorkFromElement(element) {
-  const source = element?.dataset?.creatorSource;
-  const externalId = element?.dataset?.creatorExternalId;
-  if (source === "openlibrary" || source === "igdb" || source === "hardcover") {
+  const overlay = document.getElementById("metadata-overlay");
+  if (!overlay || !element?.isConnected) return;
+  const selection = ++creatorWorkSelection;
+  const valid = () => selection === creatorWorkSelection && overlay.isConnected &&
+    document.getElementById("metadata-overlay") === overlay;
+  const showSelected = async (item, owned = null) => {
+    if (!valid()) return;
+    const target = owned || findMatchingEntry(item);
+    // Remplacer l'état de la fiche créateur AVANT de changer les panneaux.
+    // L'historique conserve l'ancienne œuvre en arrière, mais l'état courant
+    // correspond toujours à l'œuvre réellement sélectionnée.
+    const previewId = target?.id || `saga-preview-creator-${item.source_api || item.media_type}-${item.external_id || item.title}`;
+    replaceCreatorHistory(previewId);
+    closeMetadataPanel({ restoreFocus: false, immediate: true });
+    if (target) await openDetailPanel(target.id, { history: "none" });
+    else await openUnownedCatalogueDetail(item, "creator", { history: "none" });
+  };
+  const source = element.dataset.creatorSource;
+  const externalId = element.dataset.creatorExternalId;
+  if (["openlibrary", "igdb", "hardcover"].includes(source)) {
+    if (!externalId || externalId === "undefined") return;
     const type = source === "igdb" ? "game" : "book";
-    const existing = State.entries.find(entry => entry.media_type === type && String(entry.external_id) === String(externalId) && (!entry.source_api || entry.source_api === source));
-    if (existing) { openMetadataMedia(existing.id); return; }
+    const owned = State.entries.find(entry => entry.media_type === type &&
+      String(entry.external_id) === String(externalId) &&
+      (!entry.source_api || entry.source_api === source));
+    if (owned) { await showSelected(owned, owned); return; }
     try {
-      const result = source === "igdb" ? await CreatorCatalogWorks.igdbGame(externalId) : source === "hardcover" ? await CreatorCatalogWorks.hardcoverBook(externalId) : await CreatorCatalogWorks.openLibraryWork(externalId);
-      if (!result) { toast("Œuvre indisponible.", "error"); return; }
-      const owned = findMatchingEntry(result);
-      if (owned) { openMetadataMedia(owned.id); return; }
-      // Changement direct de fiche : ne pas appeler history.back(), qui peut
-      // refermer la nouvelle fiche après son ouverture sur GitHub Pages.
-      closeMetadataPanel({ restoreFocus: false, immediate: true });
-      await openUnownedCatalogueDetail(result, "creator");
-    } catch { toast("Impossible d’ouvrir cette œuvre.", "error"); }
+      const item = source === "igdb" ? await CreatorCatalogWorks.igdbGame(externalId)
+        : source === "hardcover" ? await CreatorCatalogWorks.hardcoverBook(externalId)
+        : await CreatorCatalogWorks.openLibraryWork(externalId);
+      if (!valid()) return;
+      if (!item) { toast("Œuvre indisponible.", "error"); return; }
+      await showSelected(item);
+    } catch { if (valid()) toast("Impossible d’ouvrir cette œuvre.", "error"); }
     return;
   }
-  const id = Number(element?.dataset?.creatorTmdb);
-  const subtype = element?.dataset?.creatorType;
+  const id = Number(element.dataset.creatorTmdb);
+  const subtype = element.dataset.creatorType;
   if (!Number.isSafeInteger(id) || id <= 0 || !["movie", "tv"].includes(subtype)) return;
-  const match = State.entries.find(entry => entry.media_type === "movie" && String(entry.external_id) === String(id) && (entry.subtype === "tv" ? "tv" : "movie") === subtype);
-  if (match) { openMetadataMedia(match.id); return; }
+  const owned = State.entries.find(entry => entry.media_type === "movie" &&
+    String(entry.external_id) === String(id) &&
+    (entry.subtype === "tv" ? "tv" : "movie") === subtype);
+  if (owned) { await showSelected(owned, owned); return; }
   try {
     const item = await TMDb.byId(id, subtype);
+    if (!valid()) return;
     if (!item) { toast("Cette œuvre est indisponible.", "error"); return; }
-    const owned = findMatchingEntry(item);
-    if (owned) { openMetadataMedia(owned.id); return; }
-    closeMetadataPanel({ restoreFocus: false, immediate: true });
-    await openUnownedCatalogueDetail(item, "creator");
-  } catch { toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
+    await showSelected(item);
+  } catch { if (valid()) toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
 }
 
 function openMetadataFromElement(element) {
@@ -1345,7 +1366,7 @@ async function openSagaCollectionDetail(hostId, externalId) {
 
 // Un parcours unique pour les sagas et les catalogues de créateurs :
 // fiche temporaire d'abord, formulaire d'ajout seulement après « Ajouter ».
-async function openUnownedCatalogueDetail(item, origin = "creator") {
+async function openUnownedCatalogueDetail(item, origin = "creator", options = {}) {
   if (!item?.title || !item?.media_type) return;
   const owned = findMatchingEntry(item);
   if (owned) { await openDetailPanel(owned.id); return; }
@@ -1361,7 +1382,7 @@ async function openUnownedCatalogueDetail(item, origin = "creator") {
   };
   _sagaPreviews.clear();
   _sagaPreviews.set(entry.id, item);
-  const sessionId = renderDetailPanel(entry, { sagaPreview: true, detailsLoading: canEnrichMediaDetails(entry) });
+  const sessionId = renderDetailPanel(entry, { sagaPreview: true, history: options.history, detailsLoading: canEnrichMediaDetails(entry) });
   const signal = detailSessions.signal(sessionId);
   const isActive = () => detailSessions.isActive(sessionId, entry.id);
   _scheduleSynopsisOverflowCheck(entry.id);
