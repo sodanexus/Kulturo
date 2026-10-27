@@ -590,7 +590,7 @@ function metadataLinksHTML(entry, kind, value) {
 const CREATOR_KINDS = new Set(["cast", "director", "author", "developer", "publisher"]);
 const metadataWorkCard = (item, action = "") => {
   const cover = safeMediaUrl(item.cover_url);
-  return `<${action ? "button" : "div"} ${action ? `type="button" ${action}` : ""} class="creator-work-card">
+  return `<${action ? "button" : "div"} ${action ? `type="button" ${action}` : ""} data-creator-title="${esc(item.title)}" data-creator-cover="${esc(cover || "")}" data-creator-year="${esc(item.release_year || "")}" class="creator-work-card">
     ${cover ? `<img src="${esc(cover)}" loading="lazy" decoding="async" alt="">` : `<div class="creator-work-placeholder">${iconMedia(item.subtype === "tv" ? "movie" : "movie", item.subtype)}</div>`}
     <strong>${esc(item.title)}</strong><small>${esc(item.release_year || "")}</small>
   </${action ? "button" : "div"}>`;
@@ -801,8 +801,9 @@ async function enrichCreatorPanel(kind, value, exactUrl, overlay) {
   }
 }
 
-// Sélectionner une autre œuvre remplace l'entrée « créateur » de l'historique :
-// l'ancienne fiche sous-jacente ne doit jamais reprendre la main.
+// La carte de « Toutes les œuvres » fournit déjà l'identité et la couverture.
+// Ouvrir la fiche immédiatement empêche le panneau d'origine de rester visible
+// durant une recherche catalogue lente ou une requête qui échoue.
 let creatorWorkSelection = 0;
 async function openCreatorWorkFromElement(element) {
   const overlay = document.getElementById("metadata-overlay");
@@ -810,50 +811,37 @@ async function openCreatorWorkFromElement(element) {
   const selection = ++creatorWorkSelection;
   const valid = () => selection === creatorWorkSelection && overlay.isConnected &&
     document.getElementById("metadata-overlay") === overlay;
-  const showSelected = async (item, owned = null) => {
-    if (!valid()) return;
-    const target = owned || findMatchingEntry(item);
-    // Remplacer l'état de la fiche créateur AVANT de changer les panneaux.
-    // L'historique conserve l'ancienne œuvre en arrière, mais l'état courant
-    // correspond toujours à l'œuvre réellement sélectionnée.
-    const previewId = target?.id || `saga-preview-creator-${item.source_api || item.media_type}-${item.external_id || item.title}`;
-    replaceCreatorHistory(previewId);
-    closeMetadataPanel({ restoreFocus: false, immediate: true });
-    if (target) await openDetailPanel(target.id, { history: "none" });
-    else await openUnownedCatalogueDetail(item, "creator", { history: "none" });
-  };
+  const title = element.dataset.creatorTitle?.trim();
+  const cover_url = safeMediaUrl(element.dataset.creatorCover) || null;
+  const parsedYear = Number(element.dataset.creatorYear);
+  const release_year = Number.isSafeInteger(parsedYear) && parsedYear >= 1800 && parsedYear <= 2200 ? parsedYear : null;
   const source = element.dataset.creatorSource;
-  const externalId = element.dataset.creatorExternalId;
-  if (["openlibrary", "igdb", "hardcover"].includes(source)) {
-    if (!externalId || externalId === "undefined") return;
-    const type = source === "igdb" ? "game" : "book";
-    const owned = State.entries.find(entry => entry.media_type === type &&
-      String(entry.external_id) === String(externalId) &&
-      (!entry.source_api || entry.source_api === source));
-    if (owned) { await showSelected(owned, owned); return; }
-    try {
-      const item = source === "igdb" ? await CreatorCatalogWorks.igdbGame(externalId)
-        : source === "hardcover" ? await CreatorCatalogWorks.hardcoverBook(externalId)
-        : await CreatorCatalogWorks.openLibraryWork(externalId);
-      if (!valid()) return;
-      if (!item) { toast("Œuvre indisponible.", "error"); return; }
-      await showSelected(item);
-    } catch { if (valid()) toast("Impossible d’ouvrir cette œuvre.", "error"); }
-    return;
-  }
-  const id = Number(element.dataset.creatorTmdb);
+  const sourceId = element.dataset.creatorExternalId;
+  const tmdbId = element.dataset.creatorTmdb;
   const subtype = element.dataset.creatorType;
-  if (!Number.isSafeInteger(id) || id <= 0 || !["movie", "tv"].includes(subtype)) return;
-  const owned = State.entries.find(entry => entry.media_type === "movie" &&
-    String(entry.external_id) === String(id) &&
-    (entry.subtype === "tv" ? "tv" : "movie") === subtype);
-  if (owned) { await showSelected(owned, owned); return; }
-  try {
-    const item = await TMDb.byId(id, subtype);
-    if (!valid()) return;
-    if (!item) { toast("Cette œuvre est indisponible.", "error"); return; }
-    await showSelected(item);
-  } catch { if (valid()) toast("Impossible de récupérer cette œuvre pour le moment.", "error"); }
+  const isTmdb = Boolean(tmdbId && ["movie", "tv"].includes(subtype));
+  const isCatalog = ["openlibrary", "hardcover", "igdb"].includes(source) && Boolean(sourceId);
+  if (!title || (!isTmdb && !isCatalog)) return;
+  const external_id = isTmdb ? tmdbId : sourceId;
+  if (!/^[0-9A-Za-z_./-]{1,120}$/.test(String(external_id)) || external_id === "undefined") return;
+  const item = {
+    title, cover_url, release_year,
+    media_type: isTmdb ? "movie" : source === "igdb" ? "game" : "book",
+    subtype: isTmdb ? subtype : undefined,
+    source_api: isTmdb ? "tmdb" : source,
+    external_id: String(external_id),
+  };
+  const owned = findMatchingEntry(item);
+  const previewId = owned?.id || `saga-preview-creator-${item.source_api}-${item.external_id}`;
+  if (!valid()) return;
+  replaceCreatorHistory(previewId);
+  closeMetadataPanel({ restoreFocus: false, immediate: true });
+  // Aucun appel réseau avant ce rendu : la bonne fiche prend immédiatement la place.
+  if (owned) {
+    await openDetailPanel(owned.id, { history: "none" });
+  } else {
+    await openUnownedCatalogueDetail(item, "creator", { history: "none" });
+  }
 }
 
 function openMetadataFromElement(element) {
