@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 
-test("« Mon mot » : un seul commentaire privé par œuvre, dans la colonne notes existante", () => {
+test("« Commentaire » : un seul commentaire privé par œuvre, dans la colonne notes existante", () => {
   const detail = read("features/media-detail.js");
   // Réservé au propriétaire : ni fiche partagée (readOnly), ni aperçu, ni saga.
   assert.match(detail, /if \(!options\.readOnly && !options\.preview\) \{\s*html \+= `<div class="detail-note-slot"/);
@@ -12,17 +12,19 @@ test("« Mon mot » : un seul commentaire privé par œuvre, dans la colonne not
   // Juste après le synopsis, dans un emplacement à part : jamais reconstruit par
   // l'enrichissement de la fiche (qui ne remplace que le synopsis et les infos).
   const body = detail.slice(detail.indexOf("function renderDetailBody"));
-  const order = ["detail-synopsis-slot-", "detail-note-slot", "detail-info-slot-"].map(name => body.indexOf(name));
-  assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], "synopsis, puis mon mot, puis les infos");
+  const order = ["detail-synopsis-slot-", "detail-info-slot-", "detail-note-slot", "detail-history-slot-"].map(name => body.indexOf(name));
+  assert.ok(order.every(index => index > -1) && order.every((index, i) => i === 0 || order[i - 1] < index), "synopsis, informations, commentaire, puis historique");
   // Enregistrement par le même mécanisme que le reste (hors ligne compris), colonne notes.
   assert.match(detail, /Media\.update\(entry\.id, \{ notes: value \}\)/);
   // Texte brut échappé, longueur bornée.
-  assert.match(detail, /<p class="detail-note-text">\$\{esc\(note\)\}<\/p>/);
+  assert.match(detail, /<div class="detail-note-bubble"><p class="detail-note-text">\$\{esc\(note\)\}<\/p><\/div>/);
+  assert.match(detail, /function renderDetailHistoryHTML/);
+  assert.match(detail, /Commentaire/);
   assert.match(detail, /NOTE_MAX_LENGTH = 500/);
   assert.match(detail, /maxlength="\$\{NOTE_MAX_LENGTH\}"/);
 });
 
-test("« Mon mot » : les actions sont branchées de la fiche au répartiteur", () => {
+test("« Commentaire » : les actions sont branchées de la fiche au répartiteur", () => {
   const app = read("app.js");
   const detail = read("features/media-detail.js");
   for (const action of ["editDetailNote", "cancelDetailNote", "saveDetailNote"]) {
@@ -43,7 +45,9 @@ test("le champ de saisie évite le zoom iOS et ne passe jamais sous la barre d'a
   const css = read("styles/finesse.css");
   assert.match(css, /\.detail-note-input \{[^}]*font-size: 16px/);
   assert.match(css, /scroll-margin-bottom/);
-  // Texte en italique, sans barre verticale.
+  // Texte en italique dans une bulle ; filet dégradé avant le commentaire.
   assert.match(css, /\.detail-note-text \{[^}]*font-style: italic/);
+  assert.match(css, /\.detail-note-bubble::after/);
+  assert.match(css, /\.detail-note-slot::before[\s\S]*linear-gradient\(90deg, var\(--accent\)/);
   assert.doesNotMatch(css.match(/\.detail-note-text \{[^}]*\}/)[0], /border-left/);
 });

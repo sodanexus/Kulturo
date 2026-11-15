@@ -34,7 +34,7 @@ test("la fiche est minimaliste : repères, crédits en liens, casting qui défil
   assert.match(detail, /metadataLinkHTML\(entry, kind, item\)/);
   assert.match(detail, /class="detail-link"/);
   // L'historique personnel n'apparaît pas sur les fiches partagées.
-  assert.match(detail, /if \(!options\.readOnly\) \{[\s\S]+detail-history/);
+  assert.match(detail, /function renderDetailHistoryHTML\(e, options = \{\}\) \{[\s\S]+if \(options\.readOnly\) return ""[\s\S]+detail-history/);
   // Logo coloré par source.
   const css = read("../styles/finesse.css");
   assert.match(css, /\.detail-external-logo\.is-tmdb/);
