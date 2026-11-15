@@ -1089,14 +1089,55 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   }
 }
 
-/* ── Mon mot : un petit commentaire privé, juste après le synopsis ──
-   Même sobriété que le synopsis : texte doux, en italique, entre guillemets. */
-.detail-note-slot { margin: .2rem 0 .1rem; scroll-margin-bottom: 7.5rem; }
+/* ── Commentaire personnel : bulle discrète, dans les codes visuels de Kulturo ── */
+.detail-note-slot {
+  position: relative;
+  margin: .05rem 0 .15rem;
+  padding-top: 1rem;
+  scroll-margin-bottom: 7.5rem;
+}
+.detail-note-slot::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent 76%);
+  opacity: .5;
+}
 .detail-note-input { scroll-margin-bottom: 8.5rem; }
-.detail-note-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.detail-note .detail-section-label { color: var(--fiche-muted); }
+.detail-note-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .45rem; }
+.detail-note .detail-section-label {
+  color: var(--fiche-muted);
+  font-size: var(--type-caption);
+  font-weight: 650;
+  letter-spacing: .085em;
+  text-transform: uppercase;
+}
+.detail-note-bubble {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: .75rem .95rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-radius: 15px 15px 15px 5px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--fiche-chip-bg)), var(--fiche-chip-bg));
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--bg-1) 12%, transparent);
+}
+.detail-note-bubble::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: var(--fiche-chip-bg);
+  border-left: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  transform: skewY(-35deg) rotate(-12deg);
+}
 .detail-note-text {
-  margin: .3rem 0 0;
+  margin: 0;
   color: var(--fiche-soft);
   font-size: var(--type-body);
   font-style: italic;
@@ -1104,8 +1145,6 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.detail-note-text::before { content: "«\00a0"; color: var(--fiche-muted); }
-.detail-note-text::after { content: "\00a0»"; color: var(--fiche-muted); }
 .detail-note-edit {
   display: inline-grid; place-items: center;
   width: 30px; height: 30px; padding: 0;
@@ -1117,13 +1156,15 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-note-edit:hover { color: var(--accent); background: var(--fiche-chip-bg); }
 .detail-note-add {
   display: inline-flex; align-items: center;
-  padding: .4rem .85rem;
-  border: 1px dashed var(--border-2); border-radius: 999px; background: none;
+  padding: .55rem .85rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border-2));
+  border-radius: 13px 13px 13px 5px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--fiche-chip-bg));
   color: var(--fiche-muted); font: inherit; font-size: var(--type-control);
   cursor: pointer;
-  transition: color var(--motion-fast, .15s) ease, border-color var(--motion-fast, .15s) ease;
+  transition: color var(--motion-fast, .15s) ease, border-color var(--motion-fast, .15s) ease, background-color var(--motion-fast, .15s) ease;
 }
-.detail-note-add:hover { color: var(--accent); border-color: var(--accent); }
+.detail-note-add:hover { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--fiche-chip-bg)); }
 .detail-note-input {
   display: block; width: 100%; box-sizing: border-box;
   margin-top: .4rem; padding: .7rem .85rem;
@@ -1138,6 +1179,8 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-note-actions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; margin-top: .6rem; }
 .detail-note-count { margin-right: auto; color: var(--fiche-muted); font-size: var(--type-caption); font-variant-numeric: tabular-nums; }
 .detail-note-actions .btn:disabled { opacity: .6; }
+.detail-history-slot { min-width: 0; }
+.detail-history { position: relative; margin: .1rem 0 0; padding-top: .65rem; border-top: 0; color: var(--fiche-muted); font-size: var(--type-label); line-height: 1.6; }
 
 @media (prefers-reduced-motion: reduce) { .brand-mark .brand-circle { animation: none; } }
 
@@ -1303,17 +1346,6 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
   .detail-modal .detail-footer-actions > .btn-primary { margin-left: auto; min-width: 140px; justify-content: center; }
 }
 .detail-facts.detail-isbn { margin: 0 0 .9rem; font-size: var(--type-label); }
-
-/* Trait d'accent : il remplace le filet qui sépare les puces de l'historique. */
-.detail-history { position: relative; border-top: 0; }
-.detail-history::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, var(--accent), transparent 70%);
-  opacity: .5;
-}
 
 /* Bannière plus haute. Les hauteurs 390/340 de 4.8.3 étaient écrasées par la règle
    .has-backdrop d'interactions.css (214/320 effectifs) : sélecteur plus précis ici. */
