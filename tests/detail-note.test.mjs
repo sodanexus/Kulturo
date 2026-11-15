@@ -47,7 +47,9 @@ test("le champ de saisie évite le zoom iOS et ne passe jamais sous la barre d'a
   assert.match(css, /scroll-margin-bottom/);
   // Texte en italique dans une bulle ; filet dégradé avant le commentaire.
   assert.match(css, /\.detail-note-text \{[^}]*font-style: italic/);
-  assert.match(css, /\.detail-note-bubble::after/);
+  assert.match(css, /\.detail-note-bubble::after \{[^}]*top: -5px/);
+  assert.match(css, /\.detail-note-bubble::after \{[^}]*border-top: 1px solid/);
+  assert.doesNotMatch(css.match(/\.detail-note-bubble::after \{[^}]*\}/)[0], /bottom:/);
   assert.match(css, /\.detail-note-slot::before[\s\S]*linear-gradient\(90deg, var\(--accent\)/);
   assert.doesNotMatch(css.match(/\.detail-note-text \{[^}]*\}/)[0], /border-left/);
 });
