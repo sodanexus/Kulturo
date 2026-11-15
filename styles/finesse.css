@@ -1120,7 +1120,7 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   box-sizing: border-box;
   padding: .75rem .95rem;
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  border-radius: 15px 15px 15px 5px;
+  border-radius: 15px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--fiche-chip-bg)), var(--fiche-chip-bg));
   box-shadow: 0 5px 18px color-mix(in srgb, var(--bg-1) 12%, transparent);
 }
