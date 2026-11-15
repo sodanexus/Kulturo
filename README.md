@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.1.1
+Version actuelle · 5.1.2
 
 ## Fonctionnalités
 
@@ -29,7 +29,7 @@ Version actuelle · 5.1.1
 - **Communauté** : fiches enrichies en lecture seule ; les informations récupérées ne modifient pas la bibliothèque du membre.
 - **Cache catalogue persistant** : les enrichissements TMDb et IGDB sont conservés dans une base IndexedDB séparée des données personnelles. Cache valide : pas d’appel API correspondant. Cache périmé : affichage immédiat et tentative d’actualisation en arrière-plan, utilisée à la prochaine ouverture sans déplacer le contenu en cours de lecture. Le rafraîchissement explicite contourne le cache.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
-- **Mon mot** : un petit commentaire privé par œuvre (500 caractères), juste après le synopsis. Il s’ajoute et se modifie directement dans la fiche, fonctionne hors connexion et n’apparaît jamais dans les fiches partagées ni dans l’activité de la communauté.
+- **Commentaire** : une annotation privée par œuvre (500 caractères), présentée dans une bulle en italique entre le filet dégradé et l’historique de visionnage. Il s’ajoute et se modifie directement dans la fiche, fonctionne hors connexion et n’apparaît jamais dans les fiches partagées ni dans l’activité de la communauté.
 - **Créateurs** : fiches de personnes TMDb, auteurs et éditeurs de livres, studios et éditeurs de jeux ; onglets bibliothèque et catalogue, avec ouverture des œuvres. Les requêtes sont annulées à la fermeture du panneau.
 - **Logos animés** : un lien WebM personnalisé est accepté ; sa lecture est arrêtée à la fermeture de la fiche. La préférence système de réduction des animations reste prise en compte.
 - **Suivi** : page actuelle/totale pour les livres, saison/épisode pour les séries, reprises (revisionnages, parties rejouées, relectures).

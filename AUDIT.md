@@ -51,3 +51,8 @@ Validation : 317 tests Node (dont 4 nouveaux), contrôle de syntaxe et de versio
 ## Correctif 5.1.1 — « Mon mot » après le synopsis
 
 Le bloc « Mon mot » passe juste après le synopsis (avant les repères, crédits et casting). Texte en italique, sans la barre verticale. Un test vérifie l’ordre synopsis → mon mot → informations ; la vérification dans un navigateur confirme qu’une mise à jour d’enrichissement pendant la saisie ne remplace ni le champ, ni le texte, ni le focus. Aucun SQL ni redéploiement Supabase.
+
+
+## 5.1.2 — Commentaire en bulle
+
+Le champ privé « Mon mot » devient « Commentaire ». Il est déplacé en fin de fiche, entre le filet dégradé et l’historique de visionnage. Le texte s’affiche en italique dans une bulle discrète, avec une pointe subtile et des couleurs issues des variables d’accent de Kulturo. Le commentaire reste privé et continue d’utiliser la colonne `notes` existante : aucune migration SQL ni redéploiement Supabase requis.
