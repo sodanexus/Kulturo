@@ -53,3 +53,20 @@ test("le champ de saisie évite le zoom iOS et ne passe jamais sous la barre d'a
   assert.match(css, /\.detail-note-slot::before[\s\S]*linear-gradient\(90deg, var\(--accent\)/);
   assert.doesNotMatch(css.match(/\.detail-note-text \{[^}]*\}/)[0], /border-left/);
 });
+
+
+test("la bulle avec ou sans commentaire garde les mêmes arrondis et la pointe en haut", () => {
+  const css = read("styles/finesse.css");
+  assert.match(css, /\.detail-note-bubble\s*\{[^}]*border-radius:\s*15px;/s);
+  assert.match(css, /\.detail-note-add\s*\{[^}]*border-radius:\s*15px;/s);
+  assert.match(css, /\.detail-note-add::before\s*\{[^}]*top:\s*-5px/s);
+  assert.match(css, /\.detail-note-add::before\s*\{[^}]*border-top:/s);
+});
+
+test("le formulaire d'ajout permet de saisir un commentaire sous la note et l'enregistre", () => {
+  const app = read("app.js");
+  assert.match(app, /wz-comment-label[\s\S]*for="f-notes"/);
+  assert.match(app, /id="f-notes"[^>]*maxlength="500"/);
+  assert.match(app, /_wizardState\.notes = document\.getElementById\("f-notes"\)/);
+  assert.match(app, /notes:\s*existing \? \(existing\.notes \?\? null\) : \(String\(_wizardState\?\.notes \|\| ""\)\.trim\(\)\.slice\(0, 500\) \|\| null\)/);
+});

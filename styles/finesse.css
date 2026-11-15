@@ -1155,16 +1155,30 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
 .detail-note-edit svg { width: 15px; height: 15px; }
 .detail-note-edit:hover { color: var(--accent); background: var(--fiche-chip-bg); }
 .detail-note-add {
+  position: relative;
   display: inline-flex; align-items: center;
   padding: .55rem .85rem;
   border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border-2));
-  border-radius: 13px 13px 13px 5px;
+  border-radius: 15px;
   background: color-mix(in srgb, var(--accent) 4%, var(--fiche-chip-bg));
   color: var(--fiche-muted); font: inherit; font-size: var(--type-control);
   cursor: pointer;
   transition: color var(--motion-fast, .15s) ease, border-color var(--motion-fast, .15s) ease, background-color var(--motion-fast, .15s) ease;
 }
+.detail-note-add::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: -5px;
+  width: 9px;
+  height: 9px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--fiche-chip-bg));
+  border-left: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border-2));
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border-2));
+  transform: rotate(45deg);
+}
 .detail-note-add:hover { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--fiche-chip-bg)); }
+.detail-note-add:hover::before { background: color-mix(in srgb, var(--accent) 8%, var(--fiche-chip-bg)); border-color: var(--accent); }
 .detail-note-input {
   display: block; width: 100%; box-sizing: border-box;
   margin-top: .4rem; padding: .7rem .85rem;

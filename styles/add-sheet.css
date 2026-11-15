@@ -242,6 +242,39 @@
 
 .wz-opinion-section { position: relative; }
 .modal-wizard .rating-stars { min-height: 36px; }
+.wz-comment-block {
+  margin-top: .65rem;
+  padding: .65rem .7rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-3));
+}
+.wz-comment-label {
+  display: block;
+  margin-bottom: .35rem;
+  color: var(--text-2);
+  font-size: var(--type-label);
+  font-weight: 700;
+}
+.wz-comment-label span { color: var(--text-3); font-weight: 500; }
+.modal-wizard .wz-comment-input {
+  display: block;
+  width: 100%;
+  min-height: 3.6rem;
+  max-height: 8rem;
+  box-sizing: border-box;
+  padding: .55rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.modal-wizard .wz-comment-input::placeholder { color: var(--text-3); }
+.modal-wizard .wz-comment-input:focus { outline: none; border-color: var(--accent); }
 .wz-favorite-toggle {
   display: inline-flex;
   align-items: center;

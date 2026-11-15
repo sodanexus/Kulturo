@@ -2059,6 +2059,7 @@ function _captureWizardOpinion() {
   _wizardState.rating = _currentRating;
   _wizardState.favorite = document.getElementById("f-favorite")?.checked || false;
   _wizardState._status = document.getElementById("f-status")?.value || _wizardState._status || "finished";
+  _wizardState.notes = document.getElementById("f-notes")?.value || "";
 }
 
 function _renderWizard() {
@@ -2147,6 +2148,11 @@ function _renderWizard() {
           <span id="rating-tooltip" class="rating-tooltip-label">${s.rating ? `★ ${s.rating}/10` : "Optionnelle"}</span>
         </div>
         <div class="rating-stars" id="rating-stars"></div>
+        <div class="wz-comment-block">
+          <label class="wz-comment-label" for="f-notes">Commentaire <span>(facultatif)</span></label>
+          <textarea class="wz-comment-input" id="f-notes" rows="2" maxlength="500"
+            placeholder="Quelques mots sur cette œuvre…">${esc(s.notes || "")}</textarea>
+        </div>
         <label class="wz-favorite-toggle">
           <input type="checkbox" id="f-favorite" ${s.favorite ? "checked" : ""} />
           <span class="wz-favorite-icon" aria-hidden="true">♥</span>
@@ -2199,6 +2205,11 @@ function _renderWizard() {
 
     _currentRating = s.rating || 0;
     buildRatingStars(_currentRating);
+    const noteInput = document.getElementById("f-notes");
+    noteInput?.addEventListener("input", () => {
+      if (_wizardState) _wizardState.notes = noteInput.value;
+      markModalDirty();
+    });
   }
 
   setupMobileSheetSwipe({
@@ -3096,9 +3107,9 @@ async function saveEntry() {
     status:        document.getElementById("f-status")?.value,
     rating:        _currentRating || null,
     is_favorite:   document.getElementById("f-favorite")?.checked || false,
-    // L'ancienne colonne reste intacte pour ne supprimer aucune donnée, mais
-    // les notes personnelles ne font plus partie de l'interface Kulturo.
-    notes:         existing?.notes ?? null,
+    // Le commentaire privé saisi pendant l'ajout est enregistré dans la
+    // colonne notes existante. En édition, on conserve le commentaire actuel.
+    notes:         existing ? (existing.notes ?? null) : (String(_wizardState?.notes || "").trim().slice(0, 500) || null),
     cover_url:     document.getElementById("f-cover")?.value?.trim() || null,
     genre:         document.getElementById("f-genre")?.value?.trim() || null,
     author:        document.getElementById("f-author")?.value?.trim() || null,
