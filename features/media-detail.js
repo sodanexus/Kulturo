@@ -279,6 +279,7 @@ function renderDetailPanel(e, options = {}) {
 
         <div class="detail-body" id="detail-body-${e.id}">${renderDetailBody(e, {
           readOnly: isReadOnly,
+          preview: isPreview || isSagaPreview,
           detailsLoading: options.detailsLoading === true,
         })}</div>
 
@@ -1521,7 +1522,115 @@ function renderDetailBody(e, options = {}) {
   html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
   html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
+  // « Mon mot » : un emplacement à part, hors de la zone enrichie. L'enrichissement
+  // (synopsis, casting, notes externes) reconstruit sa zone ; le champ de saisie ne
+  // doit jamais être remplacé pendant qu'on écrit. Réservé au propriétaire.
+  if (!options.readOnly && !options.preview) {
+    html += `<div class="detail-note-slot" id="detail-note-slot-${e.id}">${renderDetailNoteHTML(e)}</div>`;
+  }
+
   return html;
+}
+
+// ── Mon mot : un petit commentaire privé par œuvre ───────────
+// Stocké dans la colonne `notes` (déjà sauvegardée, restaurée et synchronisée
+// hors ligne). Jamais exposé aux fiches partagées ni à l'activité communautaire.
+const NOTE_MAX_LENGTH = 500;
+
+function renderDetailNoteHTML(e, { editing = false } = {}) {
+  const note = String(e.notes || "").trim();
+  if (editing) {
+    return `<div class="detail-note is-editing">
+      <label class="detail-section-label" for="detail-note-input-${e.id}">Mon mot</label>
+      <textarea class="detail-note-input" id="detail-note-input-${e.id}" rows="3" maxlength="${NOTE_MAX_LENGTH}"
+        placeholder="Un petit mot sur cette œuvre…" enterkeyhint="done">${esc(note)}</textarea>
+      <div class="detail-note-actions">
+        <span class="detail-note-count" aria-hidden="true">${note.length}/${NOTE_MAX_LENGTH}</span>
+        <button type="button" class="btn btn-ghost btn-sm" ${uiAction("cancelDetailNote", [e.id])}>Annuler</button>
+        <button type="button" class="btn btn-primary btn-sm" ${uiAction("saveDetailNote", [e.id])}>Enregistrer</button>
+      </div>
+    </div>`;
+  }
+  if (!note) {
+    return `<button type="button" class="detail-note-add" ${uiAction("editDetailNote", [e.id])}>+ Ajouter un mot</button>`;
+  }
+  return `<div class="detail-note">
+    <div class="detail-note-head">
+      <span class="detail-section-label">Mon mot</span>
+      <button type="button" class="detail-note-edit" aria-label="Modifier mon mot" ${uiAction("editDetailNote", [e.id])}>${iconEdit()}</button>
+    </div>
+    <p class="detail-note-text">${esc(note)}</p>
+  </div>`;
+}
+
+function detailNoteEntry(id) {
+  return State.entries.find(item => String(item.id) === String(id));
+}
+
+// Bascule vue ↔ édition ; la fiche s'ajuste en douceur (même animation de hauteur
+// que le reste de la fiche).
+function setDetailNoteView(id, editing) {
+  const slot = document.getElementById(`detail-note-slot-${id}`);
+  const entry = detailNoteEntry(id);
+  if (!slot || !entry) return null;
+  slot._noteViewDone = animateHeightChange(slot, () => { slot.innerHTML = renderDetailNoteHTML(entry, { editing }); });
+  return slot;
+}
+
+function editDetailNote(id) {
+  const slot = setDetailNoteView(id, true);
+  const input = slot?.querySelector(".detail-note-input");
+  if (!input) return;
+  const count = slot.querySelector(".detail-note-count");
+  const fit = () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, Math.round(window.innerHeight * .4))}px`;
+    if (count) count.textContent = `${input.value.length}/${NOTE_MAX_LENGTH}`;
+  };
+  input.addEventListener("input", fit);
+  slot.querySelector(".detail-note")?.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDetailNote(id); }
+    else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); saveDetailNote(id); }
+  });
+  fit();
+  input.focus({ preventScroll: true });
+  input.setSelectionRange(input.value.length, input.value.length);
+  // La barre d'actions du bas ne doit jamais masquer le champ : on le ramène en vue.
+  slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
+}
+
+function cancelDetailNote(id) {
+  const slot = setDetailNoteView(id, false);
+  slot?.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
+}
+
+async function saveDetailNote(id) {
+  const entry = detailNoteEntry(id);
+  const slot = document.getElementById(`detail-note-slot-${id}`);
+  const input = slot?.querySelector(".detail-note-input");
+  if (!entry || !input) return;
+  const value = input.value.trim().slice(0, NOTE_MAX_LENGTH) || null;
+  if (value === (String(entry.notes || "").trim() || null)) { cancelDetailNote(id); return; }
+  const owner = State.user?.id;
+  const buttons = [...slot.querySelectorAll("button")];
+  buttons.forEach(button => { button.disabled = true; });
+  input.readOnly = true;
+  try {
+    const updated = await Media.update(entry.id, { notes: value });
+    if (!sameOwner(owner, State.user?.id)) return;
+    mergeDetailResponse(entry, updated);
+    entry.notes = value;
+    cacheEntriesLocally();
+    if (slot.isConnected) setDetailNoteView(id, false);
+    slot.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
+  } catch (error) {
+    if (!sameOwner(owner, State.user?.id)) return;
+    toast("Impossible d'enregistrer le mot : " + error.message, "error");
+    if (slot.isConnected) {
+      buttons.forEach(button => { button.disabled = false; });
+      input.readOnly = false;
+    }
+  }
 }
 
 // Une seule transaction de géométrie pour le synopsis ET les notes. Aucun
@@ -1973,6 +2082,9 @@ function retryDetailInfo(id) {
   return {
     detailSessions,
     retryDetailInfo,
+    editDetailNote,
+    cancelDetailNote,
+    saveDetailNote,
     canEnrichMediaDetails,
     requestPrefetchedDetails,
     prefetchDetail,
