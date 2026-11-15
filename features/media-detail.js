@@ -1520,14 +1520,16 @@ function renderDetailBody(e, options = {}) {
   // Ces deux emplacements restent montés pendant l'enrichissement : les
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
   html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
-  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
-  // « Mon mot » : un emplacement à part, hors de la zone enrichie. L'enrichissement
-  // (synopsis, casting, notes externes) reconstruit sa zone ; le champ de saisie ne
-  // doit jamais être remplacé pendant qu'on écrit. Réservé au propriétaire.
+  // « Mon mot » : juste après le synopsis, dans son propre emplacement. L'enrichissement
+  // (synopsis, casting, notes externes) ne remplace que le contenu des deux autres
+  // emplacements ; le champ de saisie n'est donc jamais reconstruit pendant qu'on écrit.
+  // Réservé au propriétaire.
   if (!options.readOnly && !options.preview) {
     html += `<div class="detail-note-slot" id="detail-note-slot-${e.id}">${renderDetailNoteHTML(e)}</div>`;
   }
+
+  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
 
   return html;
 }
