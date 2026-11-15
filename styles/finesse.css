@@ -1089,6 +1089,57 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   }
 }
 
+/* ── Mon mot : un petit commentaire privé, sous l'historique ──────────
+   Même sobriété que le synopsis : texte doux, fine barre d'accent à gauche. */
+.detail-note-slot { margin: 1.1rem 0 .4rem; scroll-margin-bottom: 7.5rem; }
+.detail-note-input { scroll-margin-bottom: 8.5rem; }
+.detail-note-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.detail-note .detail-section-label { color: var(--fiche-muted); }
+.detail-note-text {
+  margin: .4rem 0 0;
+  padding: .1rem 0 .1rem .9rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--fiche-soft);
+  font-size: var(--type-body);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.detail-note-text::before { content: "«\00a0"; color: var(--fiche-muted); }
+.detail-note-text::after { content: "\00a0»"; color: var(--fiche-muted); }
+.detail-note-edit {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px; padding: 0;
+  border: 0; border-radius: 999px; background: none;
+  color: var(--fiche-muted); cursor: pointer;
+  transition: color var(--motion-fast, .15s) ease, background-color var(--motion-fast, .15s) ease;
+}
+.detail-note-edit svg { width: 15px; height: 15px; }
+.detail-note-edit:hover { color: var(--accent); background: var(--fiche-chip-bg); }
+.detail-note-add {
+  display: inline-flex; align-items: center;
+  padding: .4rem .85rem;
+  border: 1px dashed var(--border-2); border-radius: 999px; background: none;
+  color: var(--fiche-muted); font: inherit; font-size: var(--type-control);
+  cursor: pointer;
+  transition: color var(--motion-fast, .15s) ease, border-color var(--motion-fast, .15s) ease;
+}
+.detail-note-add:hover { color: var(--accent); border-color: var(--accent); }
+.detail-note-input {
+  display: block; width: 100%; box-sizing: border-box;
+  margin-top: .4rem; padding: .7rem .85rem;
+  min-height: 5.2rem; max-height: 40vh; resize: none;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--fiche-chip-bg); color: var(--text-1);
+  font: inherit; font-size: 16px; /* 16 px : évite le zoom automatique d'iOS au focus */
+  line-height: 1.55;
+}
+.detail-note-input::placeholder { color: var(--fiche-muted); }
+.detail-note-input:focus { outline: none; border-color: var(--accent); }
+.detail-note-actions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; margin-top: .6rem; }
+.detail-note-count { margin-right: auto; color: var(--fiche-muted); font-size: var(--type-caption); font-variant-numeric: tabular-nums; }
+.detail-note-actions .btn:disabled { opacity: .6; }
+
 @media (prefers-reduced-motion: reduce) { .brand-mark .brand-circle { animation: none; } }
 
 /* Le texte réserve sa place ; le logo décodé se superpose sans déplacer la note. */
