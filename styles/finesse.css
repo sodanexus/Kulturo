@@ -1089,18 +1089,17 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   }
 }
 
-/* ── Mon mot : un petit commentaire privé, sous l'historique ──────────
-   Même sobriété que le synopsis : texte doux, fine barre d'accent à gauche. */
-.detail-note-slot { margin: 1.1rem 0 .4rem; scroll-margin-bottom: 7.5rem; }
+/* ── Mon mot : un petit commentaire privé, juste après le synopsis ──
+   Même sobriété que le synopsis : texte doux, en italique, entre guillemets. */
+.detail-note-slot { margin: .2rem 0 .1rem; scroll-margin-bottom: 7.5rem; }
 .detail-note-input { scroll-margin-bottom: 8.5rem; }
 .detail-note-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .detail-note .detail-section-label { color: var(--fiche-muted); }
 .detail-note-text {
-  margin: .4rem 0 0;
-  padding: .1rem 0 .1rem .9rem;
-  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  margin: .3rem 0 0;
   color: var(--fiche-soft);
   font-size: var(--type-body);
+  font-style: italic;
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
