@@ -1128,13 +1128,13 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   content: "";
   position: absolute;
   left: 10px;
-  bottom: -5px;
+  top: -5px;
   width: 9px;
   height: 9px;
-  background: var(--fiche-chip-bg);
+  background: color-mix(in srgb, var(--accent) 7%, var(--fiche-chip-bg));
   border-left: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  transform: skewY(-35deg) rotate(-12deg);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  transform: rotate(45deg);
 }
 .detail-note-text {
   margin: 0;
