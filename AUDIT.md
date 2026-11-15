@@ -33,3 +33,17 @@ Archive complète 5.0.3. Aucun SQL ni redéploiement Supabase requis depuis 5.0.
 ## Correctif 5.0.4 — 28 octobre 2026
 
 Les initiales de secours des créateurs et organisations sont masquées dès que leur image est chargée, y compris avec un logo transparent. Elles restent présentes si le chargement échoue ; le fond du logo est réinitialisé en cas d’erreur. Le fondu du logo est conservé. Aucun changement des API ou du cache catalogue.
+
+## 5.1.0 — « Mon mot »
+
+Un petit commentaire privé par œuvre, affiché dans la fiche sous l’historique. Aucun SQL, aucune fonction Supabase à redéployer : il réutilise la colonne `notes`, déjà présente, sauvegardée, restaurée et synchronisée hors ligne.
+
+- **Affichage** : bloc « Mon mot » (texte doux entre guillemets, fine barre d’accent) ou, s’il est vide, bouton discret « + Ajouter un mot ».
+- **Édition dans la fiche** : champ de 500 caractères maximum, compteur, « Enregistrer » / « Annuler », Échap pour annuler, Ctrl/Cmd+Entrée pour enregistrer. Enregistrer un champ vide supprime le mot. Le champ est écrit à 16 px (pas de zoom automatique sur iOS) et se recadre au-dessus de la barre d’actions.
+- **Emplacement stable** : le bloc est hors de la zone enrichie (synopsis, casting, notes externes), qui est reconstruite pendant le chargement ; un texte en cours de saisie n’est donc jamais remplacé.
+- **Enregistrement** : même mécanisme que les autres modifications (`Media.update`), donc fonctionnel hors connexion. En cas d’erreur, le texte et le champ sont conservés.
+- **Confidentialité** : visible du propriétaire uniquement. Absent des fiches partagées (lecture seule), des aperçus et des sagas. Les fonctions d’activité communautaire n’exposent toujours pas `notes` (test ajouté).
+- Enregistrer un mot ne crée aucun événement de Journal (les déclencheurs ne réagissent qu’au statut, aux dates et à la note).
+- Le formulaire *Modifier* conserve le mot existant sans l’afficher.
+
+Validation : 317 tests Node (dont 4 nouveaux), contrôle de syntaxe et de version. Vérification dans un navigateur avec la vraie fiche : ajout, modification, annulation, vidage, erreur d’enregistrement, Échap, absence du bloc en lecture seule et en aperçu. Pas de mesure sur iPhone ni de test avec Supabase en production.

@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.0.4
+Version actuelle · 5.1.0
 
 ## Fonctionnalités
 
@@ -29,6 +29,7 @@ Version actuelle · 5.0.4
 - **Communauté** : fiches enrichies en lecture seule ; les informations récupérées ne modifient pas la bibliothèque du membre.
 - **Cache catalogue persistant** : les enrichissements TMDb et IGDB sont conservés dans une base IndexedDB séparée des données personnelles. Cache valide : pas d’appel API correspondant. Cache périmé : affichage immédiat et tentative d’actualisation en arrière-plan, utilisée à la prochaine ouverture sans déplacer le contenu en cours de lecture. Le rafraîchissement explicite contourne le cache.
 - **Fiches** : synopsis (traduisible via Groq), casting, notes, logo du titre pour films, séries et jeux (modifiable ou désactivable dans *Modifier*), jaquette conservée pour les livres.
+- **Mon mot** : un petit commentaire privé par œuvre (500 caractères), sous l’historique de la fiche. Il s’ajoute et se modifie directement dans la fiche, fonctionne hors connexion et n’apparaît jamais dans les fiches partagées ni dans l’activité de la communauté.
 - **Créateurs** : fiches de personnes TMDb, auteurs et éditeurs de livres, studios et éditeurs de jeux ; onglets bibliothèque et catalogue, avec ouverture des œuvres. Les requêtes sont annulées à la fermeture du panneau.
 - **Logos animés** : un lien WebM personnalisé est accepté ; sa lecture est arrêtée à la fermeture de la fiche. La préférence système de réduction des animations reste prise en compte.
 - **Suivi** : page actuelle/totale pour les livres, saison/épisode pour les séries, reprises (revisionnages, parties rejouées, relectures).
@@ -84,7 +85,7 @@ Pour changer de version, modifier uniquement le fichier `VERSION` : `npm run ver
 - Garder `features/`, `tests/`, `scripts/` et `migrations/` : ce sont des sources ou des outils actifs, pas des fichiers temporaires.
 - `dist/` et `node_modules/` sont régénérables et ne doivent pas être commités. Les ZIP de livraison restent également hors du dépôt.
 - Les références à d’anciens fournisseurs dans les tests ou la normalisation peuvent servir aux anciennes sauvegardes : ne pas les supprimer sur leur seul nom.
-- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.0.4 depuis la 5.0.3.
+- Pour une livraison complète, garder les fichiers de version cohérents et laisser GitHub Actions lancer `npm run verify`. Conserver sa configuration locale ; aucune migration Supabase ni redéploiement des fonctions n’est nécessaire pour ce correctif 5.1.0 depuis la 5.0.3.
 
 Le bilan des corrections et les limites des vérifications sont décrits dans [AUDIT.md](AUDIT.md). Les parcours navigateur sont documentés dans [tests/README.md](tests/README.md).
 
