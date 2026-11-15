@@ -1253,20 +1253,6 @@ function renderDetailInfoHTML(e, options = {}) {
   // ISBN : trop long pour la bannière, il reste en ligne discrète dans le corps.
   if (e.media_type === "book" && e.isbn) html += `<p class="detail-facts detail-isbn" data-block="isbn">ISBN ${esc(e.isbn)}</p>`;
 
-  // Historique : une ligne discrète qui clôt la fiche (absente des fiches partagées).
-  if (!options.readOnly) {
-    const info = repeatInfo(e);
-    const words = mediaWords(e.media_type);
-    const dateItem = (label, value) => value ? `${label} le ${formatReleaseDate(value)}` : "";
-    const history = [
-      e.created_at ? `Ajouté le ${new Date(e.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}` : "",
-      dateItem("Commencé", e.date_started),
-      dateItem(words.done, e.date_finished),
-      info.total > 1 ? `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}` : "",
-    ].filter(Boolean);
-    if (history.length) html += `<p class="detail-history detail-history-section" data-block="history">${history.map(esc).join(SEP)}</p>`;
-  }
-
   if (e._detailLoadError && !options.detailsLoading) {
     html += `<div class="detail-load-status" data-block="load-status" role="status"><span>${esc(e._detailLoadError)}</span><button type="button" class="btn btn-ghost btn-sm" ${uiAction("retryDetailInfo", [e.id])}>Réessayer</button></div>`;
   }
@@ -1521,20 +1507,35 @@ function renderDetailBody(e, options = {}) {
   // actions, le focus et la position de lecture ne sont jamais reconstruits.
   html += `<div class="detail-enrichment"><div class="detail-synopsis-slot" id="detail-synopsis-slot-${e.id}">${renderDetailSynopsisHTML(e, options)}</div>`;
 
-  // « Mon mot » : juste après le synopsis, dans son propre emplacement. L'enrichissement
-  // (synopsis, casting, notes externes) ne remplace que le contenu des deux autres
-  // emplacements ; le champ de saisie n'est donc jamais reconstruit pendant qu'on écrit.
-  // Réservé au propriétaire.
+  // Les informations enrichies restent indépendantes du commentaire personnel.
+  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div>`;
+
+  // Commentaire privé : après le filet dégradé de fin de fiche, juste avant l'historique.
+  // Son emplacement séparé évite de reconstruire le champ pendant l'enrichissement.
   if (!options.readOnly && !options.preview) {
     html += `<div class="detail-note-slot" id="detail-note-slot-${e.id}">${renderDetailNoteHTML(e)}</div>`;
   }
-
-  html += `<div class="detail-info-slot" id="detail-info-slot-${e.id}"><div class="detail-info-content">${renderDetailInfoHTML(e, options)}</div></div></div>`;
+  html += `<div class="detail-history-slot" id="detail-history-slot-${e.id}">${renderDetailHistoryHTML(e, options)}</div></div>`;
 
   return html;
 }
 
-// ── Mon mot : un petit commentaire privé par œuvre ───────────
+function renderDetailHistoryHTML(e, options = {}) {
+  if (options.readOnly) return "";
+  const SEP = `<span class="detail-sep" aria-hidden="true"> · </span>`;
+  const info = repeatInfo(e);
+  const words = mediaWords(e.media_type);
+  const dateItem = (label, value) => value ? `${label} le ${formatReleaseDate(value)}` : "";
+  const history = [
+    e.created_at ? `Ajouté le ${new Date(e.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}` : "",
+    dateItem("Commencé", e.date_started),
+    dateItem(words.done, e.date_finished),
+    info.total > 1 ? `${info.repeats} ${info.repeats > 1 ? words.replay[1] : words.replay[0]}` : "",
+  ].filter(Boolean);
+  return history.length ? `<p class="detail-history detail-history-section">${history.map(esc).join(SEP)}</p>` : "";
+}
+
+// ── Commentaire : une annotation privée par œuvre ───────────
 // Stocké dans la colonne `notes` (déjà sauvegardée, restaurée et synchronisée
 // hors ligne). Jamais exposé aux fiches partagées ni à l'activité communautaire.
 const NOTE_MAX_LENGTH = 500;
@@ -1543,9 +1544,9 @@ function renderDetailNoteHTML(e, { editing = false } = {}) {
   const note = String(e.notes || "").trim();
   if (editing) {
     return `<div class="detail-note is-editing">
-      <label class="detail-section-label" for="detail-note-input-${e.id}">Mon mot</label>
+      <label class="detail-section-label" for="detail-note-input-${e.id}">Commentaire</label>
       <textarea class="detail-note-input" id="detail-note-input-${e.id}" rows="3" maxlength="${NOTE_MAX_LENGTH}"
-        placeholder="Un petit mot sur cette œuvre…" enterkeyhint="done">${esc(note)}</textarea>
+        placeholder="Ajouter un commentaire sur cette œuvre…" enterkeyhint="done">${esc(note)}</textarea>
       <div class="detail-note-actions">
         <span class="detail-note-count" aria-hidden="true">${note.length}/${NOTE_MAX_LENGTH}</span>
         <button type="button" class="btn btn-ghost btn-sm" ${uiAction("cancelDetailNote", [e.id])}>Annuler</button>
@@ -1554,14 +1555,17 @@ function renderDetailNoteHTML(e, { editing = false } = {}) {
     </div>`;
   }
   if (!note) {
-    return `<button type="button" class="detail-note-add" ${uiAction("editDetailNote", [e.id])}>+ Ajouter un mot</button>`;
+    return `<div class="detail-note">
+      <div class="detail-note-head"><span class="detail-section-label">Commentaire</span></div>
+      <button type="button" class="detail-note-add" ${uiAction("editDetailNote", [e.id])}>+ Ajouter un commentaire</button>
+    </div>`;
   }
   return `<div class="detail-note">
     <div class="detail-note-head">
-      <span class="detail-section-label">Mon mot</span>
-      <button type="button" class="detail-note-edit" aria-label="Modifier mon mot" ${uiAction("editDetailNote", [e.id])}>${iconEdit()}</button>
+      <span class="detail-section-label">Commentaire</span>
+      <button type="button" class="detail-note-edit" aria-label="Modifier le commentaire" ${uiAction("editDetailNote", [e.id])}>${iconEdit()}</button>
     </div>
-    <p class="detail-note-text">${esc(note)}</p>
+    <div class="detail-note-bubble"><p class="detail-note-text">${esc(note)}</p></div>
   </div>`;
 }
 
