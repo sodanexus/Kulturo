@@ -888,3 +888,28 @@ button.profile-chip:hover { border-color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) {
   .profile-month-inline, .profile-time-stack i, .profile-period-switch::before, .profile-media-switch::before { transition: none !important; }
 }
+
+/* iPhone : lorsque le clavier est ouvert dans le commentaire d'une fiche,
+   la feuille suit la hauteur réelle du visual viewport au lieu de rester
+   derrière le clavier logiciel. */
+@media (max-width: 680px) {
+  .modal-overlay.is-note-keyboard-open {
+    top: var(--note-visual-top, 0px);
+    bottom: auto;
+    height: var(--note-visual-height, 100dvh);
+    min-height: 0;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .modal-overlay.is-note-keyboard-open .detail-modal {
+    height: min(760px, calc(var(--note-visual-height, 100dvh) - var(--safe-top) - .5rem));
+    max-height: calc(var(--note-visual-height, 100dvh) - var(--safe-top) - .5rem);
+    min-height: 0;
+  }
+  .modal-overlay.is-note-keyboard-open .detail-modal .detail-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
