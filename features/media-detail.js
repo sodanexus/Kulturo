@@ -1573,6 +1573,28 @@ function detailNoteEntry(id) {
   return State.entries.find(item => String(item.id) === String(id));
 }
 
+// Fermeture animée de l'éditeur mobile. Le callback est exécuté une seule fois,
+// y compris si le navigateur ne déclenche pas animationend (mouvement réduit).
+function closeDetailNoteEditor(overlay, onClosed) {
+  if (!overlay?.isConnected) { onClosed?.(); return; }
+  if (overlay.classList.contains("is-closing")) return;
+  overlay.classList.add("is-closing");
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    overlay.removeEventListener("animationend", onAnimationEnd);
+    overlay.remove();
+    onClosed?.();
+  };
+  const onAnimationEnd = event => {
+    if (event.target === overlay && event.animationName === "detailNoteOverlayOut") finish();
+  };
+  overlay.addEventListener("animationend", onAnimationEnd);
+  // Filet de sécurité pour Safari iOS et prefers-reduced-motion.
+  window.setTimeout(finish, 260);
+}
+
 // Bascule vue ↔ édition ; la fiche s'ajuste en douceur (même animation de hauteur
 // que le reste de la fiche).
 function setDetailNoteView(id, editing) {
@@ -1640,8 +1662,9 @@ function editDetailNote(id) {
 function cancelDetailNote(id) {
   const mobileOverlay = document.getElementById("detail-note-editor-overlay");
   if (mobileOverlay) {
-    mobileOverlay.remove();
-    document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+    closeDetailNoteEditor(mobileOverlay, () => {
+      document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+    });
     return;
   }
   const slot = setDetailNoteView(id, false);
@@ -1666,9 +1689,14 @@ async function saveDetailNote(id) {
     mergeDetailResponse(entry, updated);
     entry.notes = value;
     cacheEntriesLocally();
-    if (mobileOverlay) mobileOverlay.remove();
-    else if (slot.isConnected) setDetailNoteView(id, false);
-    document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+    if (mobileOverlay) {
+      closeDetailNoteEditor(mobileOverlay, () => {
+        document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+      });
+    } else {
+      if (slot.isConnected) setDetailNoteView(id, false);
+      document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+    }
   } catch (error) {
     if (!sameOwner(owner, State.user?.id)) return;
     toast("Impossible d'enregistrer le commentaire : " + error.message, "error");
