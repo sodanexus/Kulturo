@@ -652,11 +652,28 @@ body { background-color: var(--system-bar-color); }
   color: inherit;
   text-align: left;
 }
-.journal-event-main .activity-info { display: block; }
+.journal-event-main .activity-info { display: block; flex: 1; min-width: 0; }
+.journal-event-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: .5rem;
+}
+.journal-event-main .journal-event-label { display: flex; flex: 1; min-width: 0; }
 .journal-event-main .activity-title,
-.journal-event-main .journal-event-label,
 .journal-event-main .activity-meta { display: flex; }
 .journal-event-main .activity-title { display: block; }
+.journal-event-main .activity-time {
+  position: static;
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0;
+  margin: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 /* Réserve la largeur du bouton de suppression dans les deux vues :
    l'heure reste ainsi exactement au même axe dans Mon journal et Communauté. */
 .journal-event-delete-spacer { flex: 0 0 30px; width: 30px; }
@@ -887,29 +904,4 @@ button.profile-chip:hover { border-color: var(--text-3); }
 .profile-period-switch.has-pill > button.active, .profile-media-switch.has-pill > button.active { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .profile-month-inline, .profile-time-stack i, .profile-period-switch::before, .profile-media-switch::before { transition: none !important; }
-}
-
-/* iPhone : lorsque le clavier est ouvert dans le commentaire d'une fiche,
-   la feuille suit la hauteur réelle du visual viewport au lieu de rester
-   derrière le clavier logiciel. */
-@media (max-width: 680px) {
-  .modal-overlay.is-note-keyboard-open {
-    top: var(--note-visual-top, 0px);
-    bottom: auto;
-    height: var(--note-visual-height, 100dvh);
-    min-height: 0;
-    align-items: flex-end;
-    overflow: hidden;
-  }
-  .modal-overlay.is-note-keyboard-open .detail-modal {
-    height: min(760px, calc(var(--note-visual-height, 100dvh) - var(--safe-top) - .5rem));
-    max-height: calc(var(--note-visual-height, 100dvh) - var(--safe-top) - .5rem);
-    min-height: 0;
-  }
-  .modal-overlay.is-note-keyboard-open .detail-modal .detail-body {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
 }
