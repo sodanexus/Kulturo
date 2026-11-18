@@ -1463,6 +1463,33 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
     padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
     background: var(--bg-1);
     -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    animation: detailNoteOverlayIn .24s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+  }
+  .detail-note-editor-overlay.is-closing {
+    pointer-events: none;
+    animation: detailNoteOverlayOut .19s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+  }
+  .detail-note-editor-panel {
+    transform-origin: 50% 100%;
+    animation: detailNotePanelIn .32s var(--ease-spring, cubic-bezier(.2,.85,.25,1)) both;
+  }
+  .detail-note-editor-overlay.is-closing .detail-note-editor-panel {
+    animation: detailNotePanelOut .17s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+  }
+  @keyframes detailNoteOverlayIn {
+    from { opacity: 0; backdrop-filter: blur(0); }
+    to { opacity: 1; backdrop-filter: blur(5px); }
+  }
+  @keyframes detailNoteOverlayOut {
+    to { opacity: 0; backdrop-filter: blur(0); }
+  }
+  @keyframes detailNotePanelIn {
+    from { opacity: .7; transform: translateY(14px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes detailNotePanelOut {
+    to { opacity: 0; transform: translateY(8px) scale(.99); }
   }
   .detail-note-editor-panel { width: 100%; max-width: 680px; margin: 0 auto; padding-top: .35rem; }
   .detail-note-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
@@ -1475,4 +1502,11 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
 @media (max-width: 680px) {
   .detail-note-editor-panel .detail-note-actions { order: 1; margin: 0 0 .55rem; }
   .detail-note-editor-panel .detail-note-input { order: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-note-editor-overlay, .detail-note-editor-overlay.is-closing,
+  .detail-note-editor-panel, .detail-note-editor-overlay.is-closing .detail-note-editor-panel {
+    animation-duration: .01ms !important;
+  }
 }
