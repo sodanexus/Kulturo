@@ -657,6 +657,9 @@ body { background-color: var(--system-bar-color); }
 .journal-event-main .journal-event-label,
 .journal-event-main .activity-meta { display: flex; }
 .journal-event-main .activity-title { display: block; }
+/* Réserve la largeur du bouton de suppression dans les deux vues :
+   l'heure reste ainsi exactement au même axe dans Mon journal et Communauté. */
+.journal-event-delete-spacer { flex: 0 0 30px; width: 30px; }
 .journal-event-delete {
   display: grid;
   place-items: center;

@@ -235,11 +235,9 @@ BEGIN
         v_occurrence := 1;
       END IF;
     ELSIF NEW.status = 'finished' THEN
-      -- La fin d'une relecture est créée dans le bloc dédié au compteur
-      -- ci-dessous, qu'elle provienne du statut ou du bouton + dans Modifier.
       IF COALESCE(NEW.repeat_count, 0) > COALESCE(OLD.repeat_count, 0) THEN
-        v_event_type := NULL;
-        v_occurrence := 0;
+        v_event_type := 'repeat_finished';
+        v_occurrence := COALESCE(NEW.repeat_count, 0) + 1;
       ELSE
         v_event_type := 'finished';
         v_occurrence := 1;
@@ -248,38 +246,14 @@ BEGIN
       v_event_type := 'status_changed';
       v_occurrence := 0;
     END IF;
-    IF v_event_type IS NOT NULL THEN
-      v_metadata := jsonb_build_object(
-        'from', OLD.status,
-        'to', NEW.status,
-        'rating', NEW.rating,
-        'occurrence', NULLIF(v_occurrence, 0)
-      );
-      INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
-      VALUES (NEW.user_id, NEW.id, v_event_type, NOW(), v_metadata);
-    END IF;
-  END IF;
-
-  -- Une relecture ajoutée manuellement depuis « Modifier » ne change pas
-  -- nécessairement le statut. Chaque incrément doit donc produire son propre
-  -- événement. Le même bloc couvre aussi le passage En cours → Terminé.
-  IF COALESCE(NEW.repeat_count, 0) > COALESCE(OLD.repeat_count, 0) THEN
-    FOR v_occurrence IN (COALESCE(OLD.repeat_count, 0) + 2)..(COALESCE(NEW.repeat_count, 0) + 1) LOOP
-      INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
-      VALUES (
-        NEW.user_id,
-        NEW.id,
-        'repeat_finished',
-        NOW(),
-        jsonb_build_object(
-          'from', OLD.status,
-          'to', NEW.status,
-          'rating', NEW.rating,
-          'occurrence', v_occurrence,
-          'manual_entry', OLD.status IS NOT DISTINCT FROM NEW.status
-        )
-      );
-    END LOOP;
+    v_metadata := jsonb_build_object(
+      'from', OLD.status,
+      'to', NEW.status,
+      'rating', NEW.rating,
+      'occurrence', NULLIF(v_occurrence, 0)
+    );
+    INSERT INTO public.media_events (user_id, media_id, event_type, occurred_at, metadata)
+    VALUES (NEW.user_id, NEW.id, v_event_type, NOW(), v_metadata);
   END IF;
 
   IF NEW.rating IS DISTINCT FROM OLD.rating THEN

@@ -1184,9 +1184,12 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin-top: .4rem; padding: .7rem .85rem;
   min-height: 5.2rem; max-height: 40vh; resize: none;
   border: 1px solid var(--border); border-radius: 12px;
-  background: var(--fiche-chip-bg); color: var(--text-1);
+  background: var(--fiche-chip-bg); color: var(--fiche-text);
+  -webkit-text-fill-color: var(--fiche-text); caret-color: var(--accent);
+  color-scheme: dark;
   font: inherit; font-size: 16px; /* 16 px : évite le zoom automatique d'iOS au focus */
   line-height: 1.55;
+  opacity: 1;
 }
 .detail-note-input::placeholder { color: var(--fiche-muted); }
 .detail-note-input:focus { outline: none; border-color: var(--accent); }
