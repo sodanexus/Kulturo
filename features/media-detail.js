@@ -1579,84 +1579,69 @@ function setDetailNoteView(id, editing) {
   const slot = document.getElementById(`detail-note-slot-${id}`);
   const entry = detailNoteEntry(id);
   if (!slot || !entry) return null;
+  slot._noteKeyboardCleanup?.();
+  slot._noteKeyboardCleanup = null;
   slot._noteViewDone = animateHeightChange(slot, () => { slot.innerHTML = renderDetailNoteHTML(entry, { editing }); });
   return slot;
 }
 
-function clearDetailNoteKeyboardViewport(slot) {
-  slot?._noteViewportCleanup?.();
-  if (slot) slot._noteViewportCleanup = null;
-}
-
-function bindDetailNoteKeyboardViewport(slot, input) {
-  const overlay = input.closest(".modal-overlay");
-  const dialog = input.closest(".detail-modal");
-  const body = dialog?.querySelector(".detail-body");
+// Sur iOS, le clavier réduit le visual viewport sans nécessairement redimensionner
+// le document. On suit donc ce viewport et on fait défiler le corps de la fiche
+// (pas la page derrière la modale) pour garder le champ et ses actions visibles.
+function keepDetailNoteAboveKeyboard(slot, input) {
+  const modal = slot.closest(".detail-modal");
+  const body = modal?.querySelector(".detail-body");
   const viewport = window.visualViewport;
-  if (!overlay || !dialog || !body || !viewport) return;
+  if (!body) return () => {};
 
   let frame = 0;
-  const sync = () => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => {
-      if (!input.isConnected || document.activeElement !== input) {
-        overlay.classList.remove("is-note-keyboard-open");
-        overlay.style.removeProperty("--note-visual-top");
-        overlay.style.removeProperty("--note-visual-height");
-        return;
-      }
-      const keyboardHeight = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-      if (keyboardHeight > 100) {
-        overlay.classList.add("is-note-keyboard-open");
-        overlay.style.setProperty("--note-visual-top", `${viewport.offsetTop}px`);
-        overlay.style.setProperty("--note-visual-height", `${viewport.height}px`);
-      }
-      // iOS garde parfois la feuille à sa hauteur initiale : on fait défiler
-      // uniquement le corps de la fiche pour placer le champ au-dessus du clavier.
-      const rect = input.getBoundingClientRect();
-      const visibleTop = viewport.offsetTop + 12;
-      const visibleBottom = viewport.offsetTop + viewport.height - 18;
-      if (rect.bottom > visibleBottom) {
-        body.scrollBy({ top: rect.bottom - visibleBottom + 18, behavior: "smooth" });
-      } else if (rect.top < visibleTop) {
-        body.scrollBy({ top: rect.top - visibleTop - 12, behavior: "smooth" });
-      }
-    });
+  let active = true;
+  const adjust = () => {
+    frame = 0;
+    if (!active || !slot.isConnected || !input.isConnected || document.activeElement !== input) return;
+    const visibleTop = viewport?.offsetTop ?? 0;
+    const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
+    const actions = slot.querySelector(".detail-note-actions");
+    const target = actions || input;
+    const rect = target.getBoundingClientRect();
+    const margin = 18;
+    let delta = 0;
+    if (rect.bottom > visibleBottom - margin) delta = rect.bottom - visibleBottom + margin;
+    else if (input.getBoundingClientRect().top < visibleTop + margin) {
+      delta = input.getBoundingClientRect().top - visibleTop - margin;
+    }
+    if (Math.abs(delta) > 1) body.scrollTop += delta;
   };
-  const onBlur = () => {
-    requestAnimationFrame(() => {
-      if (document.activeElement !== input) {
-        overlay.classList.remove("is-note-keyboard-open");
-        overlay.style.removeProperty("--note-visual-top");
-        overlay.style.removeProperty("--note-visual-height");
-      }
-    });
+  const schedule = () => {
+    if (!active || frame) return;
+    frame = requestAnimationFrame(adjust);
   };
-  viewport.addEventListener("resize", sync);
-  viewport.addEventListener("scroll", sync);
-  input.addEventListener("blur", onBlur);
-  slot._noteViewportCleanup = () => {
-    cancelAnimationFrame(frame);
-    viewport.removeEventListener("resize", sync);
-    viewport.removeEventListener("scroll", sync);
-    input.removeEventListener("blur", onBlur);
-    overlay.classList.remove("is-note-keyboard-open");
-    overlay.style.removeProperty("--note-visual-top");
-    overlay.style.removeProperty("--note-visual-height");
+  viewport?.addEventListener("resize", schedule, { passive: true });
+  viewport?.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", schedule, { passive: true });
+  const settleTimers = [80, 180, 320, 480].map(delay => setTimeout(schedule, delay));
+  // Le premier ajustement est demandé dès le focus, puis à chaque étape de
+  // l'animation native du clavier (qui peut durer plus longtemps que le focus).
+  schedule();
+
+  return () => {
+    active = false;
+    if (frame) cancelAnimationFrame(frame);
+    settleTimers.forEach(clearTimeout);
+    viewport?.removeEventListener("resize", schedule);
+    viewport?.removeEventListener("scroll", schedule);
+    window.removeEventListener("resize", schedule);
   };
-  sync();
 }
 
 function editDetailNote(id) {
   const slot = setDetailNoteView(id, true);
   const input = slot?.querySelector(".detail-note-input");
   if (!input) return;
-  clearDetailNoteKeyboardViewport(slot);
   const count = slot.querySelector(".detail-note-count");
   const fit = () => {
     input.style.height = "auto";
-    const availableHeight = window.visualViewport?.height || window.innerHeight;
-    input.style.height = `${Math.min(input.scrollHeight, Math.round(availableHeight * .4))}px`;
+    input.style.height = `${Math.min(input.scrollHeight, Math.round(window.innerHeight * .4))}px`;
     if (count) count.textContent = `${input.value.length}/${NOTE_MAX_LENGTH}`;
   };
   input.addEventListener("input", fit);
@@ -1665,16 +1650,20 @@ function editDetailNote(id) {
     else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); saveDetailNote(id); }
   });
   fit();
+  // Brancher le suivi avant focus : iOS commence parfois à animer le clavier
+  // avant d'émettre son premier événement visualViewport.resize.
+  slot._noteKeyboardCleanup = keepDetailNoteAboveKeyboard(slot, input);
   input.focus({ preventScroll: true });
   input.setSelectionRange(input.value.length, input.value.length);
-  bindDetailNoteKeyboardViewport(slot, input);
-  // La barre d'actions du bas ne doit jamais masquer le champ : on le ramène en vue.
-  slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
+  slot._noteViewDone?.then(() => {
+    if (!slot.isConnected || document.activeElement !== input) return;
+    // La hauteur de la zone vient de changer : recalcul après la transition.
+    slot._noteKeyboardCleanup?.();
+    slot._noteKeyboardCleanup = keepDetailNoteAboveKeyboard(slot, input);
+  });
 }
 
 function cancelDetailNote(id) {
-  const currentSlot = document.getElementById(`detail-note-slot-${id}`);
-  clearDetailNoteKeyboardViewport(currentSlot);
   const slot = setDetailNoteView(id, false);
   slot?.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
 }
@@ -1696,7 +1685,6 @@ async function saveDetailNote(id) {
     mergeDetailResponse(entry, updated);
     entry.notes = value;
     cacheEntriesLocally();
-    clearDetailNoteKeyboardViewport(slot);
     if (slot.isConnected) setDetailNoteView(id, false);
     slot.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
   } catch (error) {
