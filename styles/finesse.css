@@ -1449,8 +1449,7 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
 .detail-collection-name { font-size: var(--type-label); line-height: 1.4; }
 .detail-collection-item small { font-size: var(--type-label); }
 
-/* Rédaction mobile du commentaire : éditeur indépendant de la fiche.
-   Le champ reste en haut de l'écran, même lorsque le clavier iOS recouvre le bas. */
+/* Rédaction mobile du commentaire : une feuille indépendante, animée comme la fiche. */
 .detail-note-editor-overlay { display: none; }
 @media (max-width: 680px) {
   .detail-note-editor-overlay {
@@ -1460,43 +1459,52 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
     display: block;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
-    background: var(--bg-1);
+    padding: 0;
+    background: rgba(0, 0, 0, .7);
     -webkit-overflow-scrolling: touch;
-    transform: translateZ(0);
-    animation: detailNoteOverlayIn .24s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+    animation: overlayIn .2s var(--ease-smooth) both;
+    pointer-events: auto;
   }
   .detail-note-editor-overlay.is-closing {
     pointer-events: none;
-    animation: detailNoteOverlayOut .19s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+    animation: overlayOut .18s var(--ease-smooth) both;
   }
   .detail-note-editor-panel {
-    transform-origin: 50% 100%;
-    animation: detailNotePanelIn .32s var(--ease-spring, cubic-bezier(.2,.85,.25,1)) both;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+    padding-top: calc(max(1rem, var(--safe-top)) + .35rem);
+    background: var(--bg-1);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: detailSheetIn var(--motion-dialog) var(--ease-interface) both;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
   }
   .detail-note-editor-overlay.is-closing .detail-note-editor-panel {
-    animation: detailNotePanelOut .17s var(--ease-smooth, cubic-bezier(.2,.8,.2,1)) both;
+    animation: detailSheetOut var(--motion-dialog) var(--ease-interface) both;
   }
-  @keyframes detailNoteOverlayIn {
-    from { opacity: 0; backdrop-filter: blur(0); }
-    to { opacity: 1; backdrop-filter: blur(5px); }
-  }
-  @keyframes detailNoteOverlayOut {
-    to { opacity: 0; backdrop-filter: blur(0); }
-  }
-  @keyframes detailNotePanelIn {
-    from { opacity: .7; transform: translateY(14px) scale(.985); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  @keyframes detailNotePanelOut {
-    to { opacity: 0; transform: translateY(8px) scale(.99); }
-  }
-  .detail-note-editor-panel { width: 100%; max-width: 680px; margin: 0 auto; padding-top: .35rem; }
   .detail-note-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
   .detail-note-editor-header p { margin: .25rem 0 0; color: var(--fiche-muted); font-size: var(--type-label); }
   .detail-note-editor-panel .detail-note { padding-top: 0; }
   .detail-note-editor-panel .detail-note::before { display: none; }
-  .detail-note-editor-panel .detail-note-input { min-height: 8rem; max-height: 32vh; font-size: 16px; }
+  .detail-note-editor-panel .detail-note-input {
+    display: block;
+    min-height: 8rem;
+    max-height: 32vh;
+    font-size: 16px;
+    -webkit-appearance: none;
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: auto;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
   .detail-note-editor-panel .detail-note-actions { position: sticky; top: 0; z-index: 1; padding-block: .5rem; background: var(--bg-1); }
 }
 @media (max-width: 680px) {
