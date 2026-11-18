@@ -1583,16 +1583,23 @@ function closeDetailNoteEditor(overlay, onClosed) {
   const finish = () => {
     if (finished) return;
     finished = true;
-    overlay.removeEventListener("animationend", onAnimationEnd);
+    panel?.removeEventListener("animationend", onAnimationEnd);
+    const parentDialog = overlay._detailParentDialog;
+    const returnFocus = overlay._detailReturnFocus;
+    dialogFocus.deactivate(overlay, { restoreFocus: false });
     overlay.remove();
+    if (parentDialog?.isConnected) {
+      activateDialog(parentDialog, { initialFocus: returnFocus });
+    }
     onClosed?.();
   };
+  const panel = overlay.querySelector(".detail-note-editor-panel");
   const onAnimationEnd = event => {
-    if (event.target === overlay && event.animationName === "detailNoteOverlayOut") finish();
+    if (event.target === panel && event.animationName === "detailSheetOut") finish();
   };
-  overlay.addEventListener("animationend", onAnimationEnd);
+  panel?.addEventListener("animationend", onAnimationEnd);
   // Filet de sécurité pour Safari iOS et prefers-reduced-motion.
-  window.setTimeout(finish, 260);
+  window.setTimeout(finish, 480);
 }
 
 // Bascule vue ↔ édition ; la fiche s'ajuste en douceur (même animation de hauteur
@@ -1630,7 +1637,19 @@ function editDetailNote(id) {
       </header>
       ${renderDetailNoteHTML(entry, { editing: true })}
     </section>`;
+    const parentDialog = root.querySelector("#modal-overlay .detail-modal");
+    if (parentDialog) dialogFocus.deactivate(parentDialog, { restoreFocus: false });
+    overlay._detailParentDialog = parentDialog;
+    overlay._detailReturnFocus = `#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`;
     root.appendChild(overlay);
+    // Ne pas demander au gestionnaire de focus de focaliser le textarea via
+    // requestAnimationFrame : iOS n'ouvre pas le clavier pour un focus différé.
+    // Le bouton d'en-tête reçoit le focus initial ; le textarea garde son focus
+    // natif au toucher, avec un focus synchrone en secours sur pointerdown.
+    activateDialog(overlay, {
+      initialFocus: ".detail-note-editor-header button",
+      onEscape: () => cancelDetailNote(id),
+    });
     slot = overlay;
   } else {
     slot = setDetailNoteView(id, true);
@@ -1644,15 +1663,25 @@ function editDetailNote(id) {
     if (count) count.textContent = `${input.value.length}/${NOTE_MAX_LENGTH}`;
   };
   input.addEventListener("input", fit);
+  if (mobileEditor) {
+    const focusFromTouch = () => {
+      if (!input.readOnly && input.isConnected) input.focus({ preventScroll: true });
+    };
+    input.addEventListener("pointerdown", focusFromTouch);
+    // Safari iOS versions without Pointer Events.
+    input.addEventListener("touchstart", focusFromTouch, { passive: true });
+  }
   slot.querySelector(".detail-note")?.addEventListener("keydown", event => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDetailNote(id); }
     else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); saveDetailNote(id); }
   });
   fit();
-  // Le focus reste synchrone au clic utilisateur : iOS est plus fiable
-  // lorsqu'il peut ouvrir le clavier dans la même activation tactile.
-  input.focus({ preventScroll: true });
-  input.setSelectionRange(input.value.length, input.value.length);
+  // Sur mobile, on laisse le toucher utilisateur déclencher le clavier iOS.
+  // Sur desktop, on conserve le focus automatique historique.
+  if (!mobileEditor) {
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
   if (!mobileEditor) {
     // Comportement desktop conservé à l'identique.
     slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
