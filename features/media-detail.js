@@ -1579,63 +1579,40 @@ function setDetailNoteView(id, editing) {
   const slot = document.getElementById(`detail-note-slot-${id}`);
   const entry = detailNoteEntry(id);
   if (!slot || !entry) return null;
-  slot._noteKeyboardCleanup?.();
-  slot._noteKeyboardCleanup = null;
   slot._noteViewDone = animateHeightChange(slot, () => { slot.innerHTML = renderDetailNoteHTML(entry, { editing }); });
   return slot;
 }
 
-// Sur iOS, le clavier réduit le visual viewport sans nécessairement redimensionner
-// le document. On suit donc ce viewport et on fait défiler le corps de la fiche
-// (pas la page derrière la modale) pour garder le champ et ses actions visibles.
-function keepDetailNoteAboveKeyboard(slot, input) {
-  const modal = slot.closest(".detail-modal");
-  const body = modal?.querySelector(".detail-body");
-  const viewport = window.visualViewport;
-  if (!body) return () => {};
-
-  let frame = 0;
-  let active = true;
-  const adjust = () => {
-    frame = 0;
-    if (!active || !slot.isConnected || !input.isConnected || document.activeElement !== input) return;
-    const visibleTop = viewport?.offsetTop ?? 0;
-    const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
-    const actions = slot.querySelector(".detail-note-actions");
-    const target = actions || input;
-    const rect = target.getBoundingClientRect();
-    const margin = 18;
-    let delta = 0;
-    if (rect.bottom > visibleBottom - margin) delta = rect.bottom - visibleBottom + margin;
-    else if (input.getBoundingClientRect().top < visibleTop + margin) {
-      delta = input.getBoundingClientRect().top - visibleTop - margin;
-    }
-    if (Math.abs(delta) > 1) body.scrollTop += delta;
-  };
-  const schedule = () => {
-    if (!active || frame) return;
-    frame = requestAnimationFrame(adjust);
-  };
-  viewport?.addEventListener("resize", schedule, { passive: true });
-  viewport?.addEventListener("scroll", schedule, { passive: true });
-  window.addEventListener("resize", schedule, { passive: true });
-  const settleTimers = [80, 180, 320, 480].map(delay => setTimeout(schedule, delay));
-  // Le premier ajustement est demandé dès le focus, puis à chaque étape de
-  // l'animation native du clavier (qui peut durer plus longtemps que le focus).
-  schedule();
-
-  return () => {
-    active = false;
-    if (frame) cancelAnimationFrame(frame);
-    settleTimers.forEach(clearTimeout);
-    viewport?.removeEventListener("resize", schedule);
-    viewport?.removeEventListener("scroll", schedule);
-    window.removeEventListener("resize", schedule);
-  };
-}
-
 function editDetailNote(id) {
-  const slot = setDetailNoteView(id, true);
+  const entry = detailNoteEntry(id);
+  if (!entry) return;
+
+  // Sur mobile, la rédaction est isolée de la fiche : le clavier iOS ne peut
+  // plus masquer un champ placé tout en bas du contenu défilant.
+  const mobileEditor = window.matchMedia?.("(max-width: 680px)").matches;
+  let slot;
+  if (mobileEditor) {
+    document.getElementById("detail-note-editor-overlay")?.remove();
+    const root = document.getElementById("modal-root");
+    if (!root) return;
+    const overlay = document.createElement("div");
+    overlay.id = "detail-note-editor-overlay";
+    overlay.className = "detail-note-editor-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Rédiger un commentaire");
+    overlay.innerHTML = `<section class="detail-note-editor-panel">
+      <header class="detail-note-editor-header">
+        <div><span class="detail-section-label">${entry.notes ? "Modifier le commentaire" : "Ajouter un commentaire"}</span><p>${esc(entry.title || "Cette œuvre")}</p></div>
+        <button type="button" class="btn btn-ghost btn-sm" ${uiAction("cancelDetailNote", [id])}>Fermer</button>
+      </header>
+      ${renderDetailNoteHTML(entry, { editing: true })}
+    </section>`;
+    root.appendChild(overlay);
+    slot = overlay;
+  } else {
+    slot = setDetailNoteView(id, true);
+  }
   const input = slot?.querySelector(".detail-note-input");
   if (!input) return;
   const count = slot.querySelector(".detail-note-count");
@@ -1650,27 +1627,31 @@ function editDetailNote(id) {
     else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); saveDetailNote(id); }
   });
   fit();
-  // Brancher le suivi avant focus : iOS commence parfois à animer le clavier
-  // avant d'émettre son premier événement visualViewport.resize.
-  slot._noteKeyboardCleanup = keepDetailNoteAboveKeyboard(slot, input);
+  // Le focus reste synchrone au clic utilisateur : iOS est plus fiable
+  // lorsqu'il peut ouvrir le clavier dans la même activation tactile.
   input.focus({ preventScroll: true });
   input.setSelectionRange(input.value.length, input.value.length);
-  slot._noteViewDone?.then(() => {
-    if (!slot.isConnected || document.activeElement !== input) return;
-    // La hauteur de la zone vient de changer : recalcul après la transition.
-    slot._noteKeyboardCleanup?.();
-    slot._noteKeyboardCleanup = keepDetailNoteAboveKeyboard(slot, input);
-  });
+  if (!mobileEditor) {
+    // Comportement desktop conservé à l'identique.
+    slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
+  }
 }
 
 function cancelDetailNote(id) {
+  const mobileOverlay = document.getElementById("detail-note-editor-overlay");
+  if (mobileOverlay) {
+    mobileOverlay.remove();
+    document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
+    return;
+  }
   const slot = setDetailNoteView(id, false);
   slot?.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
 }
 
 async function saveDetailNote(id) {
   const entry = detailNoteEntry(id);
-  const slot = document.getElementById(`detail-note-slot-${id}`);
+  const mobileOverlay = document.getElementById("detail-note-editor-overlay");
+  const slot = mobileOverlay || document.getElementById(`detail-note-slot-${id}`);
   const input = slot?.querySelector(".detail-note-input");
   if (!entry || !input) return;
   const value = input.value.trim().slice(0, NOTE_MAX_LENGTH) || null;
@@ -1685,11 +1666,12 @@ async function saveDetailNote(id) {
     mergeDetailResponse(entry, updated);
     entry.notes = value;
     cacheEntriesLocally();
-    if (slot.isConnected) setDetailNoteView(id, false);
-    slot.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
+    if (mobileOverlay) mobileOverlay.remove();
+    else if (slot.isConnected) setDetailNoteView(id, false);
+    document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
   } catch (error) {
     if (!sameOwner(owner, State.user?.id)) return;
-    toast("Impossible d'enregistrer le mot : " + error.message, "error");
+    toast("Impossible d'enregistrer le commentaire : " + error.message, "error");
     if (slot.isConnected) {
       buttons.forEach(button => { button.disabled = false; });
       input.readOnly = false;
