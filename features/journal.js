@@ -245,7 +245,7 @@ export function createJournalFeature({
           </span>
           ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
         </button>
-        ${deleteButton}
+        ${deleteButton || '<span class="journal-event-delete-spacer" aria-hidden="true"></span>'}
       </article>`;
   }
 
@@ -396,6 +396,7 @@ export function createJournalFeature({
             </span>
           </span>
           <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
+          <span class="journal-event-delete-spacer" aria-hidden="true"></span>
         </button>
       </article>`;
   }

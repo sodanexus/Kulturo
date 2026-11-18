@@ -1583,14 +1583,80 @@ function setDetailNoteView(id, editing) {
   return slot;
 }
 
+function clearDetailNoteKeyboardViewport(slot) {
+  slot?._noteViewportCleanup?.();
+  if (slot) slot._noteViewportCleanup = null;
+}
+
+function bindDetailNoteKeyboardViewport(slot, input) {
+  const overlay = input.closest(".modal-overlay");
+  const dialog = input.closest(".detail-modal");
+  const body = dialog?.querySelector(".detail-body");
+  const viewport = window.visualViewport;
+  if (!overlay || !dialog || !body || !viewport) return;
+
+  let frame = 0;
+  const sync = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      if (!input.isConnected || document.activeElement !== input) {
+        overlay.classList.remove("is-note-keyboard-open");
+        overlay.style.removeProperty("--note-visual-top");
+        overlay.style.removeProperty("--note-visual-height");
+        return;
+      }
+      const keyboardHeight = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      if (keyboardHeight > 100) {
+        overlay.classList.add("is-note-keyboard-open");
+        overlay.style.setProperty("--note-visual-top", `${viewport.offsetTop}px`);
+        overlay.style.setProperty("--note-visual-height", `${viewport.height}px`);
+      }
+      // iOS garde parfois la feuille à sa hauteur initiale : on fait défiler
+      // uniquement le corps de la fiche pour placer le champ au-dessus du clavier.
+      const rect = input.getBoundingClientRect();
+      const visibleTop = viewport.offsetTop + 12;
+      const visibleBottom = viewport.offsetTop + viewport.height - 18;
+      if (rect.bottom > visibleBottom) {
+        body.scrollBy({ top: rect.bottom - visibleBottom + 18, behavior: "smooth" });
+      } else if (rect.top < visibleTop) {
+        body.scrollBy({ top: rect.top - visibleTop - 12, behavior: "smooth" });
+      }
+    });
+  };
+  const onBlur = () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement !== input) {
+        overlay.classList.remove("is-note-keyboard-open");
+        overlay.style.removeProperty("--note-visual-top");
+        overlay.style.removeProperty("--note-visual-height");
+      }
+    });
+  };
+  viewport.addEventListener("resize", sync);
+  viewport.addEventListener("scroll", sync);
+  input.addEventListener("blur", onBlur);
+  slot._noteViewportCleanup = () => {
+    cancelAnimationFrame(frame);
+    viewport.removeEventListener("resize", sync);
+    viewport.removeEventListener("scroll", sync);
+    input.removeEventListener("blur", onBlur);
+    overlay.classList.remove("is-note-keyboard-open");
+    overlay.style.removeProperty("--note-visual-top");
+    overlay.style.removeProperty("--note-visual-height");
+  };
+  sync();
+}
+
 function editDetailNote(id) {
   const slot = setDetailNoteView(id, true);
   const input = slot?.querySelector(".detail-note-input");
   if (!input) return;
+  clearDetailNoteKeyboardViewport(slot);
   const count = slot.querySelector(".detail-note-count");
   const fit = () => {
     input.style.height = "auto";
-    input.style.height = `${Math.min(input.scrollHeight, Math.round(window.innerHeight * .4))}px`;
+    const availableHeight = window.visualViewport?.height || window.innerHeight;
+    input.style.height = `${Math.min(input.scrollHeight, Math.round(availableHeight * .4))}px`;
     if (count) count.textContent = `${input.value.length}/${NOTE_MAX_LENGTH}`;
   };
   input.addEventListener("input", fit);
@@ -1601,11 +1667,14 @@ function editDetailNote(id) {
   fit();
   input.focus({ preventScroll: true });
   input.setSelectionRange(input.value.length, input.value.length);
+  bindDetailNoteKeyboardViewport(slot, input);
   // La barre d'actions du bas ne doit jamais masquer le champ : on le ramène en vue.
   slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
 }
 
 function cancelDetailNote(id) {
+  const currentSlot = document.getElementById(`detail-note-slot-${id}`);
+  clearDetailNoteKeyboardViewport(currentSlot);
   const slot = setDetailNoteView(id, false);
   slot?.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
 }
@@ -1627,6 +1696,7 @@ async function saveDetailNote(id) {
     mergeDetailResponse(entry, updated);
     entry.notes = value;
     cacheEntriesLocally();
+    clearDetailNoteKeyboardViewport(slot);
     if (slot.isConnected) setDetailNoteView(id, false);
     slot.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
   } catch (error) {
