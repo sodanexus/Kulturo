@@ -1612,11 +1612,13 @@ function editDetailNote(id) {
     const fullHeight = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-h")) || modal.querySelector(".detail-backdrop")?.offsetHeight || 0;
     const compactHeight = 56;
     modal.classList.add("is-note-editing");
-    // Le bandeau est replié au maximum avant d'aligner le champ en haut.
+    // Appliquer immédiatement le repli et le repositionnement : un scroll
+    // fluide en cours peut empêcher Safari iOS d'ouvrir le clavier au focus.
     const collapseRange = Math.max(0, fullHeight - compactHeight);
     body.scrollTop = Math.max(body.scrollTop, collapseRange);
+    void modal.offsetHeight;
     const slotTop = slot.getBoundingClientRect().top - body.getBoundingClientRect().top;
-    body.scrollTo({ top: Math.max(0, body.scrollTop + slotTop - 12), behavior: "smooth" });
+    body.scrollTop = Math.max(0, body.scrollTop + slotTop - 12);
   }
 
   const input = slot.querySelector(".detail-note-input");
@@ -1634,8 +1636,10 @@ function editDetailNote(id) {
   });
   fit();
 
-  // Focus synchrone dans le clic sur le crayon : iOS peut ouvrir son clavier.
-  input.focus({ preventScroll: true });
+  // Focus simple, sans preventScroll : sur Safari iOS, cette option combinée
+  // au scroll programmatique peut empêcher l'ouverture du clavier virtuel.
+  // L'appel reste synchrone dans le clic du crayon (geste utilisateur).
+  input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
   if (!mobileEditor) {
     slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
