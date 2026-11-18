@@ -1573,37 +1573,19 @@ function detailNoteEntry(id) {
   return State.entries.find(item => String(item.id) === String(id));
 }
 
-// Fermeture animée de l'éditeur mobile. Le callback est exécuté une seule fois,
-// y compris si le navigateur ne déclenche pas animationend (mouvement réduit).
-function closeDetailNoteEditor(overlay, onClosed) {
-  if (!overlay?.isConnected) { onClosed?.(); return; }
-  if (overlay.classList.contains("is-closing")) return;
-  overlay.classList.add("is-closing");
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    panel?.removeEventListener("animationend", onAnimationEnd);
-    const parentDialog = overlay._detailParentDialog;
-    const returnFocus = overlay._detailReturnFocus;
-    dialogFocus.deactivate(overlay, { restoreFocus: false });
-    overlay.remove();
-    if (parentDialog?.isConnected) {
-      activateDialog(parentDialog, { initialFocus: returnFocus });
-    }
-    onClosed?.();
-  };
-  const panel = overlay.querySelector(".detail-note-editor-panel");
-  const onAnimationEnd = event => {
-    if (event.target === panel && event.animationName === "detailSheetOut") finish();
-  };
-  panel?.addEventListener("animationend", onAnimationEnd);
-  // Filet de sécurité pour Safari iOS et prefers-reduced-motion.
-  window.setTimeout(finish, 480);
+// En édition mobile, la fiche reste ouverte : on replie son bandeau et on
+// remonte directement le commentaire dans la zone visible.
+function restoreDetailNoteLayout(modal) {
+  if (!modal) return;
+  const body = modal.querySelector(".detail-body");
+  modal.classList.remove("is-note-editing");
+  modal.style.removeProperty("--detail-p");
+  if (body && Number.isFinite(modal._detailNotePreviousScrollTop)) {
+    body.scrollTop = modal._detailNotePreviousScrollTop;
+  }
+  delete modal._detailNotePreviousScrollTop;
 }
 
-// Bascule vue ↔ édition ; la fiche s'ajuste en douceur (même animation de hauteur
-// que le reste de la fiche).
 function setDetailNoteView(id, editing) {
   const slot = document.getElementById(`detail-note-slot-${id}`);
   const entry = detailNoteEntry(id);
@@ -1616,45 +1598,28 @@ function editDetailNote(id) {
   const entry = detailNoteEntry(id);
   if (!entry) return;
 
-  // Sur mobile, la rédaction est isolée de la fiche : le clavier iOS ne peut
-  // plus masquer un champ placé tout en bas du contenu défilant.
+  const slot = setDetailNoteView(id, true);
+  if (!slot) return;
+
+  const modal = slot.closest(".detail-modal");
+  const body = modal?.querySelector(".detail-body");
   const mobileEditor = window.matchMedia?.("(max-width: 680px)").matches;
-  let slot;
-  if (mobileEditor) {
-    document.getElementById("detail-note-editor-overlay")?.remove();
-    const root = document.getElementById("modal-root");
-    if (!root) return;
-    const overlay = document.createElement("div");
-    overlay.id = "detail-note-editor-overlay";
-    overlay.className = "detail-note-editor-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", "Rédiger un commentaire");
-    overlay.innerHTML = `<section class="detail-note-editor-panel">
-      <header class="detail-note-editor-header">
-        <div><span class="detail-section-label">${entry.notes ? "Modifier le commentaire" : "Ajouter un commentaire"}</span><p>${esc(entry.title || "Cette œuvre")}</p></div>
-        <button type="button" class="btn btn-ghost btn-sm" ${uiAction("cancelDetailNote", [id])}>Fermer</button>
-      </header>
-      ${renderDetailNoteHTML(entry, { editing: true })}
-    </section>`;
-    const parentDialog = root.querySelector("#modal-overlay .detail-modal");
-    if (parentDialog) dialogFocus.deactivate(parentDialog, { restoreFocus: false });
-    overlay._detailParentDialog = parentDialog;
-    overlay._detailReturnFocus = `#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`;
-    root.appendChild(overlay);
-    // Ne pas demander au gestionnaire de focus de focaliser le textarea via
-    // requestAnimationFrame : iOS n'ouvre pas le clavier pour un focus différé.
-    // Le bouton d'en-tête reçoit le focus initial ; le textarea garde son focus
-    // natif au toucher, avec un focus synchrone en secours sur pointerdown.
-    activateDialog(overlay, {
-      initialFocus: ".detail-note-editor-header button",
-      onEscape: () => cancelDetailNote(id),
-    });
-    slot = overlay;
-  } else {
-    slot = setDetailNoteView(id, true);
+  if (mobileEditor && modal && body) {
+    if (!modal.classList.contains("is-note-editing")) {
+      modal._detailNotePreviousScrollTop = body.scrollTop;
+    }
+    // Mesurer le bandeau déployé avant d'activer son état compact.
+    const fullHeight = parseFloat(getComputedStyle(modal).getPropertyValue("--detail-h")) || modal.querySelector(".detail-backdrop")?.offsetHeight || 0;
+    const compactHeight = 56;
+    modal.classList.add("is-note-editing");
+    // Le bandeau est replié au maximum avant d'aligner le champ en haut.
+    const collapseRange = Math.max(0, fullHeight - compactHeight);
+    body.scrollTop = Math.max(body.scrollTop, collapseRange);
+    const slotTop = slot.getBoundingClientRect().top - body.getBoundingClientRect().top;
+    body.scrollTo({ top: Math.max(0, body.scrollTop + slotTop - 12), behavior: "smooth" });
   }
-  const input = slot?.querySelector(".detail-note-input");
+
+  const input = slot.querySelector(".detail-note-input");
   if (!input) return;
   const count = slot.querySelector(".detail-note-count");
   const fit = () => {
@@ -1663,47 +1628,30 @@ function editDetailNote(id) {
     if (count) count.textContent = `${input.value.length}/${NOTE_MAX_LENGTH}`;
   };
   input.addEventListener("input", fit);
-  if (mobileEditor) {
-    const focusFromTouch = () => {
-      if (!input.readOnly && input.isConnected) input.focus({ preventScroll: true });
-    };
-    input.addEventListener("pointerdown", focusFromTouch);
-    // Safari iOS versions without Pointer Events.
-    input.addEventListener("touchstart", focusFromTouch, { passive: true });
-  }
   slot.querySelector(".detail-note")?.addEventListener("keydown", event => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelDetailNote(id); }
     else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); saveDetailNote(id); }
   });
   fit();
-  // Sur mobile, on laisse le toucher utilisateur déclencher le clavier iOS.
-  // Sur desktop, on conserve le focus automatique historique.
+
+  // Focus synchrone dans le clic sur le crayon : iOS peut ouvrir son clavier.
+  input.focus({ preventScroll: true });
+  input.setSelectionRange(input.value.length, input.value.length);
   if (!mobileEditor) {
-    input.focus({ preventScroll: true });
-    input.setSelectionRange(input.value.length, input.value.length);
-  }
-  if (!mobileEditor) {
-    // Comportement desktop conservé à l'identique.
     slot._noteViewDone?.then(() => { if (slot.isConnected) slot.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
   }
 }
 
 function cancelDetailNote(id) {
-  const mobileOverlay = document.getElementById("detail-note-editor-overlay");
-  if (mobileOverlay) {
-    closeDetailNoteEditor(mobileOverlay, () => {
-      document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
-    });
-    return;
-  }
   const slot = setDetailNoteView(id, false);
+  const modal = slot?.closest(".detail-modal");
+  if (modal?.classList.contains("is-note-editing")) restoreDetailNoteLayout(modal);
   slot?.querySelector(".detail-note-add, .detail-note-edit")?.focus({ preventScroll: true });
 }
 
 async function saveDetailNote(id) {
   const entry = detailNoteEntry(id);
-  const mobileOverlay = document.getElementById("detail-note-editor-overlay");
-  const slot = mobileOverlay || document.getElementById(`detail-note-slot-${id}`);
+  const slot = document.getElementById(`detail-note-slot-${id}`);
   const input = slot?.querySelector(".detail-note-input");
   if (!entry || !input) return;
   const value = input.value.trim().slice(0, NOTE_MAX_LENGTH) || null;
@@ -1718,14 +1666,10 @@ async function saveDetailNote(id) {
     mergeDetailResponse(entry, updated);
     entry.notes = value;
     cacheEntriesLocally();
-    if (mobileOverlay) {
-      closeDetailNoteEditor(mobileOverlay, () => {
-        document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
-      });
-    } else {
-      if (slot.isConnected) setDetailNoteView(id, false);
-      document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
-    }
+    if (slot.isConnected) setDetailNoteView(id, false);
+    const modal = slot.closest(".detail-modal");
+    if (modal?.classList.contains("is-note-editing")) restoreDetailNoteLayout(modal);
+    document.querySelector(`#detail-note-slot-${CSS.escape(String(id))} .detail-note-add, #detail-note-slot-${CSS.escape(String(id))} .detail-note-edit`)?.focus({ preventScroll: true });
   } catch (error) {
     if (!sameOwner(owner, State.user?.id)) return;
     toast("Impossible d'enregistrer le commentaire : " + error.message, "error");
