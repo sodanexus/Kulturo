@@ -1184,12 +1184,9 @@ body[data-scrolled="true"] .scroll-progress { opacity: 1; }
   margin-top: .4rem; padding: .7rem .85rem;
   min-height: 5.2rem; max-height: 40vh; resize: none;
   border: 1px solid var(--border); border-radius: 12px;
-  background: var(--fiche-chip-bg); color: var(--fiche-text);
-  -webkit-text-fill-color: var(--fiche-text); caret-color: var(--accent);
-  color-scheme: dark;
+  background: var(--fiche-chip-bg); color: var(--text-1);
   font: inherit; font-size: 16px; /* 16 px : évite le zoom automatique d'iOS au focus */
   line-height: 1.55;
-  opacity: 1;
 }
 .detail-note-input::placeholder { color: var(--fiche-muted); }
 .detail-note-input:focus { outline: none; border-color: var(--accent); }
@@ -1451,3 +1448,31 @@ button.detail-collection-item:focus-visible { outline: 2px solid var(--accent); 
 .detail-collection-heading span { font-size: inherit; font-weight: inherit; letter-spacing: inherit; text-transform: none; }
 .detail-collection-name { font-size: var(--type-label); line-height: 1.4; }
 .detail-collection-item small { font-size: var(--type-label); }
+
+/* Rédaction mobile du commentaire : éditeur indépendant de la fiche.
+   Le champ reste en haut de l'écran, même lorsque le clavier iOS recouvre le bas. */
+.detail-note-editor-overlay { display: none; }
+@media (max-width: 680px) {
+  .detail-note-editor-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+    background: var(--bg-1);
+    -webkit-overflow-scrolling: touch;
+  }
+  .detail-note-editor-panel { width: 100%; max-width: 680px; margin: 0 auto; padding-top: .35rem; }
+  .detail-note-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .detail-note-editor-header p { margin: .25rem 0 0; color: var(--fiche-muted); font-size: var(--type-label); }
+  .detail-note-editor-panel .detail-note { padding-top: 0; }
+  .detail-note-editor-panel .detail-note::before { display: none; }
+  .detail-note-editor-panel .detail-note-input { min-height: 8rem; max-height: 32vh; font-size: 16px; }
+  .detail-note-editor-panel .detail-note-actions { position: sticky; top: 0; z-index: 1; padding-block: .5rem; background: var(--bg-1); }
+}
+@media (max-width: 680px) {
+  .detail-note-editor-panel .detail-note-actions { order: 1; margin: 0 0 .55rem; }
+  .detail-note-editor-panel .detail-note-input { order: 2; }
+}
