@@ -235,7 +235,10 @@ export function createJournalFeature({
         <button type="button" class="journal-event-main" data-prefetch-media="${entry.id}" data-transition-media="${entry.id}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-personal" data-media-id="${entry.id}">
           ${coverHTML}
           <span class="activity-info">
-            <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
+            <span class="journal-event-heading">
+              <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
+              ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
+            </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
               <span class="badge badge-${entry.media_type === "movie" && entry.subtype === "tv" ? "tv" : entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
@@ -243,7 +246,6 @@ export function createJournalFeature({
               ${activityStateMarkersHTML(entry)}
             </span>
           </span>
-          ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
         </button>
         ${deleteButton || '<span class="journal-event-delete-spacer" aria-hidden="true"></span>'}
       </article>`;
@@ -387,7 +389,10 @@ export function createJournalFeature({
         <button type="button" class="journal-event-main" data-transition-media="${esc(entry.id)}" aria-label="Ouvrir la fiche de ${esc(entry.title)}" data-journal-action="open-community" data-media-id="${esc(entry.id)}">
           ${coverHTML}
           <span class="activity-info">
-            <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
+            <span class="journal-event-heading">
+              <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
+              <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
+            </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
               <span class="badge badge-${entry.media_type === "movie" && entry.subtype === "tv" ? "tv" : entry.media_type}" style="font-size:var(--type-label)">${iconMedia(entry.media_type, entry.subtype)} ${esc(type)}</span>
@@ -395,7 +400,6 @@ export function createJournalFeature({
               ${rating}${activityStateMarkersHTML(entry)}
             </span>
           </span>
-          <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
           <span class="journal-event-delete-spacer" aria-hidden="true"></span>
         </button>
       </article>`;
