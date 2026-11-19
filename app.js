@@ -1130,7 +1130,10 @@ async function loadEntries() {
     _remoteSyncUnavailable = true;
     syncNetworkStatus();
     const cached = await Media.hydrate(readCachedEntries() || []).catch(() => readCachedEntries());
-    if (cached) {
+    // Aucune copie locale (première ouverture) : mieux vaut une erreur avec « Réessayer »
+    // qu'une bibliothèque vide présentée comme à jour.
+    const hasLocalCopy = Boolean(cached?.length) || await Media.hasSnapshot?.().catch(() => false);
+    if (cached && hasLocalCopy) {
       State.libraryStatus = "ready";
       const entriesChanged = entriesFingerprint(State.entries) !== entriesFingerprint(cached);
       State.entries = cached;
