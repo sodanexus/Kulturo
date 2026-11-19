@@ -368,6 +368,11 @@ export function createMediaRepository({ remote, database, getOwnerId, isOnline =
   return {
     getAll, create, update, delete: remove, undoDelete, flush, hydrate, cache, clearOwner,
     getStatus: snapshot,
+    // Vrai seulement si une bibliothèque a déjà été enregistrée (même vide) pour ce compte.
+    async hasSnapshot() {
+      const ownerId = owner();
+      return Boolean(await database.hasEntrySnapshot?.(ownerId)) || memorySnapshotOwner === ownerId;
+    },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   };
 }
