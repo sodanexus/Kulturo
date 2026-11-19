@@ -10,7 +10,7 @@
 
 Kulturo réunit films, séries, jeux vidéo et livres dans une bibliothèque personnelle. Interface sombre, notes dorées, accents tirés des couvertures, PWA utilisable sur mobile et desktop, avec un fonctionnement local-first (IndexedDB + synchronisation Supabase).
 
-Version actuelle · 5.1.5
+Version actuelle · 5.1.6
 
 ## Fonctionnalités
 
