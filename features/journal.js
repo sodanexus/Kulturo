@@ -1,5 +1,5 @@
 import { revealSurface } from "./motion.js";
-// Journal : flux personnel et Communauté, rendu et interactions.
+// Journal : flux personnel et Amis, rendu et interactions.
 import { isClosedMonth, journalEventPresentation, normalizeSearchText, statusLabelFor, yearMonthOf } from "../domain.js";
 import { journalMonthSummary } from "./insights.js";
 import { groupJournalDayEvents, journalGroupPresentation } from "./journal-groups.js";
@@ -231,6 +231,7 @@ export function createJournalFeature({
     const time = hasKnownTime
       ? new Date(occurredAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
       : "—:—";
+    const timeHTML = `<time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(event.occurred_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time>`;
     const deleteButton = event.id ? `
       <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" data-journal-action="hide-event" data-event-id="${esc(event.id)}">${iconTrash()}</button>` : "";
 
@@ -241,7 +242,6 @@ export function createJournalFeature({
           <span class="activity-info">
             <span class="journal-event-heading">
               <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
-              <time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(event.occurred_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time>
             </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
@@ -251,7 +251,7 @@ export function createJournalFeature({
             </span>
           </span>
         </button>
-        ${deleteButton}
+        <div class="journal-event-side">${timeHTML}${deleteButton}</div>
       </article>`;
   }
 
@@ -316,9 +316,9 @@ export function createJournalFeature({
       renderCurrentCommunityView();
     } catch (error) {
       if (!renderGate.isCurrent(task) || getCurrentPage?.() !== "journal" || journalNavigation.mode !== "community") return;
-      console.warn("[Communauté] chargement impossible", error);
+      console.warn("[Amis] chargement impossible", error);
       container.innerHTML = errorState({
-        title: "Communauté indisponible",
+        title: "Amis indisponible",
         message: "Impossible de charger les dernières activités pour le moment.",
         actionHTML: '<button class="btn btn-secondary" ' + uiAction("retryJournal") + '>Réessayer</button>',
       });
@@ -400,7 +400,6 @@ export function createJournalFeature({
           <span class="activity-info">
             <span class="journal-event-heading">
               <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
-              <time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(entry.created_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time>
             </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
@@ -410,6 +409,7 @@ export function createJournalFeature({
             </span>
           </span>
         </button>
+        <div class="journal-event-side"><time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(entry.created_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time></div>
       </article>`;
   }
 
@@ -422,7 +422,7 @@ export function createJournalFeature({
 
     const entry = _communityEntries.find(item => item.id === id);
     if (!entry) {
-      toast("Cette œuvre n’est plus disponible dans la communauté.", "error");
+      toast("Cette œuvre n’est plus disponible chez tes amis.", "error");
       return;
     }
 

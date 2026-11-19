@@ -2091,7 +2091,7 @@ async function openDetailPanel(id, options = {}) {
 
 
 
-// Fiche d'une œuvre de la Communauté : même rendu qu'une fiche personnelle
+// Fiche d'une œuvre d'un ami : même rendu qu'une fiche personnelle
 // (logo, bannière, synopsis, casting, notes externes), mais en lecture seule.
 // Les détails récupérés restent en mémoire : on n'écrit jamais dans la base,
 // l'œuvre appartient à quelqu'un d'autre.
@@ -2117,7 +2117,7 @@ async function openSharedDetail(entry, options = {}) {
       _injectBackdrop(e.backdrop_url, e.id, sessionId);
     }
   } catch (error) {
-    if (error?.name !== "AbortError") console.warn("[Communauté] détails indisponibles:", error);
+    if (error?.name !== "AbortError") console.warn("[Amis] détails indisponibles:", error);
   }
   if (isActive()) refreshDetailEnrichment(e, { readOnly: true, detailsLoading: false });
 }
