@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { entryWatchTime, formatWatchTime, watchTimeByMedia } from "../features/insights.js";
+import { bookReadingFormat, entryWatchTime, formatWatchTime, watchTimeByMedia } from "../features/insights.js";
 
 test("temps passé : durée exacte pour un film, repli sinon", () => {
   assert.deepEqual(entryWatchTime({ media_type: "movie", subtype: "movie", duration: 120 }), { key: "film", minutes: 120, estimated: false });
@@ -27,4 +27,16 @@ test("IGDB : durée de jeu en minutes, parcours normal d'abord", () => {
   assert.equal(igdbPlayMinutes({ time_to_beat: { hastily: 36000, normally: 54000 } }), 900);
   assert.equal(igdbPlayMinutes({ time_to_beat: { hastily: 36000 } }), 600);
   assert.equal(igdbPlayMinutes({}), null);
+});
+
+test("temps passé : cadence selon le format de livre, détecté sans saisie", () => {
+  assert.equal(bookReadingFormat({ media_type: "book", genre: "Manga, Action" }), "manga");
+  assert.equal(bookReadingFormat({ media_type: "book", genre: "Bande dessinée" }), "comic");
+  assert.equal(bookReadingFormat({ media_type: "book", genre: "Fantasy", publisher: "Glénat" }), "novel");
+  assert.equal(bookReadingFormat({ media_type: "book", publisher: "Ki-oon" }), "manga");
+  assert.equal(bookReadingFormat({ media_type: "book", publisher: "Éditions Dargaud" }), "comic");
+  assert.equal(bookReadingFormat({ media_type: "book", genre: "Science-fiction" }), "novel");
+  assert.equal(entryWatchTime({ media_type: "book", page_count: 200, genre: "Manga" }).minutes, 80);
+  assert.equal(entryWatchTime({ media_type: "book", page_count: 100, genre: "Comic books, strips, etc." }).minutes, 60);
+  assert.equal(entryWatchTime({ media_type: "book", page_count: 400, genre: "Fantasy" }).minutes, 600);
 });
