@@ -226,7 +226,11 @@ export function createJournalFeature({
       : "";
     const type = getTypeLabel(entry);
     const dateOnly = Boolean(metadata.date_only || metadata.legacy);
-    const time = dateOnly ? "" : new Date(event.occurred_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    const occurredAt = Date.parse(event.occurred_at || "");
+    const hasKnownTime = !dateOnly && Number.isFinite(occurredAt);
+    const time = hasKnownTime
+      ? new Date(occurredAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : "—:—";
     const deleteButton = event.id ? `
       <button type="button" class="journal-event-delete" title="Retirer du Journal" aria-label="Retirer cet événement du Journal" data-journal-action="hide-event" data-event-id="${esc(event.id)}">${iconTrash()}</button>` : "";
 
@@ -237,7 +241,7 @@ export function createJournalFeature({
           <span class="activity-info">
             <span class="journal-event-heading">
               <span class="journal-event-label"><span aria-hidden="true">${iconJournalAction(event.event_type, metadata)}</span>${esc(presentation.label)}</span>
-              ${time ? `<time class="activity-time" datetime="${esc(event.occurred_at)}">${time}</time>` : ""}
+              <time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(event.occurred_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time>
             </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
@@ -247,7 +251,7 @@ export function createJournalFeature({
             </span>
           </span>
         </button>
-        ${deleteButton || '<span class="journal-event-delete-spacer" aria-hidden="true"></span>'}
+        ${deleteButton}
       </article>`;
   }
 
@@ -383,6 +387,11 @@ export function createJournalFeature({
       : `<span class="activity-cover-frame"><span class="activity-cover activity-cover-ph">${iconMedia(entry.media_type, entry.subtype)}</span></span>`;
     const rating = entry.rating ? ratingScoreHTML(entry.rating, "community-rating") : "";
     const tone = journalActionTone("added", { status: entry.status });
+    const createdAt = Date.parse(entry.created_at || "");
+    const hasKnownTime = Number.isFinite(createdAt);
+    const time = hasKnownTime
+      ? new Date(createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : "—:—";
 
     return `
       <article class="activity-row is-clickable journal-event-row community-event-row" ${tone ? `data-event-tone="${tone}"` : ""}>
@@ -391,7 +400,7 @@ export function createJournalFeature({
           <span class="activity-info">
             <span class="journal-event-heading">
               <span class="journal-event-label community-event-label"><span aria-hidden="true">${iconJournalAction("added")}</span><strong>${esc(entry.username)}</strong> a ajouté</span>
-              <time class="activity-time" datetime="${esc(entry.created_at)}">${new Date(entry.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</time>
+              <time class="activity-time ${hasKnownTime ? "" : "is-time-unknown"}" ${hasKnownTime ? `datetime="${esc(entry.created_at)}"` : 'aria-label="Heure inconnue"'}>${time}</time>
             </span>
             <span class="activity-title">${esc(entry.title)}</span>
             <span class="activity-meta">
@@ -400,7 +409,6 @@ export function createJournalFeature({
               ${rating}${activityStateMarkersHTML(entry)}
             </span>
           </span>
-          <span class="journal-event-delete-spacer" aria-hidden="true"></span>
         </button>
       </article>`;
   }
