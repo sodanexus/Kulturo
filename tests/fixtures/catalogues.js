@@ -28,3 +28,16 @@ export const Hardcover = {select:async()=>null,fetch:async()=>null};
 
 // Même export que l’API réelle ; le catalogue simulé n’exige aucun appel externe.
 export const TitleLogos = { async fetch() { return null; } };
+
+// Doubles inertes pour les modules créateurs/sources que les parcours ne pilotent pas.
+// tests/fixtures-parity.test.mjs échoue si api.js gagne un export absent d'ici.
+const inert = new Proxy({}, { get: (_, key) => key === "available" ? () => false : async () => (key === "search" || key === "works" ? [] : null) });
+export const CoverProxy = inert;
+export const CreatorCatalogWorks = inert;
+export const CreatorDescriptions = inert;
+export const HardcoverAuthors = inert;
+export const HardcoverPublishers = inert;
+export const IGDBCompanies = inert;
+export const OpenLibrary = inert;
+export const OpenLibraryAuthors = inert;
+export const TMDbPeople = inert;
