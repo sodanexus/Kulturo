@@ -71,11 +71,31 @@ export function repeatCountForPeriod(events, entries, year, month = "all", predi
 
 // ============================================================
 // Temps passé — films et jeux : durée connue ; séries : épisodes × durée d'un
-// épisode (45 min par défaut) ; livres : ≈ 40 pages/heure.
+// épisode (45 min par défaut) ; livres : cadence selon le format détecté
+// (roman ≈ 40 pages/h, BD ≈ 100 pages/h, manga ≈ 150 pages/h).
 // ============================================================
 const FALLBACK_FILM_MIN = 110;
 const FALLBACK_EPISODE_MIN = 45;
 const MINUTES_PER_PAGE = 1.5;
+const MINUTES_PER_PAGE_COMIC = 0.6;
+const MINUTES_PER_PAGE_MANGA = 0.4;
+const MANGA_RE = /\b(manga|manhwa|manhua|webtoon|shonen|shounen|seinen|shojo|shoujo|josei)\b/;
+const COMIC_RE = /\b(bande dessinee|bandes dessinees|comic|comics|graphic novel|roman graphique|bd)\b/;
+const MANGA_PUBLISHERS_RE = /\b(kana|ki oon|kurokawa|pika|tonkam|mangetsu|meian|doki doki|akata|noeve|shueisha|kodansha|shogakukan|viz|seven seas|yen press)\b/;
+const COMIC_PUBLISHERS_RE = /\b(dargaud|dupuis|le lombard|casterman|delcourt|soleil|marvel|dc comics|urban comics|panini comics|image comics)\b/;
+const plain = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// Format de lecture déduit du genre (sinon de l'éditeur) : aucune saisie requise.
+export function bookReadingFormat(entry) {
+  const genre = plain(entry?.genre);
+  if (MANGA_RE.test(genre)) return "manga";
+  if (COMIC_RE.test(genre)) return "comic";
+  const publisher = plain(entry?.publisher);
+  if (MANGA_PUBLISHERS_RE.test(publisher)) return "manga";
+  if (COMIC_PUBLISHERS_RE.test(publisher)) return "comic";
+  return "novel";
+}
+const minutesPerPage = format => format === "manga" ? MINUTES_PER_PAGE_MANGA : format === "comic" ? MINUTES_PER_PAGE_COMIC : MINUTES_PER_PAGE;
 
 export function watchTimeKey(entry) {
   if (entry?.media_type === "movie") return entry.subtype === "tv" ? "tv" : "film";
@@ -92,7 +112,7 @@ export function entryWatchTime(entry) {
   }
   if (key === "book") {
     const pages = Number(entry.page_count) > 0 ? Number(entry.page_count) : 0;
-    return pages ? { key, minutes: Math.round(pages * MINUTES_PER_PAGE), estimated: true } : null;
+    return pages ? { key, minutes: Math.round(pages * minutesPerPage(bookReadingFormat(entry))), estimated: true } : null;
   }
   if (key === "game") return duration ? { key, minutes: duration, estimated: true } : null;
   return null;
